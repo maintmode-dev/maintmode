@@ -1,0 +1,13 @@
+.idea/
+
+bin/
+# Added by goreleaser init:
+dist/
+
+coverage.out
+coverage.report
+coverage.tmp
+
+.claude/settings.local.json
+
+agent/tasks/
