@@ -55,7 +55,11 @@ func main() {
 		impl := api.New()
 		impl.BindRoute(gr, middlewares.BaseWithLoggingMiddlewares("api/v1"))
 
-		go s.Start(ctx)
+		go func() {
+			if err := s.Start(ctx); err != nil {
+				xlog.Fatal(ctx, "api server failed", zap.Error(err))
+			}
+		}()
 		closer.AddWithName("api server", func() error { return s.Stop(context.Background()) })
 	}
 
@@ -67,13 +71,17 @@ func main() {
 		impl := healthcheck.NewImplementation(db)
 		impl.BindRoute(gr, middlewares.BaseMiddlewares())
 
-		go s.Start(ctx)
+		go func() {
+			if err := s.Start(ctx); err != nil {
+				xlog.Fatal(ctx, "api server failed", zap.Error(err))
+			}
+		}()
 
 		closer.AddWithName("status server", func() error { return s.Stop(context.Background()) })
 	}
 
 	<-ctx.Done()
 	xlog.Info(ctx, "graceful shutdown...")
-	closer.CloseAll(ctx)
+	closer.CloseAll(context.Background())
 	xlog.Info(ctx, "app is gracefully shutdown")
 }

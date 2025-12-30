@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
 )
 
 // RouterBinder defines the interface for components that can bind routes to Echo groups.
@@ -39,23 +38,16 @@ func (s *Server) NewGroup(prefix string) *echo.Group {
 	return s.e.Group(prefix)
 }
 
-// Start begins listening on the configured address and returns an error if startup fails.
-// blocking function
-func (s *Server) Start(ctx context.Context) {
+// Start begins listening and blocks until server stops.
+// Returns error only if startup fails, otherwise blocks until shutdown.
+func (s *Server) Start(ctx context.Context) error {
 	xlog.Infof(ctx, "starting http server '%s' on %s", s.cfg.Name, s.cfg.BuildHostPort())
 
 	err := s.e.Start(s.cfg.BuildHostPort())
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		xlog.Fatal(ctx, "failed to start http server", zap.Error(err))
+		return fmt.Errorf("failed to start http server '%s': %w", s.cfg.Name, err)
 	}
-}
-
-func (s *Server) start(startErrCh chan<- error) {
-	defer close(startErrCh)
-	err := s.e.Start(s.cfg.BuildHostPort())
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		startErrCh <- err
-	}
+	return nil
 }
 
 // Stop gracefully shuts down the server with context-based timeout control.
