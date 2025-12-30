@@ -1,0 +1,70 @@
+services:
+  # Наша база данных
+  postgres:
+    image: postgres:18-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: maintmode
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  pg_doorman:
+    image: ghcr.io/ozontech/pg_doorman
+    container_name: pg_doorman
+    restart: unless-stopped
+    ports:
+      - "6432:6432"
+    command: /usr/bin/pg_doorman -l info /etc/pg_doorman/pg_doorman.toml
+    volumes:
+      - ./pg_doorman.toml:/etc/pg_doorman/pg_doorman.toml
+    tty: true
+    stdin_open: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  apply-migrations:
+    image: kukymbr/goose-docker:3.26.0
+    container_name: apply-migrations
+    environment:
+      GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable'
+      GOOSE_DRIVER: postgres
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  redis_data:
+
+networks:
+  theapp:
+    driver: bridge

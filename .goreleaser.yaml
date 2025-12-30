@@ -1,0 +1,56 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+
+project_name: maintmode
+
+builds:
+  - id: "main"
+    env:
+      - GOAMD64=""
+      - CGO_ENABLED=0
+    no_unique_dist_dir: true
+    main: ./cmd/maintmode
+    binary: "{{ .ProjectName }}_{{ .Target }}"
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.version={{.Version}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.os={{.Os}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.arch={{.Arch}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.buildTime={{.Date}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.shaCommit={{.FullCommit}}
+
+
+archives:
+  - formats: [ binary ]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  # Allows you to change the name of the generated snapshot
+  #
+  # Note that some pipes require this to be semantic version compliant (nfpm,
+  # for example).
+  #
+  # Default: `{{ .Version }}-SNAPSHOT-{{.ShortCommit}}`.
+  # Templates: allowed.
+  version_template: "{{ .Tag }}-{{ .ShortCommit }}"

@@ -1,0 +1,240 @@
+# golangci-lint v2 configuration
+# Best practices configuration for Go projects
+# Documentation: https://golangci-lint.run/docs/configuration/
+
+version: '2'
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+
+  # Go version to target
+  go: '1.23'
+
+  # Include test files in analysis
+  tests: true
+
+  # Module download mode
+  modules-download-mode: readonly
+
+output:
+  # Use colored-line-number format for clickable paths in terminal
+  formats:
+    tab:
+      path: stdout
+
+  # Show statistics per linter
+  show-stats: true
+
+formatters:
+  enable:
+    - gofmt      # Format code with gofmt
+    - goimports  # Organize imports
+  settings:
+    goimports:
+      # Put imports beginning with prefix after 3rd-party packages
+      local-prefixes:
+        - github.com/ruko1202/maintmode
+
+linters:
+  enable:
+    # Core linters (enabled by default)
+    - errcheck       # Check for unchecked errors
+    - govet          # Vet examines Go source code and reports suspicious constructs
+    - ineffassign    # Detect ineffectual assignments
+    - staticcheck    # Advanced Go linter (includes gosimple, megacheck)
+    - unused         # Check for unused constants, variables, functions and types
+
+    # Additional quality linters
+    - revive         # Fast, configurable linter - replacement for golint
+    - misspell       # Finds commonly misspelled English words
+    - godot          # Check if comments end in a period
+    - whitespace     # Detect leading/trailing whitespace
+
+    # Bug detection
+    - bodyclose      # Check whether HTTP response body is closed
+    - copyloopvar    # Detect places where loop variables are copied
+    - dupl           # Code clone detection
+    - gosec          # Inspect source code for security problems
+    - nilerr         # Find code returning nil even when checking error != nil
+    - errorlint      # Find code that will cause problems with error wrapping (Go 1.13+)
+
+    # Performance
+    - prealloc       # Find slice declarations that could be preallocated
+    - gocritic       # Extensible Go source code linter
+
+    # Complexity
+    - gocyclo        # Compute cyclomatic complexity
+    - gocognit       # Compute cognitive complexity
+    - funlen         # Detect long functions
+    - nestif         # Report deeply nested if statements
+
+    # Code patterns
+    - goconst        # Find repeated strings that could be replaced by constants
+    - unconvert      # Remove unnecessary type conversions
+    - unparam        # Report unused function parameters
+    - wastedassign   # Find wasted assignments
+    - usestdlibvars  # Detect possibility to use standard library variables/constants
+
+    # Testing
+    - thelper        # Detect test helpers without t.Helper()
+    - tparallel      # Detect inappropriate usage of t.Parallel()
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+      exclude-functions:
+        - io/ioutil.ReadFile
+        - io.Copy(*bytes.Buffer)
+        - io.Copy(os.Stdout)
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # Too strict for most projects
+        - shadow          # Can be noisy
+
+    staticcheck:
+      checks: ["all"]
+
+    misspell:
+      locale: US
+
+    revive:
+      confidence: 0.8
+      enable-all-rules: false
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: package-comments
+          disabled: true
+
+    gosec:
+      excludes:
+        - G104  # Audit errors not checked (covered by errcheck)
+        - G306  # Expect WriteFile permissions to be 0600 or less (too strict)
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - commentFormatting
+        - whyNoLint
+        - hugeParam
+      settings:
+        captLocal:
+          paramsOnly: true
+        rangeValCopy:
+          sizeThreshold: 512
+
+    gocyclo:
+      min-complexity: 15
+
+    gocognit:
+      min-complexity: 20
+
+    funlen:
+      lines: 100
+      statements: 50
+
+    nestif:
+      min-complexity: 4
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    dupl:
+      threshold: 150
+
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+
+    unparam:
+      check-exported: false
+
+  exclusions:
+    rules:
+      # Relax linting for test files
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - gocognit
+          - errcheck
+          - dupl
+          - gosec
+          - funlen
+          - goconst
+
+      # Exclude linters for generated files
+      - path: ".*\\.pb\\.go"
+        linters:
+          - all
+
+      # Exclude specific rules for test files
+      - path: _test\.go
+        text: "don't use underscores"
+        linters:
+          - revive
+
+      # Allow weak random in tests
+      - path: _test\.go
+        text: "G404:"
+        linters:
+          - gosec
+
+      # Exclude package-comments rule from revive
+      - text: "package-comments"
+        linters:
+          - revive
+
+issues:
+  # Maximum issues per linter (0 = unlimited)
+  max-issues-per-linter: 0
+
+  # Maximum count of same issues (0 = unlimited)
+  max-same-issues: 0
+
+  # Show only new issues
+  new: false
+
+  # Fix found issues if supported
+  fix: false
+
+severity:
+  # Default severity
+  default: error
+
+  # Custom severity rules
+  rules:
+    - linters:
+        - dupl
+        - funlen
+        - gocognit
+      severity: warning
