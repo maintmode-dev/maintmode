@@ -10,6 +10,7 @@ var (
 	shaCommit = ""
 )
 
+// AppBuildMeta contains application build information set at compile time.
 type AppBuildMeta struct {
 	Version   string `json:"version"`
 	OS        string `json:"os"`

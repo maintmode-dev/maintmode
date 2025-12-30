@@ -11,3 +11,5 @@ coverage.tmp
 .claude/settings.local.json
 
 agent/tasks/
+
+codereview-feature-infra.md

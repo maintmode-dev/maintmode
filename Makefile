@@ -13,6 +13,8 @@ GOBIN			?= $(PWD)/bin
 # Used by database.mk to read DB_DRIVER and DB_DSN
 # Default: .env.local in the project root
 ENV_CONFIG_FILE ?= $(PWD)/.env.local
+include ${ENV_CONFIG_FILE}
+export
 
 # -------------------------------------
 # Database Configuration

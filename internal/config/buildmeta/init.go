@@ -1,3 +1,5 @@
+// Package buildmeta provides application build metadata including version, OS, and architecture.
+// Metadata is set at build time via ldflags and exposed through GetAppBuildMeta.
 package buildmeta
 
 import "runtime/debug"
@@ -6,6 +8,7 @@ var (
 	app = &AppBuildMeta{}
 )
 
+// GetAppBuildMeta returns the initialized application build metadata.
 func GetAppBuildMeta() *AppBuildMeta {
 	return app
 }
@@ -44,7 +47,7 @@ func applyFromBuildInfo(meta *AppBuildMeta) {
 			}
 		case "GOOS":
 			if meta.OS == "" {
-				meta.Arch = setting.Value
+				meta.OS = setting.Value
 			}
 		}
 	}
