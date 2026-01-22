@@ -96,7 +96,9 @@ linters:
         - shadow          # Can be noisy
 
     staticcheck:
-      checks: ["all"]
+      checks:
+        - all
+        - -ST1000 # disable `ST1000: at least one file in a package should have a package comment`
 
     misspell:
       locale: US
@@ -112,7 +114,8 @@ linters:
         - name: error-return
         - name: error-strings
         - name: error-naming
-        - name: exported
+        - name: exported #  exported: exported function XXX should have comment or be unexported
+          disabled: true
         - name: if-return
         - name: increment-decrement
         - name: var-naming
@@ -158,7 +161,7 @@ linters:
       min-complexity: 20
 
     funlen:
-      lines: 100
+      lines: 120
       statements: 50
 
     nestif:

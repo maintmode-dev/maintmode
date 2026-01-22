@@ -18,7 +18,7 @@ func BaseMiddlewares() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
 		middleware.Recover(),
 		middleware.Secure(),
-		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewUUID}),
+		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 	}
 }
 

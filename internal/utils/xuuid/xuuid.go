@@ -4,12 +4,16 @@ package xuuid
 
 import "github.com/google/uuid"
 
-// NewUUID generates a new UUIDv7 or falls back to UUIDv4 if generation fails.
-func NewUUID() string {
+// New generates a new UUIDv7 or falls back to UUIDv4 if generation fails.
+func New() uuid.UUID {
 	u, err := uuid.NewV7()
 	if err != nil {
-		return uuid.NewString()
+		return uuid.New()
 	}
 
-	return u.String()
+	return u
+}
+
+func NewString() string {
+	return New().String()
 }

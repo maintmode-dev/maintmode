@@ -1,54 +1,154 @@
-# MaintMode
+# Project Overview
 
-MaintMode is a dashboard application with a calendar interface for managing and visualizing technical maintenance work schedules.
+# Maintenance Calendar
 
-## Overview
+**Maintenance Calendar** — B2B веб-приложение для инженерных команд, которое помогает **планировать и выполнять технические работы без конфликтов и неожиданных инцидентов**.
 
-MaintMode provides a centralized view of planned maintenance activities through an intuitive calendar interface, helping teams coordinate and track technical work schedules.
+Продукт предоставляет единый календарь технических работ, учитывает **временные пересечения и общие ресурсы**, а также разделяет **плановое и фактическое выполнение** работ.
+
+Основная цель — **предотвращение продакшн-проблем до их возникновения**, за счёт прозрачности и координации между командами.
+
+---
+
+## Для кого
+
+* Tech Leads
+* SRE / DevOps инженеры
+* Platform и Backend команды
+* Компании с 10–100 инженерами и общей инфраструктурой
+
+---
+
+## Ключевая идея
+
+> **Время + общие ресурсы = риск**
+
+Если несколько изменений затрагивают один и тот же ресурс в пересекающееся время, это потенциальный инцидент.
+Приложение делает такие ситуации **явными и управляемыми**.
+
+---
+
+## Возможности
+
+* Единый календарь технических работ (неделя / месяц)
+* Планирование работ с указанием временного окна
+* Фиксация фактического времени выполнения
+* Учет общих ресурсов (сервисы, базы данных, кластеры)
+* Обнаружение временных конфликтов
+* Наглядная визуализация рисков
+* Уведомления для команд
+
+---
+
+## Архитектурный подход
+
+* Чёткое разделение ответственности между слоями
+* PostgreSQL как источник истины
+* Работа с временем как с доменной сущностью
+* Атомарные операции и корректная работа в конкурентной среде
+* Минимум магии, максимум предсказуемости
+
+---
 
 ## Tech Stack
 
-### Backend
+### Backend стек
+
 - **Language**: Go 1.25.0+
 - **Database**: PostgreSQL
+
 - **HTTP Framework**: Echo
 - **Database Libraries**:
   - `jet` - Type-safe SQL builder
   - `sqlx` - Extensions for database/sql
   - `goose` - Database migrations
-- **Logging**: `zap` with `xlog` wrapper
-
-### Frontend
-- **Language**: TypeScript
-- **Framework**: Svelte
-- **Served**: Static files served by backend API
+  * `tstzrange`
+  * GiST индексы
+* Миграции: `goose` / `migrate`
+* Redis (вне ядра): idempotency, rate limiting
+- **Logging**: `zap` with `xlog` wrapper (github.com/ruko1202/xlog)
 
 ### Deployment
-- Delivered as Docker image
-- Backend serves static UI files through API endpoints
 
-## Development
+- **Format**: Docker image
+---
 
-### Prerequisites
-- Go 1.25.0 or later
-- PostgreSQL
-- Docker (for deployment)
+### Frontend стек
 
-### Building
+* **React**
+* **TypeScript**
+* **Vite**
+* **MUI (Material UI)**
+* **FullCalendar**
+
+UI ориентирован на:
+
+* быстрый обзор планируемых работ
+* минимальное количество действий
+* понятную визуализацию конфликтов и рисков
+
+---
+
+## Интеграции
+
+* Slack (уведомления и действия)
+* Email (опционально)
+
+---
+
+## Философия проекта
+
+* Простота важнее универсальности
+* Предсказуемость важнее магии
+* Предотвращение важнее реакции
+* Инженерная честность важнее количества фич
+
+---
+
+Если хочешь, следующим шагом можем:
+
+* сократить README под **лендинг**
+* оформить **архитектурную диаграмму**
+* подготовить **onboarding для первых пользователей**
+
+
+
+
+
+### Quick Start
+
 ```bash
+# 1. Install dependencies
+make deps
+
+# 2. Install binary tools
+make bin-deps
+
+# 3. Build application
 make build
+
+# 4. Run application
+./bin/maintmode
 ```
 
-### Testing
-```bash
-make test
-```
+### Development Commands
 
-### Linting
 ```bash
+# Run tests with coverage
+make test-cov
+
+# Run linter
 make lint
+
+# Format code
+make fmt
+
+# Build application
+make build
+
+# Start database (Docker)
+make docker-up
+
+# Start the app without build
+make run
 ```
-
-## Documentation
-
-For developers and AI agents working on this project, see the `.agent/` directory for detailed conventions, workflows, and coding standards.

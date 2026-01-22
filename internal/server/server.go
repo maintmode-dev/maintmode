@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/xlog"
+
+	"github.com/ruko1202/maintmode/internal/config"
 )
 
 // RouterBinder defines the interface for components that can bind routes to Echo groups.
