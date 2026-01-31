@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
 	"github.com/ruko1202/maintmode/internal/utils/closer"
@@ -37,13 +39,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func makeResource(ctx context.Context, t *testing.T, store *Store) *model.Resources {
+func makeResource(ctx context.Context, t *testing.T, store *Store) *entity.ResourceDetails {
 	t.Helper()
 
-	resource := &model.Resources{
+	resource := &entity.ResourceDetails{
+		ID:          xuuid.New(),
 		Name:        "Name" + t.Name() + xuuid.NewString(),
 		Description: "Description" + t.Name(),
 		ExternalID:  lo.ToPtr(xuuid.NewString()),
+		CreatedAt:   xtime.UTCNow(),
 	}
 
 	err := store.Create(ctx, resource)

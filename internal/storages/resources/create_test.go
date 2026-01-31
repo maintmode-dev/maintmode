@@ -4,9 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 func TestCreate(t *testing.T) {
@@ -19,9 +22,12 @@ func TestCreate(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		resource := &model.Resources{
+		resource := &entity.ResourceDetails{
+			ID:          xuuid.New(),
 			Name:        "Name" + t.Name(),
 			Description: "Description" + t.Name(),
+			ExternalID:  lo.ToPtr(xuuid.NewString()),
+			CreatedAt:   xtime.UTCNow(),
 		}
 
 		err := store.Create(ctx, resource)

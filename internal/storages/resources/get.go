@@ -2,16 +2,22 @@ package resources
 
 import (
 	"context"
+	"errors"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
+
+	"github.com/ruko1202/maintmode/internal/entity"
 
 	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
 )
 
-func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*model.Resources, error) {
+func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*entity.ResourceDetails, error) {
 	ctx = xlog.WithOperation(ctx, "store.Resources.GetByID")
 
 	stmt := table.Resources.
@@ -21,12 +27,15 @@ func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*model.Resou
 	resource := new(model.Resources)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), resource)
 	if err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, apperr.ErrResourceNotFound
+		}
 		return nil, err
 	}
-	return resource, nil
+	return fromDBResource(resource), nil
 }
 
-func (s *Store) GetByName(ctx context.Context, name string) (*model.Resources, error) {
+func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDetails, error) {
 	ctx = xlog.WithOperation(ctx, "store.Resources.GetByName")
 
 	stmt := table.Resources.
@@ -36,7 +45,10 @@ func (s *Store) GetByName(ctx context.Context, name string) (*model.Resources, e
 	resource := new(model.Resources)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), resource)
 	if err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, apperr.ErrResourceNotFound
+		}
 		return nil, err
 	}
-	return resource, nil
+	return fromDBResource(resource), nil
 }

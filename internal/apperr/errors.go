@@ -6,13 +6,14 @@ import (
 )
 
 var (
-	ErrMaintNotFound                = errors.New("maint not found")
+	ErrMaintNotFound                = errors.New("maintenance not found")
+	ErrResourceNotFound             = errors.New("resource not found")
 	ErrInvalidPeriodEmptyStartOrEnd = errors.New("invalid period: empty start or end")
 	ErrInvalidPeriodStartOrEnd      = errors.New("invalid period: start > end or start == end")
-	ErrConflictDetected             = errors.New("conflict detected")
+	ErrInvalidPeriodInterval        = errors.New("invalid period interval")
 	ErrForbiddenStatusTransition    = errors.New("forbidden status maintenance")
 	ErrConflictsChangedSincePreview = errors.New("conflicts changed since preview")
-	ErrMaintChangedSincePreview     = errors.New("maint changed since preview")
+	ErrMaintChangedSincePreview     = errors.New("maintenance changed since preview")
 )
 
 func ForbiddenStatusTransition(currentStatus any) error {

@@ -1,6 +1,7 @@
 package maintenances
 
 import (
+	"github.com/go-jet/jet/v2/postgres"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
@@ -60,13 +61,19 @@ func toDBMaintenanceResource(maintID uuid.UUID, resource *entity.Resource) *mode
 	return &model.MaintenanceResources{
 		MaintenanceID: maintID,
 		ResourceID:    resource.ID,
-		ResourceType:  resource.Type,
+		ResourceType:  string(resource.Type),
 	}
 }
 
 func fromDBMaintenanceResource(r *model.MaintenanceResources) *entity.Resource {
 	return &entity.Resource{
 		ID:   r.ResourceID,
-		Type: r.ResourceType,
+		Type: entity.ResourceType(r.ResourceType),
 	}
+}
+
+func uuidsToPgUUID(resourceIDs []uuid.UUID) []postgres.StringExpression {
+	return lo.Map(resourceIDs, func(item uuid.UUID, _ int) postgres.StringExpression {
+		return postgres.UUID(item)
+	})
 }

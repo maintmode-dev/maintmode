@@ -6,7 +6,6 @@ import (
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 
@@ -17,13 +16,15 @@ import (
 func (s *Store) GetMaintResources(ctx context.Context, maintIDs []uuid.UUID) (map[uuid.UUID][]*entity.Resource, error) {
 	ctx = xlog.WithOperation(ctx, "store.Maintenance.GetMaintResources")
 
+	if len(maintIDs) == 0 {
+		return map[uuid.UUID][]*entity.Resource{}, nil
+	}
+
 	stmt := table.MaintenanceResources.
 		SELECT(table.MaintenanceResources.AllColumns).
-		WHERE(table.MaintenanceResources.MaintenanceID.IN(
-			lo.Map(maintIDs, func(item uuid.UUID, _ int) postgres.Expression {
-				return postgres.UUID(item)
-			})...,
-		))
+		WHERE(table.MaintenanceResources.MaintenanceID.EQ(
+			postgres.ANY(postgres.ARRAY(uuidsToPgUUID(maintIDs)...))),
+		)
 
 	resources := make([]*model.MaintenanceResources, 0)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), &resources)

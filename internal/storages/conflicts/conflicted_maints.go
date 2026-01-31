@@ -17,7 +17,7 @@ func (s *Store) ConflictedMaints(ctx context.Context, cmd *entity.ConflictQueryC
 
 	/* slq like this
 	SELECT
-	    m.id
+	    m.id, m.title
 	     , m.scope
 	     , tstzrange(
 	        GREATEST(lower(m.planned_period), lower(tstzrange(:my_maint_period))),
@@ -91,6 +91,7 @@ func (s *Store) ConflictedMaints(ctx context.Context, cmd *entity.ConflictQueryC
 		SELECT(
 			table.Maintenances.ID.AS("conflict.maint_id"),
 			table.Maintenances.Scope.AS("conflict.scope"),
+			table.Maintenances.Title.AS("conflict.title"),
 			postgres.TSTZ_RANGE(
 				postgres.TimestampzExp(postgres.GREATEST(
 					table.Maintenances.PlannedPeriod.LOWER_BOUND(), planetPeriodTSTZRange.LOWER_BOUND(),

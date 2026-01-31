@@ -99,6 +99,7 @@ func TestListConflict(t *testing.T) {
 				})
 				for _, expectedConflict := range []*entity.Conflict{{
 					MaintenanceID: tc.conflictedMaint.ID,
+					Title:         tc.conflictedMaint.Title,
 					Scope:         tc.conflictedMaint.Scope,
 					OverlapStart:  testtimeutils.OverlapStart(tc.maint.PlannedPeriod, tc.conflictedMaint.PlannedPeriod),
 					OverlapEnd:    testtimeutils.OverlapEnd(tc.maint.PlannedPeriod, tc.conflictedMaint.PlannedPeriod),

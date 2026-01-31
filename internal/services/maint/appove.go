@@ -59,10 +59,11 @@ func (s *Service) checkConflicts(ctx context.Context, cmd *entity.ApproveMainten
 	}
 
 	conflictsFingerprint := entity.ConflictFingerprint(conflicts)
-	if cmd.ConflictSnapshot.Fingerprint != conflictsFingerprint {
+	actualFingerprint := entity.ConflictFingerprint(cmd.ConflictSnapshot.Conflicts)
+	if actualFingerprint != conflictsFingerprint {
 		return fmt.Errorf("%w: preview '%s', actual '%s'",
 			apperr.ErrConflictsChangedSincePreview,
-			cmd.ConflictSnapshot.Fingerprint,
+			actualFingerprint,
 			conflictsFingerprint,
 		)
 	}

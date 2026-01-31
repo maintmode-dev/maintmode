@@ -1,0 +1,684 @@
+basePath: /
+definitions:
+  apierrors.ErrorResponse:
+    properties:
+      code:
+        example: error code
+        type: string
+      message:
+        example: error message
+        type: string
+    type: object
+  apimodels.ApproveDraftMaintRequest:
+    properties:
+      conflict_snapshot:
+        $ref: '#/definitions/apimodels.ConflictSnapshot'
+      observed_maint_revision:
+        type: integer
+    type: object
+  apimodels.CancelMaintRequest:
+    properties:
+      comment:
+        type: string
+      reason:
+        $ref: '#/definitions/apimodels.MaintenanceCancelReason'
+    type: object
+  apimodels.Conflict:
+    properties:
+      maintenance_id:
+        format: uuid
+        type: string
+      overlap_end:
+        format: date-time
+        type: string
+      overlap_start:
+        format: date-time
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      scope:
+        $ref: '#/definitions/apimodels.MaintenanceScope'
+    type: object
+  apimodels.ConflictSnapshot:
+    properties:
+      conflicts:
+        items:
+          $ref: '#/definitions/apimodels.Conflict'
+        type: array
+    type: object
+  apimodels.CreateDraftMaintRequest:
+    properties:
+      description:
+        example: PostgreSQL major upgrade
+        type: string
+      impact:
+        $ref: '#/definitions/apimodels.MaintenanceImpact'
+      planned_period:
+        $ref: '#/definitions/apimodels.Period'
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      scope:
+        $ref: '#/definitions/apimodels.MaintenanceScope'
+      title:
+        example: DB migration
+        type: string
+    type: object
+  apimodels.CreateDraftMaintResponse:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      id:
+        format: uuid
+        type: string
+      impact:
+        type: string
+      planned_period:
+        $ref: '#/definitions/apimodels.Period'
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      scope:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  apimodels.Maintenance:
+    properties:
+      actual_period:
+        $ref: '#/definitions/apimodels.Period'
+      cancel_reason:
+        $ref: '#/definitions/apimodels.MaintenanceCancelReason'
+      cancel_reason_comment:
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      id:
+        format: uuid
+        type: string
+      impact:
+        $ref: '#/definitions/apimodels.MaintenanceImpact'
+      planned_period:
+        $ref: '#/definitions/apimodels.Period'
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      scope:
+        $ref: '#/definitions/apimodels.MaintenanceScope'
+      status:
+        type: string
+      title:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  apimodels.MaintenanceCancelReason:
+    enum:
+    - conflict
+    - incident
+    - business_decision
+    - rescheduled
+    - mistake
+    type: string
+    x-enum-varnames:
+    - MaintenanceCancelReasonConflict
+    - MaintenanceCancelReasonIncident
+    - MaintenanceCancelReasonBusinessDecision
+    - MaintenanceCancelReasonRescheduled
+    - MaintenanceCancelReasonMistake
+  apimodels.MaintenanceImpact:
+    enum:
+    - none
+    - partial_outage
+    - full_outage
+    type: string
+    x-enum-varnames:
+    - MaintenanceImpactNone
+    - MaintenanceImpactPartial
+    - MaintenanceImpactFull
+  apimodels.MaintenanceScope:
+    enum:
+    - global
+    - resource
+    type: string
+    x-enum-varnames:
+    - MaintenanceScopeGlobal
+    - MaintenanceScopeResources
+  apimodels.Period:
+    properties:
+      end:
+        example: "2026-01-20T12:00:00Z"
+        format: date-time
+        type: string
+      start:
+        example: "2026-01-20T10:00:00Z"
+        format: date-time
+        type: string
+    type: object
+  apimodels.Resource:
+    properties:
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        format: uuid
+        type: string
+      type:
+        $ref: '#/definitions/apimodels.ResourceType'
+    type: object
+  apimodels.ResourceType:
+    enum:
+    - service
+    - database
+    - cluster
+    type: string
+    x-enum-varnames:
+    - ResourceTypeService
+    - ResourceTypeDatabase
+    - ResourceTypeCluster
+  apimodels.UpdateDraftMaintRequest:
+    properties:
+      description:
+        example: PostgreSQL major upgrade
+        type: string
+      impact:
+        $ref: '#/definitions/apimodels.MaintenanceImpact'
+      planned_period:
+        $ref: '#/definitions/apimodels.Period'
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      scope:
+        $ref: '#/definitions/apimodels.MaintenanceScope'
+      title:
+        example: DB migration
+        type: string
+    type: object
+  uimodels.CalendarEvent:
+    properties:
+      end:
+        type: string
+      id:
+        format: uuid
+        type: string
+      impact:
+        type: string
+      scope:
+        type: string
+      start:
+        type: string
+      status:
+        $ref: '#/definitions/uimodels.MaintenanceStatus'
+      title:
+        type: string
+    type: object
+  uimodels.CalendarViewMeta:
+    properties:
+      count:
+        type: integer
+      truncated:
+        type: boolean
+    type: object
+  uimodels.CalendarViewResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/uimodels.CalendarEvent'
+        type: array
+      meta:
+        $ref: '#/definitions/uimodels.CalendarViewMeta'
+    type: object
+  uimodels.ConflictView:
+    properties:
+      maintenance_id:
+        format: uuid
+        type: string
+      overlap_end:
+        format: date-time
+        type: string
+      overlap_start:
+        format: date-time
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/uimodels.MaintenanceViewResource'
+        type: array
+      scope:
+        type: string
+      title:
+        type: string
+    type: object
+  uimodels.MaintenanceActions:
+    properties:
+      can_approve:
+        type: boolean
+      can_cancel:
+        type: boolean
+      can_edit:
+        type: boolean
+      can_finish:
+        type: boolean
+      can_start:
+        type: boolean
+    type: object
+  uimodels.MaintenanceStatus:
+    enum:
+    - draft
+    - planned
+    - in_progress
+    - canceled
+    - completed
+    type: string
+    x-enum-varnames:
+    - MaintenanceStatusDraft
+    - MaintenanceStatusPlanned
+    - MaintenanceStatusInProgress
+    - MaintenanceStatusCancelled
+    - MaintenanceStatusCompleted
+  uimodels.MaintenanceView:
+    properties:
+      actual_time_end:
+        format: date-time
+        type: string
+      actual_time_start:
+        format: date-time
+        type: string
+      cancel_reason:
+        type: string
+      cancel_reason_comment:
+        type: string
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      id:
+        format: uuid
+        type: string
+      impact:
+        type: string
+      planned_time_end:
+        format: date-time
+        type: string
+      planned_time_start:
+        format: date-time
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/uimodels.MaintenanceViewResource'
+        type: array
+      revision:
+        type: integer
+      scope:
+        type: string
+      status:
+        $ref: '#/definitions/uimodels.MaintenanceStatus'
+      title:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  uimodels.MaintenanceViewResource:
+    properties:
+      id:
+        format: uuid
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  uimodels.MaintenanceViewResponse:
+    properties:
+      actions:
+        $ref: '#/definitions/uimodels.MaintenanceActions'
+      conflicts:
+        items:
+          $ref: '#/definitions/uimodels.ConflictView'
+        type: array
+      maintenance:
+        $ref: '#/definitions/uimodels.MaintenanceView'
+    type: object
+host: localhost:8000
+info:
+  contact:
+    email: platform@example.com
+    name: Platform Team
+  description: |-
+    API for planning and executing maintenance windows.
+
+    Core idea: overlapping time + shared resources = risk.
+  license:
+    name: Proprietary
+  termsOfService: https://example.com/terms
+  title: Maintenance Calendar API
+  version: 1.0.0
+paths:
+  /api/v1/maintenances/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a maintenance entity by its unique identifier.
+      parameters:
+      - description: Maintenance ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.Maintenance'
+        "400":
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Get maintenance by ID
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      description: Approves a maintenance draft by ID using an observed revision and
+        conflict snapshot.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Approve maintenance request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apimodels.ApproveDraftMaintRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Maintenance approved
+        "400":
+          description: Invalid request or forbidden status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Approve maintenance draft
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/cancel:
+    post:
+      description: Cancel a maintenance by ID. Allowed only for valid status transitions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update maintenance draft request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apimodels.CancelMaintRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Maintenance canceled
+        "400":
+          description: Invalid request or forbidden status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Cancel maintenance
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/complete:
+    post:
+      description: Complete a maintenance by ID. Allowed only for valid status transitions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Maintenance completed
+        "400":
+          description: Invalid request or forbidden status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Complete maintenance
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/edit:
+    post:
+      consumes:
+      - application/json
+      description: Updates an existing maintenance draft by ID.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update maintenance draft request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apimodels.UpdateDraftMaintRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Maintenance draft updated
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Update maintenance draft
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/start:
+    post:
+      description: Starts a maintenance by ID. Allowed only for valid status transitions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Maintenance started
+        "400":
+          description: Invalid request or forbidden status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Start maintenance
+      tags:
+      - Maintenances
+  /api/v1/maintenances/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a maintenance in draft status with planned period and resources
+      parameters:
+      - description: Create maintenance draft request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apimodels.CreateDraftMaintRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.CreateDraftMaintResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Create maintenance draft
+      tags:
+      - Maintenances
+  /ui/v1/calendar:
+    get:
+      description: Returns maintenance events for the specified date range.
+      parameters:
+      - description: Start date
+        format: date
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: End date
+        format: date
+        in: query
+        name: to
+        required: true
+        type: string
+      - collectionFormat: multi
+        description: Maintenance statuses
+        in: query
+        items:
+          enum:
+          - draft
+          - planned
+          - in_progress
+          - canceled
+          - completed
+          type: string
+        name: statuses
+        type: array
+      - collectionFormat: multi
+        description: Resource IDs(uuid)
+        in: query
+        items:
+          type: string
+        name: resource_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/uimodels.CalendarViewResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: List calendar events
+      tags:
+      - UI
+  /ui/v1/maintenances/{id}:
+    get:
+      description: Returns aggregated maintenance view for calendar and UI, including
+        conflicts and available actions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/uimodels.MaintenanceViewResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Get maintenance view
+      tags:
+      - UI
+swagger: "2.0"
+tags:
+- description: Maintenance management API
+  name: Maintenances
+- description: Maintenance UI API
+  name: UI

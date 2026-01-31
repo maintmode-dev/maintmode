@@ -13,8 +13,9 @@ import (
 )
 
 type closeFunc struct {
-	name string
-	f    func() error
+	name   string
+	f      func() error
+	closed bool
 }
 
 var (
@@ -49,8 +50,9 @@ func AddWithName(name string, f func() error) {
 	defer mu.Unlock()
 
 	closeFuncs = append(closeFuncs, &closeFunc{
-		name: name,
-		f:    f,
+		name:   name,
+		f:      f,
+		closed: false,
 	})
 }
 
@@ -80,7 +82,9 @@ func doClose(ctx context.Context, closeFunc *closeFunc) {
 	err := closeFunc.f()
 	if err != nil {
 		xlog.Error(ctx, "close handler failed", zap.Error(err))
+		return
 	}
+	closeFunc.closed = true
 
 	xlog.Info(ctx, "close handler completed")
 }

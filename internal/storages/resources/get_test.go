@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-jet/jet/v2/qrm"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
 
 	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
@@ -60,7 +61,7 @@ func TestGet(t *testing.T) {
 
 				dbResource, err := store.GetByID(ctx, resource.ID)
 				require.Nil(t, dbResource)
-				require.EqualError(t, err, qrm.ErrNoRows.Error())
+				require.EqualError(t, err, apperr.ErrResourceNotFound.Error())
 			})
 
 			t.Run("GetByName", func(t *testing.T) {
@@ -68,7 +69,7 @@ func TestGet(t *testing.T) {
 
 				dbResource, err := store.GetByName(ctx, resource.Name)
 				require.Nil(t, dbResource)
-				require.EqualError(t, err, qrm.ErrNoRows.Error())
+				require.EqualError(t, err, apperr.ErrResourceNotFound.Error())
 			})
 		})
 	})

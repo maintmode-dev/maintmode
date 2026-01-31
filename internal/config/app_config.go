@@ -31,9 +31,14 @@ type DB struct {
 
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
-	StatusServer HTTPServer
-	APIServer    HTTPServer
-	DB           DB
+	Environment Environment
+	InfraServer HTTPServer
+	APIServer   HTTPServer
+	DB          DB
+}
+
+func (c *AppConfig) IsDevEnvironment() bool {
+	return c.Environment.IsDev()
 }
 
 func initConfig() *AppConfig {
@@ -46,12 +51,13 @@ func initConfig() *AppConfig {
 	viper.AutomaticEnv()
 
 	return &AppConfig{
+		Environment: Environment(viper.GetString("ENVIRONMENT")),
 		APIServer: HTTPServer{
 			Name: "api",
 			Host: "localhost",
 			Port: 8000,
 		},
-		StatusServer: HTTPServer{
+		InfraServer: HTTPServer{
 			Name: "status",
 			Host: "localhost",
 			Port: 8001,

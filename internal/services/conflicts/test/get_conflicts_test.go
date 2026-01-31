@@ -86,6 +86,7 @@ func TestGetConflicts(t *testing.T) {
 			return item.ID, &entity.ConflictWithResources{
 				Conflict: &entity.Conflict{
 					MaintenanceID: item.ID,
+					Title:         item.Title,
 					OverlapStart:  testtimeutils.OverlapStart(maint.PlannedPeriod, item.PlannedPeriod),
 					OverlapEnd:    testtimeutils.OverlapEnd(maint.PlannedPeriod, item.PlannedPeriod),
 					Scope:         item.Scope,

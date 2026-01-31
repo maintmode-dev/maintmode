@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-jet/jet/v2/qrm"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
 
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
@@ -87,7 +88,7 @@ func TestCreate_PlannedPeriod(t *testing.T) {
 				require.EqualError(t, err, tc.expectedErr)
 
 				dbMaint, err := store.Get(ctx, maint.ID)
-				require.EqualError(t, err, qrm.ErrNoRows.Error())
+				require.EqualError(t, err, apperr.ErrMaintNotFound.Error())
 				require.Nil(t, dbMaint)
 			})
 		}
@@ -179,7 +180,7 @@ func TestCreate_ActualPeriod(t *testing.T) {
 				require.EqualError(t, err, tc.expectedErr)
 
 				dbMaint, err := store.Get(ctx, maint.ID)
-				require.EqualError(t, err, qrm.ErrNoRows.Error())
+				require.EqualError(t, err, apperr.ErrMaintNotFound.Error())
 				require.Nil(t, dbMaint)
 			})
 		}

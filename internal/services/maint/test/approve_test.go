@@ -72,8 +72,7 @@ func TestApprove(t *testing.T) {
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
-				Fingerprint: entity.ConflictFingerprint(actualConflicts),
-				Conflicts:   actualConflicts,
+				Conflicts: actualConflicts,
 			},
 		})
 		require.NoError(t, err)
@@ -104,8 +103,7 @@ func TestApprove(t *testing.T) {
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
-				Fingerprint: entity.ConflictFingerprint(actualConflicts),
-				Conflicts:   actualConflicts,
+				Conflicts: actualConflicts,
 			},
 		})
 		require.ErrorIs(t, err, apperr.ErrForbiddenStatusTransition)
@@ -136,8 +134,7 @@ func TestApprove(t *testing.T) {
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
-				Fingerprint: entity.ConflictFingerprint(actualConflicts),
-				Conflicts:   actualConflicts,
+				Conflicts: actualConflicts,
 			},
 		})
 		require.ErrorIs(t, err, apperr.ErrMaintChangedSincePreview)
@@ -170,8 +167,7 @@ func TestApprove(t *testing.T) {
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
-				Fingerprint: entity.ConflictFingerprint(actualConflicts),
-				Conflicts:   actualConflicts,
+				Conflicts: actualConflicts,
 			},
 		})
 		require.ErrorIs(t, err, apperr.ErrConflictsChangedSincePreview)

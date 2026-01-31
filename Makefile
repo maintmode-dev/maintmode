@@ -66,7 +66,10 @@ bin-deps-build:
 bin-deps: bin-deps-build
 	GOBIN=$(GOBIN) go install github.com/pressly/goose/v3/cmd/goose@v3.26.0 && \
 	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.3.0 && \
-	GOBIN=$(GOBIN) go install go.uber.org/mock/mockgen@v0.6.0
+	GOBIN=$(GOBIN) go install go.uber.org/mock/mockgen@v0.6.0 && \
+	GOBIN=$(GOBIN) go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
+	GOBIN=$(GOBIN) go install github.com/go-delve/delve/cmd/dlv@v1.26.0 && \
+	GOBIN=$(GOBIN) go install github.com/air-verse/air@v1.64.3
 
 # -------------------------------------
 # Build binary or run app
@@ -75,9 +78,24 @@ bin-deps: bin-deps-build
 run:
 	go run ./cmd/maintmode
 
+.PHONY: air
+air:
+	$(GOBIN)/air
+
+.PHONY: swag
+swag:
+	$(GOBIN)/swag init \
+		-g ./docs.go \
+      	--parseInternal \
+      	--parseDependency
+
 .PHONY: build
 build:
-	$(GOBIN)/goreleaser build --snapshot --single-target --clean --output=$(GOBIN)/maintmode ${args}
+	$(GOBIN)/goreleaser build --snapshot --single-target --clean --output=$(GOBIN)/maintmode
+
+.PHONY: build-dev
+build-dev: swag
+	$(GOBIN)/goreleaser build --id dev --snapshot --single-target --clean --output=$(GOBIN)/dev-maintmode
 
 
 # -------------------------------------

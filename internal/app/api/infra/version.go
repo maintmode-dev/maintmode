@@ -1,4 +1,4 @@
-package healthcheck
+package infra
 
 import (
 	"net/http"
@@ -8,7 +8,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 )
 
-// Version returns the application build metadata as JSON.
-func (a *Implementation) Version(c echo.Context) error {
+func (i *Implementation) Version(c echo.Context) error {
 	return c.JSON(http.StatusOK, buildmeta.GetAppBuildMeta())
 }

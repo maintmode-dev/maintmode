@@ -1,0 +1,93 @@
+package calendar
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/ruko1202/xlog"
+	"github.com/samber/lo"
+
+	"github.com/ruko1202/maintmode/internal/entity"
+
+	"github.com/ruko1202/maintmode/internal/calendardto"
+)
+
+func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto.Maintenance, error) {
+	ctx = xlog.WithOperation(ctx, "service.Calendar.GetMaint")
+
+	maint, err := s.maintStore.Get(ctx, maintID)
+	if err != nil {
+		return nil, err
+	}
+
+	maintResourcesM, err := s.getMaintResources(ctx, []uuid.UUID{maint.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	return &calendardto.Maintenance{
+		ID:                  maint.ID,
+		Title:               maint.Title,
+		Description:         maint.Description,
+		PlannedPeriod:       maint.PlannedPeriod,
+		ActualPeriod:        maint.ActualPeriod,
+		Resources:           lo.ValueOr(maintResourcesM, maint.ID, []*calendardto.MaintenanceResource{}),
+		Scope:               maint.Scope,
+		Impact:              maint.Impact,
+		Status:              maint.Status,
+		CancelReason:        maint.CancelReason,
+		CancelReasonComment: maint.CancelReasonComment,
+		CreatedAt:           maint.CreatedAt,
+		UpdatedAt:           maint.UpdatedAt,
+		Revision:            maint.Revision(),
+	}, nil
+}
+
+func (s *Service) getMaintResources(ctx context.Context, maintIDs []uuid.UUID) (map[uuid.UUID][]*calendardto.MaintenanceResource, error) {
+	ctx = xlog.WithOperation(ctx, "service.Calendar.GetMaintResources")
+
+	if len(maintIDs) == 0 {
+		return map[uuid.UUID][]*calendardto.MaintenanceResource{}, nil
+	}
+
+	maintsResources, err := s.maintStore.GetMaintResources(ctx, maintIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	resourcesDetails, err := s.getResourcesDetails(ctx, lo.Map(
+		lo.Flatten(lo.Values(maintsResources)), func(item *entity.Resource, _ int) uuid.UUID {
+			return item.ID
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	maintResourcesM := make(map[uuid.UUID][]*calendardto.MaintenanceResource)
+	for maintID, resources := range maintsResources {
+		eventResources := lo.Map(resources, func(item *entity.Resource, _ int) *calendardto.MaintenanceResource {
+			details := lo.ValueOr(resourcesDetails, item.ID, &entity.ResourceDetails{Name: "unknown resource"})
+			return &calendardto.MaintenanceResource{
+				ID:   item.ID,
+				Name: details.Name,
+				Type: item.Type,
+			}
+		})
+
+		maintResourcesM[maintID] = append(maintResourcesM[maintID], eventResources...)
+	}
+
+	return maintResourcesM, nil
+}
+
+func (s *Service) getResourcesDetails(ctx context.Context, resources []uuid.UUID) (map[uuid.UUID]*entity.ResourceDetails, error) {
+	resourcesDetails, err := s.resourcesStore.GetResourcesDetails(ctx, resources)
+	if err != nil {
+		return nil, err
+	}
+
+	return lo.SliceToMap(resourcesDetails, func(item *entity.ResourceDetails) (uuid.UUID, *entity.ResourceDetails) {
+		return item.ID, item
+	}), nil
+}

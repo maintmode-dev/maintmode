@@ -2,16 +2,25 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os/signal"
 	"syscall"
 
 	"github.com/ruko1202/xlog"
 	"go.uber.org/zap"
 
-	"github.com/ruko1202/maintmode/internal/app/api"
-	"github.com/ruko1202/maintmode/internal/app/healthcheck"
-	"github.com/ruko1202/maintmode/internal/config/middlewares"
+	"github.com/ruko1202/maintmode/internal/app/api/infra"
+	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
+	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
+
+	"github.com/ruko1202/maintmode/internal/services/calendar"
+
+	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
+	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
+	"github.com/ruko1202/maintmode/internal/storages/conflicts"
+	"github.com/ruko1202/maintmode/internal/storages/maintenances"
+	"github.com/ruko1202/maintmode/internal/storages/resources"
+	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+
 	"github.com/ruko1202/maintmode/internal/config/pg"
 	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
@@ -21,15 +30,20 @@ import (
 )
 
 func main() {
-	logger, err := zap.NewProduction()
-	if err != nil {
-		panic(fmt.Errorf("can't initialize zap logger: %w", err))
-	}
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGKILL,
+	)
+	defer stop()
+	defer closer.CloseAll(context.WithoutCancel(ctx))
+
+	cfg := config.GetAppConfig()
+
+	logger := config.NewLogger(cfg.Environment)
 	closer.Add(logger.Sync)
 	xlog.ReplaceGlobal(logger)
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL)
-	defer stop()
 
 	ctx = xlog.ContextWithLogger(ctx, logger)
 	ctx = xlog.WithFields(ctx,
@@ -39,21 +53,31 @@ func main() {
 
 	xlog.Info(ctx, "start app", zap.Any("meta", buildmeta.GetAppBuildMeta()))
 
-	cfg := config.GetAppConfig()
-
 	db, err := pg.NewDBConn(ctx, &cfg.DB)
 	if err != nil {
-		xlog.Fatal(ctx, "failed to open db", zap.Error(err))
+		xlog.Panic(ctx, "failed to open db connection", zap.Error(err))
 	}
 	closer.Add(db.Close)
 
 	// start api server
 	{
-		s := server.NewServer(cfg.APIServer)
-		gr := s.NewGroup("api/v1")
-
-		impl := api.New()
-		impl.BindRoute(gr, middlewares.BaseWithLoggingMiddlewares("api/v1"))
+		s := server.NewAPIServer(
+			cfg.APIServer,
+			apimaint.New(
+				maintSrv.NewService(
+					dbtx.NewTxManager(db),
+					maintenances.NewStore(db),
+					resources.NewStore(db),
+					conflictsSvr.NewService(conflicts.NewStore(db)),
+				),
+			),
+			uicalendar.New(calendar.NewService(
+				maintenances.NewStore(db),
+				resources.NewStore(db),
+				conflictsSvr.NewService(conflicts.NewStore(db))),
+			),
+		)
+		s.BindRouters()
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
@@ -63,13 +87,13 @@ func main() {
 		closer.AddWithName("api server", func() error { return s.Stop(context.Background()) })
 	}
 
-	// start status server
+	// start infra server: healthcheck, metrics, etc.
 	{
-		s := server.NewServer(cfg.StatusServer)
-		gr := s.NewGroup("")
-
-		impl := healthcheck.NewImplementation(db)
-		impl.BindRoute(gr, middlewares.BaseMiddlewares())
+		s := server.NewInfraServer(
+			cfg.InfraServer,
+			infra.NewImplementation(db),
+		)
+		s.BindRouters()
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
@@ -82,6 +106,6 @@ func main() {
 
 	<-ctx.Done()
 	xlog.Info(ctx, "graceful shutdown...")
-	closer.CloseAll(context.Background())
+	closer.CloseAll(context.WithoutCancel(ctx))
 	xlog.Info(ctx, "app is gracefully shutdown")
 }

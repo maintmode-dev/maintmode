@@ -49,7 +49,7 @@ func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictRes
 		conflictedResources[resource.MaintenanceID] = append(conflictedResources[resource.MaintenanceID],
 			&entity.Resource{
 				ID:   resource.ResourceID,
-				Type: resource.ResourceType,
+				Type: entity.ResourceType(resource.ResourceType),
 			})
 	}
 	return conflictedResources, nil

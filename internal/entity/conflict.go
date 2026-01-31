@@ -14,6 +14,7 @@ import (
 
 type Conflict struct {
 	MaintenanceID uuid.UUID
+	Title         string
 	OverlapStart  time.Time
 	OverlapEnd    time.Time
 	Scope         MaintenanceScope
@@ -25,8 +26,7 @@ type ConflictWithResources struct {
 }
 
 type ConflictsSnapshot struct {
-	Fingerprint string
-	Conflicts   []*ConflictWithResources
+	Conflicts []*ConflictWithResources
 }
 
 func ConflictFingerprint(conflicts []*ConflictWithResources) string {

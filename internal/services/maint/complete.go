@@ -16,6 +16,10 @@ func (s *Service) Complete(ctx context.Context, cmd *entity.CompleteMaintenanceC
 	ctx = xlog.WithOperation(ctx, "service.Maint.Complete")
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
+		if maint.Status == entity.MaintenanceStatusCompleted {
+			return nil
+		}
+
 		if !entity.CanTransition(maint.Status, entity.MaintenanceStatusCompleted) {
 			return apperr.ForbiddenStatusTransition(maint.Status)
 		}

@@ -151,4 +151,32 @@ make docker-up
 
 # Start the app without build
 make run
+
+# Start the app with live reload
+# allowed debug connection in IDE
+###########################
+# GoLand
+#   Run → Edit Configurations
+#   Go Remote
+#   Host: localhost
+#   Port: 2345
+###########################
+# Vscode
+# {
+#  "version": "0.2.0",
+#  "configurations": [
+#    {
+#      "name": "Attach to Delve (Air)",
+#      "type": "go",
+#      "request": "attach",
+#      "mode": "remote",
+#      "remotePath": "${workspaceFolder}",
+#      "port": 2345,
+#      "host": "127.0.0.1"
+#    }
+#  ]
+# }
+ 
+make air
 ```
+

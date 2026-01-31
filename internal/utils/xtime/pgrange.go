@@ -11,13 +11,10 @@ import (
 
 func ToPgRange(p entity.Period) pgtype.Tstzrange {
 	switch {
-	case p.Start == nil && p.End == nil:
-		// null period
-		return pgtype.Tstzrange{}
-	case p.Start != nil && p.End == nil:
+	case p.IsOpen():
 		// open-ended period
 		return pgRangeInLocation(pgtype.Tstzrange{
-			Lower:     pgtype.Timestamptz{Time: lo.FromPtr(p.Start), Status: pgtype.Present},
+			Lower:     pgtype.Timestamptz{Time: p.Start, Status: pgtype.Present},
 			Upper:     pgtype.Timestamptz{},
 			LowerType: pgtype.Inclusive,
 			UpperType: pgtype.Unbounded,
@@ -25,7 +22,7 @@ func ToPgRange(p entity.Period) pgtype.Tstzrange {
 		}, time.UTC)
 	default:
 		return pgRangeInLocation(pgtype.Tstzrange{
-			Lower:     pgtype.Timestamptz{Time: lo.FromPtr(p.Start), Status: pgtype.Present},
+			Lower:     pgtype.Timestamptz{Time: p.Start, Status: pgtype.Present},
 			Upper:     pgtype.Timestamptz{Time: lo.FromPtr(p.End), Status: pgtype.Present},
 			LowerType: pgtype.Inclusive,
 			UpperType: pgtype.Exclusive,
@@ -35,16 +32,18 @@ func ToPgRange(p entity.Period) pgtype.Tstzrange {
 }
 
 func FromPgRange(r pgtype.Tstzrange) entity.Period {
+	pgRange := pgRangeInLocation(r, time.UTC)
+
 	period := entity.Period{}
-	if r.Status != pgtype.Present {
+	if pgRange.Status != pgtype.Present {
 		return period
 	}
 
-	if r.Lower.Status == pgtype.Present {
-		period.Start = lo.ToPtr(r.Lower.Time.In(time.UTC))
+	if pgRange.Lower.Status == pgtype.Present {
+		period.Start = pgRange.Lower.Time
 	}
-	if r.Upper.Status == pgtype.Present {
-		period.End = lo.ToPtr(r.Upper.Time.In(time.UTC))
+	if pgRange.Upper.Status == pgtype.Present {
+		period.End = lo.ToPtr(pgRange.Upper.Time)
 	}
 
 	return period

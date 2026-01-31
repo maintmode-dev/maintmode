@@ -9,6 +9,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+
+	"github.com/ruko1202/maintmode/internal/calendardto"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -34,11 +38,12 @@ func TestList(t *testing.T) {
 		maint3 := makeMaint(ctx, t, store, entity.NewPeriod(start.Add(-time.Hour), end.Add(time.Hour)))
 
 		// try to found maints in the period: 11:20 to 13:20
-		maints, err := store.List(ctx, &ListFilter{
-			PeriodFrom: lo.ToPtr(start.Add(20 * time.Minute)),
-			PeriodTo:   lo.ToPtr(end.Add(20 * time.Minute)),
-		}, 1000)
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+			PeriodFrom: start.Add(20 * time.Minute),
+			PeriodTo:   end.Add(20 * time.Minute),
+		}, 100_000)
 		require.NoError(t, err)
+		require.False(t, truncated)
 		require.GreaterOrEqual(t, len(maints), 3)
 		equalMaintsWithoutResources(t, maints, []*entity.Maintenance{maint1, maint2, maint3})
 	})
@@ -46,12 +51,29 @@ func TestList(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		t.Parallel()
 
-		maints, err := store.List(ctx, &ListFilter{
-			PeriodFrom: lo.ToPtr(start.Add(365 * 10 * time.Hour)),
-			PeriodTo:   lo.ToPtr(start.Add(365 * 10 * time.Hour)),
-		}, 100)
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+			PeriodFrom: start.Add(365 * 10 * time.Hour),
+			PeriodTo:   start.Add(365 * 10 * time.Hour),
+		}, 1000)
 		require.NoError(t, err)
+		require.False(t, truncated)
 		require.Equal(t, len(maints), 0)
+	})
+
+	t.Run("truncated", func(t *testing.T) {
+		t.Parallel()
+
+		makeMaint(ctx, t, store, entity.NewPeriod(start, end))
+		makeMaint(ctx, t, store, entity.NewPeriod(start, end))
+		makeMaint(ctx, t, store, entity.NewPeriod(start, end))
+
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+			PeriodFrom: start,
+			PeriodTo:   end,
+		}, 1)
+		require.NoError(t, err)
+		require.True(t, truncated)
+		require.Equal(t, len(maints), 1)
 	})
 
 	t.Run("no overlap", func(t *testing.T) {
@@ -66,14 +88,43 @@ func TestList(t *testing.T) {
 			maint1.PlannedPeriod.End.Add(time.Hour)),
 		)
 
-		maints, err := store.List(ctx, &ListFilter{
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
 			PeriodFrom: maint2.PlannedPeriod.Start,
-		}, 100)
+		}, 100_000)
 		require.NoError(t, err)
+		require.False(t, truncated)
 		require.GreaterOrEqual(t, len(maints), 1)
 
 		equalMaintsWithoutResources(t, maints, []*entity.Maintenance{maint2})
 		require.NotContains(t, maints, maint1)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
+
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+			PeriodFrom:  start,
+			PeriodTo:    end,
+			ResourceIDs: []uuid.UUID{xuuid.New()},
+		}, 1)
+		require.NoError(t, err)
+		require.False(t, truncated)
+		require.Equal(t, len(maints), 0)
+	})
+
+	t.Run("with resources", func(t *testing.T) {
+		t.Parallel()
+
+		maint := makeMaint(ctx, t, store, entity.NewPeriod(start, end))
+
+		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+			PeriodFrom:  start,
+			PeriodTo:    end,
+			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID { return item.ID }),
+		}, 1)
+		require.NoError(t, err)
+		require.False(t, truncated)
+		require.Equal(t, len(maints), 1)
 	})
 }
 

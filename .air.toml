@@ -1,0 +1,63 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Генерация swagger + сборка
+cmd = "make build-dev"
+
+env_files = [".env.local"]
+
+entrypoint = [
+    "./bin/dlv",
+    "exec",
+    "--accept-multiclient",
+    "--headless",
+    "--continue",
+    "--listen=:2345",
+    "--api-version=2",
+    "./bin/dev-maintmode",
+]
+
+
+delay = 300
+kill_delay = "1s"
+send_interrupt = true
+
+include_ext = ["go", "mod", "sum"]
+
+include_dir = [
+    "cmd",
+    "internal",
+    "web",
+    "."
+]
+
+exclude_dir = [
+    "bin",
+    "docs",        # swagger autogen
+    "vendor",
+    ".git",
+    "test",
+    "scripts",
+    "migrations"
+]
+
+exclude_regex = [
+    ".*\\.md",
+    ".*\\.ya?ml",
+    ".*_test\\.go",
+]
+
+log = "build-errors.log"
+
+[log]
+time = true
+
+[color]
+main = "cyan"
+watcher = "yellow"
+build = "green"
+runner = "magenta"
+
+[misc]
+clean_on_exit = true

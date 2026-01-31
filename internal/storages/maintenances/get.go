@@ -2,10 +2,14 @@ package maintenances
 
 import (
 	"context"
+	"errors"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 
@@ -23,6 +27,9 @@ func (s *Store) Get(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance
 	maint := new(model.Maintenances)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), maint)
 	if err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, apperr.ErrMaintNotFound
+		}
 		return nil, err
 	}
 
@@ -40,6 +47,9 @@ func (s *Store) GetForUpdate(ctx context.Context, maintID uuid.UUID) (*entity.Ma
 	maint := new(model.Maintenances)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), maint)
 	if err != nil {
+		if errors.Is(err, qrm.ErrNoRows) {
+			return nil, apperr.ErrMaintNotFound
+		}
 		return nil, err
 	}
 

@@ -1,5 +1,3 @@
-// Package server provides HTTP server management with Echo framework.
-// It handles server lifecycle including start, stop, and graceful shutdown.
 package server
 
 import (
@@ -15,33 +13,22 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 )
 
-// RouterBinder defines the interface for components that can bind routes to Echo groups.
-type RouterBinder interface {
-	BindRoute(gr *echo.Group, middlewares []echo.MiddlewareFunc)
-}
-
-// Server wraps an Echo instance with configuration and lifecycle management.
-type Server struct {
+type server struct {
 	cfg config.HTTPServer
 	e   *echo.Echo
 }
 
-// NewServer creates a new HTTP server with the provided configuration.
-func NewServer(cfg config.HTTPServer) *Server {
-	return &Server{
+// newServer creates a new HTTP server with the provided configuration.
+func newServer(cfg config.HTTPServer) *server {
+	return &server{
 		cfg: cfg,
 		e:   echo.New(),
 	}
 }
 
-// NewGroup creates a new route group with the given prefix.
-func (s *Server) NewGroup(prefix string) *echo.Group {
-	return s.e.Group(prefix)
-}
-
 // Start begins listening and blocks until server stops.
 // Returns error only if startup fails, otherwise blocks until shutdown.
-func (s *Server) Start(ctx context.Context) error {
+func (s *server) Start(ctx context.Context) error {
 	xlog.Infof(ctx, "starting http server '%s' on %s", s.cfg.Name, s.cfg.BuildHostPort())
 
 	err := s.e.Start(s.cfg.BuildHostPort())
@@ -52,7 +39,7 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Stop gracefully shuts down the server with context-based timeout control.
-func (s *Server) Stop(ctx context.Context) error {
+func (s *server) Stop(ctx context.Context) error {
 	xlog.Infof(ctx, "shutdown http server: '%s'", s.cfg.Name)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -63,4 +50,8 @@ func (s *Server) Stop(ctx context.Context) error {
 	xlog.Infof(ctx, "http server is shutdown: '%s'", s.cfg.Name)
 
 	return nil
+}
+
+func (s *server) BindRouters() {
+	xlog.Panic(context.Background(), "implement me")
 }

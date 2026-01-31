@@ -1,8 +1,12 @@
 package entity
 
-import "github.com/google/uuid"
+import (
+	"time"
 
-type ResourceType = string
+	"github.com/google/uuid"
+)
+
+type ResourceType string
 
 const (
 	ResourceTypeService  ResourceType = "service"
@@ -13,4 +17,13 @@ const (
 type Resource struct {
 	ID   uuid.UUID
 	Type ResourceType
+}
+
+type ResourceDetails struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	ExternalID  *string
+	CreatedAt   time.Time
+	UpdatedAt   *time.Time
 }

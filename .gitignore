@@ -13,3 +13,5 @@ coverage.tmp
 agent/tasks/
 
 codereview-feature-infra.md
+
+tmp/

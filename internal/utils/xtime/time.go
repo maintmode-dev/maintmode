@@ -6,16 +6,20 @@ func UTCNow() time.Time {
 	return time.Now().UTC()
 }
 
-func StartOfTheDay() time.Time {
+func StartOfTheCurrentDay() time.Time {
 	now := UTCNow()
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return StartOfTheDay(now)
 }
 
-func EndOfTheDay() time.Time {
+func EndOfTheCurrentDay() time.Time {
 	now := UTCNow()
-	return time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999, time.UTC)
+	return EndOfTheDay(now)
 }
 
-func InUTC(t time.Time) time.Time {
-	return t.In(time.UTC)
+func EndOfTheDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999, time.UTC)
+}
+
+func StartOfTheDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }

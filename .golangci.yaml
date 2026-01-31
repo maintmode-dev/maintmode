@@ -48,7 +48,6 @@ linters:
     # Additional quality linters
     - revive         # Fast, configurable linter - replacement for golint
     - misspell       # Finds commonly misspelled English words
-    - godot          # Check if comments end in a period
     - whitespace     # Detect leading/trailing whitespace
 
     # Bug detection
@@ -75,6 +74,7 @@ linters:
     - unparam        # Report unused function parameters
     - wastedassign   # Find wasted assignments
     - usestdlibvars  # Detect possibility to use standard library variables/constants
+    - depguard
 
     # Testing
     - thelper        # Detect test helpers without t.Helper()
@@ -181,6 +181,66 @@ linters:
 
     unparam:
       check-exported: false
+
+    depguard:
+      rules:
+        internal/app:
+          # Defines package matching behavior. Available modes:
+          # - `original`: allowed if it doesn't match the deny list and either matches the allow list or the allow list is empty.
+          # - `strict`: allowed only if it matches the allow list and either doesn't match the deny list or the allow rule is more specific (longer) than the deny rule.
+          # - `lax`: allowed if it doesn't match the deny list or the allow rule is more specific (longer) than the deny rule.
+          # Default: "original"
+          list-mode: original
+          # List of file globs that will match this list of settings to compare against.
+          # By default, if a path is relative, it is relative to the directory where the golangci-lint command is executed.
+          # The placeholder '${base-path}' is substituted with a path relative to the mode defined with `run.relative-path-mode`.
+          # The placeholder '${config-path}' is substituted with a path relative to the configuration file.
+          # Default: $all
+          files:
+            - "!**/cmd/**/*.go"
+            - "!**/internal/app/**/*.go"
+            - "!**/internal/server/*.go"
+          # List of allowed packages.
+          # Entries can be a variable (starting with $), a string prefix, or an exact match (if ending with $).
+          # Default: []
+          allow: []
+          # List of packages that are not allowed.
+          # Entries can be a variable (starting with $), a string prefix, or an exact match (if ending with $).
+          # Default: []
+          deny:
+            - pkg: github.com/ruko1202/maintmode/internal/app/
+              desc: "app package is not allowed"
+        public-api:
+          list-mode: lax
+          files:
+            - "**/internal/app/api/public/*.go"
+          allow:
+            - github.com/ruko1202/maintmode/internal/app/api/apierrors
+            - github.com/ruko1202/maintmode/internal/app/api/public
+          deny:
+            - pkg: github.com/ruko1202/maintmode/internal/app/api
+              desc: "api package is not allowed"
+        infra-api:
+          list-mode: lax
+          files:
+            - "**/internal/app/api/infra/*.go"
+          allow:
+            - github.com/ruko1202/maintmode/internal/app/api/apierrors
+            - github.com/ruko1202/maintmode/internal/app/api/infra
+          deny:
+            - pkg: github.com/ruko1202/maintmode/internal/app/api
+              desc: "api package is not allowed"
+        ui-api:
+          list-mode: lax
+          files:
+            - "**/internal/app/api/infra/*.go"
+          allow:
+            - github.com/ruko1202/maintmode/internal/app/api/apierrors
+            - github.com/ruko1202/maintmode/internal/app/api/ui
+          deny:
+            - pkg: github.com/ruko1202/maintmode/internal/app/api
+              desc: "api package is not allowed"
+
 
   exclusions:
     rules:

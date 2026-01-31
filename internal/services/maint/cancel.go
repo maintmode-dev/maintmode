@@ -16,6 +16,10 @@ func (s *Service) Cancel(ctx context.Context, cmd *entity.CancelMaintenanceCmd) 
 	ctx = xlog.WithOperation(ctx, "service.Maint.Cancel")
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
+		if maint.Status == entity.MaintenanceStatusCancelled {
+			return nil
+		}
+
 		if !entity.CanTransition(maint.Status, entity.MaintenanceStatusCancelled) {
 			return apperr.ForbiddenStatusTransition(maint.Status)
 		}

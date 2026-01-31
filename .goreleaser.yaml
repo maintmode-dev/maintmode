@@ -36,6 +36,27 @@ builds:
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.arch={{.Arch}}
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.buildTime={{.Date}}
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.shaCommit={{.FullCommit}}
+  - id: dev
+    env:
+      - GOAMD64=""
+      - CGO_ENABLED=0
+    no_unique_dist_dir: true
+    main: ./cmd/maintmode
+    binary: "dev_{{ .ProjectName }}_{{ .Target }}"
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.version={{.Version}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.os={{.Os}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.arch={{.Arch}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.buildTime={{.Date}}
+      - -X github.com/ruko1202/maintmode/internal/config/buildmeta.shaCommit={{.FullCommit}}
+    gcflags:
+      - all=-N -l
 
 
 archives:

@@ -1,0 +1,100 @@
+package apimodels
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type MaintenanceScope string
+
+const (
+	MaintenanceScopeGlobal    MaintenanceScope = "global"
+	MaintenanceScopeResources MaintenanceScope = "resource"
+)
+
+type MaintenanceImpact string
+
+const (
+	MaintenanceImpactNone    MaintenanceImpact = "none"
+	MaintenanceImpactPartial MaintenanceImpact = "partial_outage"
+	MaintenanceImpactFull    MaintenanceImpact = "full_outage"
+)
+
+type MaintenanceCancelReason string
+
+const (
+	MaintenanceCancelReasonConflict         MaintenanceCancelReason = "conflict"
+	MaintenanceCancelReasonIncident         MaintenanceCancelReason = "incident"
+	MaintenanceCancelReasonBusinessDecision MaintenanceCancelReason = "business_decision"
+	MaintenanceCancelReasonRescheduled      MaintenanceCancelReason = "rescheduled"
+	MaintenanceCancelReasonMistake          MaintenanceCancelReason = "mistake"
+)
+
+type Maintenance struct {
+	ID                  uuid.UUID               `json:"id" format:"uuid"`
+	Title               string                  `json:"title"`
+	Description         string                  `json:"description"`
+	PlannedPeriod       Period                  `json:"planned_period"`
+	ActualPeriod        *Period                 `json:"actual_period"`
+	Resources           []*Resource             `json:"resources"`
+	Scope               MaintenanceScope        `json:"scope"`
+	Impact              MaintenanceImpact       `json:"impact"`
+	Status              string                  `json:"status"`
+	CancelReason        MaintenanceCancelReason `json:"cancel_reason"`
+	CancelReasonComment string                  `json:"cancel_reason_comment"`
+	CreatedAt           time.Time               `json:"created_at" format:"date-time"`
+	UpdatedAt           *time.Time              `json:"updated_at" format:"date-time"`
+}
+
+type CreateDraftMaintRequest struct {
+	Title         string            `json:"title" example:"DB migration"`
+	Description   string            `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedPeriod Period            `json:"planned_period"`
+	Scope         MaintenanceScope  `json:"scope"`
+	Impact        MaintenanceImpact `json:"impact"`
+	Resources     []*Resource       `json:"resources"`
+}
+
+type CreateDraftMaintResponse struct {
+	ID            uuid.UUID   `json:"id" format:"uuid"`
+	Title         string      `json:"title"`
+	Description   string      `json:"description"`
+	PlannedPeriod Period      `json:"planned_period"`
+	Resources     []*Resource `json:"resources"`
+	Scope         string      `json:"scope"`
+	Impact        string      `json:"impact"`
+	Status        string      `json:"status"`
+	CreatedAt     time.Time   `json:"created_at" format:"date-time"`
+}
+
+type UpdateDraftMaintRequest struct {
+	Title         string            `json:"title" example:"DB migration"`
+	Description   string            `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedPeriod Period            `json:"planned_period"`
+	Scope         MaintenanceScope  `json:"scope"`
+	Impact        MaintenanceImpact `json:"impact"`
+	Resources     []*Resource       `json:"resources"`
+}
+
+type CancelMaintRequest struct {
+	Reason  MaintenanceCancelReason `json:"reason"`
+	Comment string                  `json:"comment"`
+}
+
+type Conflict struct {
+	MaintenanceID uuid.UUID        `json:"maintenance_id" format:"uuid"`
+	OverlapStart  time.Time        `json:"overlap_start" format:"date-time"`
+	OverlapEnd    time.Time        `json:"overlap_end" format:"date-time"`
+	Scope         MaintenanceScope `json:"scope"`
+	Resources     []*Resource      `json:"resources"`
+}
+
+type ConflictSnapshot struct {
+	Conflicts []*Conflict `json:"conflicts"`
+}
+
+type ApproveDraftMaintRequest struct {
+	ObservedMaintRevision int64            `json:"observed_maint_revision"`
+	ConflictSnapshot      ConflictSnapshot `json:"conflict_snapshot"`
+}

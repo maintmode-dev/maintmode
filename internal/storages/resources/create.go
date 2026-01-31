@@ -5,16 +5,13 @@ import (
 
 	"github.com/ruko1202/xlog"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	"github.com/ruko1202/maintmode/internal/entity"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
 )
 
-func (s *Store) Create(ctx context.Context, resource *model.Resources) error {
+func (s *Store) Create(ctx context.Context, resource *entity.ResourceDetails) error {
 	ctx = xlog.WithOperation(ctx, "store.Resources.Create")
-
-	resource.ID = xuuid.New()
 
 	stmt := table.Resources.
 		INSERT(table.Resources.AllColumns).

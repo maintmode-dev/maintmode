@@ -75,9 +75,9 @@ func validatePlanedPeriod(_ context.Context, value any) error {
 
 	switch v := value.(type) {
 	case *entity.Period:
-		start, end = lo.FromPtr(v.Start), lo.FromPtr(v.End)
+		start, end = v.Start, lo.FromPtr(v.End)
 	case entity.Period:
-		start, end = lo.FromPtr(v.Start), lo.FromPtr(v.End)
+		start, end = v.Start, lo.FromPtr(v.End)
 	default:
 		return fmt.Errorf("invalid period type: %T", v)
 	}
