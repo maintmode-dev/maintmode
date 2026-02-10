@@ -1,10 +1,6 @@
-# Global settings
 [general]
-host = "0.0.0.0"    # Listen on all interfaces
-port = 6432         # Port for client connections
-virtual_pool_count = 1
-tokio_global_queue_interval = 5
-tokio_event_interval = 1
+host = "0.0.0.0"
+port = 6432
 connect_timeout = 3000
 query_wait_timeout = 5000
 idle_timeout = 300000000
@@ -17,34 +13,33 @@ unix_socket_buffer_size = 1048576
 log_client_connections = true
 log_client_disconnections = true
 shutdown_timeout = 10000
-message_size_to_be_stream = 1048576
+message_size_to_be_steam = 1048576
 max_memory_usage = 268435456
 max_connections = 8192
+max_concurrent_creates = 4
 server_lifetime = 300000
+retain_connections_time = 60000
 server_round_robin = false
 sync_server_parameters = false
 worker_threads = 4
 proxy_copy_data_timeout = 15000
 worker_cpu_affinity_pinning = false
-worker_stack_size = 8388608
 backlog = 0
 pooler_check_query = ";"
 tls_rate_limit_per_second = 0
 server_tls = false
 verify_server_certificate = false
-# Admin credentials for the management console
 admin_username = "admin"
-admin_password = "admin"  # Change this in production!
+admin_password = "admin"
 prepared_statements = true
 prepared_statements_cache_size = 8192
+client_prepared_statements_cache_size = 0
 daemon_pid_file = "/tmp/pg_doorman.pid"
 
 [prometheus]
 host = "0.0.0.0"
 port = 9127
-enabled = false
-
-[pools]
+enabled = true
 
 [pools.maintmode]
 pool_mode = "Transaction"
@@ -54,7 +49,9 @@ server_host = "postgres"
 server_port = 5432
 server_database = "maintmode"
 
-[pools.maintmode.users.postgres]
+[[pools.maintmode.users]]
 username = "postgres"
-password = "SCRAM-SHA-256$4096:TDS6UCnUc0NSZTEeyJw/6g==$aQ9+Li++ebX7HCeMloqoxsbfZxV+EYgdGBUEHEA0TuQ=:dyu2pvanT/QBy5fDpFtmEwNTC+/Jy/qnI80Yaq0z+zk="
+password = "md53175bce1d3201d16594cebf9d7eb3f9d"
+server_username = "postgres"
+server_password = "postgres"
 pool_size = 40

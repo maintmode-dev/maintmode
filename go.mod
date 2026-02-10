@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgtype v1.14.4
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/labstack/echo-contrib v0.17.4
+	github.com/labstack/echo-contrib v0.18.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.28

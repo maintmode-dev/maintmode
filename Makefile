@@ -90,12 +90,13 @@ swag:
       	--parseDependency
 
 .PHONY: build
+build: args=--id main --output=$(GOBIN)/maintmode
 build:
-	$(GOBIN)/goreleaser build --snapshot --single-target --clean --output=$(GOBIN)/maintmode
+	$(GOBIN)/goreleaser build  --snapshot --single-target --clean ${args}
 
 .PHONY: build-dev
 build-dev: swag
-	$(GOBIN)/goreleaser build --id dev --snapshot --single-target --clean --output=$(GOBIN)/dev-maintmode
+	make build args="--id dev --output=$(GOBIN)/dev-maintmode"
 
 
 # -------------------------------------
@@ -243,7 +244,7 @@ db-models: ## Generate models
 .PHONY: docker-up
 docker-up: ## Start all databases with Docker Compose
 	$(info $(M) starting databases with Docker Compose...)
-	docker compose up -d
+	docker-compose up -d
 	make docker-ps
 
 # docker-down - Stop and remove all database containers
@@ -253,7 +254,7 @@ docker-up: ## Start all databases with Docker Compose
 .PHONY: docker-down
 docker-down: ## Stop and remove all database containers with volumes
 	$(info $(M) stopping all database containers and removing volumes...)
-	docker compose down -v
+	docker-compose down -v --remove-orphans
 	make docker-ps
 
 # docker-logs - Stream logs from all database containers
@@ -262,7 +263,7 @@ docker-down: ## Stop and remove all database containers with volumes
 # Useful for debugging connection issues or monitoring queries
 .PHONY: docker-logs
 docker-logs: ## Show logs from all database containers
-	docker compose logs -f
+	docker-compose logs -f
 
 # docker-ps - Show status of database containers
 # Displays:
@@ -272,4 +273,62 @@ docker-logs: ## Show logs from all database containers
 # Useful for verifying that databases are ready to accept connections
 .PHONY: docker-ps
 docker-ps: ## Show status of database containers
-	docker compose ps -a
+	docker-compose ps -a
+
+# -------------------------------------
+# Docker Compose Commands with App
+# -------------------------------------
+# Commands for managing full application stack via Docker Compose
+# Uses compose.app.yaml in project root
+#
+# Services defined:
+#   - postgres: PostgreSQL 18 on port 5432
+#   - redis: Redis 8 on port 6379
+#   - pg_doorman: PostgreSQL connection pooler on port 6432
+#   - apply-migrations: Database migration runner
+#   - maintmode: Main application on port 8080
+
+# app-up - Start all services including maintmode application
+# Starts PostgreSQL, Redis, pg_doorman, apply-migrations, and maintmode
+# Creates containers, networks, and volumes if they don't exist
+# Safe to run multiple times (idempotent)
+.PHONY: app-up
+app-up: args=
+app-up: ## Start all services with maintmode using Docker Compose
+	$(info $(M) starting all services with maintmode...)
+	docker-compose -f compose.yaml -f compose.app.yaml up -d ${args}
+	make app-ps
+
+# app-down - Stop and remove all containers
+# Stops all containers and removes them
+# WARNING: This will remove all containers but keeps volumes
+# Use this when you want to stop services but preserve data
+.PHONY: app-down
+app-down: ## Stop and remove all containers
+	$(info $(M) stopping all containers...)
+	docker-compose -f compose.yaml -f compose.app.yaml down -v --remove-orphans
+	make app-ps
+
+.PHONY: app-reup
+app-reup: ## Stop and start all containers
+	make app-down
+# 	make app-up args="--build"
+	make app-up
+
+# app-logs - Stream logs from maintmode container
+# Shows continuous log output from maintmode service
+# Press Ctrl+C to stop following logs
+# Useful for debugging application issues
+.PHONY: app-logs
+app-logs: ## Show logs from maintmode container
+	docker-compose -f compose.yaml -f compose.app.yaml logs -f maintmode
+
+# app-ps - Show status of all containers
+# Displays:
+#   - Container name and status (running/stopped)
+#   - Ports mapping
+#   - Health check status
+# Useful for verifying that all services are running
+.PHONY: app-ps
+app-ps: ## Show status of all containers
+	docker-compose -f compose.yaml -f compose.app.yaml ps -a

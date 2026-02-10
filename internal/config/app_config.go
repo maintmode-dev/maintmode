@@ -48,19 +48,22 @@ func initConfig() *AppConfig {
 	viper.SetDefault("DB_MAX_IDLE_CONNS", 5)
 	viper.SetDefault("DB_CONNECTION_MAX_IDLE_TIME", "5m")
 	viper.SetDefault("DB_CONNECTIONS_MAX_LIFETIME", "1m")
+	viper.SetDefault("APP_HOST", "0.0.0.0")
+	viper.SetDefault("APP_PUBLIC_API_PORT", "8000")
+	viper.SetDefault("APP_INFRA_API_PORT", "8001")
 	viper.AutomaticEnv()
 
 	return &AppConfig{
 		Environment: Environment(viper.GetString("ENVIRONMENT")),
 		APIServer: HTTPServer{
 			Name: "api",
-			Host: "localhost",
-			Port: 8000,
+			Host: viper.GetString("APP_HOST"),
+			Port: viper.GetInt("APP_PUBLIC_API_PORT"),
 		},
 		InfraServer: HTTPServer{
 			Name: "status",
-			Host: "localhost",
-			Port: 8001,
+			Host: viper.GetString("APP_HOST"),
+			Port: viper.GetInt("APP_INFRA_API_PORT"),
 		},
 		DB: DB{
 			DSN:             viper.GetString("DB_DSN"),

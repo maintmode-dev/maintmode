@@ -1,0 +1,48 @@
+services:
+
+  # PostgreSQL connection pooler
+  pg_doorman:
+    image: ghcr.io/ozontech/pg_doorman:latest
+    container_name: pg_doorman
+    restart: unless-stopped
+    command: ["pg_doorman", "-l", "info", "/etc/pg_doorman/pg_doorman.toml"]
+    ports:
+      - "6432:6432"
+      - "9127:9127"
+    volumes:
+      - ./config/pg_doorman.toml:/etc/pg_doorman/pg_doorman.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Основное приложение maintmode
+  maintmode:
+    build:
+      context: .
+      dockerfile: ./.build/Dockerfile
+    container_name: maintmode
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      ENVIRONMENT: dev
+      DB_DSN: postgres://postgres:postgres@pg_doorman:6432/maintmode?sslmode=disable
+      DB_DRIVER: postgres
+      DB_MAX_OPEN_CONNS: 50
+      DB_MAX_IDLE_CONNS: 20
+      DB_CONNECTIONS_MAX_LIFETIME: 10m
+      DB_CONNECTION_MAX_IDLE_TIME: 5m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg_doorman:
+        condition: service_started
+      apply-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

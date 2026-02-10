@@ -1,28 +1,36 @@
 # --- Stage 0: base ---
 FROM golang:1.25-alpine AS base
-WORKDIR /app
 ARG GOBIN=/app/bin
+WORKDIR /app
 RUN apk add --no-cache make git
 
 COPY Makefile ./
+RUN ENVIRONMENT=production > .env.local
 RUN make bin-deps-build
-
 
 # --- Stage 1: build backend (Go) ---
 FROM base AS builder
+ARG GOBIN=/app/bin
+WORKDIR /app
 
 COPY .goreleaser.yaml ./
-COPY go.mod go.sum ./
 
+COPY Makefile ./
+COPY docs.go ./
+COPY web/ web/
 COPY cmd/ cmd/
 COPY internal/ internal/
+COPY docs/ docs/
+COPY test/ test/
+COPY go.mod go.sum ./
 
-RUN make build
+RUN make deps
+RUN make build args="--id main --output=/app/bin/maintmode"
 
 
 # --- Stage 2: production image ---
 FROM alpine:latest
-WORKDIR /root/
+WORKDIR /app/
 
 RUN apk --no-cache add ca-certificates
 

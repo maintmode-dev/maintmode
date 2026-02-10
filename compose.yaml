@@ -34,26 +34,11 @@ services:
       retries: 5
       start_period: 5s
 
-  pg_doorman:
-    image: ghcr.io/ozontech/pg_doorman
-    container_name: pg_doorman
-    restart: unless-stopped
-    ports:
-      - "6432:6432"
-    command: /usr/bin/pg_doorman -l info /etc/pg_doorman/pg_doorman.toml
-    volumes:
-      - ./pg_doorman.toml:/etc/pg_doorman/pg_doorman.toml
-    tty: true
-    stdin_open: true
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   apply-migrations:
     image: kukymbr/goose-docker:3.26.0
     container_name: apply-migrations
     environment:
-      GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable'
+      GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/maintmode?sslmode=disable'
       GOOSE_DRIVER: postgres
     volumes:
       - ./migrations:/migrations:ro
@@ -68,3 +53,4 @@ volumes:
 networks:
   theapp:
     driver: bridge
+    name: theapp
