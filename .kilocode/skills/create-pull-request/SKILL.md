@@ -108,41 +108,13 @@ If any critical information is missing, use `ask_followup_question` to ask the u
 If the issue number is not found:
 > I couldn't find a related issue number in the commit messages or branch name. What GitHub issue does this PR address? (Enter the issue number, e.g., "123" or "N/A" for small fixes)
 
-## Git Best Practices
+## Detailed References
 
-Before creating the PR, consider these best practices:
+### [Git Best Practices](references/git-best-practices.md)
 
-### Commit Hygiene
+Complete guide to commit hygiene, branch management, rebasing, and preparing clean PRs.
 
-1. **Atomic commits**: Each commit should represent a single logical change
-2. **Clear commit messages**: Follow conventional commit format when possible
-3. **No merge commits**: Prefer rebasing over merging to keep history clean
-
-### Branch Management
-
-1. **Rebase on latest main** (if needed):
-   ```bash
-   git fetch origin
-   git rebase origin/main
-   ```
-
-2. **Squash if appropriate**: If there are many small "WIP" commits, consider interactive rebase:
-   ```bash
-   git rebase -i origin/main
-   ```
-   Only suggest this if commits appear messy and the user is comfortable with rebasing.
-
-### Push Changes
-
-Ensure all commits are pushed:
-```bash
-git push origin HEAD
-```
-
-If the branch was rebased, you may need:
-```bash
-git push origin HEAD --force-with-lease
-```
+**When to read:** When cleaning up commits before PR, resolving merge conflicts, or learning about proper Git workflow.
 
 ## Create the Pull Request
 
@@ -175,22 +147,11 @@ After creating the PR:
    - Add reviewers if needed: `gh pr edit --add-reviewer USERNAME`
    - Add labels if needed: `gh pr edit --add-label "bug"`
 
-## Error Handling
+### [Troubleshooting](references/troubleshooting.md)
 
-### Common Issues
+Common issues and solutions for PR creation including authentication errors, merge conflicts, push failures, and CI check problems.
 
-1. **No commits ahead of main**: The branch has no changes to submit
-   - Ask if the user meant to work on a different branch
-
-2. **Branch not pushed**: Remote doesn't have the branch
-   - Push the branch first: `git push -u origin HEAD`
-
-3. **PR already exists**: A PR for this branch already exists
-   - Show the existing PR: `gh pr view`
-   - Ask if they want to update it instead
-
-4. **Merge conflicts**: Branch conflicts with base
-   - Guide user through resolving conflicts or rebasing
+**When to read:** When encountering errors during PR creation or when gh CLI commands fail.
 
 ## Summary Checklist
 

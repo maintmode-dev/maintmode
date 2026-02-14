@@ -1,6 +1,6 @@
 ---
 name: goose-migrations
-description: Миграции БД через goose (create, up, down, status, versioning). Используй этот скилл, когда нужно управлять миграциями базы данных с помощью goose, создавать новые миграции, применять или откатывать изменения.
+description: Database migrations management using goose for creating, applying (up), rolling back (down), and versioning database schema changes. Use when managing database migrations with goose, creating new migration files, applying or rolling back changes, checking migration status, integrating with Makefile and Docker Compose, or setting up migration workflows.
 license: MIT
 metadata:
   category: development
@@ -9,31 +9,19 @@ metadata:
     path: goose-migrations
 ---
 
-# Миграции БД через Goose
+# Database Migrations with Goose
 
-## Описание
-Этот скилл предоставляет руководство по управлению миграциями базы данных с помощью goose - инструмента для миграций на Go. Включает создание миграций, применение (up), откат (down), проверку статуса и версионирование.
+## Installing Goose
 
-## Когда использовать
-Используй этот скилл, когда нужно:
-- Создавать новые миграции базы данных
-- Применять миграции (up)
-- Откатывать миграции (down)
-- Проверять статус миграций
-- Интегрировать миграции с Makefile
-- Настраивать goose в docker-compose
-
-## Установка goose
-
-### Установка через Go
+### Install via Go
 
 ```bash
 go install github.com/pressly/goose/v3/cmd/goose@v3.26.0
 ```
 
-### Установка через Makefile
+### Install via Makefile
 
-Добавьте в `Makefile`:
+Add to `Makefile`:
 
 ```makefile
 GOBIN ?= $(PWD)/bin
@@ -43,9 +31,9 @@ bin-deps:
 	GOBIN=$(GOBIN) go install github.com/pressly/goose/v3/cmd/goose@v3.26.0
 ```
 
-## Структура миграций
+## Migration Structure
 
-### Директория миграций
+### Migrations Directory
 
 ```
 migrations/
@@ -54,21 +42,21 @@ migrations/
 └── 20260107100500_resources.sql
 ```
 
-### Формат имени файла
+### File Name Format
 
-Формат: `YYYYMMDDHHMMSS_<name>.sql`
+Format: `YYYYMMDDHHMMSS_<name>.sql`
 
-Пример: `20260105172956_maintenances.sql`
+Example: `20260105172956_maintenances.sql`
 
-## Создание миграций
+## Creating Migrations
 
-### Создание новой миграции
+### Create New Migration
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" create "add_users_table" sql
 ```
 
-### Через Makefile
+### Via Makefile
 
 ```makefile
 MIGRATIONS_DIR ?= migrations
@@ -82,15 +70,15 @@ db-migrate-create: ## Create new migration
 	$(GOBIN)/goose -dir $(MIGRATIONS_DIR) $(DB_DRIVER) "$(DB_DSN)" create "${name}" sql
 ```
 
-Использование:
+Usage:
 
 ```bash
 make db-migrate-create name="add_users_table"
 ```
 
-## Структура файла миграции
+## Migration File Structure
 
-### Базовый шаблон
+### Basic Template
 
 ```sql
 -- +goose Up
@@ -109,7 +97,7 @@ DROP TABLE users;
 -- +goose StatementEnd
 ```
 
-### Пример с индексами
+### Example with Indexes
 
 ```sql
 -- +goose Up
@@ -140,7 +128,7 @@ DROP TABLE maintenances;
 -- +goose StatementEnd
 ```
 
-### Пример с внешними ключами
+### Example with Foreign Keys
 
 ```sql
 -- +goose Up
@@ -163,15 +151,15 @@ DROP TABLE maintenance_resources;
 -- +goose StatementEnd
 ```
 
-## Применение миграций
+## Applying Migrations
 
-### Применение всех миграций (up)
+### Apply All Migrations (up)
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" up
 ```
 
-### Через Makefile
+### Via Makefile
 
 ```makefile
 .PHONY: db-up
@@ -181,21 +169,21 @@ db-up: ## Apply migrations
 	$(MAKE) db-status
 ```
 
-### Применение конкретной миграции
+### Apply Specific Migration
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" up 20260105172956
 ```
 
-## Откат миграций
+## Rolling Back Migrations
 
-### Откат одной миграции (down)
+### Rollback One Migration (down)
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" down
 ```
 
-### Через Makefile
+### Via Makefile
 
 ```makefile
 .PHONY: db-down
@@ -205,21 +193,21 @@ db-down: ## Rollback migrations
 	$(MAKE) db-status
 ```
 
-### Откат до конкретной версии
+### Rollback to Specific Version
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" down 20260105172956
 ```
 
-## Статус миграций
+## Migration Status
 
-### Проверка статуса
+### Check Status
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" status
 ```
 
-### Через Makefile
+### Via Makefile
 
 ```makefile
 .PHONY: db-status
@@ -228,7 +216,7 @@ db-status: ## Check migrations status
 	$(GOBIN)/goose -dir $(MIGRATIONS_DIR) $(DB_DRIVER) "$(DB_DSN)" status
 ```
 
-Пример вывода:
+Example output:
 
 ```
 20260105172956_maintenances.sql         2025-01-05 17:29:56 +0000 UTC
@@ -236,11 +224,11 @@ db-status: ## Check migrations status
 20260107100500_resources.sql            2025-01-07 10:05:00 +0000 UTC
 ```
 
-## Версионирование миграций
+## Migration Versioning
 
-### Таблица goose_db_version
+### goose_db_version Table
 
-Goose автоматически создаёт таблицу для отслеживания применённых миграций:
+Goose automatically creates a table to track applied migrations:
 
 ```sql
 CREATE TABLE goose_db_version (
@@ -251,69 +239,19 @@ CREATE TABLE goose_db_version (
 );
 ```
 
-### Ручная проверка версии
+### Manual Version Check
 
 ```sql
 SELECT * FROM goose_db_version ORDER BY id DESC LIMIT 1;
 ```
 
-## Интеграция с Docker Compose
+## Docker Integration
 
-### Сервис для применения миграций
+For detailed Docker Compose setup, see [Docker Integration](references/docker-integration.md).
 
-```yaml
-services:
-  postgres:
-    image: postgres:18-alpine
-    container_name: postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: maintmode
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+**When to read:** When setting up migrations in Docker Compose, running migrations in containers, or integrating migrations with application startup.
 
-  apply-migrations:
-    image: kukymbr/goose-docker:3.26.0
-    container_name: apply-migrations
-    environment:
-      GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/maintmode?sslmode=disable'
-      GOOSE_DRIVER: postgres
-    volumes:
-      - ./migrations:/migrations:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-volumes:
-  db_data:
-```
-
-### Применение миграций при запуске
-
-```yaml
-apply-migrations:
-    image: kukymbr/goose-docker:3.26.0
-    container_name: apply-migrations
-    environment:
-      GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/maintmode?sslmode=disable'
-      GOOSE_DRIVER: postgres
-    volumes:
-      - ./migrations:/migrations:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-```
-
-## Полный Makefile для миграций
+## Complete Makefile for Migrations
 
 ```makefile
 # Database Configuration
@@ -353,38 +291,38 @@ db-down: ## Rollback migrations
 	$(MAKE) db-status
 ```
 
-## Лучшие практики
+## Best Practices
 
-1. **Используйте описательные имена миграций** - например, `add_users_table`, `create_maintenances_index`
-2. **Всегда пишите и up, и down миграции** - для возможности отката
-3. **Используйте транзакции** - goose поддерживает транзакции для атомарных миграций
-4. **Не изменяйте существующие миграции** - создайте новую миграцию для изменений
-5. **Проверяйте статус перед применением** - используйте `db-status` для проверки текущего состояния
-6. **Тестируйте миграции** - проверяйте up/down на тестовой базе данных
-7. **Используйте индексы** - добавляйте индексы в up миграции, удаляйте в down
-8. **Следите за зависимостями** - учитывайте внешние ключи при создании миграций
+1. **Use descriptive migration names** - e.g., `add_users_table`, `create_maintenances_index`
+2. **Always write both up and down migrations** - for rollback capability
+3. **Use transactions** - goose supports transactions for atomic migrations
+4. **Don't modify existing migrations** - create a new migration for changes
+5. **Check status before applying** - use `db-status` to check current state
+6. **Test migrations** - verify up/down on test database
+7. **Use indexes** - add indexes in up migrations, remove in down
+8. **Track dependencies** - consider foreign keys when creating migrations
 
-## Полезные команды
+## Useful Commands
 
-### Применение миграции с выводом SQL
+### Apply Migration with SQL Output
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" up --verbose
 ```
 
-### Проверка версии goose
+### Check Goose Version
 
 ```bash
 goose -version
 ```
 
-### Применение миграции с dry-run
+### Apply Migration with Dry-Run
 
 ```bash
 goose -dir migrations postgres "postgres://user:pass@localhost/db" up --dryrun
 ```
 
-## Ресурсы
+## Resources
 
 - [Goose Documentation](https://github.com/pressly/goose)
 - [Goose CLI Reference](https://github.com/pressly/goose#usage)
