@@ -13,7 +13,7 @@ unix_socket_buffer_size = 1048576
 log_client_connections = true
 log_client_disconnections = true
 shutdown_timeout = 10000
-message_size_to_be_steam = 1048576
+message_size_to_be_stream = 1048576
 max_memory_usage = 268435456
 max_connections = 8192
 max_concurrent_creates = 4
@@ -49,9 +49,9 @@ server_host = "postgres"
 server_port = 5432
 server_database = "maintmode"
 
-[[pools.maintmode.users]]
+[pools.maintmode.users.postgres]
 username = "postgres"
-password = "md53175bce1d3201d16594cebf9d7eb3f9d"
+password = "SCRAM-SHA-256$4096:bNSQCT2uQ/GB1ephKgakRg==$4AWPZ0m+4lC9KjGg8VAQdT3/UcC/TMCTQJFXUGCdsMU=:X81IrLtCsSKS6rk8zH8ZgLp6ikkOpzl3XKEgks5YOrA="
 server_username = "postgres"
 server_password = "postgres"
 pool_size = 40

@@ -111,7 +111,6 @@ build-dev: swag
 .PHONY: tloc
 tloc:
 	go test -p 2 -count 2 ./...
-	#cd ./test/via_pkg/ && go test -p 2 -count 2 ./...
 
 # test-cov - Run tests with coverage analysis
 # Generates coverage report excluding mock files
@@ -139,10 +138,11 @@ test-cov:
 # lint - Run comprehensive linter checks
 # Uses golangci-lint with configuration from .golangci.yml
 # Checks for code quality, style, bugs, and best practices
+# Includes files with 'api' build tag (test/api directory)
 .PHONY: lint
 lint:
 	$(info $(M) running linter...)
-	@$(GOBIN)/golangci-lint run
+	@$(GOBIN)/golangci-lint run --build-tags=api
 
 # fmt - Format code and organize imports
 # Uses gofmt for code formatting and goimports for import organization
@@ -332,3 +332,40 @@ app-logs: ## Show logs from maintmode container
 .PHONY: app-ps
 app-ps: ## Show status of all containers
 	docker-compose -f compose.yaml -f compose.app.yaml ps -a
+
+# -------------------------------------
+# API Integration Tests
+# -------------------------------------
+# Commands for running API integration tests with generated client
+# Uses test/api/docker-compose.test.yaml for isolated test environment
+#
+# Services defined:
+#   - postgres-test: PostgreSQL 18 on port 5433
+#   - apply-migrations-test: Database migration runner
+#   - maintmode-test: API service on port 8080
+#
+# Test client is generated from Swagger specification using go-swagger
+
+# test-client-gen - Generate API client from Swagger specification
+# Uses go-swagger to generate type-safe REST client
+# Generated files are placed in test/api/client/ directory
+# Run this after updating docs/swagger.yaml
+.PHONY: test-client-gen
+test-client-gen: ## Generate API test client from Swagger spec
+	$(info $(M) generating API test client from Swagger spec...)
+	@GOBIN=$(GOBIN) go install github.com/go-swagger/go-swagger/cmd/swagger@latest
+	@cd test/api && $(GOBIN)/swagger generate client -f ../../docs/swagger.yaml -t ./client -A maintmode
+	@echo "API client generated successfully in test/api/client/"
+
+# test-api - Run API integration tests
+# Executes tests in test/api/ directory with api build tag
+# Tests use generated swagger client to test API endpoints
+# Environment variables:
+#   TEST_API_HOST: API host (default: localhost)
+#   TEST_API_PORT: API port (default: 8080)
+#   TEST_HEALTH_CHECK: Enable health check before tests (default: false)
+.PHONY: test-api
+test-api: ## Run API integration tests
+	$(info $(M) running API integration tests...)
+	@go test -tags=api -v -count=1 ./test/api/...
+
