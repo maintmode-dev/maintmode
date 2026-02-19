@@ -18,6 +18,22 @@ services:
       timeout: 5s
       retries: 5
 
+
+  # PostgreSQL connection pooler
+  pg_doorman:
+    image: ghcr.io/ozontech/pg_doorman:v3.1.8
+    container_name: pg_doorman
+    restart: unless-stopped
+    command: ["pg_doorman", "-l", "info", "/etc/pg_doorman/pg_doorman.toml"]
+    ports:
+      - "6432:6432"
+      - "9127:9127"
+    volumes:
+      - ./config/pg_doorman.toml:/etc/pg_doorman/pg_doorman.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:8-alpine
     container_name: redis

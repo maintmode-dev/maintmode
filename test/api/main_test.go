@@ -38,8 +38,8 @@ const (
 
 	// Health check configuration
 	healthCheckURL      = "http://localhost:8001/readiness"
-	healthCheckTimeout  = 2 * time.Minute
-	healthCheckInterval = 2 * time.Second
+	healthCheckTimeout  = 10 * time.Second
+	healthCheckInterval = 100 * time.Millisecond
 
 	// Test maintenance timing constants
 	testMaintenanceStartOffset = 24 * time.Hour
@@ -87,6 +87,7 @@ func waitForAPIHealth(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("API did not become healthy within %v", healthCheckTimeout)
 		case <-ticker.C:
+			xlog.Info(ctx, "Ping service", zap.String("url", healthCheckURL))
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthCheckURL, http.NoBody)
 			if err != nil {
 				xlog.Info(ctx, "Failed to create health check request", zap.Error(err))
@@ -212,9 +213,7 @@ func approveMaintenance(ctx context.Context, t *testing.T, apiClient *client.Mai
 
 	approveReq := &models.ApimodelsApproveDraftMaintRequest{
 		ObservedMaintRevision: revision,
-		ConflictSnapshot: &models.ApimodelsConflictSnapshot{
-			Conflicts: []*models.ApimodelsConflict{},
-		},
+		ConflictsSnapshot:     []*models.ApimodelsConflict{},
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesIDApproveParams().

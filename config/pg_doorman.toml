@@ -49,7 +49,7 @@ server_host = "postgres"
 server_port = 5432
 server_database = "maintmode"
 
-[pools.maintmode.users.postgres]
+[[pools.maintmode.users]]
 username = "postgres"
 password = "SCRAM-SHA-256$4096:bNSQCT2uQ/GB1ephKgakRg==$4AWPZ0m+4lC9KjGg8VAQdT3/UcC/TMCTQJFXUGCdsMU=:X81IrLtCsSKS6rk8zH8ZgLp6ikkOpzl3XKEgks5YOrA="
 server_username = "postgres"

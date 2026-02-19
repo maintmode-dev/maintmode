@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
@@ -49,6 +50,14 @@ func (i *Implementation) ApproveMaint(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 			apierrors.ErrInvalidRequest,
 			"cannot parse request body",
+		))
+	}
+
+	if err := validateApproveDraftMaintRequest(ctx, req); err != nil {
+		xlog.Error(ctx, "invalid request", zap.Error(err))
+		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
+			apierrors.ErrInvalidRequest,
+			err.Error(),
 		))
 	}
 
@@ -101,9 +110,39 @@ func (i *Implementation) ApproveMaint(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func validateApproveDraftMaintRequest(ctx context.Context, req *apimodels.ApproveDraftMaintRequest) error {
+	return validation.ValidateStructWithContext(ctx, req,
+		validation.Field(&req.ObservedMaintRevision, validation.Required),
+		validation.Field(&req.ConflictsSnapshot, validation.Each(validation.WithContext(validateConflicts))),
+	)
+}
+
+func validateConflicts(ctx context.Context, value any) error {
+	var conflict *apimodels.Conflict
+	switch v := value.(type) {
+	case *apimodels.Conflict:
+		conflict = v
+	case apimodels.Conflict:
+		conflict = &v
+	default:
+		return fmt.Errorf("unsupported resource type: %T", v)
+	}
+
+	return validation.ValidateStructWithContext(ctx, conflict,
+		validation.Field(&conflict.MaintenanceID, validation.Required, validation.By(uuidNotZero)),
+		validation.Field(&conflict.OverlapStart, validation.Required),
+		validation.Field(&conflict.OverlapEnd, validation.Required),
+		validation.Field(&conflict.Scope, validation.Required),
+		validation.Field(&conflict.Resources, validation.Required.
+			When(conflict.Scope == apimodels.MaintenanceScopeResources),
+			validation.Each(validation.WithContext(validateResource)),
+		),
+	)
+}
+
 func toApproveMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimodels.ApproveDraftMaintRequest) (*entity.ApproveMaintenanceCmd, error) {
-	conflictsSnapshot := make([]*entity.ConflictWithResources, 0, len(req.ConflictSnapshot.Conflicts))
-	for _, conflict := range req.ConflictSnapshot.Conflicts {
+	conflictsSnapshot := make([]*entity.ConflictWithResources, 0, len(req.ConflictsSnapshot))
+	for _, conflict := range req.ConflictsSnapshot {
 		resources, err := apimodels.FromAPIResources(conflict.Resources)
 		if err != nil {
 			xlog.Error(ctx, "unsupported resource type", zap.Error(err))

@@ -31,7 +31,9 @@ endif
 
 # Ensure GOBIN directory exists
 $(shell mkdir -p $(GOBIN))
+$(shell mkdir -p ./tmp)
 
+DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml -f compose.app.yaml
 
 # -------------------------------------
 # Default target
@@ -69,7 +71,8 @@ bin-deps: bin-deps-build
 	GOBIN=$(GOBIN) go install go.uber.org/mock/mockgen@v0.6.0 && \
 	GOBIN=$(GOBIN) go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
 	GOBIN=$(GOBIN) go install github.com/go-delve/delve/cmd/dlv@v1.26.0 && \
-	GOBIN=$(GOBIN) go install github.com/air-verse/air@v1.64.3
+	GOBIN=$(GOBIN) go install github.com/air-verse/air@v1.64.3 && \
+	GOBIN=$(GOBIN) go install github.com/go-swagger/go-swagger/cmd/swagger@v0.33.1
 
 # -------------------------------------
 # Build binary or run app
@@ -81,13 +84,6 @@ run:
 .PHONY: air
 air:
 	$(GOBIN)/air
-
-.PHONY: swag
-swag:
-	$(GOBIN)/swag init \
-		-g ./docs.go \
-      	--parseInternal \
-      	--parseDependency
 
 .PHONY: build
 build: args=--id main --output=$(GOBIN)/maintmode
@@ -131,6 +127,37 @@ test-cov:
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
 
+
+# test-api - Run API integration tests
+# Executes tests in test/api/ directory with api build tag
+# Tests use generated swagger client to test API endpoints
+# Environment variables:
+#   TEST_API_HOST: API host (default: localhost)
+#   TEST_API_PORT: API port (default: 8080)
+#   TEST_HEALTH_CHECK: Enable health check before tests (default: false)
+.PHONY: test-api
+test-api: ## Run API integration tests
+test-api: app-down
+	make app-up args="--build"
+	$(info $(M) running API integration tests...)
+	@set -e; \
+	docker-compose $(DOCKER_COMPOSE_APP_CONFIGS) logs -f maintmode > ./tmp/maintmode.log & \
+	LOG_PID=$$!; \
+	trap "kill $$LOG_PID" EXIT; \
+	go test -tags=api -v -p 2 -count=2 ./test/api/...; \
+	kill $$LOG_PID
+	make app-down
+
+.PHONY: tloc-api
+tloc-api: ## Run API integration tests
+	$(info $(M) running API integration tests...)
+	go test -tags=api -v -p 2 -count=2 ./test/api/...
+
+.PHONY: tloc-all
+tloc-all:
+	make tloc
+	make tloc-api
+
 # -------------------------------------
 # Linter and formatter
 # -------------------------------------
@@ -168,6 +195,23 @@ mocks:
 	rm -rf ./internal/pkg/generated/mocks
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/mock_storages/storages.go -source ./internal/storages/interface.go
 
+# test-client-gen - Generate API client from Swagger specification
+# Uses go-swagger to generate type-safe REST client
+# Generated files are placed in test/api/client/ directory
+# Run this after updating docs/swagger.yaml
+.PHONY: test-client-gen
+test-client-gen: ## Generate API test client from Swagger spec
+test-client-gen: swag
+	$(info $(M) generating API test client from Swagger spec...)
+	@$(GOBIN)/swagger generate client -f ./docs/swagger.yaml -t ./test/api/client -A maintmode
+	@echo "API client generated successfully in test/api/client/"
+
+.PHONY: swag
+swag:
+	$(GOBIN)/swag init \
+		-g ./docs.go \
+      	--parseInternal \
+      	--parseDependency
 
 # -------------------------------------
 # Database - Universal Commands (use DB_DRIVER)
@@ -257,6 +301,11 @@ docker-down: ## Stop and remove all database containers with volumes
 	docker-compose down -v --remove-orphans
 	make docker-ps
 
+.PHONY: docker-reup
+docker-reup:
+	make docker-down
+	make docker-up
+
 # docker-logs - Stream logs from all database containers
 # Shows continuous log output from both PostgreSQL
 # Press Ctrl+C to stop following logs
@@ -296,7 +345,7 @@ docker-ps: ## Show status of database containers
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting all services with maintmode...)
-	docker-compose -f compose.yaml -f compose.app.yaml up -d ${args}
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} up -d ${args}
 	make app-ps
 
 # app-down - Stop and remove all containers
@@ -306,7 +355,7 @@ app-up: ## Start all services with maintmode using Docker Compose
 .PHONY: app-down
 app-down: ## Stop and remove all containers
 	$(info $(M) stopping all containers...)
-	docker-compose -f compose.yaml -f compose.app.yaml down -v --remove-orphans
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} down -v --remove-orphans
 	make app-ps
 
 .PHONY: app-reup
@@ -321,7 +370,7 @@ app-reup: ## Stop and start all containers
 # Useful for debugging application issues
 .PHONY: app-logs
 app-logs: ## Show logs from maintmode container
-	docker-compose -f compose.yaml -f compose.app.yaml logs -f maintmode
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} logs -f maintmode
 
 # app-ps - Show status of all containers
 # Displays:
@@ -331,41 +380,4 @@ app-logs: ## Show logs from maintmode container
 # Useful for verifying that all services are running
 .PHONY: app-ps
 app-ps: ## Show status of all containers
-	docker-compose -f compose.yaml -f compose.app.yaml ps -a
-
-# -------------------------------------
-# API Integration Tests
-# -------------------------------------
-# Commands for running API integration tests with generated client
-# Uses test/api/docker-compose.test.yaml for isolated test environment
-#
-# Services defined:
-#   - postgres-test: PostgreSQL 18 on port 5433
-#   - apply-migrations-test: Database migration runner
-#   - maintmode-test: API service on port 8080
-#
-# Test client is generated from Swagger specification using go-swagger
-
-# test-client-gen - Generate API client from Swagger specification
-# Uses go-swagger to generate type-safe REST client
-# Generated files are placed in test/api/client/ directory
-# Run this after updating docs/swagger.yaml
-.PHONY: test-client-gen
-test-client-gen: ## Generate API test client from Swagger spec
-	$(info $(M) generating API test client from Swagger spec...)
-	@GOBIN=$(GOBIN) go install github.com/go-swagger/go-swagger/cmd/swagger@latest
-	@cd test/api && $(GOBIN)/swagger generate client -f ../../docs/swagger.yaml -t ./client -A maintmode
-	@echo "API client generated successfully in test/api/client/"
-
-# test-api - Run API integration tests
-# Executes tests in test/api/ directory with api build tag
-# Tests use generated swagger client to test API endpoints
-# Environment variables:
-#   TEST_API_HOST: API host (default: localhost)
-#   TEST_API_PORT: API port (default: 8080)
-#   TEST_HEALTH_CHECK: Enable health check before tests (default: false)
-.PHONY: test-api
-test-api: ## Run API integration tests
-	$(info $(M) running API integration tests...)
-	@go test -tags=api -v -count=1 ./test/api/...
-
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ps -a

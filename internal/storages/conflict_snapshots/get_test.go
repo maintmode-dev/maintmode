@@ -1,0 +1,234 @@
+package conflictsnapshots
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
+	testtimeutils "github.com/ruko1202/maintmode/test/utils/time"
+)
+
+func TestGetSnapshots(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := NewStore(db)
+
+	t.Run("get existing snapshots", func(t *testing.T) {
+		t.Parallel()
+
+		now := xtime.UTCNow()
+
+		// Create resources
+		resource1 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 1",
+			Description: "Description 1",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err := resourcesStore.Create(ctx, resource1)
+		require.NoError(t, err)
+
+		resource2 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 2",
+			Description: "Description 2",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err = resourcesStore.Create(ctx, resource2)
+		require.NoError(t, err)
+
+		resource3 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 3",
+			Description: "Description 3",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err = resourcesStore.Create(ctx, resource3)
+		require.NoError(t, err)
+
+		// Create maintenance
+		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+		)
+
+		// Create conflicted maintenances
+		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+		)
+
+		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
+			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeService}),
+		)
+
+		snapshots := []*entity.ConflictWithResources{
+			{
+				Conflict: &entity.Conflict{
+					MaintenanceID: conflictedMaint1.ID,
+					Title:         "Conflict A",
+					OverlapStart:  now.Add(time.Hour),
+					OverlapEnd:    now.Add(2 * time.Hour),
+					Scope:         entity.MaintenanceScopeResources,
+				},
+				Resources: []*entity.Resource{
+					{ID: conflictedMaint1.Resources[0].ID, Type: entity.ResourceTypeService},
+				},
+			},
+			{
+				Conflict: &entity.Conflict{
+					MaintenanceID: conflictedMaint2.ID,
+					Title:         "Conflict B",
+					OverlapStart:  now.Add(3 * time.Hour),
+					OverlapEnd:    now.Add(4 * time.Hour),
+					Scope:         entity.MaintenanceScopeGlobal,
+				},
+				Resources: nil,
+			},
+		}
+
+		err = store.Save(ctx, maintenance.ID, snapshots)
+		require.NoError(t, err)
+
+		retrieved, err := store.GetSnapshots(ctx, maintenance.ID)
+		require.NoError(t, err)
+		require.Len(t, retrieved, 2)
+
+		// Create map for easier verification
+		retrievedMap := lo.SliceToMap(retrieved, func(item *entity.ConflictWithResources) (uuid.UUID, *entity.ConflictWithResources) {
+			return item.MaintenanceID, item
+		})
+
+		// Verify first snapshot
+		actual1, ok := retrievedMap[conflictedMaint1.ID]
+		require.True(t, ok)
+		require.Equal(t, entity.MaintenanceScopeResources, actual1.Scope)
+		require.Equal(t, conflictedMaint1.Title, actual1.Title)
+		require.Equal(t, testtimeutils.OverlapStart(conflictedMaint1.PlannedPeriod, maintenance.PlannedPeriod), actual1.OverlapStart)
+		require.Equal(t, testtimeutils.OverlapEnd(conflictedMaint1.PlannedPeriod, maintenance.PlannedPeriod), actual1.OverlapEnd)
+		require.Len(t, actual1.Resources, 1)
+
+		// Verify second snapshot
+		actual2, ok := retrievedMap[conflictedMaint2.ID]
+		require.True(t, ok)
+		require.Equal(t, entity.MaintenanceScopeGlobal, actual2.Scope)
+		require.Equal(t, conflictedMaint2.Title, actual2.Title)
+		require.Equal(t, testtimeutils.OverlapStart(conflictedMaint2.PlannedPeriod, maintenance.PlannedPeriod), actual2.OverlapStart)
+		require.Equal(t, testtimeutils.OverlapEnd(conflictedMaint2.PlannedPeriod, maintenance.PlannedPeriod), actual2.OverlapEnd)
+		require.Empty(t, actual2.Resources)
+	})
+
+	t.Run("get snapshots for non-existent maintenance", func(t *testing.T) {
+		t.Parallel()
+
+		nonExistentID := xuuid.New()
+
+		retrieved, err := store.GetSnapshots(ctx, nonExistentID)
+		require.NoError(t, err)
+		require.Empty(t, retrieved)
+	})
+
+	t.Run("get snapshots after multiple saves", func(t *testing.T) {
+		t.Parallel()
+
+		now := xtime.UTCNow()
+
+		// Create resources
+		resource1 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 1",
+			Description: "Description 1",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err := resourcesStore.Create(ctx, resource1)
+		require.NoError(t, err)
+
+		resource2 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 2",
+			Description: "Description 2",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err = resourcesStore.Create(ctx, resource2)
+		require.NoError(t, err)
+
+		resource3 := &entity.ResourceDetails{
+			ID:          xuuid.New(),
+			Name:        "Resource 3",
+			Description: "Description 3",
+			CreatedAt:   xtime.UTCNow(),
+		}
+		err = resourcesStore.Create(ctx, resource3)
+		require.NoError(t, err)
+
+		// Create maintenance
+		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+		)
+
+		// Create conflicted maintenances
+		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+		)
+
+		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeDatabase}),
+		)
+
+		// First save
+		firstSnapshots := []*entity.ConflictWithResources{
+			{
+				Conflict: &entity.Conflict{
+					MaintenanceID: conflictedMaint1.ID,
+					Title:         "First Conflict",
+					OverlapStart:  now.Add(time.Hour),
+					OverlapEnd:    now.Add(2 * time.Hour),
+					Scope:         entity.MaintenanceScopeResources,
+				},
+				Resources: []*entity.Resource{
+					{ID: conflictedMaint1.Resources[0].ID, Type: entity.ResourceTypeService},
+				},
+			},
+		}
+
+		err = store.Save(ctx, maintenance.ID, firstSnapshots)
+		require.NoError(t, err)
+
+		// Second save - adds more snapshots
+		secondSnapshots := []*entity.ConflictWithResources{
+			{
+				Conflict: &entity.Conflict{
+					MaintenanceID: conflictedMaint2.ID,
+					Title:         "Second Conflict",
+					OverlapStart:  now.Add(3 * time.Hour),
+					OverlapEnd:    now.Add(4 * time.Hour),
+					Scope:         entity.MaintenanceScopeResources,
+				},
+				Resources: []*entity.Resource{
+					{ID: conflictedMaint2.Resources[0].ID, Type: entity.ResourceTypeDatabase},
+				},
+			},
+		}
+
+		err = store.Save(ctx, maintenance.ID, secondSnapshots)
+		require.NoError(t, err)
+
+		// Retrieve all snapshots
+		retrieved, err := store.GetSnapshots(ctx, maintenance.ID)
+		require.NoError(t, err)
+		require.Len(t, retrieved, 2)
+	})
+}

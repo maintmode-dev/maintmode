@@ -90,11 +90,7 @@ type Conflict struct {
 	Resources     []*Resource      `json:"resources"`
 }
 
-type ConflictSnapshot struct {
-	Conflicts []*Conflict `json:"conflicts"`
-}
-
 type ApproveDraftMaintRequest struct {
-	ObservedMaintRevision int64            `json:"observed_maint_revision"`
-	ConflictSnapshot      ConflictSnapshot `json:"conflict_snapshot"`
+	ObservedMaintRevision int64       `json:"observed_maint_revision"`
+	ConflictsSnapshot     []*Conflict `json:"conflicts_snapshot"`
 }

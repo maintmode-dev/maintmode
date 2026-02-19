@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
 	"github.com/ruko1202/maintmode/internal/services/maint"
+	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	conflictsStore "github.com/ruko1202/maintmode/internal/storages/conflicts"
 
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -23,9 +24,10 @@ import (
 )
 
 var (
-	db           *sqlx.DB
-	maintStore   *maintenances.Store
-	conflictsSrv *conflicts.Service
+	db             *sqlx.DB
+	maintStore     *maintenances.Store
+	conflictsSrv   *conflicts.Service
+	snapshotsStore *conflictsnapshots.Store
 )
 
 func TestMain(m *testing.M) {
@@ -39,6 +41,7 @@ func TestMain(m *testing.M) {
 
 	maintStore = maintenances.NewStore(conn)
 	conflictsSrv = conflicts.NewService(conflictsStore.NewStore(db))
+	snapshotsStore = conflictsnapshots.NewStore(db)
 
 	code := m.Run()
 
@@ -52,6 +55,7 @@ func initService(db *sqlx.DB) *maint.Service {
 		dbtx.NewTxManager(db),
 		maintStore,
 		resources.NewStore(db),
+		conflictsnapshots.NewStore(db),
 		conflictsSrv,
 	)
 }

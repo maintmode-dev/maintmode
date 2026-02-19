@@ -20,7 +20,7 @@ func (s *Service) Approve(ctx context.Context, cmd *entity.ApproveMaintenanceCmd
 		return fmt.Errorf("checkConflicts: %w", err)
 	}
 
-	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
+	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if !entity.CanTransition(maint.Status, entity.MaintenanceStatusPlanned) {
 			return apperr.ForbiddenStatusTransition(maint.Status)
 		}
@@ -31,6 +31,10 @@ func (s *Service) Approve(ctx context.Context, cmd *entity.ApproveMaintenanceCmd
 				cmd.ObservedMaintRevision,
 				maint.Revision(),
 			)
+		}
+
+		if err := s.conflictSnapshotsStore.Save(ctx, maint.ID, cmd.ConflictSnapshot.Conflicts); err != nil {
+			return fmt.Errorf("bulk insert conflict snapshots: %w", err)
 		}
 
 		maint.Status = entity.MaintenanceStatusPlanned

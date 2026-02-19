@@ -496,8 +496,11 @@ const docTemplate = `{
         "apimodels.ApproveDraftMaintRequest": {
             "type": "object",
             "properties": {
-                "conflict_snapshot": {
-                    "$ref": "#/definitions/apimodels.ConflictSnapshot"
+                "conflicts_snapshot": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.Conflict"
+                    }
                 },
                 "observed_maint_revision": {
                     "type": "integer"
@@ -538,17 +541,6 @@ const docTemplate = `{
                 },
                 "scope": {
                     "$ref": "#/definitions/apimodels.MaintenanceScope"
-                }
-            }
-        },
-        "apimodels.ConflictSnapshot": {
-            "type": "object",
-            "properties": {
-                "conflicts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/apimodels.Conflict"
-                    }
                 }
             }
         },

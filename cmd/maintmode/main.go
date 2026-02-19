@@ -16,6 +16,7 @@ import (
 
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
+	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
@@ -68,6 +69,7 @@ func main() {
 					dbtx.NewTxManager(db),
 					maintenances.NewStore(db),
 					resources.NewStore(db),
+					conflictsnapshots.NewStore(db),
 					conflictsSvr.NewService(conflicts.NewStore(db)),
 				),
 			),

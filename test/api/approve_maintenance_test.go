@@ -33,9 +33,7 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 
 	approveReq := &models.ApimodelsApproveDraftMaintRequest{
 		ObservedMaintRevision: revision,
-		ConflictSnapshot: &models.ApimodelsConflictSnapshot{
-			Conflicts: []*models.ApimodelsConflict{},
-		},
+		ConflictsSnapshot:     []*models.ApimodelsConflict{},
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesIDApproveParams().

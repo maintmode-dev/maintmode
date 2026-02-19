@@ -11,8 +11,10 @@ definitions:
     type: object
   apimodels.ApproveDraftMaintRequest:
     properties:
-      conflict_snapshot:
-        $ref: '#/definitions/apimodels.ConflictSnapshot'
+      conflicts_snapshot:
+        items:
+          $ref: '#/definitions/apimodels.Conflict'
+        type: array
       observed_maint_revision:
         type: integer
     type: object
@@ -40,13 +42,6 @@ definitions:
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
-    type: object
-  apimodels.ConflictSnapshot:
-    properties:
-      conflicts:
-        items:
-          $ref: '#/definitions/apimodels.Conflict'
-        type: array
     type: object
   apimodels.CreateDraftMaintRequest:
     properties:

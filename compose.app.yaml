@@ -1,19 +1,5 @@
 services:
 
-  # PostgreSQL connection pooler
-  pg_doorman:
-    image: ghcr.io/ozontech/pg_doorman:latest
-    container_name: pg_doorman
-    restart: unless-stopped
-    command: ["pg_doorman", "-l", "info", "/etc/pg_doorman/pg_doorman.toml"]
-    ports:
-      - "6432:6432"
-      - "9127:9127"
-    volumes:
-      - ./config/pg_doorman.toml:/etc/pg_doorman/pg_doorman.toml:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   # Основное приложение maintmode
   maintmode:

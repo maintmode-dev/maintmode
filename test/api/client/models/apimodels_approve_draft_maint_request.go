@@ -8,6 +8,7 @@ package models
 import (
 	"context"
 	stderrors "errors"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -19,8 +20,8 @@ import (
 // swagger:model apimodels.ApproveDraftMaintRequest
 type ApimodelsApproveDraftMaintRequest struct {
 
-	// conflict snapshot
-	ConflictSnapshot *ApimodelsConflictSnapshot `json:"conflict_snapshot,omitempty"`
+	// conflicts snapshot
+	ConflictsSnapshot []*ApimodelsConflict `json:"conflicts_snapshot"`
 
 	// observed maint revision
 	ObservedMaintRevision int64 `json:"observed_maint_revision,omitempty"`
@@ -30,7 +31,7 @@ type ApimodelsApproveDraftMaintRequest struct {
 func (m *ApimodelsApproveDraftMaintRequest) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateConflictSnapshot(formats); err != nil {
+	if err := m.validateConflictsSnapshot(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -40,24 +41,31 @@ func (m *ApimodelsApproveDraftMaintRequest) Validate(formats strfmt.Registry) er
 	return nil
 }
 
-func (m *ApimodelsApproveDraftMaintRequest) validateConflictSnapshot(formats strfmt.Registry) error {
-	if swag.IsZero(m.ConflictSnapshot) { // not required
+func (m *ApimodelsApproveDraftMaintRequest) validateConflictsSnapshot(formats strfmt.Registry) error {
+	if swag.IsZero(m.ConflictsSnapshot) { // not required
 		return nil
 	}
 
-	if m.ConflictSnapshot != nil {
-		if err := m.ConflictSnapshot.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("conflict_snapshot")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("conflict_snapshot")
-			}
-
-			return err
+	for i := 0; i < len(m.ConflictsSnapshot); i++ {
+		if swag.IsZero(m.ConflictsSnapshot[i]) { // not required
+			continue
 		}
+
+		if m.ConflictsSnapshot[i] != nil {
+			if err := m.ConflictsSnapshot[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("conflicts_snapshot" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("conflicts_snapshot" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil
@@ -67,7 +75,7 @@ func (m *ApimodelsApproveDraftMaintRequest) validateConflictSnapshot(formats str
 func (m *ApimodelsApproveDraftMaintRequest) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.contextValidateConflictSnapshot(ctx, formats); err != nil {
+	if err := m.contextValidateConflictsSnapshot(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -77,26 +85,30 @@ func (m *ApimodelsApproveDraftMaintRequest) ContextValidate(ctx context.Context,
 	return nil
 }
 
-func (m *ApimodelsApproveDraftMaintRequest) contextValidateConflictSnapshot(ctx context.Context, formats strfmt.Registry) error {
+func (m *ApimodelsApproveDraftMaintRequest) contextValidateConflictsSnapshot(ctx context.Context, formats strfmt.Registry) error {
 
-	if m.ConflictSnapshot != nil {
+	for i := 0; i < len(m.ConflictsSnapshot); i++ {
 
-		if swag.IsZero(m.ConflictSnapshot) { // not required
-			return nil
-		}
+		if m.ConflictsSnapshot[i] != nil {
 
-		if err := m.ConflictSnapshot.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("conflict_snapshot")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("conflict_snapshot")
+			if swag.IsZero(m.ConflictsSnapshot[i]) { // not required
+				return nil
 			}
 
-			return err
+			if err := m.ConflictsSnapshot[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("conflicts_snapshot" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("conflicts_snapshot" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
 		}
+
 	}
 
 	return nil

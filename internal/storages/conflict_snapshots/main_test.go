@@ -1,4 +1,4 @@
-package maint
+package conflictsnapshots
 
 import (
 	"context"
@@ -11,15 +11,16 @@ import (
 
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
-	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
-	"github.com/ruko1202/maintmode/internal/utils/dbtx"
-
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 )
 
 var db *sqlx.DB
+var (
+	maintsStore    *maintenances.Store
+	resourcesStore *resources.Store
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -27,22 +28,15 @@ func TestMain(m *testing.M) {
 	xlog.ReplaceGlobal(logger)
 
 	conn := testdbconnutils.NewDB()
-	closer.Add(conn.Close)
 	db = conn
+	closer.Add(conn.Close)
+
+	maintsStore = maintenances.NewStore(db)
+	resourcesStore = resources.NewStore(db)
 
 	code := m.Run()
 
 	closer.CloseAll(ctx)
 
 	os.Exit(code)
-}
-
-func initService(db *sqlx.DB) *Service {
-	return NewService(
-		dbtx.NewTxManager(db),
-		maintenances.NewStore(db),
-		resources.NewStore(db),
-		conflictsnapshots.NewStore(db),
-		nil,
-	)
 }

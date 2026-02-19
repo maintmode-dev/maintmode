@@ -121,22 +121,21 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 	)
 }
 
-func validateResource(ctx context.Context, value interface{}) error {
+func validateResource(ctx context.Context, value any) error {
+	var resource *apimodels.Resource
 	switch v := value.(type) {
 	case *apimodels.Resource:
-		return validation.ValidateStructWithContext(ctx, v,
-			validation.Field(&v.ID, validation.Required, validation.By(uuidNotZero)),
-			validation.Field(&v.Type, validation.Required),
-		)
-
+		resource = v
 	case apimodels.Resource:
-		return validation.ValidateStructWithContext(ctx, &v,
-			validation.Field(&v.ID, validation.Required, validation.By(uuidNotZero)),
-			validation.Field(&v.Type, validation.Required),
-		)
+		resource = &v
 	default:
 		return fmt.Errorf("unsupported resource type: %T", v)
 	}
+
+	return validation.ValidateStructWithContext(ctx, resource,
+		validation.Field(&resource.ID, validation.Required, validation.By(uuidNotZero)),
+		validation.Field(&resource.Type, validation.Required),
+	)
 }
 
 func uuidNotZero(value any) error {
