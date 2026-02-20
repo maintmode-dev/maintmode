@@ -1,7 +1,6 @@
 package apimaint
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -12,7 +11,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
-
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
@@ -30,29 +28,20 @@ import (
 // @Router /api/v1/maintenances/{id} [get]
 func (i *Implementation) GetMaint(c echo.Context) error {
 	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.GetMaint")
+	op := "get maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"id must be a valid UUID",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
+		return c.JSON(statusCode, errResp)
 	}
 
 	maint, err := i.maintSrv.Get(ctx, maintID)
 	if err != nil {
 		xlog.Error(ctx, "get maintenance failed", zap.Error(err))
-		if errors.Is(err, apperr.ErrMaintNotFound) {
-			return c.JSON(http.StatusNotFound, apierrors.NewErrorResponse(
-				apierrors.ErrNotFound,
-				fmt.Sprintf("maintenance '%s' not found", maintID),
-			))
-		}
-		return c.JSON(http.StatusInternalServerError, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"get maintenance failed",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, fmt.Errorf("%w: '%s'", apperr.ErrMaintNotFound, maintID))
+		return c.JSON(statusCode, errResp)
 	}
 
 	return c.JSON(http.StatusOK, apimodels.ToAPIMaintenance(maint))

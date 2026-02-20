@@ -44,7 +44,7 @@ func (c *AppConfig) IsDevEnvironment() bool {
 func initConfig() *AppConfig {
 	viper.SetDefault("DB_DSN", "not set")
 	viper.SetDefault("DB_DRIVER", "postgres")
-	viper.SetDefault("DB_MAX_OPEN_CONN", 25)
+	viper.SetDefault("DB_MAX_OPEN_CONNS", 25)
 	viper.SetDefault("DB_MAX_IDLE_CONNS", 5)
 	viper.SetDefault("DB_CONNECTION_MAX_IDLE_TIME", "5m")
 	viper.SetDefault("DB_CONNECTIONS_MAX_LIFETIME", "1m")

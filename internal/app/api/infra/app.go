@@ -11,8 +11,8 @@ type Implementation struct {
 	db *sqlx.DB
 }
 
-// NewImplementation creates a new health check implementation with the provided database connection.
-func NewImplementation(db *sqlx.DB) *Implementation {
+// New creates a new health check implementation with the provided database connection.
+func New(db *sqlx.DB) *Implementation {
 	return &Implementation{
 		db: db,
 	}

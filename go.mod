@@ -24,6 +24,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/echo-swagger v1.4.2-0.20250911161534-084c884941f0
 	github.com/swaggo/swag v1.16.6
+	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.27.1
 )
 

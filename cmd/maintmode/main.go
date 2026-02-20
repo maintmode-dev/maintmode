@@ -11,19 +11,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
-
-	"github.com/ruko1202/maintmode/internal/services/calendar"
-
-	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
-	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
-	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
-	"github.com/ruko1202/maintmode/internal/storages/conflicts"
-	"github.com/ruko1202/maintmode/internal/storages/maintenances"
-	"github.com/ruko1202/maintmode/internal/storages/resources"
-	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+	"github.com/ruko1202/maintmode/internal/app/bootstrap"
+	"github.com/ruko1202/maintmode/internal/server"
 
 	"github.com/ruko1202/maintmode/internal/config/pg"
-	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -35,10 +26,9 @@ func main() {
 		syscall.SIGTERM,
 		syscall.SIGINT,
 		syscall.SIGQUIT,
-		syscall.SIGKILL,
 	)
+	defer shutdown(ctx)
 	defer stop()
-	defer closer.CloseAll(context.WithoutCancel(ctx))
 
 	cfg := config.GetAppConfig()
 
@@ -60,24 +50,16 @@ func main() {
 	}
 	closer.Add(db.Close)
 
+	// Bootstrap application layers
+	stores := bootstrap.NewStores(db)
+	services := bootstrap.NewServices(stores)
+
 	// start api server
 	{
 		s := server.NewAPIServer(
 			cfg.APIServer,
-			apimaint.New(
-				maintSrv.NewService(
-					dbtx.NewTxManager(db),
-					maintenances.NewStore(db),
-					resources.NewStore(db),
-					conflictsnapshots.NewStore(db),
-					conflictsSvr.NewService(conflicts.NewStore(db)),
-				),
-			),
-			uicalendar.New(calendar.NewService(
-				maintenances.NewStore(db),
-				resources.NewStore(db),
-				conflictsSvr.NewService(conflicts.NewStore(db))),
-			),
+			apimaint.New(services.Maint),
+			uicalendar.New(services.Calendar),
 		)
 		s.BindRouters()
 
@@ -93,7 +75,7 @@ func main() {
 	{
 		s := server.NewInfraServer(
 			cfg.InfraServer,
-			infra.NewImplementation(db),
+			infra.New(db),
 		)
 		s.BindRouters()
 
@@ -107,6 +89,9 @@ func main() {
 	}
 
 	<-ctx.Done()
+}
+
+func shutdown(ctx context.Context) {
 	xlog.Info(ctx, "graceful shutdown...")
 	closer.CloseAll(context.WithoutCancel(ctx))
 	xlog.Info(ctx, "app is gracefully shutdown")

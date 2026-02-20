@@ -2,8 +2,6 @@
 package apimaint
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -12,8 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
-
-	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -29,37 +25,20 @@ import (
 // @Router /api/v1/maintenances/{id}/complete [post]
 func (i *Implementation) CompleteMaint(c echo.Context) error {
 	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.CompleteMaint")
+	op := "complete maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"id must be a valid UUID",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
+		return c.JSON(statusCode, errResp)
 	}
 
 	err = i.maintSrv.Complete(ctx, &entity.CompleteMaintenanceCmd{MaintID: maintID})
 	if err != nil {
 		xlog.Error(ctx, "complete maintenance failed", zap.Error(err))
-		if errors.Is(err, apperr.ErrForbiddenStatusTransition) {
-			return c.JSON(http.StatusConflict, apierrors.NewErrorResponse(
-				apierrors.ErrForbiddenStatusTransition,
-				apperr.ErrForbiddenStatusTransition.Error(),
-			))
-		}
-
-		if errors.Is(err, apperr.ErrMaintNotFound) {
-			return c.JSON(http.StatusNotFound, apierrors.NewErrorResponse(
-				apierrors.ErrNotFound,
-				fmt.Sprintf("maintenance '%s' not found", maintID),
-			))
-		}
-
-		return c.JSON(http.StatusInternalServerError, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"complete maintenance failed",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
+		return c.JSON(statusCode, errResp)
 	}
 
 	return c.NoContent(http.StatusNoContent)

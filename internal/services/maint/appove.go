@@ -33,7 +33,10 @@ func (s *Service) Approve(ctx context.Context, cmd *entity.ApproveMaintenanceCmd
 			)
 		}
 
-		if err := s.conflictSnapshotsStore.Save(ctx, maint.ID, cmd.ConflictSnapshot.Conflicts); err != nil {
+		if err := s.conflictsSrv.SaveSnapshot(ctx, &entity.SaveConflictsSnapshotCmd{
+			MaintID:          cmd.MaintID,
+			ConflictSnapshot: cmd.ConflictSnapshot,
+		}); err != nil {
 			return fmt.Errorf("bulk insert conflict snapshots: %w", err)
 		}
 

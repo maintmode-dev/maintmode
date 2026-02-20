@@ -1,25 +1,20 @@
 package apierrors
 
-type ErrorCode string
+import (
+	"fmt"
 
-var (
-	ErrNotFound                     ErrorCode = "not found"
-	ErrInternalError                ErrorCode = "internal error"
-	ErrInvalidRequest               ErrorCode = "invalid request"
-	ErrCreateMaint                  ErrorCode = "create maintenance failed"
-	ErrConflictsChangedSincePreview ErrorCode = "conflicts changed since preview"
-	ErrMaintChangedSincePreview     ErrorCode = "maintenance changed since preview"
-	ErrForbiddenStatusTransition    ErrorCode = "forbidden status maintenance"
+	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
-type ErrorResponse struct {
-	Code    string `json:"code" example:"error code"`
-	Message string `json:"message" example:"error message"`
+var (
+	ErrInvalidUUID = errValidation("id must be a valid UUID")
+	ErrParseBody   = errValidation("parse request body failed")
+)
+
+func ValidationErr(err error) error {
+	return errValidation(err.Error())
 }
 
-func NewErrorResponse(code ErrorCode, message string) *ErrorResponse {
-	return &ErrorResponse{
-		Code:    string(code),
-		Message: message,
-	}
+func errValidation(err string) error {
+	return fmt.Errorf("%w: %s", apperr.ErrValidation, err)
 }

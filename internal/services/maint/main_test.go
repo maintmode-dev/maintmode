@@ -11,7 +11,6 @@ import (
 
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
-	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -42,7 +41,6 @@ func initService(db *sqlx.DB) *Service {
 		dbtx.NewTxManager(db),
 		maintenances.NewStore(db),
 		resources.NewStore(db),
-		conflictsnapshots.NewStore(db),
 		nil,
 	)
 }

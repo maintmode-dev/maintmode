@@ -2,7 +2,6 @@ package apimaint
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -15,9 +14,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
-
-	"github.com/ruko1202/maintmode/internal/apperr"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -35,55 +31,39 @@ import (
 // @Router /api/v1/maintenances/{id}/edit [post]
 func (i *Implementation) UpdateDraftMaint(c echo.Context) error {
 	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.UpdateDraftMaint")
+	op := "update maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"id must be a valid UUID",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
+		return c.JSON(statusCode, errResp)
 	}
 
 	req := new(apimodels.UpdateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"cannot parse request body",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
+		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateUpdateMaintRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			err.Error(),
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
+		return c.JSON(statusCode, errResp)
 	}
 
 	cmd, err := toUpdateMaintenanceCmd(ctx, maintID, req)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			err.Error(),
-		))
+		xlog.Error(ctx, "to update maintenance command failed", zap.Error(err))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
+		return c.JSON(statusCode, errResp)
 	}
 
 	if err := i.maintSrv.Update(ctx, cmd); err != nil {
 		xlog.Error(ctx, "update maintenance failed", zap.Error(err))
-
-		if errors.Is(err, apperr.ErrMaintNotFound) {
-			return c.JSON(http.StatusNotFound, apierrors.NewErrorResponse(
-				apierrors.ErrNotFound,
-				fmt.Sprintf("maintenance '%s' not found", cmd.MaintID),
-			))
-		}
-
-		return c.JSON(http.StatusInternalServerError, apierrors.NewErrorResponse(
-			apierrors.ErrInternalError,
-			"update maintenance failed",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
+		return c.JSON(statusCode, errResp)
 	}
 
 	return c.NoContent(http.StatusNoContent)

@@ -41,6 +41,11 @@ type ConflictQueryCmd struct {
 	ResourceIDs   []uuid.UUID
 }
 
+type SaveConflictsSnapshotCmd struct {
+	MaintID          uuid.UUID
+	ConflictSnapshot ConflictsSnapshot
+}
+
 type ConflictResourcesQueryCmd struct {
 	MaintResourceIDs   []uuid.UUID
 	ConflictedMaintIDs []uuid.UUID

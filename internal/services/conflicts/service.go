@@ -1,13 +1,18 @@
 package conflicts
 
-import "github.com/ruko1202/maintmode/internal/storages/conflicts"
+import (
+	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
+	"github.com/ruko1202/maintmode/internal/storages/conflicts"
+)
 
 type Service struct {
-	conflictsStore *conflicts.Store
+	conflictsStore         *conflicts.Store
+	conflictSnapshotsStore *conflictsnapshots.Store
 }
 
-func NewService(conflictsStore *conflicts.Store) *Service {
+func NewService(conflictsStore *conflicts.Store, conflictSnapshotsStore *conflictsnapshots.Store) *Service {
 	return &Service{
-		conflictsStore: conflictsStore,
+		conflictsStore:         conflictsStore,
+		conflictSnapshotsStore: conflictSnapshotsStore,
 	}
 }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -30,39 +29,33 @@ import (
 // @Router /api/v1/maintenances/create [post]
 func (i *Implementation) CreateDraftMaint(c echo.Context) error {
 	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.CreateDraftMaint")
+	op := "create maintenance"
 
 	req := new(apimodels.CreateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"cannot parse request body",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
+		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateCreateMaintDraftRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", zap.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			err.Error(),
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
+		return c.JSON(statusCode, errResp)
 	}
 
 	cmd, err := toCreateMaintenanceCmd(ctx, req)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			err.Error(),
-		))
+		xlog.Error(ctx, "to create maintenance command failed", zap.Error(err))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
+		return c.JSON(statusCode, errResp)
 	}
 
 	maint, err := i.maintSrv.CreateDraft(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "create maintenances failed", zap.Error(err))
-		return c.JSON(http.StatusInternalServerError, apierrors.NewErrorResponse(
-			apierrors.ErrCreateMaint,
-			"create maintenances failed",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
+		return c.JSON(statusCode, errResp)
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.CreateDraftMaintResponse{

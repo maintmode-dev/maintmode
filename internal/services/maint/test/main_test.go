@@ -40,7 +40,10 @@ func TestMain(m *testing.M) {
 	db = conn
 
 	maintStore = maintenances.NewStore(conn)
-	conflictsSrv = conflicts.NewService(conflictsStore.NewStore(db))
+	conflictsSrv = conflicts.NewService(
+		conflictsStore.NewStore(db),
+		conflictsnapshots.NewStore(db),
+	)
 	snapshotsStore = conflictsnapshots.NewStore(db)
 
 	code := m.Run()
@@ -55,7 +58,6 @@ func initService(db *sqlx.DB) *maint.Service {
 		dbtx.NewTxManager(db),
 		maintStore,
 		resources.NewStore(db),
-		conflictsnapshots.NewStore(db),
 		conflictsSrv,
 	)
 }

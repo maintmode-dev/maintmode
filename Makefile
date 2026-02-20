@@ -193,7 +193,7 @@ fmt:
 .PHONY: mocks
 mocks:
 	rm -rf ./internal/pkg/generated/mocks
-	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/mock_storages/storages.go -source ./internal/storages/interface.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/dbtx/dbtx.go -source ./internal/utils/dbtx/main_test.go
 
 # test-client-gen - Generate API client from Swagger specification
 # Uses go-swagger to generate type-safe REST client

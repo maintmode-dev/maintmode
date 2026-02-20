@@ -28,14 +28,30 @@ func newServer(cfg config.HTTPServer) *server {
 
 // Start begins listening and blocks until server stops.
 // Returns error only if startup fails, otherwise blocks until shutdown.
+// The provided context is used to stop blocking when canceled.
+// Actual shutdown is performed by the Stop method.
 func (s *server) Start(ctx context.Context) error {
 	xlog.Infof(ctx, "starting http server '%s' on %s", s.cfg.Name, s.cfg.BuildHostPort())
 
-	err := s.e.Start(s.cfg.BuildHostPort())
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("failed to start http server '%s': %w", s.cfg.Name, err)
+	// Start server in a goroutine to allow context-based unblocking
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.e.Start(s.cfg.BuildHostPort())
+	}()
+
+	// Wait for either server startup error or context cancellation
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("failed to start http server '%s': %w", s.cfg.Name, err)
+		}
+		return nil
+	case <-ctx.Done():
+		// Context canceled, unblock the Start call
+		// Actual shutdown will be performed by Stop method via closer
+		xlog.Infof(ctx, "http server '%s' start unblocked due to context cancellation", s.cfg.Name)
+		return nil
 	}
-	return nil
 }
 
 // Stop gracefully shuts down the server with context-based timeout control.
