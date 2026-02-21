@@ -3,8 +3,9 @@ package entity
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"sort"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,21 +36,20 @@ func ConflictFingerprint(conflicts []*ConflictWithResources) string {
 		return hex.EncodeToString(sum[:])
 	}
 
-	sort.Slice(conflicts, func(i, j int) bool {
-		c1, c2 := conflicts[i], conflicts[j]
-
+	slices.SortFunc(conflicts, func(c1, c2 *ConflictWithResources) int {
 		if c1.MaintenanceID != c2.MaintenanceID {
-			return xuuid.CompareBool(c1.MaintenanceID, c2.MaintenanceID)
-		}
-		if c1.OverlapStart.Equal(c2.OverlapStart) {
-			return c1.OverlapStart.Equal(c2.OverlapStart)
+			return xuuid.Compare(c1.MaintenanceID, c2.MaintenanceID)
 		}
 
-		if c1.OverlapEnd.Equal(c2.OverlapEnd) {
-			return c1.OverlapEnd.Equal(c2.OverlapEnd)
+		if !c1.OverlapStart.Equal(c2.OverlapStart) {
+			return c1.OverlapStart.Compare(c2.OverlapStart)
 		}
 
-		return c1.Scope < c2.Scope
+		if !c1.OverlapEnd.Equal(c2.OverlapEnd) {
+			return c1.OverlapEnd.Compare(c2.OverlapEnd)
+		}
+
+		return strings.Compare(string(c1.Scope), string(c2.Scope))
 	})
 
 	for _, conflict := range conflicts {
@@ -100,12 +100,10 @@ func conflictResourcesFingerprint(resources []*Resource) []byte {
 }
 
 func SortResources(resources []*Resource) {
-	sort.Slice(resources, func(i, j int) bool {
-		r1, r2 := resources[i], resources[j]
-
+	slices.SortFunc(resources, func(r1, r2 *Resource) int {
 		if r1.ID != r2.ID {
-			return xuuid.CompareBool(r1.ID, r2.ID)
+			return xuuid.Compare(r1.ID, r2.ID)
 		}
-		return r1.Type < r2.Type
+		return strings.Compare(string(r1.Type), string(r2.Type))
 	})
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 )
 
 func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {

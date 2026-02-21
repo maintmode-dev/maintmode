@@ -8,7 +8,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 

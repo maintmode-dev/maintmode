@@ -8,8 +8,8 @@ import (
 	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
 func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]*entity.Resource, error) {

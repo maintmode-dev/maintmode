@@ -19,9 +19,14 @@ func (s *Service) Update(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) 
 		if maint.Status != entity.MaintenanceStatusDraft {
 			return apperr.ForbiddenStatusTransition(maint.Status)
 		}
-		applyValuedFromUpdateCmd(maint, cmd)
+		applyValuesFromUpdateCmd(maint, cmd)
 
-		if len(maint.Resources) > 0 {
+		//nolint:nestif
+		if maint.Scope == entity.MaintenanceScopeGlobal {
+			if err := s.maintStore.DeleteResources(ctx, maint.ID); err != nil {
+				return err
+			}
+		} else if len(maint.Resources) > 0 {
 			if err := s.maintStore.DeleteResources(ctx, maint.ID); err != nil {
 				return err
 			}
@@ -35,7 +40,7 @@ func (s *Service) Update(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) 
 	})
 }
 
-func applyValuedFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd) {
+func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd) {
 	if cmd.Title != nil {
 		maint.Title = lo.FromPtr(cmd.Title)
 	}
@@ -44,7 +49,6 @@ func applyValuedFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 		maint.Description = lo.FromPtr(cmd.Description)
 	}
 
-	//Resources     []*Resource
 	if cmd.PlannedPeriod != nil {
 		maint.PlannedPeriod = lo.FromPtr(cmd.PlannedPeriod)
 	}

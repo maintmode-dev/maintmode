@@ -7,8 +7,8 @@
 ```go
 import (
     "github.com/go-jet/jet/v2/postgres"
-    "github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
-    "github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+    "github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
+    "github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
 func (s *Store) Get(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance, error) {

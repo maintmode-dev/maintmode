@@ -9,8 +9,8 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
 func (s *Store) GetResourcesDetails(ctx context.Context, resourceIDs []uuid.UUID) ([]*entity.ResourceDetails, error) {

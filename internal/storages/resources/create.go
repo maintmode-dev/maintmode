@@ -7,7 +7,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
 func (s *Store) Create(ctx context.Context, resource *entity.ResourceDetails) error {

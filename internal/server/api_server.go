@@ -37,14 +37,21 @@ func NewAPIServer(
 }
 
 func (s *APIServer) BindRouters() {
-	rootGr := s.e.Group("")
-	rootGr.Use(append(
+	mwares := append(
 		middlewares.BaseMiddlewares(),
-		middlewares.ReqReqsDumpLoggingMiddleware(),
 		middlewares.RequestLoggingMiddleware(),
 		middleware.ContextTimeout(60*time.Second),
 		echoprometheus.NewMiddleware("maintmode"), // middleware to gather metrics. route to serve metrics on infra port
-	)...)
+	)
+
+	if config.GetAppConfig().IsDevEnvironment() {
+		mwares = append(mwares,
+			middlewares.ReqReqsDumpLoggingMiddleware(),
+		)
+	}
+
+	rootGr := s.e.Group("")
+	rootGr.Use(mwares...)
 	rootGr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	apiGr := rootGr.Group("/api/v1")

@@ -6,7 +6,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 )
 
 func fromDBResource(r *model.Resources) *entity.ResourceDetails {

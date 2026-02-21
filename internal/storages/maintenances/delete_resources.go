@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/table"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
 func (s *Store) DeleteResources(ctx context.Context, maintID uuid.UUID) error {

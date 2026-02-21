@@ -9,7 +9,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 
-	"github.com/ruko1202/maintmode/internal/pkg/generated/postgres/public/model"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
