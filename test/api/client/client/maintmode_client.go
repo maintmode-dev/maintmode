@@ -11,6 +11,7 @@ import (
 	"github.com/go-openapi/strfmt"
 
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
+	"github.com/ruko1202/maintmode/test/api/client/client/resources"
 	"github.com/ruko1202/maintmode/test/api/client/client/ui"
 )
 
@@ -57,6 +58,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Maintmode 
 	cli := new(Maintmode)
 	cli.Transport = transport
 	cli.Maintenances = maintenances.New(transport, formats)
+	cli.Resources = resources.New(transport, formats)
 	cli.UI = ui.New(transport, formats)
 	return cli
 }
@@ -104,6 +106,8 @@ func (cfg *TransportConfig) WithSchemes(schemes []string) *TransportConfig {
 type Maintmode struct {
 	Maintenances maintenances.ClientService
 
+	Resources resources.ClientService
+
 	UI ui.ClientService
 
 	Transport runtime.ClientTransport
@@ -113,5 +117,6 @@ type Maintmode struct {
 func (c *Maintmode) SetTransport(transport runtime.ClientTransport) {
 	c.Transport = transport
 	c.Maintenances.SetTransport(transport)
+	c.Resources.SetTransport(transport)
 	c.UI.SetTransport(transport)
 }

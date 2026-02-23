@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
+	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/server"
@@ -33,7 +34,7 @@ func main() {
 	cfg := config.GetAppConfig()
 
 	logger := config.NewLogger(cfg.Environment)
-	closer.Add(logger.Sync)
+	defer logger.Sync() //nolint:errcheck
 	xlog.ReplaceGlobal(logger)
 
 	ctx = xlog.ContextWithLogger(ctx, logger)
@@ -59,6 +60,7 @@ func main() {
 		s := server.NewAPIServer(
 			cfg.APIServer,
 			apimaint.New(services.Maint),
+			resourcesapi.New(services.Resources),
 			uicalendar.New(services.Calendar),
 		)
 		s.BindRouters()

@@ -82,7 +82,7 @@ func (s *Service) getMaintResources(ctx context.Context, maintIDs []uuid.UUID) (
 }
 
 func (s *Service) getResourcesDetails(ctx context.Context, resources []uuid.UUID) (map[uuid.UUID]*entity.ResourceDetails, error) {
-	resourcesDetails, err := s.resourcesStore.GetResourcesDetails(ctx, resources)
+	resourcesDetails, err := s.resourcesStore.GetResources(ctx, resources)
 	if err != nil {
 		return nil, err
 	}

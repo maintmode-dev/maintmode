@@ -156,6 +156,7 @@ tloc-api: ## Run API integration tests
 .PHONY: tloc-all
 tloc-all:
 	make tloc
+	@make test-client
 	make tloc-api
 
 # -------------------------------------
@@ -195,13 +196,13 @@ mocks:
 	rm -rf ./internal/pkg/generated/mocks
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/dbtx/dbtx.go -source ./internal/utils/dbtx/main_test.go
 
-# test-client-gen - Generate API client from Swagger specification
+# test-client - Generate API client from Swagger specification
 # Uses go-swagger to generate type-safe REST client
 # Generated files are placed in test/api/client/ directory
 # Run this after updating docs/swagger.yaml
-.PHONY: test-client-gen
-test-client-gen: ## Generate API test client from Swagger spec
-test-client-gen: swag
+.PHONY: test-client
+test-client: ## Generate API test client from Swagger spec
+test-client: swag
 	$(info $(M) generating API test client from Swagger spec...)
 	@$(GOBIN)/swagger generate client -f ./docs/swagger.yaml -t ./test/api/client -A maintmode
 	@echo "API client generated successfully in test/api/client/"

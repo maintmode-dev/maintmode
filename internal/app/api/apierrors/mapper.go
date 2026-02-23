@@ -22,6 +22,7 @@ func ToAPIErrResponse(operation string, err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrForbiddenStatusTransition),
 		errors.Is(err, apperr.ErrConflictsChangedSincePreview),
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
+		errors.Is(err, apperr.ErrResourceAlreadyExists),
 		errors.Is(err, apperr.ErrValidation):
 		return mapError(err)
 
@@ -51,6 +52,9 @@ func mapError(err error) (int, *ErrorResponse) {
 		return http.StatusConflict, NewErrorResponse(ErrConflictsChangedSincePreview, err.Error())
 
 	case errors.Is(err, apperr.ErrMaintChangedSincePreview):
+		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
+
+	case errors.Is(err, apperr.ErrResourceAlreadyExists):
 		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
 
 	case errors.Is(err, apperr.ErrValidation):

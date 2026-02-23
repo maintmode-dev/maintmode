@@ -24,15 +24,7 @@ func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*entity.Reso
 		SELECT(table.Resources.AllColumns).
 		WHERE(table.Resources.ID.EQ(postgres.UUID(resourceID)))
 
-	resource := new(model.Resources)
-	err := stmt.QueryContext(ctx, s.db.Executor(ctx), resource)
-	if err != nil {
-		if errors.Is(err, qrm.ErrNoRows) {
-			return nil, apperr.ErrResourceNotFound
-		}
-		return nil, err
-	}
-	return fromDBResource(resource), nil
+	return s.get(ctx, stmt)
 }
 
 func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDetails, error) {
@@ -42,6 +34,10 @@ func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDet
 		SELECT(table.Resources.AllColumns).
 		WHERE(table.Resources.Name.EQ(postgres.String(name)))
 
+	return s.get(ctx, stmt)
+}
+
+func (s *Store) get(ctx context.Context, stmt postgres.SelectStatement) (*entity.ResourceDetails, error) {
 	resource := new(model.Resources)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), resource)
 	if err != nil {

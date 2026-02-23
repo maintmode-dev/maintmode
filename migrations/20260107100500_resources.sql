@@ -10,7 +10,9 @@ CREATE TABLE resources (
     updated_at TIMESTAMPTZ
 );
 
-CREATE INDEX resources_name_idx ON resources (name);
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX resources_name_idx ON resources USING gin (name gin_trgm_ops);
 
 -- +goose StatementEnd
 

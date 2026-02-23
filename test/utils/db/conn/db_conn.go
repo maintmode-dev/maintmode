@@ -22,7 +22,7 @@ func NewDB() *sqlx.DB {
 		MaxIdleConn:     viper.GetInt("DB_MAX_IDLE_CONNS"),
 		MaxOpenConn:     viper.GetInt("DB_MAX_OPEN_CONNS"),
 		ConnMaxIdleTime: viper.GetDuration("DB_CONNECTION_MAX_IDLE_TIME"),
-		ConnMaxLifetime: viper.GetDuration("DB_CONNECTIONS_MAX_LIFETIME"),
+		ConnMaxLifetime: viper.GetDuration("DB_CONNECTION_MAX_LIFETIME"),
 	})
 	if err != nil {
 		xlog.Panic(ctx, "open db conn failed", zap.Error(err))

@@ -403,7 +403,7 @@ func NewDBStatsCollector(db *sqlx.DB) prometheus.Collector {
             nil, nil,
         ),
         maxLifetimeClosed: prometheus.NewDesc(
-            "db_connections_max_lifetime_closed_total",
+            "DB_CONNECTION_MAX_LIFETIME_closed_total",
             "Total connections closed due to max lifetime",
             nil, nil,
         ),

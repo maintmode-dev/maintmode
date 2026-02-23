@@ -12,8 +12,10 @@ package maintmode
 // @license.name Proprietary
 // @host localhost:8000
 // @BasePath /
-// @tag.name Maintenances
-// @tag.description Maintenance management API
 // @tag.name UI
 // @tag.description Maintenance UI API
+// @tag.name Maintenances
+// @tag.description Maintenance management API
+// @tag.name Resources
+// @tag.description Resource management API
 func SwaggerDocs() {}

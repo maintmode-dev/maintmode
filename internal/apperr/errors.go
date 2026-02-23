@@ -8,6 +8,7 @@ import (
 var (
 	ErrMaintNotFound                = errors.New("maintenance not found")
 	ErrResourceNotFound             = errors.New("resource not found")
+	ErrResourceAlreadyExists        = errors.New("resource already exists")
 	ErrInvalidPeriodEmptyStartOrEnd = errors.New("invalid period: empty start or end")
 	ErrConflictsChangedSincePreview = errors.New("conflicts changed since preview")
 	ErrMaintChangedSincePreview     = errors.New("maintenance changed since preview")

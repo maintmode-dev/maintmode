@@ -56,3 +56,9 @@ type ApproveMaintenanceCmd struct {
 	ObservedMaintRevision int64
 	ConflictSnapshot      ConflictsSnapshot
 }
+
+type CreateResourceCmd struct {
+	Name        string
+	Description string
+	ExternalID  *string
+}

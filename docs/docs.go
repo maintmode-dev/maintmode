@@ -353,6 +353,147 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/resource/create": {
+            "post": {
+                "description": "Creates a new resource with the provided details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "Create a new resource",
+                "parameters": [
+                    {
+                        "description": "Resource details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/apismodels.CreateResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apismodels.Resource"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Resource already exists",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/resource/{id}/types": {
+            "get": {
+                "description": "Returns available resource types for a specific resource",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "Get available resource types",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Resource ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apismodels.GetResourceTypesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource not found",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/resources": {
+            "get": {
+                "description": "Searches for resources by name using LIKE pattern matching",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "Search resources by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource name to search for",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apismodels.SearchResourcesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/ui/v1/calendar": {
             "get": {
                 "description": "Returns maintenance events for the specified date range.",
@@ -769,6 +910,89 @@ const docTemplate = `{
                 }
             }
         },
+        "apismodels.CreateResourceRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "apismodels.GetResourceTypesResponse": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apismodels.ResourceType"
+                    }
+                }
+            }
+        },
+        "apismodels.Resource": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-4466554400000"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            }
+        },
+        "apismodels.ResourceType": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "$ref": "#/definitions/entity.ResourceType"
+                }
+            }
+        },
+        "apismodels.SearchResourcesResponse": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apismodels.Resource"
+                    }
+                }
+            }
+        },
+        "entity.ResourceType": {
+            "type": "string",
+            "enum": [
+                "service",
+                "database",
+                "cluster"
+            ],
+            "x-enum-varnames": [
+                "ResourceTypeService",
+                "ResourceTypeDatabase",
+                "ResourceTypeCluster"
+            ]
+        },
         "uimodels.CalendarEvent": {
             "type": "object",
             "properties": {
@@ -985,12 +1209,16 @@ const docTemplate = `{
     },
     "tags": [
         {
+            "description": "Maintenance UI API",
+            "name": "UI"
+        },
+        {
             "description": "Maintenance management API",
             "name": "Maintenances"
         },
         {
-            "description": "Maintenance UI API",
-            "name": "UI"
+            "description": "Resource management API",
+            "name": "Resources"
         }
     ]
 }`

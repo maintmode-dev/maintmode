@@ -202,6 +202,62 @@ definitions:
         example: DB migration
         type: string
     type: object
+  apismodels.CreateResourceRequest:
+    properties:
+      description:
+        type: string
+      external_id:
+        type: string
+      name:
+        type: string
+    type: object
+  apismodels.GetResourceTypesResponse:
+    properties:
+      types:
+        items:
+          $ref: '#/definitions/apismodels.ResourceType'
+        type: array
+    type: object
+  apismodels.Resource:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      external_id:
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-4466554400000
+        type: string
+      name:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  apismodels.ResourceType:
+    properties:
+      type:
+        $ref: '#/definitions/entity.ResourceType'
+    type: object
+  apismodels.SearchResourcesResponse:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/apismodels.Resource'
+        type: array
+    type: object
+  entity.ResourceType:
+    enum:
+    - service
+    - database
+    - cluster
+    type: string
+    x-enum-varnames:
+    - ResourceTypeService
+    - ResourceTypeDatabase
+    - ResourceTypeCluster
   uimodels.CalendarEvent:
     properties:
       end:
@@ -584,6 +640,99 @@ paths:
       summary: Create maintenance draft
       tags:
       - Maintenances
+  /api/v1/resource/{id}/types:
+    get:
+      description: Returns available resource types for a specific resource
+      parameters:
+      - description: Resource ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apismodels.GetResourceTypesResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Resource not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Get available resource types
+      tags:
+      - Resources
+  /api/v1/resource/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new resource with the provided details
+      parameters:
+      - description: Resource details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apismodels.CreateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apismodels.Resource'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Resource already exists
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Create a new resource
+      tags:
+      - Resources
+  /api/v1/resources:
+    get:
+      description: Searches for resources by name using LIKE pattern matching
+      parameters:
+      - description: Resource name to search for
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apismodels.SearchResourcesResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Search resources by name
+      tags:
+      - Resources
   /ui/v1/calendar:
     get:
       description: Returns maintenance events for the specified date range.
@@ -673,7 +822,9 @@ paths:
       - UI
 swagger: "2.0"
 tags:
-- description: Maintenance management API
-  name: Maintenances
 - description: Maintenance UI API
   name: UI
+- description: Maintenance management API
+  name: Maintenances
+- description: Resource management API
+  name: Resources

@@ -47,7 +47,7 @@ func initConfig() *AppConfig {
 	viper.SetDefault("DB_MAX_OPEN_CONNS", 25)
 	viper.SetDefault("DB_MAX_IDLE_CONNS", 5)
 	viper.SetDefault("DB_CONNECTION_MAX_IDLE_TIME", "5m")
-	viper.SetDefault("DB_CONNECTIONS_MAX_LIFETIME", "1m")
+	viper.SetDefault("DB_CONNECTION_MAX_LIFETIME", "1m")
 	viper.SetDefault("APP_HOST", "0.0.0.0")
 	viper.SetDefault("APP_PUBLIC_API_PORT", "8000")
 	viper.SetDefault("APP_INFRA_API_PORT", "8001")
@@ -71,7 +71,7 @@ func initConfig() *AppConfig {
 			MaxIdleConn:     viper.GetInt("DB_MAX_IDLE_CONNS"),
 			MaxOpenConn:     viper.GetInt("DB_MAX_OPEN_CONNS"),
 			ConnMaxIdleTime: viper.GetDuration("DB_CONNECTION_MAX_IDLE_TIME"),
-			ConnMaxLifetime: viper.GetDuration("DB_CONNECTIONS_MAX_LIFETIME"),
+			ConnMaxLifetime: viper.GetDuration("DB_CONNECTION_MAX_LIFETIME"),
 		},
 	}
 }

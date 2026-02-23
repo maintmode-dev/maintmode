@@ -1,6 +1,4 @@
-//go:build api
-
-package api_test
+package api
 
 import (
 	"context"
@@ -23,6 +21,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	"github.com/ruko1202/maintmode/test/api/client/client"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
+	"github.com/ruko1202/maintmode/test/api/client/client/resources"
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
 
@@ -124,7 +123,7 @@ func setupTestClient() *client.Maintmode {
 func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode) string {
 	t.Helper()
 
-	resourceID := strfmt.UUID(xuuid.New().String())
+	resource := creatResource(ctx, t, apiClient)
 
 	now := xtime.UTCNow()
 	plannedStart := strfmt.DateTime(now.Add(testMaintenanceStartOffset))
@@ -141,7 +140,7 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.
 		},
 		Resources: []*models.ApimodelsResource{
 			{
-				ID:   resourceID,
+				ID:   strfmt.UUID(resource.ID),
 				Type: models.ApimodelsResourceTypeDatabase,
 			},
 		},
@@ -245,4 +244,24 @@ func createAndStartMaintenance(ctx context.Context, t *testing.T, apiClient *cli
 	require.NoError(t, err, "Failed to start maintenance")
 
 	return maintenanceID
+}
+
+func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApismodelsResource {
+	t.Helper()
+
+	req := &models.ApismodelsCreateResourceRequest{
+		Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
+		Description: "This is a test resource created via API tests",
+		ExternalID:  xuuid.NewString(),
+	}
+
+	params := resources.NewPostAPIV1ResourceCreateParams().
+		WithContext(ctx).
+		WithRequest(req)
+
+	resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	return resp.Payload
 }

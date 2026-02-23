@@ -15,3 +15,5 @@ agent/tasks/
 codereview-feature-infra.md
 
 tmp/
+
+.agent/.tasks/

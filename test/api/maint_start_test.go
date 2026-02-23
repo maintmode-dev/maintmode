@@ -1,6 +1,6 @@
 //go:build api
 
-package api_test
+package api
 
 import (
 	"context"
@@ -14,19 +14,19 @@ import (
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
 
-func TestMaintenancesAPI_CompleteMaintenance(t *testing.T) {
+func TestMaintenancesAPI_StartMaintenance(t *testing.T) {
 	ctx := context.Background()
 
 	apiClient := setupTestClient()
 
-	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)
+	maintenanceID := createAndApproveMaintenance(ctx, t, apiClient)
 
-	params := maintenances.NewPostAPIV1MaintenancesIDCompleteParams().
+	params := maintenances.NewPostAPIV1MaintenancesIDStartParams().
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDComplete(params)
-	require.NoError(t, err, "Failed to complete maintenance")
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params)
+	require.NoError(t, err, "Failed to start maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
 	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
@@ -34,10 +34,10 @@ func TestMaintenancesAPI_CompleteMaintenance(t *testing.T) {
 		WithID(strfmt.UUID(maintenanceID))
 
 	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
-	require.NoError(t, err, "Failed to get completed maintenance")
+	require.NoError(t, err, "Failed to get started maintenance")
 	require.NotNil(t, getResp, "Get response should not be nil")
 
-	require.Equal(t, string(models.UimodelsMaintenanceStatusCompleted), getResp.Payload.Status)
+	require.Equal(t, string(models.UimodelsMaintenanceStatusInProgress), getResp.Payload.Status)
 	require.NotNil(t, getResp.Payload.ActualPeriod)
-	require.False(t, getResp.Payload.ActualPeriod.End.IsZero())
+	require.False(t, getResp.Payload.ActualPeriod.Start.IsZero())
 }

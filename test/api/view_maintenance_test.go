@@ -1,6 +1,6 @@
 //go:build api
 
-package api_test
+package api
 
 import (
 	"context"
