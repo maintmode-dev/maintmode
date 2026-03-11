@@ -8,7 +8,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 )
 
 type TxManager struct {
@@ -35,27 +35,27 @@ func (m *TxManager) WithinTx(ctx context.Context, fn func(ctx context.Context) e
 
 	defer func() {
 		if recErr := recover(); recErr != nil {
-			xlog.Error(ctx, "panic recovery when execute the transaction", zap.Any("panic", recErr))
+			xlog.Error(ctx, "panic recovery when execute the transaction", xfield.Any("panic", recErr))
 			err = errors.Join(err, fmt.Errorf("panic recovery: %v", recErr))
 		}
 
 		if err != nil {
 			if rollbackErr := m.rollback(ctx, tx); rollbackErr != nil {
 				err = errors.Join(err, rollbackErr)
-				xlog.Error(ctx, "raise error when rollback the transaction", zap.Error(err))
+				xlog.Error(ctx, "raise error when rollback the transaction", xfield.Error(err))
 			}
 		}
 	}()
 
 	if fnErr := fn(ctx); fnErr != nil {
 		err = errors.Join(err, fnErr)
-		xlog.Error(ctx, "raise error when execute the transaction", zap.Error(err))
+		xlog.Error(ctx, "raise error when execute the transaction", xfield.Error(err))
 		return err
 	}
 
 	if commitErr := m.commit(ctx, tx); commitErr != nil {
 		err = errors.Join(err, commitErr)
-		xlog.Error(ctx, "raise error when commit the transaction", zap.Error(err))
+		xlog.Error(ctx, "raise error when commit the transaction", xfield.Error(err))
 		return err
 	}
 
@@ -64,7 +64,7 @@ func (m *TxManager) WithinTx(ctx context.Context, fn func(ctx context.Context) e
 
 func rollback(ctx context.Context, tx *sqlx.Tx) error {
 	if err := tx.Rollback(); err != nil {
-		xlog.Error(ctx, "failed to rollback the transaction", zap.Error(err))
+		xlog.Error(ctx, "failed to rollback the transaction", xfield.Error(err))
 		return err
 	}
 	return nil
@@ -72,7 +72,7 @@ func rollback(ctx context.Context, tx *sqlx.Tx) error {
 
 func commit(ctx context.Context, tx *sqlx.Tx) error {
 	if err := tx.Commit(); err != nil {
-		xlog.Error(ctx, "failed to commit the transaction", zap.Error(err))
+		xlog.Error(ctx, "failed to commit the transaction", xfield.Error(err))
 		return err
 	}
 	return nil

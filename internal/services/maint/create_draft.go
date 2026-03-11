@@ -7,8 +7,8 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -39,13 +39,13 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		err := s.maintStore.Create(ctx, maint)
 		if err != nil {
-			xlog.Error(ctx, "create maint failed", zap.Error(err))
+			xlog.Error(ctx, "create maint failed", xfield.Error(err))
 			return err
 		}
 		if len(maint.Resources) > 0 {
 			err = s.maintStore.AddResources(ctx, maint.ID, maint.Resources)
 			if err != nil {
-				xlog.Error(ctx, "attach resources to maint failed", zap.Error(err))
+				xlog.Error(ctx, "attach resources to maint failed", xfield.Error(err))
 				return err
 			}
 		}
@@ -53,7 +53,7 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		return nil
 	})
 	if err != nil {
-		xlog.Error(ctx, "create maint failed", zap.Error(err))
+		xlog.Error(ctx, "create maint failed", xfield.Error(err))
 		return nil, err
 	}
 

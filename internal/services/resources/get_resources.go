@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -15,7 +15,7 @@ func (s *Service) GetResources(ctx context.Context, resourceIDs []uuid.UUID) ([]
 
 	resources, err := s.store.GetResources(ctx, resourceIDs)
 	if err != nil {
-		xlog.Error(ctx, "failed to search resources", zap.Error(err))
+		xlog.Error(ctx, "failed to search resources", xfield.Error(err))
 		return nil, err
 	}
 
@@ -27,7 +27,7 @@ func (s *Service) GetResourcesLikeName(ctx context.Context, name string) ([]*ent
 
 	resources, err := s.store.GetResourcesLikeName(ctx, name)
 	if err != nil {
-		xlog.Error(ctx, "failed to search resources", zap.Error(err))
+		xlog.Error(ctx, "failed to search resources", xfield.Error(err))
 		return nil, err
 	}
 

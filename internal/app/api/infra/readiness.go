@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 )
 
 func (i *Implementation) Readiness(c echo.Context) error {
@@ -13,7 +13,7 @@ func (i *Implementation) Readiness(c echo.Context) error {
 
 	err := i.db.PingContext(ctx)
 	if err != nil {
-		xlog.Error(ctx, "db ping failed", zap.Error(err))
+		xlog.Error(ctx, "db ping failed", xfield.Error(err))
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	return c.NoContent(http.StatusOK)

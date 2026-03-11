@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/ruko1202/xlog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func NewLogger(env Environment) *zap.Logger {
+func NewLogger(env Environment) xlog.Logger {
 	config := zap.NewDevelopmentConfig()
 	if env.IsDev() {
 		config = zap.NewDevelopmentConfig()
@@ -25,5 +26,5 @@ func NewLogger(env Environment) *zap.Logger {
 		err := fmt.Errorf("initialize logger failed: %w", err)
 		log.Panic(err.Error())
 	}
-	return logger
+	return xlog.NewZapAdapter(logger)
 }

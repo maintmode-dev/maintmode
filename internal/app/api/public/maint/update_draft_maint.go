@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
@@ -35,33 +35,33 @@ func (i *Implementation) UpdateDraftMaint(c echo.Context) error {
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
+		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}
 
 	req := new(apimodels.UpdateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
 		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateUpdateMaintRequest(ctx, req); err != nil {
-		xlog.Error(ctx, "invalid request", zap.Error(err))
+		xlog.Error(ctx, "invalid request", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	cmd, err := toUpdateMaintenanceCmd(ctx, maintID, req)
 	if err != nil {
-		xlog.Error(ctx, "to update maintenance command failed", zap.Error(err))
+		xlog.Error(ctx, "to update maintenance command failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	if err := i.maintSrv.Update(ctx, cmd); err != nil {
-		xlog.Error(ctx, "update maintenance failed", zap.Error(err))
+		xlog.Error(ctx, "update maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
 		return c.JSON(statusCode, errResp)
 	}
@@ -72,19 +72,19 @@ func (i *Implementation) UpdateDraftMaint(c echo.Context) error {
 func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimodels.UpdateDraftMaintRequest) (*entity.UpdateMaintenanceCmd, error) {
 	scope, err := apimodels.FromAPIScope(req.Scope)
 	if err != nil {
-		xlog.Error(ctx, "unsupported scope", zap.Error(err))
+		xlog.Error(ctx, "unsupported scope", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported scope")
 	}
 
 	impact, err := apimodels.FromAPIImpact(req.Impact)
 	if err != nil {
-		xlog.Error(ctx, "unsupported impact", zap.Error(err))
+		xlog.Error(ctx, "unsupported impact", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
 	resources, err := apimodels.FromAPIResources(req.Resources)
 	if err != nil {
-		xlog.Error(ctx, "unsupported resource type", zap.Error(err))
+		xlog.Error(ctx, "unsupported resource type", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported resource type")
 	}
 

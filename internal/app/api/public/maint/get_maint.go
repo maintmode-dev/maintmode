@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
@@ -32,14 +32,14 @@ func (i *Implementation) GetMaint(c echo.Context) error {
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
+		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}
 
 	maint, err := i.maintSrv.Get(ctx, maintID)
 	if err != nil {
-		xlog.Error(ctx, "get maintenance failed", zap.Error(err))
+		xlog.Error(ctx, "get maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, fmt.Errorf("%w: '%s'", apperr.ErrMaintNotFound, maintID))
 		return c.JSON(statusCode, errResp)
 	}

@@ -6,7 +6,7 @@ import (
 	"syscall"
 
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
@@ -35,19 +35,19 @@ func main() {
 
 	logger := config.NewLogger(cfg.Environment)
 	defer logger.Sync() //nolint:errcheck
-	xlog.ReplaceGlobal(logger)
+	xlog.ReplaceGlobalLogger(logger)
 
 	ctx = xlog.ContextWithLogger(ctx, logger)
 	ctx = xlog.WithFields(ctx,
-		zap.String("app", config.AppName),
-		zap.String("version", buildmeta.GetAppBuildMeta().Version),
+		xfield.String("app", config.AppName),
+		xfield.String("version", buildmeta.GetAppBuildMeta().Version),
 	)
 
-	xlog.Info(ctx, "start app", zap.Any("meta", buildmeta.GetAppBuildMeta()))
+	xlog.Info(ctx, "start app", xfield.Any("meta", buildmeta.GetAppBuildMeta()))
 
 	db, err := pg.NewDBConn(ctx, &cfg.DB)
 	if err != nil {
-		xlog.Panic(ctx, "failed to open db connection", zap.Error(err))
+		xlog.Panic(ctx, "failed to open db connection", xfield.Error(err))
 	}
 	closer.Add(db.Close)
 
@@ -67,7 +67,7 @@ func main() {
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
-				xlog.Fatal(ctx, "api server failed", zap.Error(err))
+				xlog.Fatal(ctx, "api server failed", xfield.Error(err))
 			}
 		}()
 		closer.AddWithName("api server", func() error { return s.Stop(context.Background()) })
@@ -83,7 +83,7 @@ func main() {
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
-				xlog.Fatal(ctx, "api server failed", zap.Error(err))
+				xlog.Fatal(ctx, "api server failed", xfield.Error(err))
 			}
 		}()
 

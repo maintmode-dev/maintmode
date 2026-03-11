@@ -13,7 +13,7 @@ import (
 
 func TestTxManager(t *testing.T) {
 	l := zaptest.NewLogger(t)
-	ctx := xlog.ContextWithLogger(context.Background(), l)
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(l))
 
 	t.Run("ok", func(t *testing.T) {
 		mngr, mocks := initTxManagerWithMock(t)

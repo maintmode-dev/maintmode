@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -15,7 +15,7 @@ func (s *Service) GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*e
 
 	resource, err := s.store.GetByID(ctx, resourceID)
 	if err != nil {
-		xlog.Error(ctx, "failed to get resource", zap.Error(err))
+		xlog.Error(ctx, "failed to get resource", xfield.Error(err))
 		return nil, err
 	}
 

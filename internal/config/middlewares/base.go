@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -64,23 +64,23 @@ func RequestLoggingMiddleware() echo.MiddlewareFunc {
 		Skipper:          skipper("swagger"),
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			ctx := c.Request().Context()
-			attrs := []zap.Field{
-				zap.String("request", fmt.Sprintf("%s %s", v.Method, v.URI)),
-				zap.String("protocol", v.Protocol),
-				zap.Int("status", v.Status),
-				zap.String("request_id", v.RequestID),
-				zap.Any("query", v.QueryParams),
-				zap.Any("form-values", v.FormValues),
-				zap.Duration("latency", v.Latency),
-				zap.String("bytes_in", v.ContentLength),
-				zap.Int64("bytes_out", v.ResponseSize),
-				zap.String("remote_ip", v.RemoteIP),
-				zap.String("user_agent", v.UserAgent),
-				zap.Any("headers", v.Headers),
+			attrs := []xfield.Field{
+				xfield.String("request", fmt.Sprintf("%s %s", v.Method, v.URI)),
+				xfield.String("protocol", v.Protocol),
+				xfield.Int("status", v.Status),
+				xfield.String("request_id", v.RequestID),
+				xfield.Any("query", v.QueryParams),
+				xfield.Any("form-values", v.FormValues),
+				xfield.Duration("latency", v.Latency),
+				xfield.String("bytes_in", v.ContentLength),
+				xfield.Int64("bytes_out", v.ResponseSize),
+				xfield.String("remote_ip", v.RemoteIP),
+				xfield.String("user_agent", v.UserAgent),
+				xfield.Any("headers", v.Headers),
 			}
 
 			if v.Error != nil {
-				xlog.Error(ctx, "REQUEST_ERROR", append(attrs, zap.Error(v.Error))...)
+				xlog.Error(ctx, "REQUEST_ERROR", append(attrs, xfield.Error(v.Error))...)
 				return nil //nolint:nilerr
 			}
 
@@ -103,18 +103,18 @@ func ReqReqsDumpLoggingMiddleware() echo.MiddlewareFunc {
 				requestID = res.Header().Get(echo.HeaderXRequestID)
 			}
 
-			attrs := []zap.Field{
-				zap.String("method", req.Method),
-				zap.String("uri", req.RequestURI),
-				zap.String("request_id", requestID),
+			attrs := []xfield.Field{
+				xfield.String("method", req.Method),
+				xfield.String("uri", req.RequestURI),
+				xfield.String("request_id", requestID),
 			}
 
-			xlog.Info(ctx, "REQUEST DUMP", append(attrs, zap.ByteString("body", reqDump))...)
+			xlog.Info(ctx, "REQUEST DUMP", append(attrs, xfield.String("body", string(reqDump)))...)
 			if len(respBump) > msxResponseDump {
 				xlog.Info(ctx, fmt.Sprintf("RESPONSE DUMP skipped: too large response body [%d Kb]", len(respBump)/1024), attrs...)
 				return
 			}
-			xlog.Info(ctx, "RESPONSE DUMP", append(attrs, zap.ByteString("body", respBump))...)
+			xlog.Info(ctx, "RESPONSE DUMP", append(attrs, xfield.String("body", string(respBump)))...)
 		},
 	})
 }

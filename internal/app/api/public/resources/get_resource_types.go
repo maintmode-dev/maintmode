@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
@@ -29,14 +29,14 @@ func (i *Implementation) GetResourceTypes(c echo.Context) error {
 
 	resourceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
+		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}
 
 	types, err := i.resourcesSrv.GetResourceTypes(ctx, resourceID)
 	if err != nil {
-		xlog.Error(ctx, "get resource types failed", zap.Error(err))
+		xlog.Error(ctx, "get resource types failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}

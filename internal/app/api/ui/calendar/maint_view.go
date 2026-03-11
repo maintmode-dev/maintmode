@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/calendardto"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -35,7 +35,7 @@ func (i *Implementation) MaintView(c echo.Context) error {
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
+		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
 		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 			apierrors.ErrInvalidRequest,
 			"id must be a valid UUID",
@@ -44,7 +44,7 @@ func (i *Implementation) MaintView(c echo.Context) error {
 
 	maint, err := i.calendarSrv.GetMaint(ctx, maintID)
 	if err != nil {
-		xlog.Error(ctx, "get maintenance failed", zap.Error(err))
+		xlog.Error(ctx, "get maintenance failed", xfield.Error(err))
 		if errors.Is(err, apperr.ErrMaintNotFound) {
 			return c.JSON(http.StatusNotFound, apierrors.NewErrorResponse(
 				apierrors.ErrInvalidRequest,
@@ -67,7 +67,7 @@ func (i *Implementation) MaintView(c echo.Context) error {
 		}),
 	})
 	if err != nil {
-		xlog.Error(ctx, "get maintenance conflict failed", zap.Error(err))
+		xlog.Error(ctx, "get maintenance conflict failed", xfield.Error(err))
 		if errors.Is(err, apperr.ErrMaintNotFound) {
 			return c.JSON(http.StatusNotFound, apierrors.NewErrorResponse(
 				apierrors.ErrInvalidRequest,

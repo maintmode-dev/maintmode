@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 )
 
 type closeFunc struct {
@@ -70,18 +70,18 @@ func CloseAll(ctx context.Context) {
 }
 
 func doClose(ctx context.Context, closeFunc *closeFunc) {
-	ctx = xlog.WithFields(ctx, zap.String("name", closeFunc.name))
+	ctx = xlog.WithFields(ctx, xfield.String("name", closeFunc.name))
 	xlog.Info(ctx, "closing handler")
 
 	defer func() {
 		if err := recover(); err != nil {
-			xlog.Error(ctx, "close handler panic", zap.Any("panic", err))
+			xlog.Error(ctx, "close handler panic", xfield.Any("panic", err))
 		}
 	}()
 
 	err := closeFunc.f()
 	if err != nil {
-		xlog.Error(ctx, "close handler failed", zap.Error(err))
+		xlog.Error(ctx, "close handler failed", xfield.Error(err))
 		return
 	}
 	closeFunc.closed = true

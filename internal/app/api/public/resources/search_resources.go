@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
@@ -27,14 +27,14 @@ func (i *Implementation) SearchResources(c echo.Context) error {
 
 	req := new(apimodels.SearchResourcesRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	resources, err := i.resourcesSrv.GetResourcesLikeName(ctx, req.Name)
 	if err != nil {
-		xlog.Error(ctx, "search resources failed", zap.Error(err))
+		xlog.Error(ctx, "search resources failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}

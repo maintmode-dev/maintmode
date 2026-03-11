@@ -7,7 +7,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apismodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
@@ -32,13 +32,13 @@ func (i *Implementation) CreateResource(c echo.Context) error {
 
 	req := new(apismodels.CreateResourceRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateCreateResourceRequest(ctx, req); err != nil {
-		xlog.Error(ctx, "invalid request", zap.Error(err))
+		xlog.Error(ctx, "invalid request", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
@@ -49,7 +49,7 @@ func (i *Implementation) CreateResource(c echo.Context) error {
 		ExternalID:  req.ExternalID,
 	})
 	if err != nil {
-		xlog.Error(ctx, "create resource failed", zap.Error(err))
+		xlog.Error(ctx, "create resource failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}

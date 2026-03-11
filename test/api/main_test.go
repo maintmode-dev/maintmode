@@ -11,6 +11,7 @@ import (
 
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -51,8 +52,9 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Panic(err)
 	}
-	xlog.ReplaceGlobal(l)
-	ctx := xlog.ContextWithLogger(context.Background(), l)
+	zapAdapter := xlog.NewZapAdapter(l)
+	xlog.ReplaceGlobalLogger(zapAdapter)
+	ctx := xlog.ContextWithLogger(context.Background(), zapAdapter)
 
 	viper.AutomaticEnv()
 
@@ -61,7 +63,7 @@ func TestMain(m *testing.M) {
 	viper.SetDefault(envHealthCheck, false)
 
 	if err := waitForAPIHealth(ctx); err != nil {
-		xlog.Panic(ctx, "Failed to wait for API health check", zap.Error(err))
+		xlog.Panic(ctx, "Failed to wait for API health check", xfield.Error(err))
 	}
 
 	code := m.Run()
@@ -69,7 +71,7 @@ func TestMain(m *testing.M) {
 }
 
 func waitForAPIHealth(ctx context.Context) error {
-	xlog.Info(ctx, "Waiting for API to become healthy", zap.String("url", healthCheckURL))
+	xlog.Info(ctx, "Waiting for API to become healthy", xfield.String("url", healthCheckURL))
 
 	ctx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
@@ -86,27 +88,27 @@ func waitForAPIHealth(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("API did not become healthy within %v", healthCheckTimeout)
 		case <-ticker.C:
-			xlog.Info(ctx, "Ping service", zap.String("url", healthCheckURL))
+			xlog.Info(ctx, "Ping service", xfield.String("url", healthCheckURL))
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthCheckURL, http.NoBody)
 			if err != nil {
-				xlog.Info(ctx, "Failed to create health check request", zap.Error(err))
+				xlog.Info(ctx, "Failed to create health check request", xfield.Error(err))
 				continue
 			}
 
 			resp, err := httpClient.Do(req)
 			if err != nil {
-				xlog.Info(ctx, "Health check failed", zap.Error(err))
+				xlog.Info(ctx, "Health check failed", xfield.Error(err))
 				continue
 			}
 
 			_ = resp.Body.Close()
 
 			if resp.StatusCode == http.StatusOK {
-				xlog.Info(ctx, "API is healthy", zap.Int("status", resp.StatusCode))
+				xlog.Info(ctx, "API is healthy", xfield.Int("status", resp.StatusCode))
 				return nil
 			}
 
-			xlog.Info(ctx, "API not yet healthy", zap.Int("status", resp.StatusCode))
+			xlog.Info(ctx, "API not yet healthy", xfield.Int("status", resp.StatusCode))
 		}
 	}
 }

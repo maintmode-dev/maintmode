@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
@@ -33,27 +33,27 @@ func (i *Implementation) CreateDraftMaint(c echo.Context) error {
 
 	req := new(apimodels.CreateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateCreateMaintDraftRequest(ctx, req); err != nil {
-		xlog.Error(ctx, "invalid request", zap.Error(err))
+		xlog.Error(ctx, "invalid request", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	cmd, err := toCreateMaintenanceCmd(ctx, req)
 	if err != nil {
-		xlog.Error(ctx, "to create maintenance command failed", zap.Error(err))
+		xlog.Error(ctx, "to create maintenance command failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	maint, err := i.maintSrv.CreateDraft(ctx, cmd)
 	if err != nil {
-		xlog.Error(ctx, "create maintenances failed", zap.Error(err))
+		xlog.Error(ctx, "create maintenances failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
 		return c.JSON(statusCode, errResp)
 	}
@@ -74,19 +74,19 @@ func (i *Implementation) CreateDraftMaint(c echo.Context) error {
 func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaintRequest) (*entity.CreateMaintenanceCmd, error) {
 	scope, err := apimodels.FromAPIScope(req.Scope)
 	if err != nil {
-		xlog.Error(ctx, "unsupported scope", zap.Error(err))
+		xlog.Error(ctx, "unsupported scope", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported scope")
 	}
 
 	impact, err := apimodels.FromAPIImpact(req.Impact)
 	if err != nil {
-		xlog.Error(ctx, "unsupported impact", zap.Error(err))
+		xlog.Error(ctx, "unsupported impact", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
 	resources, err := apimodels.FromAPIResources(req.Resources)
 	if err != nil {
-		xlog.Error(ctx, "unsupported resource type", zap.Error(err))
+		xlog.Error(ctx, "unsupported resource type", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported resource type")
 	}
 

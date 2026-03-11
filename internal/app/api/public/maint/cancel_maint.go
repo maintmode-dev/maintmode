@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
@@ -32,27 +32,27 @@ func (i *Implementation) CancelMaint(c echo.Context) error {
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", zap.Error(err))
+		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}
 
 	req := new(apimodels.CancelMaintRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
 		return c.JSON(statusCode, errResp)
 	}
 
 	if err := validateCancelRequest(req); err != nil {
-		xlog.Error(ctx, "invalid request", zap.Error(err))
+		xlog.Error(ctx, "invalid request", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
 
 	reason, err := apimodels.FromAPIMaintenanceCancelReason(req.Reason)
 	if err != nil {
-		xlog.Error(ctx, "unsupported cancel reason", zap.Error(err))
+		xlog.Error(ctx, "unsupported cancel reason", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
 		return c.JSON(statusCode, errResp)
 	}
@@ -63,7 +63,7 @@ func (i *Implementation) CancelMaint(c echo.Context) error {
 		ReasonComment: req.Comment,
 	})
 	if err != nil {
-		xlog.Error(ctx, "cancel maintenance failed", zap.Error(err))
+		xlog.Error(ctx, "cancel maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
 		return c.JSON(statusCode, errResp)
 	}

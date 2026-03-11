@@ -9,8 +9,8 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	uimodels "github.com/ruko1202/maintmode/internal/app/api/ui/calendar/models"
@@ -40,7 +40,7 @@ func (i *Implementation) CalendarView(c echo.Context) error {
 
 	req := new(uimodels.CalendarViewRequest)
 	if err := c.Bind(req); err != nil {
-		xlog.Error(ctx, "bind request failed", zap.Error(err))
+		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 			apierrors.ErrInvalidRequest,
 			"cannot parse request body",
@@ -50,7 +50,7 @@ func (i *Implementation) CalendarView(c echo.Context) error {
 	req.From.Time = xtime.StartOfTheDay(req.From.Time)
 
 	if err := validateListEventsRequest(ctx, req); err != nil {
-		xlog.Error(ctx, "invalid request", zap.Error(err))
+		xlog.Error(ctx, "invalid request", xfield.Error(err))
 		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 			apierrors.ErrInvalidRequest,
 			err.Error(),
@@ -64,7 +64,7 @@ func (i *Implementation) CalendarView(c echo.Context) error {
 		ResourceIDs: req.ResourceIDs,
 	})
 	if err != nil {
-		xlog.Error(ctx, "get maintenances failed", zap.Error(err))
+		xlog.Error(ctx, "get maintenances failed", xfield.Error(err))
 		if errors.Is(err, apperr.ErrInvalidPeriodInterval) {
 			return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 				apierrors.ErrInvalidRequest,

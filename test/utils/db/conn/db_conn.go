@@ -5,8 +5,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/config/pg"
@@ -25,7 +25,7 @@ func NewDB() *sqlx.DB {
 		ConnMaxLifetime: viper.GetDuration("DB_CONNECTION_MAX_LIFETIME"),
 	})
 	if err != nil {
-		xlog.Panic(ctx, "open db conn failed", zap.Error(err))
+		xlog.Panic(ctx, "open db conn failed", xfield.Error(err))
 	}
 
 	return conn

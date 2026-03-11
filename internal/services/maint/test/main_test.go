@@ -33,7 +33,7 @@ var (
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	logger, _ := zap.NewDevelopment()
-	xlog.ReplaceGlobal(logger)
+	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
 
 	conn := testdbconnutils.NewDB()
 	closer.Add(conn.Close)

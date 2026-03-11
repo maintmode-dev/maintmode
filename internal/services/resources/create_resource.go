@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -43,7 +43,7 @@ func (s *Service) CreateResource(ctx context.Context, cmd *entity.CreateResource
 		return nil
 	})
 	if err != nil {
-		xlog.Error(ctx, "failed to create resource", zap.String("name", resource.Name), zap.Error(err))
+		xlog.Error(ctx, "failed to create resource", xfield.String("name", resource.Name), xfield.Error(err))
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
