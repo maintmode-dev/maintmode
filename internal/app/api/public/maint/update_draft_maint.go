@@ -30,7 +30,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/edit [post]
 func (i *Implementation) UpdateDraftMaint(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.UpdateDraftMaint")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.UpdateDraftMaint")
+	defer span.End()
 	op := "update maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))

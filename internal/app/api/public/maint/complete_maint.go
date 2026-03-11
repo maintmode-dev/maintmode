@@ -24,7 +24,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/complete [post]
 func (i *Implementation) CompleteMaint(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.CompleteMaint")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CompleteMaint")
+	defer span.End()
 	op := "complete maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))

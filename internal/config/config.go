@@ -2,11 +2,6 @@
 // It includes HTTP server, database settings, and configuration initialization.
 package config
 
-// AppName is the application name used throughout the system.
-const (
-	AppName = "maintmode"
-)
-
 var appConfig *AppConfig
 
 func init() {

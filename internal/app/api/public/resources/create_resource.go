@@ -27,7 +27,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/resource/create [post]
 func (i *Implementation) CreateResource(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Resources.CreateResource")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.CreateResource")
+	defer span.End()
 	op := "create resource"
 
 	req := new(apismodels.CreateResourceRequest)

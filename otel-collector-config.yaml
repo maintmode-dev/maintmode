@@ -1,0 +1,37 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317 # <-- ФИКС СЕТИ: Слушаем все интерфейсы, а не только localhost!
+
+processors:
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 10000
+    expected_new_traces_per_sec: 1000
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow-requests
+        type: latency
+        latency:
+          threshold_ms: 2000
+      - name: keep-5-percent-of-others
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 100
+
+exporters:
+  otlp_grpc/jaeger: # <-- ФИКС ВАРНИНГА: Используем явное имя otlp_grpc
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling]
+      exporters: [otlp_grpc/jaeger] # <-- НЕ ЗАБЫВАЕМ обновить имя и здесь

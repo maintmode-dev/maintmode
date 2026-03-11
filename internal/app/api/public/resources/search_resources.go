@@ -22,7 +22,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/resources [get]
 func (i *Implementation) SearchResources(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Resources.SearchResources")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.SearchResources")
+	defer span.End()
 	op := "search resources"
 
 	req := new(apimodels.SearchResourcesRequest)

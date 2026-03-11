@@ -27,7 +27,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/cancel [post]
 func (i *Implementation) CancelMaint(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.CancelMaint")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CancelMaint")
+	defer span.End()
 	op := "cancel maintenance"
 
 	maintID, err := uuid.Parse(c.Param("id"))

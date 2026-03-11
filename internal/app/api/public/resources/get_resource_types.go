@@ -24,7 +24,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/resource/{id}/types [get]
 func (i *Implementation) GetResourceTypes(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Resources.GetResourceTypes")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.GetResourceTypes")
+	defer span.End()
 	op := "get resource types"
 
 	resourceID, err := uuid.Parse(c.Param("id"))

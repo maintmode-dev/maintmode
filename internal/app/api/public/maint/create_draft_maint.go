@@ -28,7 +28,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/create [post]
 func (i *Implementation) CreateDraftMaint(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Maint.CreateDraftMaint")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CreateDraftMaint")
+	defer span.End()
 	op := "create maintenance"
 
 	req := new(apimodels.CreateDraftMaintRequest)

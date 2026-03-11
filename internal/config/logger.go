@@ -7,6 +7,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 )
 
 func NewLogger(env Environment) xlog.Logger {
@@ -26,5 +28,8 @@ func NewLogger(env Environment) xlog.Logger {
 		err := fmt.Errorf("initialize logger failed: %w", err)
 		log.Panic(err.Error())
 	}
-	return xlog.NewZapAdapter(logger)
+	return xlog.NewZapAdapter(logger.With(
+		zap.String("app", buildmeta.GetAppBuildMeta().AppName),
+		zap.String("version", buildmeta.GetAppBuildMeta().Version),
+	))
 }

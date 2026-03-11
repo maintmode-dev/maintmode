@@ -19,6 +19,7 @@ func init() {
 
 func initAppBuildMeta() *AppBuildMeta {
 	meta := &AppBuildMeta{
+		AppName:   "maintmode",
 		Version:   version,
 		OS:        os,
 		Arch:      arch,

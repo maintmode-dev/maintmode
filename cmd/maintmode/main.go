@@ -36,14 +36,11 @@ func main() {
 	logger := config.NewLogger(cfg.Environment)
 	defer logger.Sync() //nolint:errcheck
 	xlog.ReplaceGlobalLogger(logger)
-
 	ctx = xlog.ContextWithLogger(ctx, logger)
-	ctx = xlog.WithFields(ctx,
-		xfield.String("app", config.AppName),
-		xfield.String("version", buildmeta.GetAppBuildMeta().Version),
-	)
 
 	xlog.Info(ctx, "start app", xfield.Any("meta", buildmeta.GetAppBuildMeta()))
+
+	initExporters(ctx)
 
 	db, err := pg.NewDBConn(ctx, &cfg.DB)
 	if err != nil {
@@ -97,4 +94,20 @@ func shutdown(ctx context.Context) {
 	xlog.Info(ctx, "graceful shutdown...")
 	closer.CloseAll(context.WithoutCancel(ctx))
 	xlog.Info(ctx, "app is gracefully shutdown")
+}
+
+func initExporters(ctx context.Context) {
+	xlog.ReplaceTracerName(buildmeta.GetAppBuildMeta().AppName)
+
+	otelRes, tracerProvider, err := config.InitTracerProvider(ctx)
+	if err != nil {
+		xlog.Panic(ctx, "failed to initialize OpenTelemetry", xfield.Error(err))
+	}
+	closer.Add(func() error { return tracerProvider.Shutdown(ctx) })
+
+	meterProvider, err := config.InitMetricExporter(otelRes)
+	if err != nil {
+		xlog.Panic(ctx, "failed to initialize OpenTelemetry metric exporter", xfield.Error(err))
+	}
+	closer.Add(func() error { return meterProvider.Shutdown(ctx) })
 }

@@ -29,12 +29,18 @@ type DB struct {
 	ConnMaxIdleTime time.Duration
 }
 
+type Tracer struct {
+	CollectorHost string
+	CollectorPort int32
+}
+
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
 	Environment Environment
 	InfraServer HTTPServer
 	APIServer   HTTPServer
 	DB          DB
+	Tracer      Tracer
 }
 
 func (c *AppConfig) IsDevEnvironment() bool {
@@ -51,6 +57,8 @@ func initConfig() *AppConfig {
 	viper.SetDefault("APP_HOST", "0.0.0.0")
 	viper.SetDefault("APP_PUBLIC_API_PORT", "8000")
 	viper.SetDefault("APP_INFRA_API_PORT", "8001")
+	viper.SetDefault("APP_TRACER_COLLECTOR_HOST", "0.0.0.0")
+	viper.SetDefault("APP_TRACER_COLLECTOR_PORT", "4317")
 	viper.AutomaticEnv()
 
 	return &AppConfig{
@@ -72,6 +80,10 @@ func initConfig() *AppConfig {
 			MaxOpenConn:     viper.GetInt("DB_MAX_OPEN_CONNS"),
 			ConnMaxIdleTime: viper.GetDuration("DB_CONNECTION_MAX_IDLE_TIME"),
 			ConnMaxLifetime: viper.GetDuration("DB_CONNECTION_MAX_LIFETIME"),
+		},
+		Tracer: Tracer{
+			CollectorHost: viper.GetString("APP_TRACER_COLLECTOR_HOST"),
+			CollectorPort: viper.GetInt32("APP_TRACER_COLLECTOR_PORT"),
 		},
 	}
 }

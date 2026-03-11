@@ -12,6 +12,7 @@ var (
 
 // AppBuildMeta contains application build information set at compile time.
 type AppBuildMeta struct {
+	AppName   string `json:"app_name"`
 	Version   string `json:"version"`
 	OS        string `json:"os"`
 	Arch      string `json:"arch"`
