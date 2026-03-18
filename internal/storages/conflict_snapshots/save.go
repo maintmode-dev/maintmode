@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Store) Save(ctx context.Context, maintID uuid.UUID, snaphots []*entity.ConflictWithResources) error {
-	ctx = xlog.WithOperation(ctx, "store.ConflictSnapshots.Save")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.ConflictSnapshots.Save")
+	defer span.End()
 
 	if len(snaphots) == 0 {
 		return nil

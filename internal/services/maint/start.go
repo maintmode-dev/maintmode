@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) Start(ctx context.Context, cmd *entity.StartMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maintenance.Start")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Start")
+	defer span.End()
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
 		if !entity.CanTransition(maint.Status, entity.MaintenanceStatusInProgress) {

@@ -28,7 +28,10 @@
                 "browser_click",
                 "browser_hover",
                 "browser_install",
-                "browser_tabs"
+                "browser_tabs",
+                "browser_type",
+                "browser_snapshot",
+                "browser_wait_for"
             ]
         }
     }

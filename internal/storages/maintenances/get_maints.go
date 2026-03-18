@@ -17,7 +17,8 @@ import (
 )
 
 func (s *Store) GetMaints(ctx context.Context, filter *calendardto.GetMaintsFilter, limit int64) ([]*entity.Maintenance, bool, error) {
-	ctx = xlog.WithOperation(ctx, "store.Maintenances.CalendarView")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.GetMaints.CalendarView")
+	defer span.End()
 
 	stmt := table.Maintenances.
 		SELECT(table.Maintenances.AllColumns).

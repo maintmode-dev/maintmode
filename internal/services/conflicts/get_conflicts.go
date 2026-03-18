@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Service) GetConflicts(ctx context.Context, cmd *entity.ConflictQueryCmd) ([]*entity.ConflictWithResources, error) {
-	ctx = xlog.WithOperation(ctx, "service.Conflicts.GetConflicts")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Conflicts.GetConflicts")
+	defer span.End()
 
 	conflicts, err := s.conflictsStore.ConflictedMaints(ctx, cmd)
 	if err != nil {

@@ -2,25 +2,16 @@ package server
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
-	"go.opentelemetry.io/otel/trace"
-
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
-
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/server/middlewares"
 
 	_ "github.com/ruko1202/maintmode/docs" // swagger docs
-
-	"github.com/ruko1202/maintmode/internal/config/middlewares"
 )
 
 type APIServer struct {
@@ -45,43 +36,9 @@ func NewAPIServer(
 }
 
 func (s *APIServer) BindRouters() {
-	mwares := append(
-		middlewares.BaseMiddlewares(),
-		middlewares.RequestLoggingMiddleware(),
-		middleware.ContextTimeout(60*time.Second),
-		echoprometheus.NewMiddleware("maintmode"), // middleware to gather metrics. route to serve metrics on infra port
-	)
-
-	if config.GetAppConfig().IsDevEnvironment() {
-		mwares = append(mwares,
-			middlewares.ReqReqsDumpLoggingMiddleware(),
-		)
-	}
-
 	rootGr := s.e.Group("")
-	rootGr.Use(mwares...)
+	rootGr.Use(middlewares.BaseAPIMiddlewares()...)
 	rootGr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
-	// Middleware for parsing traces from HTTP
-	rootGr.Use(otelecho.Middleware(buildmeta.GetAppBuildMeta().AppName))
-	// Middleware for injecting TraceID into X-Request-ID response header
-	rootGr.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			ctx := c.Request().Context()
-			spanCtx := trace.SpanContextFromContext(ctx)
-
-			// If trace was successfully created/received
-			if spanCtx.HasTraceID() {
-				traceID := spanCtx.TraceID().String()
-
-				// Return to client in response header
-				c.Response().Header().Set(echo.HeaderXRequestID, traceID)
-
-				// Store in Echo context (so Echo's standard loggers can pick it up)
-				c.Set(echo.HeaderXRequestID, traceID)
-			}
-			return next(c)
-		}
-	})
 
 	s.apiV1Group(rootGr.Group("/api/v1"))
 	s.uiV1Group(rootGr.Group("/ui/v1"))

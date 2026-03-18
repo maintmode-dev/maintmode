@@ -18,7 +18,8 @@ import (
 )
 
 func (s *Store) Get(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance, error) {
-	ctx = xlog.WithOperation(ctx, "store.Maintenances.Get")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.Get")
+	defer span.End()
 
 	stmt := table.Maintenances.
 		SELECT(table.Maintenances.AllColumns).

@@ -15,7 +15,8 @@ import (
 )
 
 func (s *Service) CreateResource(ctx context.Context, cmd *entity.CreateResourceCmd) (*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "service.Resources.CreateResource")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.CreateResource")
+	defer span.End()
 
 	resource := &entity.ResourceDetails{
 		ID:          xuuid.New(),

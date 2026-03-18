@@ -5,11 +5,14 @@ package middlewares
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -22,22 +25,59 @@ const (
 
 // BaseMiddlewares returns the basic set of middlewares (recover, secure, request ID).
 func BaseMiddlewares() []echo.MiddlewareFunc {
-	mw := []echo.MiddlewareFunc{
+	return []echo.MiddlewareFunc{
 		middleware.Recover(),
 		middleware.Secure(),
-		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
-		middleware.GzipWithConfig(middleware.GzipConfig{
-			Skipper: skipper("swagger"),
-		}),
 	}
+}
 
-	if config.GetAppConfig().IsDevEnvironment() {
+// BaseAPIMiddlewares returns the basic set of middlewares (recover, secure, request ID) for public API
+func BaseAPIMiddlewares() []echo.MiddlewareFunc {
+	mw := append(BaseMiddlewares(),
+		middleware.Recover(),
+		middleware.Secure(),
+		otelecho.Middleware(config.GetAppBuildMeta().AppName),
+		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
+		TraceMiddleware(),
+		RequestLoggingMiddleware(),
+		middleware.ContextTimeout(60*time.Second),
+		middleware.GzipWithConfig(middleware.GzipConfig{}),
+	)
+
+	if config.GetAppConfig().Environment.IsDev() {
 		mw = append(mw,
 			middleware.CORS(),
 		)
+		if !config.GetAppConfig().Environment.IsPerformanceTest() {
+			mw = append(mw,
+				ReqReqsDumpLoggingMiddleware(),
+			)
+		}
 	}
 
 	return mw
+}
+
+// TraceMiddleware Middleware for injecting TraceID into X-Request-ID response header
+func TraceMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			ctx := c.Request().Context()
+			spanCtx := trace.SpanContextFromContext(ctx)
+
+			// If trace was successfully created/received
+			if spanCtx.HasTraceID() {
+				traceID := spanCtx.TraceID().String()
+
+				// Return to client in response header
+				c.Response().Header().Set(echo.HeaderXRequestID, traceID)
+
+				// Store in Echo context (so Echo's standard loggers can pick it up)
+				c.Set(echo.HeaderXRequestID, traceID)
+			}
+			return next(c)
+		}
+	}
 }
 
 func RequestLoggingMiddleware() echo.MiddlewareFunc {
@@ -109,12 +149,12 @@ func ReqReqsDumpLoggingMiddleware() echo.MiddlewareFunc {
 				xfield.String("request_id", requestID),
 			}
 
-			xlog.Info(ctx, "REQUEST DUMP", append(attrs, xfield.String("body", string(reqDump)))...)
+			xlog.Debug(ctx, "REQUEST DUMP", append(attrs, xfield.String("body", string(reqDump)))...)
 			if len(respBump) > msxResponseDump {
 				xlog.Info(ctx, fmt.Sprintf("RESPONSE DUMP skipped: too large response body [%d Kb]", len(respBump)/1024), attrs...)
 				return
 			}
-			xlog.Info(ctx, "RESPONSE DUMP", append(attrs, xfield.String("body", string(respBump)))...)
+			xlog.Debug(ctx, "RESPONSE DUMP", append(attrs, xfield.String("body", string(respBump)))...)
 		},
 	})
 }

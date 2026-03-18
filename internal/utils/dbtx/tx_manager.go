@@ -26,6 +26,9 @@ func NewTxManager(db *sqlx.DB) *TxManager {
 }
 
 func (m *TxManager) WithinTx(ctx context.Context, fn func(ctx context.Context) error) (err error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "txManager.WithinTx")
+	defer span.End()
+
 	tx, beginTxErr := m.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if beginTxErr != nil {
 		return beginTxErr

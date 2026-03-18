@@ -11,14 +11,18 @@ services:
     ports:
       - "8000:8000"
       - "8001:8001"
+      - "8002:8002"
     environment:
-      ENVIRONMENT: dev
+#      ENVIRONMENT: dev
+      ENVIRONMENT: performance_test # for performance test
       DB_DSN: postgres://postgres:postgres@pg_doorman:6432/maintmode?sslmode=disable
       DB_DRIVER: postgres
       DB_MAX_OPEN_CONNS: 50
       DB_MAX_IDLE_CONNS: 20
       DB_CONNECTION_MAX_LIFETIME: 10m
       DB_CONNECTION_MAX_IDLE_TIME: 5m
+      APP_TRACER_COLLECTOR_HOST: otel-collector
+      APP_TRACER_COLLECTOR_PORT: 4317
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,3 +36,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - theapp
+

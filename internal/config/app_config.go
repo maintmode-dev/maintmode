@@ -43,10 +43,6 @@ type AppConfig struct {
 	Tracer      Tracer
 }
 
-func (c *AppConfig) IsDevEnvironment() bool {
-	return c.Environment.IsDev()
-}
-
 func initConfig() *AppConfig {
 	viper.SetDefault("DB_DSN", "not set")
 	viper.SetDefault("DB_DRIVER", "postgres")

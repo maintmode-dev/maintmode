@@ -18,7 +18,8 @@ const (
 )
 
 func (s *Store) GetResources(ctx context.Context, resourceIDs []uuid.UUID) ([]*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "store.Resources.GetResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetResources")
+	defer span.End()
 
 	if len(resourceIDs) == 0 {
 		return []*entity.ResourceDetails{}, nil
@@ -41,7 +42,8 @@ func (s *Store) GetResources(ctx context.Context, resourceIDs []uuid.UUID) ([]*e
 }
 
 func (s *Store) GetResourcesLikeName(ctx context.Context, name string) ([]*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "store.Resources.GetResourcesLikeName")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetResourcesLikeName")
+	defer span.End()
 
 	stmt := table.Resources.
 		SELECT(table.Resources.AllColumns).

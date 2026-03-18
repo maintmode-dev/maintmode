@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Store) Create(ctx context.Context, resource *entity.ResourceDetails) error {
-	ctx = xlog.WithOperation(ctx, "store.Resources.Create")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.Create")
+	defer span.End()
 
 	stmt := table.Resources.
 		INSERT(table.Resources.AllColumns).

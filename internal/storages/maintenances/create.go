@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Store) Create(ctx context.Context, m *entity.Maintenance) error {
-	ctx = xlog.WithOperation(ctx, "store.Maintenances.Create")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.Create")
+	defer span.End()
 
 	maint := toDBMaintenance(m)
 

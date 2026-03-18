@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Store) ConflictedMaints(ctx context.Context, cmd *entity.ConflictQueryCmd) ([]*entity.Conflict, error) {
-	ctx = xlog.WithOperation(ctx, "store.Conflicts.AddResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Conflicts.AddResources")
+	defer span.End()
 
 	/* slq like this
 	SELECT

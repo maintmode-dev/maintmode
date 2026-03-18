@@ -18,7 +18,8 @@ type conflictSnapshots struct {
 }
 
 func (s *Store) GetSnapshots(ctx context.Context, maintID uuid.UUID) ([]*entity.ConflictWithResources, error) {
-	ctx = xlog.WithOperation(ctx, "store.ConflictSnapshots.GetSnapshots")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.ConflictSnapshots.GetSnapshots")
+	defer span.End()
 
 	stmt := table.MaintenanceConflictSnapshot.
 		INNER_JOIN(table.Maintenances, table.Maintenances.ID.EQ(table.MaintenanceConflictSnapshot.ConflictedMaintenanceID)).

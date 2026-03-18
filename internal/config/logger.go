@@ -7,8 +7,6 @@ import (
 	"github.com/ruko1202/xlog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 )
 
 func NewLogger(env Environment) xlog.Logger {
@@ -22,14 +20,15 @@ func NewLogger(env Environment) xlog.Logger {
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	logger, err := config.Build(
-		zap.AddCallerSkip(1),
+		zap.AddCallerSkip(2),
+		zap.AddCaller(),
 	)
 	if err != nil {
 		err := fmt.Errorf("initialize logger failed: %w", err)
 		log.Panic(err.Error())
 	}
 	return xlog.NewZapAdapter(logger.With(
-		zap.String("app", buildmeta.GetAppBuildMeta().AppName),
-		zap.String("version", buildmeta.GetAppBuildMeta().Version),
+		zap.String("app", GetAppBuildMeta().AppName),
+		zap.String("version", GetAppBuildMeta().Version),
 	))
 }

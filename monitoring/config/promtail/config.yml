@@ -1,0 +1,54 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Сбор логов из всех Docker контейнеров
+  # service_name автоматически извлекается из com.docker.compose.service
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Извлекаем имя контейнера
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: container_name
+      # Добавляем метку job
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: job
+        replacement: docker-logs
+      # Добавляем метку environment
+      - target_label: environment
+        replacement: development
+      # Добавляем метку cluster
+      - target_label: cluster
+        replacement: maintmode-dev
+
+    # Pipeline для обработки логов
+    pipeline_stages:
+      # Извлечение уровня логирования (INFO, ERROR, WARN, DEBUG)
+      - regex:
+          expression: '^\S+\s+(?P<level>INFO|ERROR|WARN|DEBUG|FATAL|PANIC|TRACE)'
+
+      # Добавление извлеченного уровня как label
+      - labels:
+          level:
+
+  # Сбор логов из хост-системы
+  - job_name: host-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: host-logs
+          __path__: /var/log/**/*.log
+          environment: development
+          cluster: maintmode-dev

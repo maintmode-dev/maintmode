@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]*entity.Resource, error) {
-	ctx = xlog.WithOperation(ctx, "store.Conflicts.ConflictedResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Conflicts.ConflictedResources")
+	defer span.End()
 
 	if len(cmd.MaintResourceIDs) == 0 || len(cmd.ConflictedMaintIDs) == 0 {
 		return make(map[uuid.UUID][]*entity.Resource), nil

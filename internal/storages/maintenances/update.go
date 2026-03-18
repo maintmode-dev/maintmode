@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Store) Update(ctx context.Context, maint *entity.Maintenance) error {
-	ctx = xlog.WithOperation(ctx, "store.Maintenances.Update")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.Update")
+	defer span.End()
 
 	maint.UpdatedAt = lo.ToPtr(xtime.UTCNow())
 

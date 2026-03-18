@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) Cancel(ctx context.Context, cmd *entity.CancelMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maint.Cancel")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Cancel")
+	defer span.End()
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
 		if maint.Status == entity.MaintenanceStatusCancelled {

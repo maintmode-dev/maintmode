@@ -36,7 +36,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /ui/v1/calendar [get]
 func (i *Implementation) CalendarView(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Calendar.CalendarView")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.CalendarView")
+	defer span.End()
 
 	req := new(uimodels.CalendarViewRequest)
 	if err := c.Bind(req); err != nil {

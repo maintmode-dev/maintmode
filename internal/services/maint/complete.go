@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) Complete(ctx context.Context, cmd *entity.CompleteMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maint.Complete")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Complete")
+	defer span.End()
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
 		if maint.Status == entity.MaintenanceStatusCompleted {

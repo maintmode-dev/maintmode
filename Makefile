@@ -344,20 +344,33 @@ docker-ps: ## Show status of database containers
 # Safe to run multiple times (idempotent)
 .PHONY: app-up
 app-up: args=
+app-up: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting all services with maintmode...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} up -d ${args}
+	docker-compose ${composefile} up -d ${args}
 	make app-ps
+
+.PHONY: app-with-monitoring-up
+app-with-monitoring-up: app-with-monitoring-down
+app-with-monitoring-up: args=
+app-with-monitoring-up: ## Start all services with maintmode using Docker Compose
+	make app-up composefile="${DOCKER_COMPOSE_APP_CONFIGS} -f compose.infra.yaml" args=${args}
 
 # app-down - Stop and remove all containers
 # Stops all containers and removes them
 # WARNING: This will remove all containers but keeps volumes
 # Use this when you want to stop services but preserve data
 .PHONY: app-down
+app-down: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-down: ## Stop and remove all containers
 	$(info $(M) stopping all containers...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} down -v --remove-orphans
+	docker-compose ${composefile} down -v --remove-orphans
 	make app-ps
+
+.PHONY: app-with-monitoring-down
+app-with-monitoring-downup: args=
+app-with-monitoring-down: ## Start all services with maintmode using Docker Compose
+	make app-down composefile="${DOCKER_COMPOSE_APP_CONFIGS} -f compose.infra.yaml"
 
 .PHONY: app-reup
 app-reup: ## Stop and start all containers
@@ -370,8 +383,9 @@ app-reup: ## Stop and start all containers
 # Press Ctrl+C to stop following logs
 # Useful for debugging application issues
 .PHONY: app-logs
+app-logs: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-logs: ## Show logs from maintmode container
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} logs -f maintmode
+	docker-compose ${composefile} logs -f maintmode
 
 # app-ps - Show status of all containers
 # Displays:
@@ -380,5 +394,51 @@ app-logs: ## Show logs from maintmode container
 #   - Health check status
 # Useful for verifying that all services are running
 .PHONY: app-ps
+app-ps: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-ps: ## Show status of all containers
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ps -a
+	docker-compose ${composefile} ps -a
+
+# -------------------------------------
+# K6 Load Testing
+# -------------------------------------
+# Commands for running K6 load tests against the API
+# Tests are located in test/k6/scenarios/
+#
+# Environment variables:
+#   BASE_URL: API base URL (default: http://maintmode:8000)
+#   TEST: Specific test file to run (default: full scenario)
+#
+# Prerequisites:
+#   - API server must be running (make app-up)
+#   - Docker Compose must be available
+
+# K6 Docker Compose configuration
+K6_COMPOSE_FILE = compose.k6.yaml
+K6_TEST_DIR = test/k6
+K6_SCENARIOS_DIR = $(K6_TEST_DIR)/scenarios
+
+# k6 - Run K6 tests using Docker Compose
+# Usage:
+#   make k6                                    		# Run full scenario test
+#   make k6 TEST=scenarios/01-resources-test.js  	# Run specific test
+.PHONY: k6
+k6: TEST?=scenarios/00-full-scenario-test.js
+k6: ## Run K6 load tests using Docker Compose
+	$(info $(M) running K6 load test: $(TEST)...)
+	@docker-compose -f $(K6_COMPOSE_FILE) run --rm \
+		-e BASE_URL=http://maintmode:8000 \
+		k6 run /k6/$(TEST) \
+		--out experimental-prometheus-rw \
+		--tag testid=k6-load-test
+
+# k6-all - Run all K6 tests sequentially using Docker Compose
+.PHONY: k6-all
+k6-all: ## Run all K6 tests using Docker Compose
+	$(info $(M) running all K6 tests...)
+	make k6 TEST=scenarios/00-full-scenario-test.js  # Run full scenario test
+	make k6 TEST=scenarios/01-resources-test.js # Run resources API test
+	make k6 TEST=scenarios/02-maintenances-crud-test.js # Run maintenances CRUD test
+	make k6 TEST=scenarios/03-maintenances-lifecycle-test.js # Run maintenances lifecycle test
+	make k6 TEST=scenarios/04-maintenances-cancel-test.js # Run maintenances cancel test
+	make k6 TEST=scenarios/05-calendar-test.js # Run calendar test
+	make k6 TEST=scenarios/06-ui-maintenance-view-test.js # Run UI maintenance view test

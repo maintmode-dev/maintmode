@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Service) SaveSnapshot(ctx context.Context, cmd *entity.SaveConflictsSnapshotCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Conflicts.SaveSnapshot")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Conflicts.SaveSnapshot")
+	defer span.End()
 
 	if err := s.conflictSnapshotsStore.Save(ctx, cmd.MaintID, cmd.ConflictSnapshot.Conflicts); err != nil {
 		return fmt.Errorf("bulk insert conflict snapshots: %w", err)

@@ -1,0 +1,89 @@
+apiVersion: 1
+
+datasources:
+  # VictoriaMetrics - Prometheus compatible datasource
+  - name: VictoriaMetrics
+    uid: vm_ds
+    type: prometheus
+    access: proxy
+    url: http://victoria-metrics:8428
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - datasourceUid: jaeger
+          name: trace_id
+    version: 1
+
+  # Loki - Logs datasource
+  - name: Loki
+    type: loki
+    uid: loki_ds
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: jaeger_ds
+          matcherRegex: "trace_id[=:]([0-9a-f]+)"
+          name: TraceID
+          url: "$${__value.raw}"
+          urlDisplayLabel: "View Trace"
+    version: 1
+
+  # Jaeger - Distributed Tracing datasource
+  - name: Jaeger
+    uid: jaeger_ds
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    isDefault: false
+    editable: true
+    version: 4
+    jsonData:
+      # Traces to Logs
+      tracesToLogs:
+        datasourceUid: loki_ds
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: false
+
+      # Traces to Metrics
+      tracesToMetrics:
+        datasourceUid: vm_ds
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags:
+          - key: 'server.address'
+            value: 'server_address'
+          - key: 'http.route'
+            value: 'http_route'
+          - key: 'http.request.method'
+            value: 'http_request_method'
+          - key: 'http.response.status_code'
+            value: 'http_response_status_code'
+        queries:
+          - name: 'Request Rate'
+            query: 'sum(rate(http_server_request_duration_seconds_count{server_address="$${__span.tags["server.address"]}", http_route="$${__span.tags["http.route"]}"}[$${__rate_interval}]))'
+          - name: 'Request Duration (p50)'
+            query: 'histogram_quantile(0.50, sum by(le) (rate(http_server_request_duration_seconds_bucket{server_address="$${__span.tags["server.address"]}", http_route="$${__span.tags["http.route"]}"}[$${__rate_interval}])))'
+          - name: 'Request Duration (p95)'
+            query: 'histogram_quantile(0.95, sum by(le) (rate(http_server_request_duration_seconds_bucket{server_address="$${__span.tags["server.address"]}", http_route="$${__span.tags["http.route"]}"}[$${__rate_interval}])))'
+          - name: 'Request Duration (p99)'
+            query: 'histogram_quantile(0.99, sum by(le) (rate(http_server_request_duration_seconds_bucket{server_address="$${__span.tags["server.address"]}", http_route="$${__span.tags["http.route"]}"}[$${__rate_interval}])))'
+          - name: 'Error Rate (5xx)'
+            query: 'sum(rate(http_server_request_duration_seconds_count{server_address="$${__span.tags["server.address"]}", http_route="$${__span.tags["http.route"]}", http_response_status_code=~"5.."}[$${__rate_interval}]))'
+
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope_ds
+    url: http://pyroscope:4040
+    access: proxy
+    isDefault: false
+    editable: true

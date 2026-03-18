@@ -5,9 +5,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+	"github.com/ruko1202/maintmode/internal/config"
 )
 
 func (i *Implementation) Version(c echo.Context) error {
-	return c.JSON(http.StatusOK, buildmeta.GetAppBuildMeta())
+	return c.JSON(http.StatusOK, config.GetAppBuildMeta())
 }

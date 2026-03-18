@@ -14,7 +14,8 @@ import (
 )
 
 func (s *Service) Get(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance, error) {
-	ctx = xlog.WithOperation(ctx, "service.Maint.Get")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Get")
+	defer span.End()
 
 	maint, err := s.maintStore.Get(ctx, maintID)
 	if err != nil {

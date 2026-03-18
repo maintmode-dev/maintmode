@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Service) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]*entity.Resource, error) {
-	ctx = xlog.WithOperation(ctx, "service.Conflicts.ConflictedResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Conflicts.ConflictedResources")
+	defer span.End()
 
 	resources, err := s.conflictsStore.ConflictedResources(ctx, cmd)
 	if err != nil {

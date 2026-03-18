@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) Update(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maint.Update")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Update")
+	defer span.End()
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if maint.Status != entity.MaintenanceStatusDraft {
@@ -67,6 +68,9 @@ func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 }
 
 func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApply")
+	defer span.End()
+
 	return s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		maint, err := s.maintStore.GetForUpdate(ctx, maintID)
 		if err != nil {

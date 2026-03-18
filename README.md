@@ -180,3 +180,69 @@ make run
 make air
 ```
 
+## Компоненты мониторинга
+| Сервис | URL | Логин/Пароль |
+|--------|-----|--------------|
+| Grafana | http://localhost:8003 | admin/admin |
+| VictoriaMetrics | http://localhost:8428 | - |
+| Loki | http://localhost:3100 | - |
+
+### VictoriaMetrics
+- **Порт**: 8428
+- **Назначение**: Time Series Database для метрик
+- **Retention**: 30 дней
+- **Конфигурация**: [`monitoring/config/prometheus.yml`](config-monitoring-prometheus.yml.md)
+
+### Grafana
+- **Порт**: 3000
+- **Назначение**: Визуализация метрик и логов
+- **Datasources**: VictoriaMetrics, Loki
+- **Дашборды**: Автоматическая загрузка из provisioning
+
+### Loki
+- **Порт**: 3100
+- **Назначение**: Агрегация логов
+- **Retention**: 30 дней
+- **Конфигурация**: [`monitoring/config/loki/local-config.yaml`](config-monitoring-loki-local-config.yaml.md)
+
+### Promtail
+- **Назначение**: Сбор логов из Docker контейнеров
+- **Конфигурация**: [`monitoring/config/promtail/config.yml`](config-monitoring-promtail-config.yml.md)
+
+### Экспортеры
+- **Node Exporter** (9100) - Метрики хост-системы
+- **cAdvisor** (8080) - Метрики Docker контейнеров
+- **PostgreSQL Exporter** (9187) - Метрики PostgreSQL
+- **Redis Exporter** (9121) - Метрики Redis
+
+## Дашборды
+
+| Дашборд | Описание | Источник |
+|---------|-----------|----------|
+| MaintMode Application | HTTP метрики, бизнес-метрики, Go runtime | Custom |
+| PostgreSQL Database | Производительность PostgreSQL | Marketplace (ID: 9628) |
+| Redis Dashboard | Производительность Redis | Marketplace (ID: 11835) |
+| PgBouncer Exporter | Метрики pg_doorman | Marketplace (ID: 11271) |
+| cAdvisor | Метрики Docker контейнеров | Marketplace (ID: 893) |
+| Node Exporter Full | Метрики хост-системы | Marketplace (ID: 1860) |
+
+## Метрики приложения
+
+### HTTP метрики (echoprometheus)
+- `echo_http_requests_total{method, path, status}` - Общее количество HTTP запросов
+- `echo_http_request_duration_seconds_bucket{method, path, le}` - Histogram latency
+- `echo_http_requests_in_flight{method, path}` - Текущие запросы
+
+### Go runtime
+- `go_goroutines` - Количество goroutines
+- `go_gc_duration_seconds_sum` - Суммарное время GC
+- `go_gc_duration_seconds_count` - Количество GC циклов
+
+
+## Полезные ссылки
+
+- [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)
+- [Grafana Documentation](https://grafana.com/docs/)
+- [Loki Documentation](https://grafana.com/docs/loki/latest/)
+- [Grafana Marketplace](https://grafana.com/grafana/dashboards/)
+- [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/)

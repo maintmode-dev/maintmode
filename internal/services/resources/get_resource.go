@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Service) GetResourceByID(ctx context.Context, resourceID uuid.UUID) (*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "service.Resources.GetResourceByID")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.GetResourceByID")
+	defer span.End()
 
 	resource, err := s.store.GetByID(ctx, resourceID)
 	if err != nil {

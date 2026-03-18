@@ -31,7 +31,8 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /ui/v1/maintenances/{id} [get]
 func (i *Implementation) MaintView(c echo.Context) error {
-	ctx := xlog.WithOperation(c.Request().Context(), "api.Calendar.MaintView")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.MaintView")
+	defer span.End()
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

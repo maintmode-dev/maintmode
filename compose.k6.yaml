@@ -1,0 +1,22 @@
+services:
+  k6:
+    image: grafana/k6:latest
+    container_name: k6-load-test
+    networks:
+      - theapp
+    volumes:
+      - ./test/k6:/k6:ro
+      - ./test/k6/results:/results  # Для сохранения результатов
+    environment:
+      - BASE_URL=http://maintmode:8000
+      - K6_PROMETHEUS_RW_SERVER_URL=http://victoria-metrics:8428/api/v1/write
+      - K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
+    command: >
+      run /k6/scenarios/00-full-scenario-test.js
+      --out experimental-prometheus-rw
+      --tag testid=k6-load-test
+
+networks:
+  theapp:
+    external: true
+    name: theapp

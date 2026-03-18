@@ -18,7 +18,8 @@ import (
 )
 
 func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenanceCmd) (*entity.Maintenance, error) {
-	ctx = xlog.WithOperation(ctx, "service.Maint.CreateDraft")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.CreateDraft")
+	defer span.End()
 
 	if err := validateCreate(cmd); err != nil {
 		return nil, err

@@ -19,7 +19,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 )
 
 func main() {
@@ -38,7 +37,10 @@ func main() {
 	xlog.ReplaceGlobalLogger(logger)
 	ctx = xlog.ContextWithLogger(ctx, logger)
 
-	xlog.Info(ctx, "start app", xfield.Any("meta", buildmeta.GetAppBuildMeta()))
+	xlog.Info(ctx, "start app",
+		xfield.Any("environment", cfg.Environment),
+		xfield.Any("meta", config.GetAppBuildMeta()),
+	)
 
 	initExporters(ctx)
 
@@ -97,9 +99,14 @@ func shutdown(ctx context.Context) {
 }
 
 func initExporters(ctx context.Context) {
-	xlog.ReplaceTracerName(buildmeta.GetAppBuildMeta().AppName)
+	xlog.ReplaceTracerName(config.GetAppBuildMeta().AppName)
 
-	otelRes, tracerProvider, err := config.InitTracerProvider(ctx)
+	otelRes, err := config.InitTracerResource()
+	if err != nil {
+		xlog.Panic(ctx, "failed to initialize OpenTelemetry", xfield.Error(err))
+	}
+
+	tracerProvider, err := config.InitTracerProvider(ctx, otelRes)
 	if err != nil {
 		xlog.Panic(ctx, "failed to initialize OpenTelemetry", xfield.Error(err))
 	}

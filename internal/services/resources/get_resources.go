@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Service) GetResources(ctx context.Context, resourceIDs []uuid.UUID) ([]*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "service.Resources.GetResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.GetResources")
+	defer span.End()
 
 	resources, err := s.store.GetResources(ctx, resourceIDs)
 	if err != nil {
@@ -23,7 +24,8 @@ func (s *Service) GetResources(ctx context.Context, resourceIDs []uuid.UUID) ([]
 }
 
 func (s *Service) GetResourcesLikeName(ctx context.Context, name string) ([]*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "service.Resources.GetResourcesLikeName")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.GetResourcesLikeName")
+	defer span.End()
 
 	resources, err := s.store.GetResourcesLikeName(ctx, name)
 	if err != nil {

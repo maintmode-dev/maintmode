@@ -17,7 +17,8 @@ import (
 const limitMonth = 3 * 30 * 24 * time.Hour // 90 days
 
 func (s *Service) GetMaints(ctx context.Context, filter *calendardto.GetMaintsFilter) ([]*calendardto.Maintenance, *calendardto.MaintenancesMeta, error) {
-	ctx = xlog.WithOperation(ctx, "service.Calendar.GetMaints")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Calendar.GetMaints")
+	defer span.End()
 
 	if filter.PeriodTo.Sub(filter.PeriodFrom) > limitMonth {
 		return nil, nil, fmt.Errorf("%w: should be less or equal than 90 days", apperr.ErrInvalidPeriodInterval)

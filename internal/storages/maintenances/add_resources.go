@@ -14,7 +14,8 @@ import (
 )
 
 func (s *Store) AddResources(ctx context.Context, maintID uuid.UUID, resources []*entity.Resource) error {
-	ctx = xlog.WithOperation(ctx, "store.Maintenances.AddResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.AddResources")
+	defer span.End()
 
 	if len(resources) == 0 {
 		return nil

@@ -11,7 +11,8 @@ import (
 )
 
 func (s *Store) DeleteResources(ctx context.Context, maintID uuid.UUID) error {
-	ctx = xlog.WithOperation(ctx, "store.Maintenance.DeleteResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenance.DeleteResources")
+	defer span.End()
 
 	stmt := table.MaintenanceResources.DELETE().
 		WHERE(table.MaintenanceResources.MaintenanceID.EQ(postgres.UUID(maintID)))

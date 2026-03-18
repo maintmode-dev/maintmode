@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Service) GetResourceTypes(ctx context.Context, resourceID uuid.UUID) ([]entity.ResourceType, error) {
-	ctx = xlog.WithOperation(ctx, "service.Resources.GetResourceTypes")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.GetResourceTypes")
+	defer span.End()
 
 	_ = ctx
 	_ = resourceID

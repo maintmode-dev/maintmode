@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto.Maintenance, error) {
-	ctx = xlog.WithOperation(ctx, "service.Calendar.GetMaint")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Calendar.GetMaint")
+	defer span.End()
 
 	maint, err := s.maintStore.Get(ctx, maintID)
 	if err != nil {
@@ -44,7 +45,8 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 }
 
 func (s *Service) getMaintResources(ctx context.Context, maintIDs []uuid.UUID) (map[uuid.UUID][]*calendardto.MaintenanceResource, error) {
-	ctx = xlog.WithOperation(ctx, "service.Calendar.GetMaintResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Calendar.GetMaintResources")
+	defer span.End()
 
 	if len(maintIDs) == 0 {
 		return map[uuid.UUID][]*calendardto.MaintenanceResource{}, nil

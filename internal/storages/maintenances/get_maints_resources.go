@@ -14,7 +14,8 @@ import (
 )
 
 func (s *Store) GetMaintResources(ctx context.Context, maintIDs []uuid.UUID) (map[uuid.UUID][]*entity.Resource, error) {
-	ctx = xlog.WithOperation(ctx, "store.Maintenance.GetMaintResources")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenance.GetMaintResources")
+	defer span.End()
 
 	if len(maintIDs) == 0 {
 		return map[uuid.UUID][]*entity.Resource{}, nil

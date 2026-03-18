@@ -17,3 +17,13 @@ codereview-feature-infra.md
 tmp/
 
 .agent/.tasks/
+
+plans/
+
+monitoring/store/
+
+screenshots/
+
+.vscode/
+
+.playwright-mcp/

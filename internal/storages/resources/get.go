@@ -18,7 +18,8 @@ import (
 )
 
 func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "store.Resources.GetByID")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetByID")
+	defer span.End()
 
 	stmt := table.Resources.
 		SELECT(table.Resources.AllColumns).
@@ -28,7 +29,8 @@ func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*entity.Reso
 }
 
 func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDetails, error) {
-	ctx = xlog.WithOperation(ctx, "store.Resources.GetByName")
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetByName")
+	defer span.End()
 
 	stmt := table.Resources.
 		SELECT(table.Resources.AllColumns).

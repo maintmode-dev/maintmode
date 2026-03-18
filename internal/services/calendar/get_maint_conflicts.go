@@ -12,7 +12,8 @@ import (
 )
 
 func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQueryCmd) ([]*calendardto.Conflict, error) {
-	ctx = xlog.WithOperation(ctx, "service.Calendar.GetConflicts")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Calendar.GetConflicts")
+	defer span.End()
 
 	conflicts, err := s.conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
 		MaintID:       cmd.MaintID,

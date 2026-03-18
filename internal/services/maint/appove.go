@@ -13,7 +13,8 @@ import (
 )
 
 func (s *Service) Approve(ctx context.Context, cmd *entity.ApproveMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maint.Approve")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Approve")
+	defer span.End()
 
 	err := s.checkConflicts(ctx, cmd)
 	if err != nil {
@@ -46,7 +47,8 @@ func (s *Service) Approve(ctx context.Context, cmd *entity.ApproveMaintenanceCmd
 }
 
 func (s *Service) checkConflicts(ctx context.Context, cmd *entity.ApproveMaintenanceCmd) error {
-	ctx = xlog.WithOperation(ctx, "service.Maint.CheckConflicts")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.checkConflicts")
+	defer span.End()
 
 	maint, err := s.Get(ctx, cmd.MaintID)
 	if err != nil {

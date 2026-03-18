@@ -5,6 +5,14 @@ receivers:
         endpoint: 0.0.0.0:4317 # <-- ФИКС СЕТИ: Слушаем все интерфейсы, а не только localhost!
 
 processors:
+  # Копируем resource attributes в span attributes для совместимости с Jaeger
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["service.name"], resource.attributes["service.name"])
+          - set(attributes["service.version"], resource.attributes["service.version"])
+
   tail_sampling:
     decision_wait: 5s
     num_traces: 10000
@@ -13,7 +21,7 @@ processors:
       - name: keep-errors
         type: status_code
         status_code:
-          status_codes: [ERROR]
+          status_codes: [ ERROR ]
       - name: keep-slow-requests
         type: latency
         latency:
@@ -32,6 +40,6 @@ exporters:
 service:
   pipelines:
     traces:
-      receivers: [otlp]
-      processors: [tail_sampling]
-      exporters: [otlp_grpc/jaeger] # <-- НЕ ЗАБЫВАЕМ обновить имя и здесь
+      receivers: [ otlp ]
+      processors: [ transform, tail_sampling ] # transform должен быть первым!
+      exporters: [ otlp_grpc/jaeger ]

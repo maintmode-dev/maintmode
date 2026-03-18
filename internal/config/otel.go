@@ -11,24 +11,29 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.9.0"
-
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 )
 
-// InitTracerProvider sets up everything: trace exporter and pull-based metric exporter
-func InitTracerProvider(ctx context.Context) (*resource.Resource, *sdktrace.TracerProvider, error) {
-	res, _ := resource.Merge(
+func InitTracerResource() (*resource.Resource, error) {
+	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(semconv.SchemaURL,
-			semconv.ServiceNameKey.String(buildmeta.GetAppBuildMeta().AppName),
-			semconv.ServiceVersionKey.String(buildmeta.GetAppBuildMeta().Version),
+			semconv.ServiceNameKey.String(GetAppBuildMeta().AppName),
+			semconv.ServiceVersionKey.String(GetAppBuildMeta().Version),
 		),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tracer resource: %w", err)
+	}
 
+	return res, nil
+}
+
+// InitTracerProvider sets up everything: trace exporter and pull-based metric exporter
+func InitTracerProvider(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 		logger := xlog.LoggerFromContext(ctx)
 		logger.Error("ALERT: Internal OpenTelemetry error", xfield.Error(err))
@@ -41,7 +46,7 @@ func InitTracerProvider(ctx context.Context) (*resource.Resource, *sdktrace.Trac
 		otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", GetAppConfig().Tracer.CollectorHost, GetAppConfig().Tracer.CollectorPort)),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 	bsp := sdktrace.NewBatchSpanProcessor(
 		traceExporter,
@@ -56,11 +61,15 @@ func InitTracerProvider(ctx context.Context) (*resource.Resource, *sdktrace.Trac
 	)
 	otel.SetTracerProvider(tracerProvider)
 
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
-	return res, tracerProvider, nil
+	return tracerProvider, nil
 }
 
+// InitMetricExporter sets up pull-based metric exporter.
 func InitMetricExporter(res *resource.Resource) (*sdkmetric.MeterProvider, error) {
 	// --- METRICS ---
 	// Prometheus exporter (exposes /metrics for scraping)
