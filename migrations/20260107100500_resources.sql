@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 SELECT 'up SQL query';
 CREATE TABLE resources (
-    id UUID PRIMARY KEY, -- UUIDv7 генерируем в Go
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name TEXT NOT NULL,
     description TEXT NOT NULL ,
     external_id TEXT,

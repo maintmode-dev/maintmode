@@ -8,7 +8,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 func TestStore_GetResourcesLikeName(t *testing.T) {
@@ -59,23 +58,19 @@ func TestStore_GetResourcesLikeName(t *testing.T) {
 		baseName := "TestResource" + xtime.UTCNow().String()
 		resources := []*entity.ResourceDetails{
 			{
-				ID:          xuuid.New(),
 				Name:        baseName + "-one",
 				Description: "Description one",
 				ExternalID:  nil,
-				CreatedAt:   xtime.UTCNow(),
 			},
 			{
-				ID:          xuuid.New(),
 				Name:        baseName + "-two",
 				Description: "Description two",
 				ExternalID:  nil,
-				CreatedAt:   xtime.UTCNow(),
 			},
 		}
 
 		for _, r := range resources {
-			err := store.Create(ctx, r)
+			_, err := store.Create(ctx, r)
 			require.NoError(t, err)
 		}
 

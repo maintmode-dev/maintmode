@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -23,20 +22,22 @@ func TestCreate(t *testing.T) {
 		t.Parallel()
 
 		resource := &entity.ResourceDetails{
-			ID:          xuuid.New(),
 			Name:        "Name" + t.Name(),
 			Description: "Description" + t.Name(),
 			ExternalID:  lo.ToPtr(xuuid.NewString()),
-			CreatedAt:   xtime.UTCNow(),
 		}
 
-		err := store.Create(ctx, resource)
+		created, err := store.Create(ctx, resource)
 		require.NoError(t, err)
-		require.NotNil(t, resource)
+		require.NotNil(t, created)
 
-		dbResource, err := store.GetByID(ctx, resource.ID)
+		resource.ID = created.ID
+		resource.CreatedAt = created.CreatedAt
+		require.Equal(t, resource, created)
+
+		dbResource, err := store.GetByID(ctx, created.ID)
 		require.NoError(t, err)
 		require.NotNil(t, dbResource)
-		require.Equal(t, resource, dbResource)
+		require.Equal(t, created, dbResource)
 	})
 }

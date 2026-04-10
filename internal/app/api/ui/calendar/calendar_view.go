@@ -38,14 +38,13 @@ import (
 func (i *Implementation) CalendarView(c echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.CalendarView")
 	defer span.End()
+	op := "list calendar events"
 
 	req := new(uimodels.CalendarViewRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			"cannot parse request body",
-		))
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
+		return c.JSON(statusCode, errResp)
 	}
 	req.To.Time = xtime.EndOfTheDay(req.To.Time)
 	req.From.Time = xtime.StartOfTheDay(req.From.Time)

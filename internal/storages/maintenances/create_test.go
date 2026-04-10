@@ -30,20 +30,20 @@ func TestCreate_PlannedPeriod(t *testing.T) {
 
 		period := entity.NewPeriod(now.Add(-time.Hour), now.Add(time.Hour))
 		maint := &entity.Maintenance{
-			ID:            xuuid.New(),
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: period,
 			Scope:         entity.MaintenanceScopeResources,
 			Status:        entity.MaintenanceStatusPlanned,
 			Impact:        entity.MaintenanceImpactFull,
-			CreatedAt:     now,
 		}
 
-		err := store.Create(ctx, maint)
+		created, err := store.Create(ctx, maint)
 		require.NoError(t, err)
+		require.NotNil(t, created)
+		equalMaint(t, maint, created)
 
-		dbMaint, err := store.Get(ctx, maint.ID)
+		dbMaint, err := store.Get(ctx, created.ID)
 		require.NoError(t, err)
 		require.Equal(t, maint, dbMaint)
 	})
@@ -59,33 +59,32 @@ func TestCreate_PlannedPeriod(t *testing.T) {
 			{
 				name:        "start == end",
 				period:      entity.NewPeriod(now, now),
-				expectedErr: "pq: new row for relation \"maintenances\" violates check constraint \"maintenances_planned_period_check\"",
+				expectedErr: "jet: pq: new row for relation \"maintenances\" violates check constraint \"maintenances_planned_period_check\"",
 			}, {
 				name:        "start > end",
 				period:      entity.NewPeriod(now.Add(time.Hour), now),
-				expectedErr: "pq: range lower bound must be less than or equal to range upper bound",
+				expectedErr: "jet: pq: range lower bound must be less than or equal to range upper bound",
 			}, {
 				name:        "open-ended",
 				period:      entity.NewOpenEndedPeriod(now.Add(time.Hour)),
-				expectedErr: "pq: new row for relation \"maintenances\" violates check constraint \"maintenances_planned_period_check\"",
+				expectedErr: "jet: pq: new row for relation \"maintenances\" violates check constraint \"maintenances_planned_period_check\"",
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
 				maint := &entity.Maintenance{
-					ID:            xuuid.New(),
 					Title:         "Title" + t.Name(),
 					Description:   "Description" + t.Name(),
 					PlannedPeriod: tc.period,
 					ActualPeriod:  nil,
 					Status:        entity.MaintenanceStatusPlanned,
 					Impact:        entity.MaintenanceImpactFull,
-					CreatedAt:     now,
 				}
 
-				err := store.Create(ctx, maint)
+				created, err := store.Create(ctx, maint)
 				require.EqualError(t, err, tc.expectedErr)
+				require.Nil(t, created)
 
 				dbMaint, err := store.Get(ctx, maint.ID)
 				require.EqualError(t, err, apperr.ErrMaintNotFound.Error())
@@ -123,23 +122,23 @@ func TestCreate_ActualPeriod(t *testing.T) {
 
 				period := entity.NewPeriod(now.Add(-time.Hour), now.Add(time.Hour))
 				maint := &entity.Maintenance{
-					ID:            xuuid.New(),
 					Title:         "Title" + t.Name(),
 					Description:   "Description" + t.Name(),
 					PlannedPeriod: period,
 					ActualPeriod:  lo.ToPtr(tc.actualPeriod),
 					Status:        entity.MaintenanceStatusPlanned,
 					Impact:        entity.MaintenanceImpactFull,
-					CreatedAt:     now,
 				}
 
-				err := store.Create(ctx, maint)
+				created, err := store.Create(ctx, maint)
 				require.NoError(t, err)
+				require.NotNil(t, created)
+				equalMaint(t, maint, created)
 
-				dbMaint, err := store.Get(ctx, maint.ID)
+				dbMaint, err := store.Get(ctx, created.ID)
 				require.NoError(t, err)
 				require.Equal(t, lo.ToPtr(tc.actualPeriod), dbMaint.ActualPeriod)
-				require.Equal(t, maint, dbMaint)
+				require.Equal(t, created, dbMaint)
 			})
 		}
 	})
@@ -155,11 +154,11 @@ func TestCreate_ActualPeriod(t *testing.T) {
 			{
 				name:        "start == end",
 				period:      entity.NewPeriod(now, now),
-				expectedErr: "pq: new row for relation \"maintenances\" violates check constraint \"maintenances_actual_period_check\"",
+				expectedErr: "jet: pq: new row for relation \"maintenances\" violates check constraint \"maintenances_actual_period_check\"",
 			}, {
 				name:        "start > end",
 				period:      entity.NewPeriod(now.Add(time.Hour), now),
-				expectedErr: "pq: range lower bound must be less than or equal to range upper bound",
+				expectedErr: "jet: pq: range lower bound must be less than or equal to range upper bound",
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -176,8 +175,9 @@ func TestCreate_ActualPeriod(t *testing.T) {
 					CreatedAt:     now,
 				}
 
-				err := store.Create(ctx, maint)
+				created, err := store.Create(ctx, maint)
 				require.EqualError(t, err, tc.expectedErr)
+				require.Nil(t, created)
 
 				dbMaint, err := store.Get(ctx, maint.ID)
 				require.EqualError(t, err, apperr.ErrMaintNotFound.Error())
@@ -185,4 +185,15 @@ func TestCreate_ActualPeriod(t *testing.T) {
 			})
 		}
 	})
+}
+
+func equalMaint(t *testing.T, expected, actual *entity.Maintenance) {
+	t.Helper()
+
+	require.NotEmpty(t, actual.ID)
+	require.True(t, actual.CreatedAt.After(xtime.UTCNow().Add(-time.Minute)))
+
+	expected.ID = actual.ID
+	expected.CreatedAt = actual.CreatedAt
+	require.Equal(t, expected, actual)
 }

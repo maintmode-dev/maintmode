@@ -5,6 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
@@ -26,18 +28,19 @@ func NewAPIServer(
 	maintImpl *apimaint.Implementation,
 	resourcesImpl *resourcesapi.Implementation,
 	calendarImpl *uicalendar.Implementation,
+	opts ...Option,
 ) *APIServer {
 	return &APIServer{
-		server:        newServer(cfg),
+		server:        newServer(cfg, opts...),
 		maintImpl:     maintImpl,
 		resourcesImpl: resourcesImpl,
 		calendarImpl:  calendarImpl,
 	}
 }
 
-func (s *APIServer) BindRouters() {
+func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuildMeta) {
 	rootGr := s.e.Group("")
-	rootGr.Use(middlewares.BaseAPIMiddlewares()...)
+	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 	rootGr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	s.apiV1Group(rootGr.Group("/api/v1"))

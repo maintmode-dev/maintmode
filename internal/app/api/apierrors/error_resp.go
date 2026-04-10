@@ -3,6 +3,9 @@ package apierrors
 type ErrorCode string
 
 var (
+	ErrUnauthorized ErrorCode = "unauthorized"
+	ErrLockBusy     ErrorCode = "lock is already held"
+
 	ErrNotFound                     ErrorCode = "not found"
 	ErrInternalError                ErrorCode = "internal error"
 	ErrInvalidRequest               ErrorCode = "invalid request"

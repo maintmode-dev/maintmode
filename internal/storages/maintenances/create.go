@@ -9,20 +9,23 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) Create(ctx context.Context, m *entity.Maintenance) error {
+func (s *Store) Create(ctx context.Context, m *entity.Maintenance) (*entity.Maintenance, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.Create")
 	defer span.End()
 
 	maint := toDBMaintenance(m)
 
 	stmt := table.Maintenances.
-		INSERT(table.Maintenances.AllColumns).
-		MODEL(maint)
+		INSERT(table.Maintenances.MutableColumns.
+			Except(table.Maintenances.CreatedAt),
+		).
+		MODEL(maint).
+		RETURNING(table.Maintenances.AllColumns)
 
-	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))
+	err := stmt.QueryContext(ctx, s.db.Executor(ctx), maint)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return fromDBMaintenance(maint), nil
 }

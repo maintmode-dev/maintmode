@@ -19,7 +19,7 @@ import (
 func TestUIAPI_GetMaintenanceView(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 
@@ -51,7 +51,7 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createAndApproveMaintenance(ctx, t, apiClient)
 
@@ -77,7 +77,7 @@ func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
 func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)
 
@@ -105,7 +105,7 @@ func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	resourceID := xuuid.New().String()
 
@@ -134,7 +134,7 @@ func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 func TestUIAPI_GetMaintenanceView_NonExistent(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	nonExistentID := strfmt.UUID(xuuid.New().String())
 	params := ui.NewGetUIV1MaintenancesIDParams().

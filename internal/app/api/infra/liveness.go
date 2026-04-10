@@ -7,5 +7,5 @@ import (
 )
 
 func (i *Implementation) Liveness(c echo.Context) error {
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth + RBAC Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            padding: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        }
+
+        .card h2 {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 4px 4px 0 0;
+        }
+
+        .btn-primary {
+            background: #4285f4;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #3367d6;
+        }
+
+        .btn-danger {
+            background: #ea4335;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #c5221f;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+
+        .btn-muted {
+            background: #888;
+            color: #fff;
+        }
+
+        .btn-muted:hover {
+            background: #777;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .status.ok {
+            background: #e6f4ea;
+            color: #1e8e3e;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 320px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-top: 8px;
+        }
+
+        .token-display {
+            font-size: 12px;
+            word-break: break-all;
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 6px;
+            margin: 4px 0;
+        }
+
+        .claims {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+            font-size: 13px;
+        }
+
+        .claims dt {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .claims dd {
+            color: #333;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 12px 0;
+        }
+
+        .panel-header {
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-body.scrollable {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4285f4;
+        }
+
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .cl-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .cl-entry:last-child {
+            border-bottom: none;
+        }
+
+        .cl-meta {
+            color: #888;
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 3px solid #4285f4;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .info-box code {
+            background: #e9ecef;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<h1>Google OAuth + RBAC Demo</h1>
+<div class="subtitle">OAuth login, JWT access token, refresh flow, roles, audit, JWKS</div>
+
+<div class="info-box">
+    Основной flow: логин через Google OAuth, access token хранится на клиенте, refresh идёт через cookie.
+    Роли можно просматривать и управлять ими через API.
+</div>
+
+<div class="card" id="auth-card">
+    <h2>Authentication</h2>
+    <div id="logged-out">
+        <button class="btn-primary" onclick="login()">Login with Google</button>
+    </div>
+    <div id="logged-in" class="hidden">
+        <div class="status ok" id="user-info"></div>
+        <hr>
+        <button class="btn-secondary" onclick="refresh()">Refresh Tokens</button>
+        <button class="btn-danger" onclick="logout()">Logout</button>
+        <button class="btn-danger" onclick="logoutAll()">Logout All</button>
+    </div>
+</div>
+
+<div class="card hidden" id="tokens-card">
+    <h2>Tokens</h2>
+    <details>
+        <summary>Access Token (JWT)</summary>
+        <div class="token-display" id="access-token-raw"></div>
+    </details>
+    <div id="claims-section">
+        <h2 style="margin-top:12px">Access Token Claims</h2>
+        <dl class="claims" id="claims"></dl>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <h2>API</h2>
+        <button class="btn-secondary" onclick="callJWKS()">JWKS</button>
+        <button class="btn-secondary" onclick="callIntrospect()">Introspect</button>
+        <button class="btn-secondary" onclick="callGetRoles()">Get My Roles</button>
+        <pre id="api-response">// responses will appear here</pre>
+    </div>
+
+    <div class="card">
+        <h2>Manage Roles</h2>
+        <div class="panel-body">
+            <div class="form-group">
+                <label>User ID / Username</label>
+                <label for="roleUser"></label><input type="text" id="roleUser" placeholder="оставь пустым, чтобы использовать current user">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <label for="roleName"></label><input type="text" id="roleName" placeholder="admin, editor, reader">
+            </div>
+            <div class="form-actions">
+                <button class="btn-primary" onclick="assignRole()">Assign Role</button>
+                <button class="btn-danger" onclick="revokeRole()">Revoke Role</button>
+                <button class="btn-muted" onclick="listRoles()">List All Roles</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="panel-header">
+            Audit Log
+            <button class="btn-secondary" onclick="loadAudit()">Refresh</button>
+        </div>
+        <div class="panel-body scrollable" id="auditBody">
+            <div style="color:#999;font-size:13px">Click Refresh...</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Log</h2>
+    <pre id="log"></pre>
+</div>
+
+<script>
+    const API = '';
+    const TOKEN_KEY = 'access_token';
+
+    // Access token only in memory
+    let accessToken = null;
+    let userId = null;
+
+    (async function init() {
+        log('Initializing...');
+        await bootstrapAuth();
+    })();
+
+    async function bootstrapAuth() {
+        log('Checking sessionStorage for OAuth callback token...');
+        const callbackToken = readCallbackTokenFromSessionStorage();
+        if (callbackToken) {
+            accessToken = callbackToken;
+            onLogin();
+            log('Session restored from OAuth callback token');
+            return;
+        }
+
+        log('Trying silent refresh on page load...');
+        const ok = await silentRefresh();
+
+        if (ok) {
+            log('Session restored from refresh cookie');
+        } else {
+            log('No active session');
+            onLogout();
+        }
+    }
+
+    function readCallbackTokenFromSessionStorage() {
+        try {
+            const token = sessionStorage.getItem(TOKEN_KEY);
+            if (!token) {
+                return null;
+            }
+
+            sessionStorage.removeItem(TOKEN_KEY);
+            log('Found callback token in sessionStorage and moved it to memory');
+            return token;
+        } catch (e) {
+            log(`Failed to read sessionStorage token: ${e.message}`);
+            return null;
+        }
+    }
+
+    function log(msg) {
+        console.log(msg);
+        const el = document.getElementById('log');
+        const ts = new Date().toLocaleTimeString();
+        el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    }
+
+    function login() {
+        log('Redirecting to Google OAuth...');
+        const originalUri = window.location.pathname + window.location.search + window.location.hash;
+        let url = API + '/auth/api/v1/login/oauth/google';
+        if (originalUri) {
+            url += '?original_uri=' + encodeURIComponent(originalUri);
+            log('Will redirect to ' + originalUri + ' after login');
+        }
+        window.location.href = url;
+    }
+
+    function extractAccessToken(data) {
+        return data?.access_token || data?.token || null;
+    }
+
+    function onLogin() {
+        document.getElementById('logged-out').classList.add('hidden');
+        document.getElementById('logged-in').classList.remove('hidden');
+        document.getElementById('tokens-card').classList.remove('hidden');
+
+        try {
+            const parts = accessToken.split('.');
+            const header = JSON.parse(atob(parts[0]));
+            const payload = JSON.parse(atob(parts[1]));
+            userId = payload.sub;
+
+            document.getElementById('access-token-raw').textContent = accessToken;
+
+            const claimsEl = document.getElementById('claims');
+            claimsEl.innerHTML = '';
+
+            const fields = {
+                'Subject (sub)': payload.sub,
+                'Email': payload.email,
+                'Roles': (payload.roles || []).join(', '),
+                'JTI': payload.jti,
+                'Issuer': payload.iss,
+                'Issued At': payload.iat ? new Date(payload.iat * 1000).toLocaleString() : '-',
+                'Expires': payload.exp ? new Date(payload.exp * 1000).toLocaleString() : '-',
+                'Kid (header)': header.kid,
+                'Alg (header)': header.alg,
+            };
+
+            for (const [k, v] of Object.entries(fields)) {
+                claimsEl.innerHTML += `<dt>${k}</dt><dd>${v || '-'}</dd>`;
+            }
+
+            document.getElementById('user-info').textContent =
+                `Logged in as ${payload.email || payload.sub} | Roles: ${(payload.roles || []).join(', ') || '-'}`;
+
+            log(`Login successful: ${payload.email || payload.sub}`);
+        } catch (e) {
+            log(`Failed to decode JWT: ${e.message}`);
+        }
+    }
+
+    function onLogout() {
+        accessToken = null;
+        userId = null;
+
+        document.getElementById('logged-out').classList.remove('hidden');
+        document.getElementById('logged-in').classList.add('hidden');
+        document.getElementById('tokens-card').classList.add('hidden');
+
+        document.getElementById('user-info').textContent = '';
+        document.getElementById('access-token-raw').textContent = '';
+        document.getElementById('claims').innerHTML = '';
+    }
+
+    async function apiCall(method, path, body = null, useAuth = true) {
+        const opts = {
+            method,
+            credentials: 'include',
+            headers: {}
+        };
+
+        if (useAuth && accessToken) {
+            opts.headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
+        if (body) {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+
+        const url = API + path;
+        log(`${method} ${url}`);
+
+        const res = await fetch(url, opts);
+
+        let data = null;
+        try {
+            data = res.status === 204 ? null : await res.json();
+        } catch {
+            data = null;
+        }
+
+        log(`${res.status} ${res.statusText}`);
+        return { status: res.status, data };
+    }
+
+    function showResponse(data) {
+        const el = document.getElementById('api-response');
+        if (data === null) {
+            el.textContent = 'No response';
+            return;
+        }
+        el.textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function silentRefresh() {
+        const data = await refreshToken();
+        return data !== null;
+    }
+
+    async function refresh() {
+        const data = await refreshToken();
+        showResponse(data);
+    }
+
+    async function refreshToken() {
+        try {
+            const { status, data } = await apiCall('POST', '/auth/api/v1/refresh', null, true);
+
+            const token = extractAccessToken(data);
+
+            if (status === 200 && token) {
+                accessToken = token;
+                onLogin();
+                log('Tokens refreshed');
+                return data
+            } else {
+                accessToken = null;
+                log(`Refresh failed: ${data?.error || 'unknown error'}`);
+                onLogout();
+                return null
+            }
+        } catch (e) {
+            accessToken = null;
+            log(`Refresh error: ${e.message}`);
+            onLogout();
+            return null
+        }
+    }
+
+    async function logout() {
+        try {
+            const { data } = await apiCall('POST', '/auth/api/v1/logout', null, true);
+            showResponse(data);
+        } catch (e) {
+            log(`Logout error: ${e.message}`);
+        } finally {
+            onLogout();
+            log('Logged out');
+        }
+    }
+
+    async function logoutAll() {
+        try {
+            const { data } = await apiCall('POST', '/auth/api/v1/logout/all', null, true);
+            showResponse(data);
+        } catch (e) {
+            log(`LogoutAll error: ${e.message}`);
+        } finally {
+            onLogout();
+            log('All sessions terminated');
+        }
+    }
+
+    async function callJWKS() {
+        try {
+            const { data } = await apiCall('GET', '/auth/api/v1/.well-known/jwks.json', null, false);
+            showResponse(data);
+        } catch (e) {
+            log(`JWKS error: ${e.message}`);
+        }
+    }
+
+    async function callIntrospect() {
+        if (!accessToken) {
+            log('No access token');
+            return;
+        }
+
+        try {
+            const res = await fetch(API + '/auth/api/v1/s2s/introspect', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-S2S-APPNAME': 'maintmode',
+                    'X-S2S-TOKEN': 'maintmode-s2s-token',
+                },
+                body: JSON.stringify({ access_token: accessToken })
+            });
+
+            const data = await res.json();
+            showResponse(data);
+            log(`Introspect: active=${data.active}`);
+        } catch (e) {
+            log(`Introspect error: ${e.message}`);
+        }
+    }
+
+    async function callGetRoles() {
+        if (!userId) {
+            log('No user ID (login first)');
+            return;
+        }
+
+        try {
+            const { data } = await apiCall('GET', `/auth/api/v1/user/${userId}/roles`);
+            showResponse(data);
+        } catch (e) {
+            log(`GetRoles error: ${e.message}`);
+        }
+    }
+
+    function getRoleTargetUser() {
+        const inputValue = document.getElementById('roleUser')?.value.trim();
+        return inputValue || userId;
+    }
+
+    async function assignRole() {
+        const targetUser = getRoleTargetUser();
+        const role = document.getElementById('roleName').value.trim();
+
+        if (!targetUser || !role) {
+            alert('Укажи user и role');
+            return;
+        }
+
+        try {
+            const { data } = await apiCall('POST', '/auth/api/v1/roles/assign', {
+                user_id: targetUser,
+                role
+            });
+            showResponse(data);
+            log(`Assigned role "${role}" to ${targetUser}`);
+            await loadAudit();
+        } catch (e) {
+            log(`AssignRole error: ${e.message}`);
+        }
+    }
+
+    async function revokeRole() {
+        const targetUser = getRoleTargetUser();
+        const role = document.getElementById('roleName').value.trim();
+
+        if (!targetUser || !role) {
+            alert('Укажи user и role');
+            return;
+        }
+
+        try {
+            const { data } = await apiCall('POST', '/auth/api/v1/roles/revoke', {
+                user_id: targetUser,
+                role
+            });
+            showResponse(data);
+            log(`Revoked role "${role}" from ${targetUser}`);
+            await loadAudit();
+        } catch (e) {
+            log(`RevokeRole error: ${e.message}`);
+        }
+    }
+
+    async function listRoles() {
+        try {
+            const { data } = await apiCall('GET', '/auth/api/v1/roles');
+            showResponse(data);
+        } catch (e) {
+            log(`ListRoles error: ${e.message}`);
+        }
+    }
+
+    async function loadAudit() {
+        const el = document.getElementById('auditBody');
+        if (!el) return;
+
+        el.innerHTML = '<div style="color:#999">Loading...</div>';
+
+        try {
+            const { data } = await apiCall('GET', '/auth/api/v1/audit?limit=20');
+            if (!data || !data.logs || data.logs.length === 0) {
+                el.innerHTML = '<div style="color:#999">No events yet.</div>';
+                return;
+            }
+
+            el.innerHTML = data.logs.map(e => {
+                const color = {
+                    role: {
+                        assigned: '#2ecc71',
+                        revoked: '#e74c3c',
+                    },
+                    login: {
+                        success: '#3498db',
+                        failed: '#e74c3c',
+                    },
+                    logout: {
+                        success: '#db6934',
+                        failed: '#e74c3c',
+                    }
+                }[e.entity_type][e.action] || '#888';
+
+                return `
+                    <div class="cl-entry">
+                        <div class="cl-meta">
+                            <strong style="color:${color}">[${e.entity_type}] ${e.action}</strong>
+                            ${e.actor ? ` by <em>${e.actor}</em>` : ''}
+                        </div>
+                        <div style="font-size:12px;color:#555">${e.details || '-'}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (e) {
+            el.innerHTML = `<div style="color:#d93025">Failed to load audit: ${e.message}</div>`;
+        }
+    }
+</script>
+</body>
+</html>

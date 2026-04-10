@@ -72,7 +72,7 @@ func newMaintenanceConflictSnapshotTableImpl(schemaName, tableName, alias string
 		CreatedAtColumn               = postgres.TimestampzColumn("created_at")
 		allColumns                    = postgres.ColumnList{IDColumn, MaintenanceIDColumn, ConflictedMaintenanceIDColumn, ResourceIDColumn, ConflictPeriodColumn, CreatedAtColumn}
 		mutableColumns                = postgres.ColumnList{MaintenanceIDColumn, ConflictedMaintenanceIDColumn, ResourceIDColumn, ConflictPeriodColumn, CreatedAtColumn}
-		defaultColumns                = postgres.ColumnList{CreatedAtColumn}
+		defaultColumns                = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return maintenanceConflictSnapshotTable{

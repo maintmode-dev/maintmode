@@ -10,18 +10,22 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) Create(ctx context.Context, resource *entity.ResourceDetails) error {
+func (s *Store) Create(ctx context.Context, r *entity.ResourceDetails) (*entity.ResourceDetails, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.Create")
 	defer span.End()
 
+	resource := toDBResource(r)
+
 	stmt := table.Resources.
-		INSERT(table.Resources.AllColumns).
+		INSERT(table.Resources.MutableColumns.
+			Except(table.Resources.CreatedAt),
+		).
 		MODEL(resource).
 		RETURNING(table.Resources.AllColumns)
 
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), resource)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return fromDBResource(resource), nil
 }

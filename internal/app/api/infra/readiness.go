@@ -16,5 +16,5 @@ func (i *Implementation) Readiness(c echo.Context) error {
 		xlog.Error(ctx, "db ping failed", xfield.Error(err))
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusNoContent)
 }

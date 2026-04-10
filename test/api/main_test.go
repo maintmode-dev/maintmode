@@ -34,10 +34,10 @@ const (
 
 	// Default values
 	defaultAPIHost = "localhost"
-	defaultAPIPort = "8000"
+	defaultAPIPort = "9000"
 
 	// Health check configuration
-	healthCheckURL      = "http://localhost:8001/readiness"
+	healthCheckURL      = "http://localhost:9001/maintmode/readiness"
 	healthCheckTimeout  = 10 * time.Second
 	healthCheckInterval = 100 * time.Millisecond
 
@@ -103,7 +103,7 @@ func waitForAPIHealth(ctx context.Context) error {
 
 			_ = resp.Body.Close()
 
-			if resp.StatusCode == http.StatusOK {
+			if resp.StatusCode == http.StatusNoContent {
 				xlog.Info(ctx, "API is healthy", xfield.Int("status", resp.StatusCode))
 				return nil
 			}
@@ -113,10 +113,10 @@ func waitForAPIHealth(ctx context.Context) error {
 	}
 }
 
-func setupTestClient() *client.Maintmode {
+func setupMaintmodeTestClient() *client.Maintmode {
 	transport := httptransport.New(
 		fmt.Sprintf("%s:%s", viper.GetString(envAPIHost), viper.GetString(envAPIPort)),
-		"/",
+		"/maintmode",
 		[]string{"http"},
 	)
 	return client.New(transport, strfmt.Default)

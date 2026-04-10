@@ -44,7 +44,7 @@ func TestCreate(t *testing.T) {
 		require.Equal(t, cmd.PlannedPeriod, maint.PlannedPeriod)
 		require.Equal(t, cmd.Impact, maint.Impact)
 		require.Nil(t, maint.ActualPeriod)
-		require.True(t, maint.CreatedAt.After(now), "created at should be after `now`")
+		require.True(t, maint.CreatedAt.After(now.Add(-time.Minute)), "created at should be after `now`")
 	})
 
 	t.Run("maints with overlaps", func(t *testing.T) {

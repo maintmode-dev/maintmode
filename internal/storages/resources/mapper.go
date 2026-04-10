@@ -9,6 +9,17 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 )
 
+func toDBResource(r *entity.ResourceDetails) *model.Resources {
+	return &model.Resources{
+		ID:          r.ID,
+		Name:        r.Name,
+		Description: r.Description,
+		ExternalID:  r.ExternalID,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	}
+}
+
 func fromDBResource(r *model.Resources) *entity.ResourceDetails {
 	return &entity.ResourceDetails{
 		ID:          r.ID,

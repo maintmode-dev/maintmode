@@ -1,6 +1,8 @@
 package buildmeta
 
-import "fmt"
+import (
+	"fmt"
+)
 
 var (
 	version   = "undefined"
@@ -22,7 +24,12 @@ type AppBuildMeta struct {
 
 func (v *AppBuildMeta) String() string {
 	return fmt.Sprintf(
-		"Version: %s, OS: %s, Arch: %s, BuildTime: %s, ShaCommit: %s",
-		v.Version, v.OS, v.Arch, v.BuildTime, v.ShaCommit,
+		"AppName: %s, Version: %s, OS: %s, Arch: %s, BuildTime: %s, ShaCommit: %s",
+		v.AppName,
+		v.Version,
+		v.OS,
+		v.Arch,
+		v.BuildTime,
+		v.ShaCommit,
 	)
 }

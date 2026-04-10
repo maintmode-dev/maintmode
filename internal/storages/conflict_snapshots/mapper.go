@@ -16,7 +16,6 @@ func toDBSnaphots(maintID uuid.UUID, snaphots []*entity.ConflictWithResources) [
 		if len(snapshot.Resources) > 0 {
 			for _, resource := range snapshot.Resources {
 				result = append(result, &model.MaintenanceConflictSnapshot{
-					ID:                      uuid.New(),
 					MaintenanceID:           maintID,
 					ConflictedMaintenanceID: snapshot.MaintenanceID,
 					ResourceID:              lo.ToPtr(resource.ID),
@@ -26,12 +25,10 @@ func toDBSnaphots(maintID uuid.UUID, snaphots []*entity.ConflictWithResources) [
 			continue
 		}
 		result = append(result, &model.MaintenanceConflictSnapshot{
-			ID:                      uuid.New(),
 			MaintenanceID:           maintID,
 			ConflictedMaintenanceID: snapshot.MaintenanceID,
 			ResourceID:              nil,
 			ConflictPeriod:          xtime.ToPgRange(entity.NewPeriod(snapshot.OverlapStart, snapshot.OverlapEnd)),
-			CreatedAt:               xtime.UTCNow(),
 		})
 	}
 

@@ -1,0 +1,15 @@
+services:
+
+
+  # Основное приложение maintmode
+  maintmode:
+    environment:
+      APP_CONFIG_PATH: app/app.config.yaml:ro
+    volumes:
+      - ./deployment/maintmode/config/app.dev.yaml:/app/app.config.yaml:ro
+
+  auth:
+    environment:
+      APP_CONFIG_PATH: app/app.config.yaml:ro
+    volumes:
+      - ./deployment/auth/config/app.apitest.yaml:/app/app.config.yaml:ro

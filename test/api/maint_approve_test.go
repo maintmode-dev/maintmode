@@ -17,7 +17,7 @@ import (
 func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 

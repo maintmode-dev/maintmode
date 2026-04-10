@@ -11,9 +11,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -25,24 +22,23 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		return nil, err
 	}
 
-	maint := &entity.Maintenance{
-		ID:            xuuid.New(),
-		Title:         cmd.Title,
-		Description:   cmd.Description,
-		PlannedPeriod: cmd.PlannedPeriod,
-		Resources:     cmd.Resources,
-		Scope:         cmd.Scope,
-		Impact:        cmd.Impact,
-		Status:        entity.MaintenanceStatusDraft,
-		CreatedAt:     xtime.UTCNow(),
-	}
-
+	var maint *entity.Maintenance
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
-		err := s.maintStore.Create(ctx, maint)
+		var err error
+		maint, err = s.maintStore.Create(ctx, &entity.Maintenance{
+			Title:         cmd.Title,
+			Description:   cmd.Description,
+			PlannedPeriod: cmd.PlannedPeriod,
+			Scope:         cmd.Scope,
+			Impact:        cmd.Impact,
+			Status:        entity.MaintenanceStatusDraft,
+		})
 		if err != nil {
 			xlog.Error(ctx, "create maint failed", xfield.Error(err))
 			return err
 		}
+
+		maint.Resources = cmd.Resources
 		if len(maint.Resources) > 0 {
 			err = s.maintStore.AddResources(ctx, maint.ID, maint.Resources)
 			if err != nil {

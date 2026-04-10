@@ -8,6 +8,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
@@ -30,19 +32,21 @@ func main() {
 	defer shutdown(ctx)
 	defer stop()
 
-	cfg := config.GetAppConfig()
+	cfg := config.LoadAppConfig()
+	meta := config.GetAppBuildMeta()
 
-	logger := config.NewLogger(cfg.Environment)
+	logger := config.NewLogger(cfg.Environment, cfg.Logger, meta)
 	defer logger.Sync() //nolint:errcheck
+
 	xlog.ReplaceGlobalLogger(logger)
 	ctx = xlog.ContextWithLogger(ctx, logger)
 
 	xlog.Info(ctx, "start app",
 		xfield.Any("environment", cfg.Environment),
-		xfield.Any("meta", config.GetAppBuildMeta()),
+		xfield.Any("meta", meta),
 	)
 
-	initExporters(ctx)
+	initExporters(ctx, cfg, meta)
 
 	db, err := pg.NewDBConn(ctx, &cfg.DB)
 	if err != nil {
@@ -61,8 +65,9 @@ func main() {
 			apimaint.New(services.Maint),
 			resourcesapi.New(services.Resources),
 			uicalendar.New(services.Calendar),
+			server.WithLogger(logger),
 		)
-		s.BindRouters()
+		s.BindRouters(cfg.Environment, meta)
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
@@ -77,8 +82,9 @@ func main() {
 		s := server.NewInfraServer(
 			cfg.InfraServer,
 			infra.New(db),
+			server.WithLogger(logger),
 		)
-		s.BindRouters()
+		s.BindRouters(cfg.Environment, meta.AppName)
 
 		go func() {
 			if err := s.Start(ctx); err != nil {
@@ -98,15 +104,15 @@ func shutdown(ctx context.Context) {
 	xlog.Info(ctx, "app is gracefully shutdown")
 }
 
-func initExporters(ctx context.Context) {
-	xlog.ReplaceTracerName(config.GetAppBuildMeta().AppName)
+func initExporters(ctx context.Context, cfg *config.AppConfig, meta *buildmeta.AppBuildMeta) {
+	xlog.ReplaceTracerName(meta.AppName)
 
-	otelRes, err := config.InitTracerResource()
+	otelRes, err := config.InitTracerResource(meta)
 	if err != nil {
 		xlog.Panic(ctx, "failed to initialize OpenTelemetry", xfield.Error(err))
 	}
 
-	tracerProvider, err := config.InitTracerProvider(ctx, otelRes)
+	tracerProvider, err := config.InitTracerProvider(ctx, otelRes, cfg.Tracer)
 	if err != nil {
 		xlog.Panic(ctx, "failed to initialize OpenTelemetry", xfield.Error(err))
 	}

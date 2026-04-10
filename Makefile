@@ -9,12 +9,8 @@
 # Default: ./bin in the project root
 GOBIN			?= $(PWD)/bin
 
-# ENV_CONFIG_FILE - Path to environment configuration file
-# Used by database.mk to read DB_DRIVER and DB_DSN
-# Default: .env.local in the project root
-ENV_CONFIG_FILE ?= $(PWD)/.env.local
-include ${ENV_CONFIG_FILE}
-export
+# CONFIG_FILE - Path to configuration file
+CONFIG_FILE ?= $(PWD)/deployment/maintmode/config/app.local.yaml
 
 # -------------------------------------
 # Database Configuration
@@ -26,14 +22,14 @@ DB_DRIVER		?= postgres
 DB_DSN			?=
 
 ifndef DB_DSN
-DB_DSN=$(shell [ -f $(ENV_CONFIG_FILE) ] && cat $(ENV_CONFIG_FILE) | grep ^DB_DSN | awk '{print $$2}' | sed 's/"//g' || echo "")
+DB_DSN=$(shell [ -f $(CONFIG_FILE) ] && awk '/^db:/ {in_db=1} in_db && /^[[:space:]]*dsn:/ {print $$2; exit}' $(CONFIG_FILE) | sed "s/[\"']//g" || echo "")
 endif
 
 # Ensure GOBIN directory exists
 $(shell mkdir -p $(GOBIN))
 $(shell mkdir -p ./tmp)
 
-DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml -f compose.app.yaml
+DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml -f compose.app.yaml -f compose.infra.yaml
 
 # -------------------------------------
 # Default target
@@ -78,21 +74,29 @@ bin-deps: bin-deps-build
 # Build binary or run app
 # -------------------------------------
 .PHONY: run
+run: service=maintmode
+run: config=$(PWD)/deployment/${service}/config/app.local.yaml
 run:
-	go run ./cmd/maintmode
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} go run ./cmd/maintmode
 
 .PHONY: air
+air: service=maintmode
+air: config=$(PWD)/deployment/${service}/config/app.local.yaml
 air:
-	$(GOBIN)/air
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} $(GOBIN)/air
 
 .PHONY: build
-build: args=--id main --output=$(GOBIN)/maintmode
+build: service=maintmode
+build: args=--id main --output=$(GOBIN)/${service}
+build: config=$(PWD)/deployment/${service}/config/app.local.yaml
 build:
-	$(GOBIN)/goreleaser build  --snapshot --single-target --clean ${args}
+	$(GOBIN)/goreleaser build -f ${config} --snapshot --single-target --clean ${args}
 
 .PHONY: build-dev
 build-dev: swag
-	make build args="--id dev --output=$(GOBIN)/dev-maintmode"
+build-dev: service=maintmode
+build-dev:
+	make build service=${service} args="--id dev --output=$(GOBIN)/dev-${service}"
 
 
 # -------------------------------------
@@ -105,8 +109,10 @@ build-dev: swag
 #   -count 2: Run each test 2 times to catch flaky tests
 # Note: Package tests are run from project root
 .PHONY: tloc
+tloc: service=maintmode
+tloc: config=$(PWD)/deployment/${service}/config/app.local.yaml
 tloc:
-	go test -p 2 -count 2 ./...
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} go test -p 2 -count 2 ./internal/...
 
 # test-cov - Run tests with coverage analysis
 # Generates coverage report excluding mock files
@@ -122,8 +128,11 @@ tloc:
 #   coverage.out: Filtered coverage data (no mocks)
 #   coverage.report: Human-readable coverage report
 .PHONY: test-cov
+test-cov: service=maintmode
+test-cov: config=$(PWD)/deployment/${service}/config/app.local.yaml
 test-cov:
-	go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./...
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
+		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
 
@@ -141,7 +150,7 @@ test-api: app-down
 	make app-up args="--build"
 	$(info $(M) running API integration tests...)
 	@set -e; \
-	docker-compose $(DOCKER_COMPOSE_APP_CONFIGS) logs -f maintmode > ./tmp/maintmode.log & \
+	docker-compose $(DOCKER_COMPOSE_APP_CONFIGS) -f compose.app.test.yaml logs -f maintmode > ./tmp/maintmode.log & \
 	LOG_PID=$$!; \
 	trap "kill $$LOG_PID" EXIT; \
 	go test -tags=api -v -p 2 -count=2 ./test/api/...; \
@@ -156,7 +165,6 @@ tloc-api: ## Run API integration tests
 .PHONY: tloc-all
 tloc-all:
 	make tloc
-	@make test-client
 	make tloc-api
 
 # -------------------------------------
@@ -195,6 +203,7 @@ fmt:
 mocks:
 	rm -rf ./internal/pkg/generated/mocks
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/dbtx/dbtx.go -source ./internal/utils/dbtx/main_test.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/oauthprovider/provider.go -source ./internal/services/oauthprovider/provider.go
 
 # test-client - Generate API client from Swagger specification
 # Uses go-swagger to generate type-safe REST client
@@ -202,7 +211,6 @@ mocks:
 # Run this after updating docs/swagger.yaml
 .PHONY: test-client
 test-client: ## Generate API test client from Swagger spec
-test-client: swag
 	$(info $(M) generating API test client from Swagger spec...)
 	@$(GOBIN)/swagger generate client -f ./docs/swagger.yaml -t ./test/api/client -A maintmode
 	@echo "API client generated successfully in test/api/client/"
@@ -213,6 +221,7 @@ swag:
 		-g ./docs.go \
       	--parseInternal \
       	--parseDependency
+	@make test-client
 
 # -------------------------------------
 # Database - Universal Commands (use DB_DRIVER)
@@ -343,34 +352,22 @@ docker-ps: ## Show status of database containers
 # Creates containers, networks, and volumes if they don't exist
 # Safe to run multiple times (idempotent)
 .PHONY: app-up
+app-up: app-down
 app-up: args=
-app-up: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting all services with maintmode...)
-	docker-compose ${composefile} up -d ${args}
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} up -d ${args}
 	make app-ps
-
-.PHONY: app-with-monitoring-up
-app-with-monitoring-up: app-with-monitoring-down
-app-with-monitoring-up: args=
-app-with-monitoring-up: ## Start all services with maintmode using Docker Compose
-	make app-up composefile="${DOCKER_COMPOSE_APP_CONFIGS} -f compose.infra.yaml" args=${args}
 
 # app-down - Stop and remove all containers
 # Stops all containers and removes them
 # WARNING: This will remove all containers but keeps volumes
 # Use this when you want to stop services but preserve data
 .PHONY: app-down
-app-down: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-down: ## Stop and remove all containers
 	$(info $(M) stopping all containers...)
-	docker-compose ${composefile} down -v --remove-orphans
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} down -v --remove-orphans
 	make app-ps
-
-.PHONY: app-with-monitoring-down
-app-with-monitoring-downup: args=
-app-with-monitoring-down: ## Start all services with maintmode using Docker Compose
-	make app-down composefile="${DOCKER_COMPOSE_APP_CONFIGS} -f compose.infra.yaml"
 
 .PHONY: app-reup
 app-reup: ## Stop and start all containers
@@ -383,9 +380,8 @@ app-reup: ## Stop and start all containers
 # Press Ctrl+C to stop following logs
 # Useful for debugging application issues
 .PHONY: app-logs
-app-logs: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-logs: ## Show logs from maintmode container
-	docker-compose ${composefile} logs -f maintmode
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} logs -f maintmode
 
 # app-ps - Show status of all containers
 # Displays:
@@ -394,9 +390,8 @@ app-logs: ## Show logs from maintmode container
 #   - Health check status
 # Useful for verifying that all services are running
 .PHONY: app-ps
-app-ps: composefile=${DOCKER_COMPOSE_APP_CONFIGS}
 app-ps: ## Show status of all containers
-	docker-compose ${composefile} ps -a
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ps -a
 
 # -------------------------------------
 # K6 Load Testing

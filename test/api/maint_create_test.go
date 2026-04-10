@@ -18,7 +18,7 @@ import (
 
 func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 	ctx := context.Background()
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	resourceID := strfmt.UUID(xuuid.New().String())
 

@@ -1,9 +1,15 @@
 package config
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/hex"
 	"fmt"
 	"time"
 
+	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/spf13/viper"
 )
 
@@ -21,65 +27,136 @@ func (a *HTTPServer) BuildHostPort() string {
 
 // DB represents database connection configuration including pool settings.
 type DB struct {
-	DSN             string
-	Driver          string
-	MaxOpenConn     int
-	MaxIdleConn     int
-	ConnMaxLifetime time.Duration
-	ConnMaxIdleTime time.Duration
+	DSN             string        `mapstructure:"dsn"`
+	Driver          string        `mapstructure:"driver"`
+	MaxOpenConn     int           `mapstructure:"max_open_conns"`
+	MaxIdleConn     int           `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `mapstructure:"connection_max_lifetime"`
+	ConnMaxIdleTime time.Duration `mapstructure:"connection_max_idle_time"`
+}
+
+type Redis struct {
+	Address  string `mapstructure:"addr"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
+type GoogleOauthProvider struct {
+	ClientID          string   `mapstructure:"client_id"`
+	ClientSecret      string   `mapstructure:"client_secret"`
+	RedirectURL       string   `mapstructure:"redirect_url"`
+	GoogleUserInfoURL string   `mapstructure:"google_userinfo_url"`
+	Scopes            []string `mapstructure:"scopes"`
+}
+
+type StubOauthProvider struct {
+	RedirectURL string `mapstructure:"redirect_url"`
+}
+
+type OauthProviders struct {
+	Google GoogleOauthProvider `mapstructure:"google"`
+	Stub   StubOauthProvider   `mapstructure:"stub"`
+}
+
+type JWT struct {
+	PrivateKey string `mapstructure:"issuer_private_key"`
+	Issuer     string `mapstructure:"issuer_name"`
+	Kid        string `mapstructure:"issuer_kid"`
+}
+
+func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
+	privateKey, err := hex.DecodeString(j.PrivateKey)
+	if err != nil {
+		xlog.Panic(context.Background(), "failed to decode private key", xfield.Error(err))
+	}
+	key, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), privateKey)
+	if err != nil {
+		xlog.Panic(context.Background(), "failed to parse private key", xfield.Error(err))
+	}
+
+	return key
 }
 
 type Tracer struct {
-	CollectorHost string
-	CollectorPort int32
+	CollectorHost string `mapstructure:"collector_host"`
+	CollectorPort int32  `mapstructure:"collector_port"`
+}
+
+type LoggerConfig struct {
+	Level string `mapstructure:"level"`
+}
+
+type App struct {
+	FrontendURL string `mapstructure:"frontend_url"`
+}
+
+type S2S struct {
+	Secret       string   `mapstructure:"secret"`
+	AvailableAPI []string `mapstructure:"available_api"`
+}
+
+// S2SConfig is a map of S2S services.
+// The key is the service name and the value is the service configuration.
+type S2SConfig = map[string]S2S
+
+type ExternalService struct {
+	Secret   string `mapstructure:"secret"`
+	Protocol string `mapstructure:"protocol"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+}
+
+func (e ExternalService) GetURL() string {
+	switch e.Protocol {
+	case "http", "https":
+		return fmt.Sprintf("%s://%s:%d", e.Protocol, e.Host, e.Port)
+	case "grpc", "grpcs":
+		return fmt.Sprintf("%s:%d", e.Host, e.Port)
+	default:
+		return fmt.Sprintf("%s://%s:%d", e.Protocol, e.Host, e.Port)
+	}
 }
 
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
-	Environment Environment
-	InfraServer HTTPServer
-	APIServer   HTTPServer
-	DB          DB
-	Tracer      Tracer
+	App              App                        `mapstructure:"app"`
+	Environment      Environment                `mapstructure:"environment"`
+	InfraServer      HTTPServer                 `mapstructure:"infra_server"`
+	APIServer        HTTPServer                 `mapstructure:"api_server"`
+	Tracer           Tracer                     `mapstructure:"tracer"`
+	Logger           LoggerConfig               `mapstructure:"logger"`
+	DB               DB                         `mapstructure:"db"`
+	Redis            Redis                      `mapstructure:"redis"`
+	OauthProviders   OauthProviders             `mapstructure:"oauth_providers"`
+	JWT              JWT                        `mapstructure:"jwt"`
+	S2SConfig        S2SConfig                  `mapstructure:"s2s"`
+	ExternalServices map[string]ExternalService `mapstructure:"external_services"`
 }
 
-func initConfig() *AppConfig {
-	viper.SetDefault("DB_DSN", "not set")
-	viper.SetDefault("DB_DRIVER", "postgres")
-	viper.SetDefault("DB_MAX_OPEN_CONNS", 25)
-	viper.SetDefault("DB_MAX_IDLE_CONNS", 5)
-	viper.SetDefault("DB_CONNECTION_MAX_IDLE_TIME", "5m")
-	viper.SetDefault("DB_CONNECTION_MAX_LIFETIME", "1m")
-	viper.SetDefault("APP_HOST", "0.0.0.0")
-	viper.SetDefault("APP_PUBLIC_API_PORT", "8000")
-	viper.SetDefault("APP_INFRA_API_PORT", "8001")
-	viper.SetDefault("APP_TRACER_COLLECTOR_HOST", "0.0.0.0")
-	viper.SetDefault("APP_TRACER_COLLECTOR_PORT", "4317")
-	viper.AutomaticEnv()
+const configPathEnv = "APP_CONFIG_PATH"
 
-	return &AppConfig{
-		Environment: Environment(viper.GetString("ENVIRONMENT")),
-		APIServer: HTTPServer{
-			Name: "api",
-			Host: viper.GetString("APP_HOST"),
-			Port: viper.GetInt("APP_PUBLIC_API_PORT"),
-		},
-		InfraServer: HTTPServer{
-			Name: "status",
-			Host: viper.GetString("APP_HOST"),
-			Port: viper.GetInt("APP_INFRA_API_PORT"),
-		},
-		DB: DB{
-			DSN:             viper.GetString("DB_DSN"),
-			Driver:          viper.GetString("DB_DRIVER"),
-			MaxIdleConn:     viper.GetInt("DB_MAX_IDLE_CONNS"),
-			MaxOpenConn:     viper.GetInt("DB_MAX_OPEN_CONNS"),
-			ConnMaxIdleTime: viper.GetDuration("DB_CONNECTION_MAX_IDLE_TIME"),
-			ConnMaxLifetime: viper.GetDuration("DB_CONNECTION_MAX_LIFETIME"),
-		},
-		Tracer: Tracer{
-			CollectorHost: viper.GetString("APP_TRACER_COLLECTOR_HOST"),
-			CollectorPort: viper.GetInt32("APP_TRACER_COLLECTOR_PORT"),
-		},
+func initConfig(appName string) *AppConfig {
+	cfgReader := viper.New()
+	cfgReader.SetEnvPrefix(appName)
+	cfgReader.AutomaticEnv()
+	cfgReader.SetDefault(configPathEnv, "app.config.yaml")
+
+	configPath := cfgReader.GetString(configPathEnv)
+	cfgReader.SetConfigFile(configPath)
+
+	if err := cfgReader.ReadInConfig(); err != nil {
+		xlog.Panic(context.Background(),
+			fmt.Sprintf("failed to read config file %s for service %s", configPath, appName),
+			xfield.Error(err),
+		)
 	}
+
+	cfg := new(AppConfig)
+	if err := cfgReader.Unmarshal(cfg); err != nil {
+		xlog.Panic(context.Background(), fmt.Sprintf("failed to unmarshal config file %s", configPath),
+			xfield.Error(err),
+		)
+	}
+
+	return cfg
 }

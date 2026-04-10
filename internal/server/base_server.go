@@ -11,7 +11,16 @@ import (
 	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
+
+type Option func(*server)
+
+func WithLogger(l xlog.Logger) Option {
+	return func(s *server) {
+		s.e.Logger = xecho.NewLogAdapter(l)
+	}
+}
 
 type server struct {
 	cfg config.HTTPServer
@@ -19,11 +28,17 @@ type server struct {
 }
 
 // newServer creates a new HTTP server with the provided configuration.
-func newServer(cfg config.HTTPServer) *server {
-	return &server{
+func newServer(cfg config.HTTPServer, opts ...Option) *server {
+	s := &server{
 		cfg: cfg,
 		e:   echo.New(),
 	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Start begins listening and blocks until server stops.

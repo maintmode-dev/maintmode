@@ -4,22 +4,34 @@ package buildmeta
 
 import "runtime/debug"
 
+const (
+	MaintModeAppName = "maintmode"
+	AuthAppName      = "auth"
+)
+
 var (
-	app = &AppBuildMeta{}
+	maintmodeApp = &AppBuildMeta{}
+	authApp      = &AppBuildMeta{}
 )
 
 // GetAppBuildMeta returns the initialized application build metadata.
 func GetAppBuildMeta() *AppBuildMeta {
-	return app
+	return maintmodeApp
+}
+
+// GetAuthAppBuildMeta returns the initialized application build metadata.
+func GetAuthAppBuildMeta() *AppBuildMeta {
+	return authApp
 }
 
 func init() {
-	app = initAppBuildMeta()
+	maintmodeApp = initAppBuildMeta(MaintModeAppName)
+	authApp = initAppBuildMeta(AuthAppName)
 }
 
-func initAppBuildMeta() *AppBuildMeta {
+func initAppBuildMeta(appName string) *AppBuildMeta {
 	meta := &AppBuildMeta{
-		AppName:   "maintmode",
+		AppName:   appName,
 		Version:   version,
 		OS:        os,
 		Arch:      arch,

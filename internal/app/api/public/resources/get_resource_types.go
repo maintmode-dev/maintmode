@@ -30,7 +30,7 @@ func (i *Implementation) GetResourceTypes(c echo.Context) error {
 
 	resourceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
+		xlog.Error(ctx, "parse resourceID failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
 		return c.JSON(statusCode, errResp)
 	}

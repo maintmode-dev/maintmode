@@ -7,7 +7,11 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/xlog"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
@@ -39,4 +43,16 @@ func TestMain(m *testing.M) {
 	closer.CloseAll(ctx)
 
 	os.Exit(code)
+}
+
+func makeResource(ctx context.Context, t *testing.T) *entity.ResourceDetails {
+	t.Helper()
+
+	resource, err := resourcesStore.Create(ctx, &entity.ResourceDetails{
+		Name:        "Resource" + xuuid.NewString(),
+		Description: "Description 1",
+	})
+	require.NoError(t, err)
+
+	return resource
 }

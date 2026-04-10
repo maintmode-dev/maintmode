@@ -10,8 +10,11 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 
+	"github.com/ruko1202/maintmode/test/api/client/client/audit"
+	"github.com/ruko1202/maintmode/test/api/client/client/auth"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
 	"github.com/ruko1202/maintmode/test/api/client/client/resources"
+	"github.com/ruko1202/maintmode/test/api/client/client/roles"
 	"github.com/ruko1202/maintmode/test/api/client/client/ui"
 )
 
@@ -57,8 +60,11 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Maintmode 
 
 	cli := new(Maintmode)
 	cli.Transport = transport
+	cli.Audit = audit.New(transport, formats)
+	cli.Auth = auth.New(transport, formats)
 	cli.Maintenances = maintenances.New(transport, formats)
 	cli.Resources = resources.New(transport, formats)
+	cli.Roles = roles.New(transport, formats)
 	cli.UI = ui.New(transport, formats)
 	return cli
 }
@@ -104,9 +110,15 @@ func (cfg *TransportConfig) WithSchemes(schemes []string) *TransportConfig {
 
 // Maintmode is a client for maintmode
 type Maintmode struct {
+	Audit audit.ClientService
+
+	Auth auth.ClientService
+
 	Maintenances maintenances.ClientService
 
 	Resources resources.ClientService
+
+	Roles roles.ClientService
 
 	UI ui.ClientService
 
@@ -116,7 +128,10 @@ type Maintmode struct {
 // SetTransport changes the transport on the client and all its subresources
 func (c *Maintmode) SetTransport(transport runtime.ClientTransport) {
 	c.Transport = transport
+	c.Audit.SetTransport(transport)
+	c.Auth.SetTransport(transport)
 	c.Maintenances.SetTransport(transport)
 	c.Resources.SetTransport(transport)
+	c.Roles.SetTransport(transport)
 	c.UI.SetTransport(transport)
 }

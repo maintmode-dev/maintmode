@@ -2,6 +2,8 @@ package entity
 
 import "github.com/google/uuid"
 
+// --- Maintenance commands ---
+
 type CreateMaintenanceCmd struct {
 	Title         string
 	Description   string
@@ -34,6 +36,14 @@ type CompleteMaintenanceCmd struct {
 	MaintID uuid.UUID
 }
 
+type ApproveMaintenanceCmd struct {
+	MaintID               uuid.UUID
+	ObservedMaintRevision int64
+	ConflictSnapshot      ConflictsSnapshot
+}
+
+// --- Conflicts commands ---
+
 type ConflictQueryCmd struct {
 	MaintID       uuid.UUID
 	PlannedPeriod Period
@@ -51,14 +61,43 @@ type ConflictResourcesQueryCmd struct {
 	ConflictedMaintIDs []uuid.UUID
 }
 
-type ApproveMaintenanceCmd struct {
-	MaintID               uuid.UUID
-	ObservedMaintRevision int64
-	ConflictSnapshot      ConflictsSnapshot
-}
+// --- Resource commands ---
 
 type CreateResourceCmd struct {
 	Name        string
 	Description string
 	ExternalID  *string
+}
+
+// --- Authorization commands ---
+
+type GetAuthCodeURLCmd struct {
+	Provider OAuthProvider
+	State    *OAuthState
+}
+
+type HandleOAuthCallbackCmd struct {
+	Provider     OAuthProvider
+	CallbackCode string
+	ClientIP     string
+}
+
+// --- Roles commands ---
+
+type AssignRoleCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+	Role   Role
+}
+
+type RevokeRoleCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+	Role   Role
+}
+
+type ReplaceRolesCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+	Roles  []Role
 }

@@ -15,7 +15,7 @@ import (
 func TestReroucesAPI_List(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	createdResources := lo.RepeatBy(150, func(_ int) *models.ApismodelsResource {
 		return creatResource(ctx, t, apiClient)

@@ -15,7 +15,7 @@ import (
 func TestReroucesAPI_Create(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	for _, tc := range []struct {
 		name string

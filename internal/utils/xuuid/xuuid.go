@@ -17,3 +17,8 @@ func New() uuid.UUID {
 func NewString() string {
 	return New().String()
 }
+
+func NewBytes() []byte {
+	u := New()
+	return u[:]
+}

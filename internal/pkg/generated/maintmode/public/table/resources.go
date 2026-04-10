@@ -72,7 +72,7 @@ func newResourcesTableImpl(schemaName, tableName, alias string) resourcesTable {
 		UpdatedAtColumn   = postgres.TimestampzColumn("updated_at")
 		allColumns        = postgres.ColumnList{IDColumn, NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns    = postgres.ColumnList{NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns    = postgres.ColumnList{CreatedAtColumn}
+		defaultColumns    = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return resourcesTable{

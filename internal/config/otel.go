@@ -13,16 +13,18 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 )
 
-func InitTracerResource() (*resource.Resource, error) {
+func InitTracerResource(meta *buildmeta.AppBuildMeta) (*resource.Resource, error) {
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(semconv.SchemaURL,
-			semconv.ServiceNameKey.String(GetAppBuildMeta().AppName),
-			semconv.ServiceVersionKey.String(GetAppBuildMeta().Version),
+			semconv.ServiceNameKey.String(meta.AppName),
+			semconv.ServiceVersionKey.String(meta.Version),
 		),
 	)
 	if err != nil {
@@ -33,7 +35,7 @@ func InitTracerResource() (*resource.Resource, error) {
 }
 
 // InitTracerProvider sets up everything: trace exporter and pull-based metric exporter
-func InitTracerProvider(ctx context.Context, res *resource.Resource) (*sdktrace.TracerProvider, error) {
+func InitTracerProvider(ctx context.Context, res *resource.Resource, tracer Tracer) (*sdktrace.TracerProvider, error) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 		logger := xlog.LoggerFromContext(ctx)
 		logger.Error("ALERT: Internal OpenTelemetry error", xfield.Error(err))
@@ -43,7 +45,7 @@ func InitTracerProvider(ctx context.Context, res *resource.Resource) (*sdktrace.
 	// gRPC exporter to OTel Collector
 	traceExporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", GetAppConfig().Tracer.CollectorHost, GetAppConfig().Tracer.CollectorPort)),
+		otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", tracer.CollectorHost, tracer.CollectorPort)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)

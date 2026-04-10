@@ -84,7 +84,7 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		UpdatedAtColumn             = postgres.TimestampzColumn("updated_at")
 		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn}
 		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns              = postgres.ColumnList{CreatedAtColumn}
+		defaultColumns              = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return maintenancesTable{

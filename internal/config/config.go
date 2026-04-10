@@ -4,18 +4,22 @@ package config
 
 import "github.com/ruko1202/maintmode/internal/config/buildmeta"
 
-var appConfig *AppConfig
-
-func init() {
-	appConfig = initConfig()
+// LoadAppConfig returns the initialized application configuration.
+func LoadAppConfig() *AppConfig {
+	return initConfig(buildmeta.MaintModeAppName)
 }
 
-// GetAppConfig returns the initialized application configuration.
-func GetAppConfig() *AppConfig {
-	return appConfig
+// LoadAuthAppConfig returns the initialized application configuration.
+func LoadAuthAppConfig() *AppConfig {
+	return initConfig(buildmeta.AuthAppName)
 }
 
 // GetAppBuildMeta returns the initialized application build metadata.
 func GetAppBuildMeta() *buildmeta.AppBuildMeta {
 	return buildmeta.GetAppBuildMeta()
+}
+
+// GetAuthAppBuildMeta returns the initialized application build metadata.
+func GetAuthAppBuildMeta() *buildmeta.AppBuildMeta {
+	return buildmeta.GetAuthAppBuildMeta()
 }

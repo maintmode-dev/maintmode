@@ -19,7 +19,9 @@ func (s *Store) Save(ctx context.Context, maintID uuid.UUID, snaphots []*entity.
 	}
 
 	stmt := table.MaintenanceConflictSnapshot.
-		INSERT(table.MaintenanceConflictSnapshot.AllColumns).
+		INSERT(table.MaintenanceConflictSnapshot.MutableColumns.
+			Except(table.MaintenanceConflictSnapshot.CreatedAt),
+		).
 		MODELS(toDBSnaphots(maintID, snaphots))
 
 	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))

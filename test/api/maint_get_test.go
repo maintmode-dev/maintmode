@@ -16,7 +16,7 @@ import (
 func TestMaintenancesAPI_GetByID(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 
@@ -36,7 +36,7 @@ func TestMaintenancesAPI_GetByID(t *testing.T) {
 func TestMaintenancesAPI_GetNonExistent(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	nonExistentID := strfmt.UUID(xuuid.New().String())
 	params := maintenances.NewGetAPIV1MaintenancesIDParams().
@@ -54,7 +54,7 @@ func TestMaintenancesAPI_GetNonExistent(t *testing.T) {
 func TestMaintenancesAPI_InvalidUUID(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	params := maintenances.NewGetAPIV1MaintenancesIDParams().
 		WithContext(ctx).

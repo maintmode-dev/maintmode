@@ -14,7 +14,7 @@ import (
 func TestReroucesAPI_GetTypes(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	apiClient := setupTestClient()
+	apiClient := setupMaintmodeTestClient()
 
 	resource := creatResource(ctx, t, apiClient)
 

@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
@@ -32,11 +34,11 @@ func BaseMiddlewares() []echo.MiddlewareFunc {
 }
 
 // BaseAPIMiddlewares returns the basic set of middlewares (recover, secure, request ID) for public API
-func BaseAPIMiddlewares() []echo.MiddlewareFunc {
+func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []echo.MiddlewareFunc {
 	mw := append(BaseMiddlewares(),
 		middleware.Recover(),
 		middleware.Secure(),
-		otelecho.Middleware(config.GetAppBuildMeta().AppName),
+		otelecho.Middleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 		TraceMiddleware(),
 		RequestLoggingMiddleware(),
@@ -44,11 +46,11 @@ func BaseAPIMiddlewares() []echo.MiddlewareFunc {
 		middleware.GzipWithConfig(middleware.GzipConfig{}),
 	)
 
-	if config.GetAppConfig().Environment.IsDev() {
+	if env.IsDev() {
 		mw = append(mw,
 			middleware.CORS(),
 		)
-		if !config.GetAppConfig().Environment.IsPerformanceTest() {
+		if !env.IsPerformanceTest() {
 			mw = append(mw,
 				ReqReqsDumpLoggingMiddleware(),
 			)
@@ -105,6 +107,7 @@ func RequestLoggingMiddleware() echo.MiddlewareFunc {
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			ctx := c.Request().Context()
 			attrs := []xfield.Field{
+				xfield.String("host", v.Host),
 				xfield.String("request", fmt.Sprintf("%s %s", v.Method, v.URI)),
 				xfield.String("protocol", v.Protocol),
 				xfield.Int("status", v.Status),

@@ -5,24 +5,16 @@ services:
   maintmode:
     build:
       context: .
-      dockerfile: ./.build/Dockerfile
+      dockerfile: deployment/maintmode/.build/Dockerfile
     container_name: maintmode
     restart: unless-stopped
-    ports:
-      - "8000:8000"
-      - "8001:8001"
-      - "8002:8002"
+#    ports:
+#      - "8000:8000"
+#      - "8001:8001"
     environment:
-#      ENVIRONMENT: dev
-      ENVIRONMENT: performance_test # for performance test
-      DB_DSN: postgres://postgres:postgres@pg_doorman:6432/maintmode?sslmode=disable
-      DB_DRIVER: postgres
-      DB_MAX_OPEN_CONNS: 50
-      DB_MAX_IDLE_CONNS: 20
-      DB_CONNECTION_MAX_LIFETIME: 10m
-      DB_CONNECTION_MAX_IDLE_TIME: 5m
-      APP_TRACER_COLLECTOR_HOST: otel-collector
-      APP_TRACER_COLLECTOR_PORT: 4317
+      APP_CONFIG_PATH: app/app.config.yaml:ro
+    volumes:
+      - ./deployment/maintmode/config/app.dev.yaml:/app/app.config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,3 +31,49 @@ services:
     networks:
       - theapp
 
+  auth:
+    build:
+      context: .
+      dockerfile: deployment/auth/.build/Dockerfile
+    container_name: auth
+    restart: unless-stopped
+#    ports:
+#      - "8100:8000"
+#      - "8101:8001"
+    environment:
+      APP_CONFIG_PATH: app/app.config.yaml:ro
+    volumes:
+      - ./deployment/auth/config/app.dev.yaml:/app/app.config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg_doorman:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      apply-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - theapp
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "9000:3000"
+      - "9001:3001"
+    volumes:
+      - ./web/static/nginx:/var/www/html:ro
+      - ./deployment/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      auth:
+        condition: service_healthy
+      maintmode:
+        condition: service_healthy
+    networks:
+      - theapp

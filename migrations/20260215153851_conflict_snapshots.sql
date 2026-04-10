@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 SELECT 'up SQL query';
 CREATE TABLE maintenance_conflict_snapshot (
-    id uuid PRIMARY KEY,
+    id uuid PRIMARY KEY DEFAULT uuidv7(),
     maintenance_id uuid NOT NULL,
     conflicted_maintenance_id uuid NOT NULL,
     resource_id uuid,

@@ -61,11 +61,14 @@ func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, per
 		changer(maint)
 	}
 
-	err := store.Create(ctx, maint)
+	created, err := store.Create(ctx, maint)
 	require.NoError(t, err)
 
-	err = store.AddResources(ctx, maint.ID, maint.Resources)
-	require.NoError(t, err)
+	if len(maint.Resources) > 0 {
+		err = store.AddResources(ctx, created.ID, maint.Resources)
+		require.NoError(t, err)
+		created.Resources = maint.Resources
+	}
 
-	return maint
+	return created
 }

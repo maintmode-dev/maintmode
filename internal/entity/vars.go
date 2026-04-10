@@ -16,7 +16,7 @@ var allowedStatusTransitions = map[MaintenanceStatus]map[MaintenanceStatus]struc
 		MaintenanceStatusCancelled: {}, // cancel
 	},
 
-	// финальное состояние
+	// final states
 	MaintenanceStatusCancelled: {},
 	MaintenanceStatusCompleted: {},
 }

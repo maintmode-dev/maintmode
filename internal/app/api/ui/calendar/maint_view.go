@@ -36,7 +36,7 @@ func (i *Implementation) MaintView(c echo.Context) error {
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		xlog.Error(ctx, "parse uuid failed", xfield.Error(err))
+		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
 		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
 			apierrors.ErrInvalidRequest,
 			"id must be a valid UUID",

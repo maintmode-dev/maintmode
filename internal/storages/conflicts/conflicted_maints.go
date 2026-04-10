@@ -16,7 +16,7 @@ func (s *Store) ConflictedMaints(ctx context.Context, cmd *entity.ConflictQueryC
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Conflicts.AddResources")
 	defer span.End()
 
-	/* slq like this
+	/* sql like this
 	SELECT
 	    m.id, m.title
 	     , m.scope
@@ -26,24 +26,24 @@ func (s *Store) ConflictedMaints(ctx context.Context, cmd *entity.ConflictQueryC
 	       )                                     AS overlap_period
 	FROM maintenances m
 	WHERE
-	  -- 1. только активные
+	  -- 1. only active
 	    m.status IN ('planned', 'in_progress')
 
-	  -- 2. не сам с собой
+	  -- 2. not itself
 	  AND m.id <> :my_maint_id
 
-	  -- 3. пересечение по времени
+	  -- 3. time overlap
 	  AND m.planned_period && :my_maint_period
 
-	-- 4. зона влияния
+	-- 4. impact zone
 	  AND (
-	    	-- my_maint global → конфликт со всеми
+	    	-- my_maint global → conflicts with all
 	    	:my_maint_scope = 'global'
 
-	        -- existing global → конфликт со всеми
+	        -- existing global → conflicts with all
 	        OR m.scope = 'global'
 
-	        -- оба resource-bound → проверяем ресурсы
+	        -- both resource-bound → check resources
 	        OR (
 	        	:my_maint_scope = 'resource'
 	            AND m.scope = 'resource'

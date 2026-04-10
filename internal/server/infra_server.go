@@ -8,6 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
+	"github.com/ruko1202/maintmode/docs"
+
 	"github.com/ruko1202/maintmode/internal/server/middlewares"
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
@@ -23,14 +25,15 @@ type InfraServer struct {
 func NewInfraServer(
 	cfg config.HTTPServer,
 	impl *infra.Implementation,
+	opts ...Option,
 ) *InfraServer {
 	return &InfraServer{
-		server:  newServer(cfg),
+		server:  newServer(cfg, opts...),
 		apiImpl: impl,
 	}
 }
 
-func (s *InfraServer) BindRouters() {
+func (s *InfraServer) BindRouters(env config.Environment, appName string) {
 	s.e.Use(middlewares.BaseMiddlewares()...)
 
 	pprof.Register(s.e, pprof.DefaultPrefix)
@@ -42,8 +45,13 @@ func (s *InfraServer) BindRouters() {
 	gr.Add(http.MethodGet, "/version", s.apiImpl.Version)
 	gr.Add(http.MethodGet, "/metrics", echo.WrapHandler(promhttp.Handler()))
 
-	if config.GetAppConfig().Environment.IsDev() {
+	if env.IsDev() {
 		gr.Add(http.MethodGet, "/", s.apiImpl.MainPage)
+		if env.IsDev() && !env.IsLocal() {
+			docs.SwaggerInfo.Host = "localhost:9000"
+			docs.SwaggerInfo.BasePath = "/" + appName
+		}
+
 		gr.Add(http.MethodGet, "/swagger/*", echoSwagger.WrapHandler)
 	}
 }

@@ -29,23 +29,8 @@ func TestSave(t *testing.T) {
 		}
 
 		// Create resources
-		resource1 := &entity.ResourceDetails{
-			ID:          xuuid.New(),
-			Name:        "Resource 1",
-			Description: "Description 1",
-			CreatedAt:   xtime.UTCNow(),
-		}
-		err := resourcesStore.Create(ctx, resource1)
-		require.NoError(t, err)
-
-		resource2 := &entity.ResourceDetails{
-			ID:          xuuid.New(),
-			Name:        "Resource 2",
-			Description: "Description 2",
-			CreatedAt:   xtime.UTCNow(),
-		}
-		err = resourcesStore.Create(ctx, resource2)
-		require.NoError(t, err)
+		resource1 := makeResource(ctx, t)
+		resource2 := makeResource(ctx, t)
 
 		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, conflictPeriod,
@@ -79,7 +64,7 @@ func TestSave(t *testing.T) {
 			},
 		}
 
-		err = store.Save(ctx, maintenance.ID, snapshots)
+		err := store.Save(ctx, maintenance.ID, snapshots)
 		require.NoError(t, err)
 
 		// Verify snapshot was saved
@@ -101,32 +86,9 @@ func TestSave(t *testing.T) {
 		now := xtime.UTCNow()
 
 		// Create resources
-		resource1 := &entity.ResourceDetails{
-			ID:          xuuid.New(),
-			Name:        "Resource 1",
-			Description: "Description 1",
-			CreatedAt:   xtime.UTCNow(),
-		}
-		err := resourcesStore.Create(ctx, resource1)
-		require.NoError(t, err)
-
-		resource2 := &entity.ResourceDetails{
-			ID:          xuuid.New(),
-			Name:        "Resource 2",
-			Description: "Description 2",
-			CreatedAt:   xtime.UTCNow(),
-		}
-		err = resourcesStore.Create(ctx, resource2)
-		require.NoError(t, err)
-
-		resource3 := &entity.ResourceDetails{
-			ID:          xuuid.New(),
-			Name:        "Resource 3",
-			Description: "Description 3",
-			CreatedAt:   xtime.UTCNow(),
-		}
-		err = resourcesStore.Create(ctx, resource3)
-		require.NoError(t, err)
+		resource1 := makeResource(ctx, t)
+		resource2 := makeResource(ctx, t)
+		resource3 := makeResource(ctx, t)
 
 		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
@@ -171,7 +133,7 @@ func TestSave(t *testing.T) {
 			},
 		}
 
-		err = store.Save(ctx, maintenance.ID, snapshots)
+		err := store.Save(ctx, maintenance.ID, snapshots)
 		require.NoError(t, err)
 
 		retrieved, err := store.GetSnapshots(ctx, maintenance.ID)

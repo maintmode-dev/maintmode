@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
@@ -40,14 +39,12 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 	t.Helper()
 
 	maint := &entity.Maintenance{
-		ID:            xuuid.New(),
 		Title:         "Title" + t.Name(),
 		Description:   "Description" + t.Name(),
 		PlannedPeriod: period,
 		Scope:         entity.MaintenanceScopeResources,
 		Status:        entity.MaintenanceStatusPlanned,
 		Impact:        entity.MaintenanceImpactFull,
-		CreatedAt:     xtime.UTCNow(),
 		Resources: []*entity.Resource{
 			{
 				ID:   xuuid.New(),
@@ -59,11 +56,12 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 		},
 	}
 
-	err := store.Create(ctx, maint)
+	created, err := store.Create(ctx, maint)
 	require.NoError(t, err)
 
-	err = store.AddResources(ctx, maint.ID, maint.Resources)
+	err = store.AddResources(ctx, created.ID, maint.Resources)
 	require.NoError(t, err)
+	created.Resources = maint.Resources
 
-	return maint
+	return created
 }

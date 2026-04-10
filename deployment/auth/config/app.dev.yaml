@@ -1,0 +1,62 @@
+environment: dev
+
+app:
+  frontend_url: http://localhost:9000
+
+logger:
+  level: debug
+
+api_server:
+  name: api
+  host: 0.0.0.0
+  port: 8000
+
+infra_server:
+  name: status
+  host: 0.0.0.0
+  port: 8001
+
+db:
+  dsn: postgres://postgres:postgres@pg_doorman:6432/maintmode?sslmode=disable
+  driver: postgres
+  max_open_conns: 50
+  max_idle_conns: 20
+  connection_max_lifetime: 10m
+  connection_max_idle_time: 5m
+
+tracer:
+  collector_host: otel-collector
+  collector_port: 4317
+
+redis:
+  addr: redis:6379
+  password: ""
+  db: 0
+
+oauth_providers:
+  stub:
+    redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+  google:
+    client_id: REDACTED.apps.googleusercontent.com
+    client_secret: GOCSPX-REDACTED
+    redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+    google_userinfo_url: https://www.googleapis.com/oauth2/v2/userinfo
+    scopes:
+      - "openid"
+      - "email"
+      - "profile"
+
+jwt:
+  issuer_name: oauth-service
+  issuer_private_key: 1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20
+  issuer_public_key: 04da12fbcf6cfa1b905004a24810c043aed4b9ac829c998a90b11f720d11fdf6b9e4327ea8cac2c767433296c5b4729392912718193b9993c48d150acd19f6ef6c
+  issuer_kid: 99d1e557df9b619fd046322c1e7f196e
+
+external_services:
+
+s2s:
+  maintmode:
+    secret: maintmode-s2s-token
+    available_api:
+      - /api/v1/s2s/introspect
+

@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
-
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
@@ -42,15 +40,11 @@ func TestMain(m *testing.M) {
 func makeResource(ctx context.Context, t *testing.T, store *Store) *entity.ResourceDetails {
 	t.Helper()
 
-	resource := &entity.ResourceDetails{
-		ID:          xuuid.New(),
+	resource, err := store.Create(ctx, &entity.ResourceDetails{
 		Name:        "Name" + t.Name() + xuuid.NewString(),
 		Description: "Description" + t.Name(),
 		ExternalID:  lo.ToPtr(xuuid.NewString()),
-		CreatedAt:   xtime.UTCNow(),
-	}
-
-	err := store.Create(ctx, resource)
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resource)
 
