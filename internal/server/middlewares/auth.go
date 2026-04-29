@@ -2,10 +2,11 @@ package middlewares
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
@@ -20,28 +21,28 @@ type TokenVerifier interface {
 // записывает userID
 func JWTAuth(tokenSrv TokenVerifier) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			req := c.Request()
 			ctx := req.Context()
 
 			authHeader := req.Header.Get("Authorization")
 			if authHeader == "" {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "missing oauth token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing oauth token")
 			}
 
 			authToken, ok := strings.CutPrefix(authHeader, "Bearer ")
 			if !ok {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "invalid oauth token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid oauth token")
 			}
 
 			claims, err := tokenSrv.VerifyAccessToken(ctx, authToken)
 			if err != nil {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "invalid oauth token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid oauth token")
 			}
 
 			userID, err := uuid.Parse(claims.Subject)
 			if err != nil {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "invalid claims")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid claims")
 			}
 
 			xecho.UserToEchoCtx(c, &entity.User{

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -30,10 +30,10 @@ import (
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/login/oauth/google/callback [get]
 // GoogleOauthCallback handles the redirect from Google after consent.
-func (i *Implementation) GoogleOauthCallback(c echo.Context) error {
+func (i *Implementation) GoogleOauthCallback(c *echo.Context) error {
 	return i.oauthCallback(c, entity.OAuthProviderGoogle)
 }
-func (i *Implementation) oauthCallback(c echo.Context, provider entity.OAuthProvider) error {
+func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthProvider) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), fmt.Sprintf("api.Auth.%s.OauthCallback", provider))
 	defer span.End()
 	op := "oauth provider callback"
@@ -90,7 +90,7 @@ func (i *Implementation) parseState(stateData string, provider entity.OAuthProvi
 // callbackHTML returns a small HTML page that stores the access token
 // in sessionStorage and redirects to the app root. This avoids exposing
 // the token in URL query params or fragments.
-func (i *Implementation) callbackHTML(ctx context.Context, c echo.Context, accessToken, originalURI string) error {
+func (i *Implementation) callbackHTML(ctx context.Context, c *echo.Context, accessToken, originalURI string) error {
 	if originalURI == "" {
 		originalURI = "/"
 	}
@@ -117,7 +117,7 @@ var (
 	cookieRefreshTokenPath   = "/auth"
 )
 
-func setRefreshCookie(c echo.Context, token string) {
+func setRefreshCookie(c *echo.Context, token string) {
 	c.SetCookie(&http.Cookie{
 		Name:     cookieRefreshTokenName,
 		Value:    token,
@@ -129,7 +129,7 @@ func setRefreshCookie(c echo.Context, token string) {
 	})
 }
 
-func clearRefreshCookie(c echo.Context) {
+func clearRefreshCookie(c *echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     cookieRefreshTokenName,
 		Value:    "",

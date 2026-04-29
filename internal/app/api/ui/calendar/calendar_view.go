@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
@@ -35,7 +35,7 @@ import (
 // @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /ui/v1/calendar [get]
-func (i *Implementation) CalendarView(c echo.Context) error {
+func (i *Implementation) CalendarView(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.CalendarView")
 	defer span.End()
 	op := "list calendar events"

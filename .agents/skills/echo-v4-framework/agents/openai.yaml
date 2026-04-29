@@ -1,4 +1,0 @@
-interface:
-  display_name: "Echo v4 Framework"
-  short_description: "MaintMode Echo v4 API patterns"
-  default_prompt: "Use $echo-v4-framework to add or review a MaintMode Echo v4 API handler."

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echootel "github.com/labstack/echo-opentelemetry"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
@@ -38,7 +38,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 	mw := append(BaseMiddlewares(),
 		middleware.Recover(),
 		middleware.Secure(),
-		otelecho.Middleware(meta.AppName),
+		echootel.NewMiddleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 		TraceMiddleware(),
 		RequestLoggingMiddleware(),
@@ -48,7 +48,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 
 	if env.IsDev() {
 		mw = append(mw,
-			middleware.CORS(),
+			middleware.CORS("*"),
 		)
 		if !env.IsPerformanceTest() {
 			mw = append(mw,
@@ -63,7 +63,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 // TraceMiddleware Middleware for injecting TraceID into X-Request-ID response header
 func TraceMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			ctx := c.Request().Context()
 			spanCtx := trace.SpanContextFromContext(ctx)
 
@@ -96,7 +96,6 @@ func RequestLoggingMiddleware() echo.MiddlewareFunc {
 		LogReferer:       false,
 		LogUserAgent:     true,
 		LogStatus:        true,
-		LogError:         true,
 		LogContentLength: true,
 		LogResponseSize:  true,
 		LogHeaders:       nil,
@@ -104,7 +103,7 @@ func RequestLoggingMiddleware() echo.MiddlewareFunc {
 		LogFormValues:    nil,
 		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
 		Skipper:          skipper("swagger"),
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			ctx := c.Request().Context()
 			attrs := []xfield.Field{
 				xfield.String("host", v.Host),
@@ -136,7 +135,7 @@ func RequestLoggingMiddleware() echo.MiddlewareFunc {
 func ReqReqsDumpLoggingMiddleware() echo.MiddlewareFunc {
 	return middleware.BodyDumpWithConfig(middleware.BodyDumpConfig{
 		Skipper: skipper("swagger"),
-		Handler: func(c echo.Context, reqDump []byte, respBump []byte) {
+		Handler: func(c *echo.Context, reqDump []byte, respBump []byte, _ error) {
 			req := c.Request()
 			res := c.Response()
 			ctx := req.Context()
@@ -163,7 +162,7 @@ func ReqReqsDumpLoggingMiddleware() echo.MiddlewareFunc {
 }
 
 func skipper(urlPaths ...string) middleware.Skipper {
-	return func(c echo.Context) bool {
+	return func(c *echo.Context) bool {
 		for _, path := range urlPaths {
 			if strings.Contains(c.Request().URL.Path, path) {
 				return true

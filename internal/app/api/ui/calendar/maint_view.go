@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
@@ -30,7 +30,7 @@ import (
 // @Failure 404 {object} apierrors.ErrorResponse "Maintenance not found"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /ui/v1/maintenances/{id} [get]
-func (i *Implementation) MaintView(c echo.Context) error {
+func (i *Implementation) MaintView(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.MaintView")
 	defer span.End()
 

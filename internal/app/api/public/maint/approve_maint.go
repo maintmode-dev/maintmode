@@ -7,7 +7,7 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -29,7 +29,7 @@ import (
 // @Failure 404 {object} apierrors.ErrorResponse "Maintenance not found"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/approve [post]
-func (i *Implementation) ApproveMaint(c echo.Context) error {
+func (i *Implementation) ApproveMaint(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.ApproveMaint")
 	defer span.End()
 	op := "approve maintenance"

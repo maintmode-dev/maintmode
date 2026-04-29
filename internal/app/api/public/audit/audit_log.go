@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -24,7 +24,7 @@ const defaultMaxLogsCount = 100
 // @Failure 400 {object} apierrors.ErrorResponse "Invalid limit parameter"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/audit/log [get]
-func (i *Implementation) AuditLog(c echo.Context) error {
+func (i *Implementation) AuditLog(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Audit.AuditLog")
 	defer span.End()
 	op := "audit log"

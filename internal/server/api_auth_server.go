@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
 
@@ -50,7 +50,7 @@ func NewAPIAuthServer(
 func (s *APIAuthServer) BindRouters(env config.Environment, meta *buildmeta.AppBuildMeta) {
 	rootGr := s.e.Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
-	rootGr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
+	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	v1Gr := rootGr.Group("/api/v1")
 	s.authV1Group(v1Gr)

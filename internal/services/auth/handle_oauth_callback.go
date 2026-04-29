@@ -21,7 +21,6 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	pair, user, err := s.handleOAuthCallback(ctx, cmd)
 	if err != nil {
-		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user)
 		xlog.Error(ctx, "failed to issue token pair", xfield.Error(err))
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -40,12 +39,20 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, providerUserInfo)
 	if err != nil {
+		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
+			Email:           providerUserInfo.Email,
+			Name:            providerUserInfo.Name,
+			OAuthProviderID: providerUserInfo.ID,
+		})
+
 		xlog.Error(ctx, "failed to get or create user", xfield.Error(err))
 		return nil, nil, fmt.Errorf("get or create user: %w", err)
 	}
 
 	pair, err := s.issueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
+		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user)
+
 		xlog.Error(ctx, "failed to issue token pair", xfield.Error(err))
 		return nil, nil, fmt.Errorf("issue token pair: %w", err)
 	}

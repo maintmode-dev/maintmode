@@ -3,10 +3,10 @@ package server
 import (
 	"net/http"
 
-	"github.com/labstack/echo-contrib/pprof"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo-contrib/v5/pprof"
+	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	echoSwagger "github.com/swaggo/echo-swagger"
+	echoSwagger "github.com/swaggo/echo-swagger/v2"
 
 	"github.com/ruko1202/maintmode/docs"
 
@@ -39,7 +39,7 @@ func (s *InfraServer) BindRouters(env config.Environment, appName string) {
 	pprof.Register(s.e, pprof.DefaultPrefix)
 	gr := s.e.Group("")
 
-	gr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
+	gr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 	gr.Add(http.MethodGet, "/liveness", s.apiImpl.Liveness)
 	gr.Add(http.MethodGet, "/readiness", s.apiImpl.Readiness)
 	gr.Add(http.MethodGet, "/version", s.apiImpl.Version)

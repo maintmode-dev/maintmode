@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -26,7 +26,7 @@ import (
 // @Router /api/v1/s2s/introspect [post]
 // Introspect implements AccessToken Introspection (RFC 7662).
 // Downstream services call this for critical operations to check if a token is blacklisted.
-func (i *Implementation) Introspect(c echo.Context) error {
+func (i *Implementation) Introspect(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Introspect")
 	defer span.End()
 	op := "introspect"

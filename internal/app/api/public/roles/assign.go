@@ -8,7 +8,7 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -29,7 +29,7 @@ import (
 // @Failure 400 {object} apierrors.ErrorResponse "Invalid request or validation error"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/roles/assign [post]
-func (i *Implementation) Assign(c echo.Context) error {
+func (i *Implementation) Assign(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Roles.Assign")
 	defer span.End()
 	op := "roles assign"

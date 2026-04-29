@@ -1,11 +1,11 @@
 ---
-name: echo-v4-framework
-description: Echo v4 HTTP API patterns for MaintMode. Use when adding or changing Echo v4 handlers, route registration, middleware, request binding, response shaping, centralized error handling, or tests in the MaintMode app/api and server layers.
+name: echo-v5-framework
+description: Echo v5 HTTP API patterns for MaintMode. Use when adding or changing Echo v5 handlers, route registration, middleware, request binding, response shaping, centralized error handling, or tests in the MaintMode app/api and server layers.
 ---
 
-# Echo v4 Framework
+# Echo v5 Framework
 
-Use Echo v4 only. MaintMode imports `github.com/labstack/echo/v4`; do not introduce Echo v5 APIs, `*echo.Context`, or v5 migration guidance.
+Use Echo v5 only. MaintMode imports `github.com/labstack/echo/v5`; do not introduce Echo v4 APIs or `echo.Context` value handler signatures.
 
 ## MaintMode Entry Points
 
@@ -18,7 +18,7 @@ Use Echo v4 only. MaintMode imports `github.com/labstack/echo/v4`; do not introd
 ## Handler Pattern
 
 ```go
-func (i *Implementation) GetResource(c echo.Context) error {
+func (i *Implementation) GetResource(c *echo.Context) error {
     ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.Get")
     defer span.End()
 
@@ -51,13 +51,14 @@ Keep handlers thin: parse or bind input, call services, map errors, and serializ
 
 ## Middleware And Context
 
-- Use `echo.Context` as an interface, not `*echo.Context`.
+- Use `*echo.Context`; Echo v5 context is a concrete struct.
 - Propagate `c.Request().Context()` into services and stores.
 - Preserve auth and user data through existing middlewares in `internal/server/middlewares`.
 - Add operation spans/log fields with `github.com/ruko1202/xlog` when matching nearby handlers.
+- Echo v5 `c.Response()` returns `http.ResponseWriter`; use `c.Response().Header()` for headers and Echo v5 helpers such as `echo.UnwrapResponse` or `echo.ResolveResponseStatus` when response internals are needed.
 
 ## Testing
 
-- For handler tests, use Echo v4 request/response primitives and project test helpers when present.
+- For handler tests, use Echo v5 request/response primitives and project test helpers when present.
 - For API behavior, prefer existing `test/api` generated client patterns.
 - Cover status code, response model, and mapped error cases.

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -22,7 +22,7 @@ import (
 // @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/user/{id}/roles [get]
-func (i *Implementation) ListRoles(c echo.Context) error {
+func (i *Implementation) ListRoles(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Roles.ListRoles")
 	defer span.End()
 	op := "list roles"

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -23,7 +23,7 @@ import (
 // @Failure 404 {object} apierrors.ErrorResponse "Resource not found"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/resource/{id}/types [get]
-func (i *Implementation) GetResourceTypes(c echo.Context) error {
+func (i *Implementation) GetResourceTypes(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.GetResourceTypes")
 	defer span.End()
 	op := "get resource types"

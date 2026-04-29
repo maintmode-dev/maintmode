@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -29,7 +29,7 @@ import (
 // @Header 200 {string} Set-Cookie "Rotated refresh token cookie (if issued)"
 // @Router /api/v1/refresh [post]
 // Refresh rotates the refresh token and issues a new token pair.
-func (i *Implementation) Refresh(c echo.Context) error {
+func (i *Implementation) Refresh(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Refresh")
 	defer span.End()
 	op := "rotate refresh token"
@@ -63,7 +63,7 @@ type refreshTokenJSONRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func extractRefreshToken(ctx context.Context, c echo.Context) (string, error) {
+func extractRefreshToken(ctx context.Context, c *echo.Context) (string, error) {
 	cookie, err := c.Cookie(cookieRefreshTokenName)
 	if err == nil && cookie.Value != "" {
 		return cookie.Value, nil

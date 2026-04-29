@@ -20,9 +20,11 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 	defer span.End()
 
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
-		newRoles := lo.FindUniquesBy(cmd.Roles, func(item entity.Role) bool {
-			return item.Valid(ctx)
+		newRoles := lo.FilterMap(cmd.Roles, func(item entity.Role, _ int) (entity.Role, bool) {
+			return item, item.Valid(ctx)
 		})
+		// deduplicated roles
+		newRoles = lo.Uniq(newRoles)
 
 		slices.Sort(user.Roles)
 		slices.Sort(newRoles)

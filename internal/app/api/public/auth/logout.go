@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -32,7 +32,7 @@ import (
 //
 // If refresh token is absent (e.g. long-lived tab where cookie was already cleared),
 // we just clear the cookie and return success — nothing to revoke on the server.
-func (i *Implementation) Logout(c echo.Context) error {
+func (i *Implementation) Logout(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Logout")
 	defer span.End()
 	op := "logout"
@@ -77,7 +77,7 @@ func (i *Implementation) Logout(c echo.Context) error {
 // @Header 204 {string} Set-Cookie "Cleared refresh token cookie"
 // @Router /api/v1/logout/all [post]
 // LogoutAll revokes all refresh tokens for the authenticated user.
-func (i *Implementation) LogoutAll(c echo.Context) error {
+func (i *Implementation) LogoutAll(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.LogoutAll")
 	defer span.End()
 	op := "logout all"
@@ -97,7 +97,7 @@ const bearerHeader = "Bearer "
 
 // extractBearerToken returns the raw Bearer token from the Authorization header,
 // or empty string if absent/malformed.
-func extractBearerToken(c echo.Context) string {
+func extractBearerToken(c *echo.Context) string {
 	authHeader := c.Request().Header.Get("Authorization")
 
 	token, ok := strings.CutPrefix(authHeader, bearerHeader)

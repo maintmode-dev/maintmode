@@ -1,0 +1,4 @@
+interface:
+  display_name: "Echo v5 Framework"
+  short_description: "MaintMode Echo v5 API patterns"
+  default_prompt: "Use $echo-v5-framework to add or review a MaintMode Echo v5 API handler."

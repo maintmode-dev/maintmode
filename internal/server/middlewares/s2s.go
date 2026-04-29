@@ -2,8 +2,9 @@ package middlewares
 
 import (
 	"crypto/subtle"
+	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -31,30 +32,30 @@ func RequireS2SToken(s2s config.S2SConfig) echo.MiddlewareFunc {
 	})
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			reqHeader := c.Request().Header
 
 			headerS2SToken := reqHeader.Get(xS2STokenHeader)
 			if headerS2SToken == "" {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "missing s2s token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing s2s token")
 			}
 
 			headerS2SAppName := reqHeader.Get(xS2STokenAppNameHeader)
 			if headerS2SAppName == "" {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "missing s2s appName")
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing s2s appName")
 			}
 
 			serviceS2S, ok := s2sCfg[headerS2SAppName]
 			if !ok {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "invalid s2s appName")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid s2s appName")
 			}
 
 			if _, ok := serviceS2S.availableAPIs[c.Path()]; !ok {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "access to the URI not allowed")
+				return echo.NewHTTPError(http.StatusUnauthorized, "access to the URI not allowed")
 			}
 
 			if subtle.ConstantTimeCompare([]byte(headerS2SToken), []byte(serviceS2S.token)) != 1 {
-				return echo.NewHTTPError(echo.ErrUnauthorized.Code, "invalid s2s token")
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid s2s token")
 			}
 
 			return next(c)

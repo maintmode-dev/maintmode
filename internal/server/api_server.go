@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
@@ -41,7 +41,7 @@ func NewAPIServer(
 func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuildMeta) {
 	rootGr := s.e.Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
-	rootGr.RouteNotFound("/*", echo.NotFoundHandler, middlewares.RequestLoggingMiddleware())
+	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	s.apiV1Group(rootGr.Group("/api/v1"))
 	s.uiV1Group(rootGr.Group("/ui/v1"))

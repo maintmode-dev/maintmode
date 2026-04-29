@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -26,7 +26,7 @@ import (
 // @Failure 409 {object} apierrors.ErrorResponse "Resource already exists"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/resource/create [post]
-func (i *Implementation) CreateResource(c echo.Context) error {
+func (i *Implementation) CreateResource(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.CreateResource")
 	defer span.End()
 	op := "create resource"

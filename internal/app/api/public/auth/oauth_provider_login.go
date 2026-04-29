@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -29,11 +29,11 @@ import (
 // @Router /api/v1/login/oauth/google [get]
 // GoogleOAuthLogin redirects the user to oauth-provider's OAuth consent screen.
 // Accepts optional ?original_uri=/path to preserve navigation intent through the OAuth flow.
-func (i *Implementation) GoogleOAuthLogin(c echo.Context) error {
+func (i *Implementation) GoogleOAuthLogin(c *echo.Context) error {
 	return i.oauthLogin(c, entity.OAuthProviderGoogle)
 }
 
-func (i *Implementation) oauthLogin(c echo.Context, provider entity.OAuthProvider) error {
+func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvider) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), fmt.Sprintf("api.Auth.%s.Login", provider))
 	defer span.End()
 	op := "oauth provider login"
@@ -75,7 +75,7 @@ var (
 	cookieNonceMaxAge = 300 // 5 minutes
 )
 
-func setCookieNonce(c echo.Context, stateNonce string) {
+func setCookieNonce(c *echo.Context, stateNonce string) {
 	c.SetCookie(&http.Cookie{
 		Name:     cookieNonceName,
 		Value:    stateNonce,
@@ -87,7 +87,7 @@ func setCookieNonce(c echo.Context, stateNonce string) {
 	})
 }
 
-func clearCookieNonce(c echo.Context) {
+func clearCookieNonce(c *echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     cookieNonceName,
 		Value:    "",
