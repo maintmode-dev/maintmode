@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transaction Patterns"
+  short_description: "MaintMode dbtx transaction patterns"
+  default_prompt: "Use $transaction-patterns to implement a MaintMode transactional service operation."

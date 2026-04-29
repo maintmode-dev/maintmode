@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zap Logging"
+  short_description: "MaintMode zap and xlog logging"
+  default_prompt: "Use $zap-logging to add structured xlog logging to MaintMode code."

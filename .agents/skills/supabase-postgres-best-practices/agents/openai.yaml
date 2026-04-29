@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supabase Postgres"
+  short_description: "Postgres performance best practices"
+  default_prompt: "Use $supabase-postgres-best-practices to review a PostgreSQL schema or query for performance."

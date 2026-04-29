@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go Error Handling"
+  short_description: "MaintMode error handling patterns"
+  default_prompt: "Use $error-handling-go to review error wrapping and API error mapping in MaintMode."

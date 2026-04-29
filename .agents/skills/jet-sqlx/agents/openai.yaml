@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jet SQLX"
+  short_description: "MaintMode Jet and sqlx storage"
+  default_prompt: "Use $jet-sqlx to write a MaintMode PostgreSQL store query with Jet and sqlx."

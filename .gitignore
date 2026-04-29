@@ -27,3 +27,5 @@ screenshots/
 .vscode/
 
 .playwright-mcp/
+
+.DS_Store
