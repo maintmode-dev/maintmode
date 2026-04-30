@@ -33,7 +33,7 @@ type secretResolver struct {
 	secrets secretStore
 }
 
-//nolint:gocognit
+//nolint:gocognit,gocyclo
 func (r secretResolver) resolveValue(value reflect.Value) error {
 	if !value.IsValid() {
 		return nil

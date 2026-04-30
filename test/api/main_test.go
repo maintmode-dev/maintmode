@@ -122,6 +122,17 @@ func setupMaintmodeTestClient() *client.Maintmode {
 	return client.New(transport, strfmt.Default)
 }
 
+func testMaintenanceSteps() []*models.ApimodelsMaintenanceStepInput {
+	return []*models.ApimodelsMaintenanceStepInput{
+		{
+			Order:               1,
+			Description:         "Run maintenance task",
+			RollbackDescription: "Rollback maintenance task",
+			Duration:            testMaintenanceDuration.String(),
+		},
+	}
+}
+
 func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode) string {
 	t.Helper()
 
@@ -129,23 +140,20 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.
 
 	now := xtime.UTCNow()
 	plannedStart := strfmt.DateTime(now.Add(testMaintenanceStartOffset))
-	plannedEnd := strfmt.DateTime(now.Add(testMaintenanceStartOffset + testMaintenanceDuration))
 
 	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:       "Test Maintenance",
-		Description: "Test maintenance for API testing",
-		Impact:      models.ApimodelsMaintenanceImpactNone,
-		Scope:       models.ApimodelsMaintenanceScopeResource,
-		PlannedPeriod: &models.ApimodelsPeriod{
-			Start: plannedStart,
-			End:   plannedEnd,
-		},
+		Title:        "Test Maintenance",
+		Description:  "Test maintenance for API testing",
+		Impact:       models.ApimodelsMaintenanceImpactNone,
+		Scope:        models.ApimodelsMaintenanceScopeResource,
+		PlannedStart: plannedStart,
 		Resources: []*models.ApimodelsResource{
 			{
 				ID:   strfmt.UUID(resource.ID),
 				Type: models.ApimodelsResourceTypeDatabase,
 			},
 		},
+		Steps: testMaintenanceSteps(),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
@@ -166,23 +174,20 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 
 	now := xtime.UTCNow()
 	plannedStart := strfmt.DateTime(now.Add(testMaintenanceStartOffset))
-	plannedEnd := strfmt.DateTime(now.Add(testMaintenanceStartOffset + testMaintenanceDuration))
 
 	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:       "Test Maintenance with Resource",
-		Description: "Maintenance for testing resource-based operations",
-		Impact:      models.ApimodelsMaintenanceImpactNone,
-		Scope:       models.ApimodelsMaintenanceScopeResource,
-		PlannedPeriod: &models.ApimodelsPeriod{
-			Start: plannedStart,
-			End:   plannedEnd,
-		},
+		Title:        "Test Maintenance with Resource",
+		Description:  "Maintenance for testing resource-based operations",
+		Impact:       models.ApimodelsMaintenanceImpactNone,
+		Scope:        models.ApimodelsMaintenanceScopeResource,
+		PlannedStart: plannedStart,
 		Resources: []*models.ApimodelsResource{
 			{
 				ID:   resourceUUID,
 				Type: models.ApimodelsResourceTypeService,
 			},
 		},
+		Steps: testMaintenanceSteps(),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
@@ -246,6 +251,37 @@ func createAndStartMaintenance(ctx context.Context, t *testing.T, apiClient *cli
 	require.NoError(t, err, "Failed to start maintenance")
 
 	return maintenanceID
+}
+
+func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *client.Maintmode, maintenanceID string) {
+	t.Helper()
+
+	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
+		WithContext(ctx).
+		WithID(strfmt.UUID(maintenanceID))
+
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	require.NoError(t, err, "Failed to get maintenance steps")
+	require.NotNil(t, getResp, "Get response should not be nil")
+	require.NotEmpty(t, getResp.Payload.Steps, "Maintenance should have steps")
+
+	for _, step := range getResp.Payload.Steps {
+		startParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDStartParams().
+			WithContext(ctx).
+			WithID(strfmt.UUID(maintenanceID)).
+			WithStepID(step.ID)
+
+		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDStart(startParams)
+		require.NoError(t, err, "Failed to start maintenance step")
+
+		completeParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDCompleteParams().
+			WithContext(ctx).
+			WithID(strfmt.UUID(maintenanceID)).
+			WithStepID(step.ID)
+
+		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDComplete(completeParams)
+		require.NoError(t, err, "Failed to complete maintenance step")
+	}
 }
 
 func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApismodelsResource {

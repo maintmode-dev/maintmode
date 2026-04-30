@@ -1,8 +1,19 @@
 package entity
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // --- Maintenance commands ---
+
+type MaintenanceStepInput struct {
+	Order               int32
+	Description         string
+	RollbackDescription string
+	DurationMinutes     int64
+}
 
 type CreateMaintenanceCmd struct {
 	Title         string
@@ -11,16 +22,18 @@ type CreateMaintenanceCmd struct {
 	Scope         MaintenanceScope
 	Impact        MaintenanceImpact
 	Resources     []*Resource
+	Steps         []*MaintenanceStepInput
 }
 
 type UpdateMaintenanceCmd struct {
-	MaintID       uuid.UUID
-	Title         *string
-	Description   *string
-	PlannedPeriod *Period
-	Scope         *MaintenanceScope
-	Impact        *MaintenanceImpact
-	Resources     []*Resource
+	MaintID      uuid.UUID
+	Title        *string
+	Description  *string
+	PlannedStart *time.Time
+	Scope        *MaintenanceScope
+	Impact       *MaintenanceImpact
+	Resources    []*Resource
+	Steps        []*MaintenanceStepInput
 }
 type StartMaintenanceCmd struct {
 	MaintID uuid.UUID
@@ -40,6 +53,23 @@ type ApproveMaintenanceCmd struct {
 	MaintID               uuid.UUID
 	ObservedMaintRevision int64
 	ConflictSnapshot      ConflictsSnapshot
+}
+
+// --- Steps commands ---
+
+type StartMaintenanceStepCmd struct {
+	MaintID uuid.UUID
+	StepID  uuid.UUID
+}
+
+type CompleteMaintenanceStepCmd struct {
+	MaintID uuid.UUID
+	StepID  uuid.UUID
+}
+
+type CancelMaintenanceStepCmd struct {
+	MaintID uuid.UUID
+	StepID  uuid.UUID
 }
 
 // --- Conflicts commands ---

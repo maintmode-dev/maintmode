@@ -45,7 +45,7 @@ func TestApprove(t *testing.T) {
 			),
 		}
 		for _, m := range conflictedMaints {
-			err := s.Start(ctx, &entity.StartMaintenanceCmd{MaintID: m.ID})
+			err := s.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: m.ID})
 			require.NoError(t, err)
 		}
 
@@ -68,7 +68,7 @@ func TestApprove(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.Approve(ctx, &entity.ApproveMaintenanceCmd{
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
@@ -77,7 +77,7 @@ func TestApprove(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		actualMaint, err := s.Get(ctx, maint.ID)
+		actualMaint, err := s.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStatusPlanned, actualMaint.Status)
 	})
@@ -99,14 +99,14 @@ func TestApprove(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.Approve(ctx, &entity.ApproveMaintenanceCmd{
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
 				Conflicts: actualConflicts,
 			},
 		})
-		require.ErrorIs(t, err, apperr.ErrForbiddenStatusTransition)
+		require.ErrorIs(t, err, apperr.ErrForbiddenMaintStatusTransition)
 	})
 
 	t.Run("change maint revision", func(t *testing.T) {
@@ -125,12 +125,12 @@ func TestApprove(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.Update(ctx, &entity.UpdateMaintenanceCmd{
+		err = s.UpdateMaint(ctx, &entity.UpdateMaintenanceCmd{
 			MaintID: maint.ID,
 		})
 		require.NoError(t, err)
 
-		err = s.Approve(ctx, &entity.ApproveMaintenanceCmd{
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{
@@ -163,7 +163,7 @@ func TestApprove(t *testing.T) {
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 		)
 
-		err = s.Approve(ctx, &entity.ApproveMaintenanceCmd{
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ConflictSnapshot: entity.ConflictsSnapshot{

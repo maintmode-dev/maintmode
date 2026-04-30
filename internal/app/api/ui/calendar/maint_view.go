@@ -106,7 +106,7 @@ func resolveActions(m *calendardto.Maintenance) *uimodels.MaintenanceActions {
 		}
 	case entity.MaintenanceStatusInProgress:
 		return &uimodels.MaintenanceActions{
-			CanFinish: true,
+			CanFinish: allStepsTerminal(m.Steps),
 			CanCancel: true,
 		}
 	case entity.MaintenanceStatusCancelled, entity.MaintenanceStatusCompleted:
@@ -114,4 +114,13 @@ func resolveActions(m *calendardto.Maintenance) *uimodels.MaintenanceActions {
 	default:
 		return &uimodels.MaintenanceActions{}
 	}
+}
+
+func allStepsTerminal(steps []*calendardto.MaintenanceStep) bool {
+	for _, step := range steps {
+		if !step.Status.IsTerminal() {
+			return false
+		}
+	}
+	return true
 }

@@ -10,9 +10,9 @@ import (
 type AuditAction string
 
 const (
-	AuditActionLoginSuccess  AuditAction = "success"
-	AuditActionLoginFailed   AuditAction = "failed"
-	AuditActionLogoutSuccess AuditAction = "success"
+	AuditActionLoginSuccess  AuditAction = "login_success"
+	AuditActionLoginFailed   AuditAction = "login_failed"
+	AuditActionLogoutSuccess AuditAction = "logout_success"
 
 	AuditActionRoleAssigned  AuditAction = "assigned"
 	AuditActionRoleRevoked   AuditAction = "revoked"

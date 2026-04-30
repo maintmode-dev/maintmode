@@ -16,6 +16,32 @@ const (
 	MaintenanceStatusCompleted  MaintenanceStatus = "completed"
 )
 
+var allowedMaintStatusTransitions = map[MaintenanceStatus]map[MaintenanceStatus]struct{}{
+	MaintenanceStatusDraft: {
+		MaintenanceStatusPlanned:   {}, // approve
+		MaintenanceStatusCancelled: {}, // cancel
+	},
+
+	MaintenanceStatusPlanned: {
+		MaintenanceStatusInProgress: {}, // start
+		MaintenanceStatusCancelled:  {}, // cancel
+	},
+
+	MaintenanceStatusInProgress: {
+		MaintenanceStatusCompleted: {}, // complete
+		MaintenanceStatusCancelled: {}, // cancel
+	},
+
+	// final states
+	MaintenanceStatusCancelled: {},
+	MaintenanceStatusCompleted: {},
+}
+
+func CanMaintTransition(from, to MaintenanceStatus) bool {
+	_, ok := allowedMaintStatusTransitions[from][to]
+	return ok
+}
+
 type MaintenanceScope string
 
 const (
@@ -55,6 +81,7 @@ type Maintenance struct {
 	CancelReasonComment string
 	CreatedAt           time.Time
 	UpdatedAt           *time.Time
+	Steps               []*MaintenanceStep
 }
 
 func (m *Maintenance) Revision() int64 {

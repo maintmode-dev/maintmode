@@ -38,7 +38,7 @@ func (i *Implementation) GetMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	maint, err := i.maintSrv.Get(ctx, maintID)
+	maint, err := i.maintSrv.GetMaint(ctx, maintID)
 	if err != nil {
 		xlog.Error(ctx, "get maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, fmt.Errorf("%w: '%s'", apperr.ErrMaintNotFound, maintID))

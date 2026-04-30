@@ -123,14 +123,19 @@ definitions:
         type: string
       impact:
         $ref: '#/definitions/apimodels.MaintenanceImpact'
-      planned_period:
-        $ref: '#/definitions/apimodels.Period'
+      planned_start:
+        format: date-time
+        type: string
       resources:
         items:
           $ref: '#/definitions/apimodels.Resource'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
+      steps:
+        items:
+          $ref: '#/definitions/apimodels.MaintenanceStepInput'
+        type: array
       title:
         example: DB migration
         type: string
@@ -157,6 +162,10 @@ definitions:
         type: string
       status:
         type: string
+      steps:
+        items:
+          $ref: '#/definitions/apimodels.MaintenanceStep'
+        type: array
       title:
         type: string
     type: object
@@ -195,6 +204,10 @@ definitions:
         $ref: '#/definitions/apimodels.MaintenanceScope'
       status:
         type: string
+      steps:
+        items:
+          $ref: '#/definitions/apimodels.MaintenanceStep'
+        type: array
       title:
         type: string
       updated_at:
@@ -233,6 +246,47 @@ definitions:
     x-enum-varnames:
     - MaintenanceScopeGlobal
     - MaintenanceScopeResources
+  apimodels.MaintenanceStep:
+    properties:
+      description:
+        type: string
+      duration:
+        type: integer
+      id:
+        format: uuid
+        type: string
+      order:
+        type: integer
+      rollback_description:
+        type: string
+      status:
+        $ref: '#/definitions/apimodels.MaintenanceStepStatus'
+    type: object
+  apimodels.MaintenanceStepInput:
+    properties:
+      description:
+        type: string
+      duration:
+        type: string
+      order:
+        type: integer
+      rollback_description:
+        type: string
+    type: object
+  apimodels.MaintenanceStepStatus:
+    enum:
+    - unknown
+    - planned
+    - started
+    - completed
+    - canceled
+    type: string
+    x-enum-varnames:
+    - MaintenanceStepStatusUnknown
+    - MaintenanceStepStatusPlanned
+    - MaintenanceStepStatusStarted
+    - MaintenanceStepStatusCompleted
+    - MaintenanceStepStatusCanceled
   apimodels.Period:
     properties:
       end:
@@ -289,14 +343,19 @@ definitions:
         type: string
       impact:
         $ref: '#/definitions/apimodels.MaintenanceImpact'
-      planned_period:
-        $ref: '#/definitions/apimodels.Period'
+      planned_start:
+        format: date-time
+        type: string
       resources:
         items:
           $ref: '#/definitions/apimodels.Resource'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
+      steps:
+        items:
+          $ref: '#/definitions/apimodels.MaintenanceStepInput'
+        type: array
       title:
         example: DB migration
         type: string
@@ -356,18 +415,18 @@ definitions:
     enum:
     - login_success
     - login_failed
-    - role_assigned
-    - role_revoked
-    - roles_replaced
-    - access_denied
+    - logout_success
+    - assigned
+    - revoked
+    - replaced
     type: string
     x-enum-varnames:
-    - AuditLoginSuccess
-    - AuditLoginFailed
-    - AuditRoleAssigned
-    - AuditRoleRevoked
-    - AuditRolesReplaced
-    - AuditAccessDenied
+    - AuditActionLoginSuccess
+    - AuditActionLoginFailed
+    - AuditActionLogoutSuccess
+    - AuditActionRoleAssigned
+    - AuditActionRoleRevoked
+    - AuditActionRolesReplaced
   entity.JWK:
     properties:
       alg:
@@ -476,6 +535,28 @@ definitions:
     - MaintenanceStatusInProgress
     - MaintenanceStatusCancelled
     - MaintenanceStatusCompleted
+  uimodels.MaintenanceStep:
+    properties:
+      description:
+        type: string
+      duration:
+        type: string
+      id:
+        format: uuid
+        type: string
+      order:
+        type: integer
+      planned_time_end:
+        format: date-time
+        type: string
+      planned_time_start:
+        format: date-time
+        type: string
+      rollback_description:
+        type: string
+      status:
+        type: string
+    type: object
   uimodels.MaintenanceView:
     properties:
       actual_time_end:
@@ -514,6 +595,10 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/uimodels.MaintenanceStatus'
+      steps:
+        items:
+          $ref: '#/definitions/uimodels.MaintenanceStep'
+        type: array
       title:
         type: string
       updated_at:
@@ -783,11 +868,15 @@ paths:
         "204":
           description: Maintenance approved
         "400":
-          description: Invalid request or forbidden status transition
+          description: Invalid request
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
         "404":
           description: Maintenance not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden status transition or conflicts changed since preview
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
         "500":
@@ -807,7 +896,7 @@ paths:
         name: id
         required: true
         type: string
-      - description: Update maintenance draft request
+      - description: Cancel maintenance request
         in: body
         name: request
         required: true
@@ -819,7 +908,11 @@ paths:
         "204":
           description: Maintenance canceled
         "400":
-          description: Invalid request or forbidden status transition
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden status transition
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
         "500":
@@ -845,7 +938,11 @@ paths:
         "204":
           description: Maintenance completed
         "400":
-          description: Invalid request or forbidden status transition
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden status transition or maintenance has unfinished steps
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
         "500":
@@ -905,7 +1002,11 @@ paths:
         "204":
           description: Maintenance started
         "400":
-          description: Invalid request or forbidden status transition
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden status transition
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
         "500":
@@ -913,6 +1014,129 @@ paths:
           schema:
             $ref: '#/definitions/apierrors.ErrorResponse'
       summary: Start maintenance
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/steps/{step_id}/cancel:
+    post:
+      description: Cancels a maintenance step by step_id. Allowed only for valid step
+        status transitions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Step ID
+        format: uuid
+        in: path
+        name: step_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Step canceled
+        "400":
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance or step not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden step status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Cancel maintenance step
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/steps/{step_id}/complete:
+    post:
+      description: Completes a maintenance step by step_id. Allowed only for valid
+        step status transitions.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Step ID
+        format: uuid
+        in: path
+        name: step_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Step completed
+        "400":
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance or step not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden step status transition
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Complete maintenance step
+      tags:
+      - Maintenances
+  /api/v1/maintenances/{id}/steps/{step_id}/start:
+    post:
+      description: Starts a maintenance step by step_id. Allowed only for valid step
+        status transitions and step order.
+      parameters:
+      - description: Maintenance ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Step ID
+        format: uuid
+        in: path
+        name: step_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Step started
+        "400":
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "404":
+          description: Maintenance or step not found
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "409":
+          description: Forbidden step status transition or step order violation
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/apierrors.ErrorResponse'
+      summary: Start maintenance step
       tags:
       - Maintenances
   /api/v1/maintenances/create:
@@ -1075,6 +1299,19 @@ paths:
       summary: Search resources by name
       tags:
       - Resources
+  /api/v1/roles:
+    get:
+      description: Returns all roles available in the system.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.ListRolesResponse'
+      summary: List available roles
+      tags:
+      - Roles
   /api/v1/roles/assign:
     post:
       consumes:

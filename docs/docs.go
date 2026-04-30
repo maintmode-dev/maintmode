@@ -406,13 +406,19 @@ const docTemplate = `{
                         "description": "Maintenance approved"
                     },
                     "400": {
-                        "description": "Invalid request or forbidden status transition",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance not found",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden status transition or conflicts changed since preview",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
                         }
@@ -446,7 +452,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update maintenance draft request",
+                        "description": "Cancel maintenance request",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -460,7 +466,13 @@ const docTemplate = `{
                         "description": "Maintenance canceled"
                     },
                     "400": {
-                        "description": "Invalid request or forbidden status transition",
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden status transition",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
                         }
@@ -499,7 +511,13 @@ const docTemplate = `{
                         "description": "Maintenance completed"
                     },
                     "400": {
-                        "description": "Invalid request or forbidden status transition",
+                        "description": "Invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden status transition or maintenance has unfinished steps",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
                         }
@@ -589,7 +607,190 @@ const docTemplate = `{
                         "description": "Maintenance started"
                     },
                     "400": {
-                        "description": "Invalid request or forbidden status transition",
+                        "description": "Invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden status transition",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/maintenances/{id}/steps/{step_id}/cancel": {
+            "post": {
+                "description": "Cancels a maintenance step by step_id. Allowed only for valid step status transitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Maintenances"
+                ],
+                "summary": "Cancel maintenance step",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Maintenance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Step ID",
+                        "name": "step_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Step canceled"
+                    },
+                    "400": {
+                        "description": "Invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Maintenance or step not found",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden step status transition",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/maintenances/{id}/steps/{step_id}/complete": {
+            "post": {
+                "description": "Completes a maintenance step by step_id. Allowed only for valid step status transitions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Maintenances"
+                ],
+                "summary": "Complete maintenance step",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Maintenance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Step ID",
+                        "name": "step_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Step completed"
+                    },
+                    "400": {
+                        "description": "Invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Maintenance or step not found",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden step status transition",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/maintenances/{id}/steps/{step_id}/start": {
+            "post": {
+                "description": "Starts a maintenance step by step_id. Allowed only for valid step status transitions and step order.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Maintenances"
+                ],
+                "summary": "Start maintenance step",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Maintenance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Step ID",
+                        "name": "step_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Step started"
+                    },
+                    "400": {
+                        "description": "Invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Maintenance or step not found",
+                        "schema": {
+                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Forbidden step status transition or step order violation",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
                         }
@@ -796,6 +997,26 @@ const docTemplate = `{
                         "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/apierrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/roles": {
+            "get": {
+                "description": "Returns all roles available in the system.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "List available roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apimodels.ListRolesResponse"
                         }
                     }
                 }
@@ -1295,8 +1516,9 @@ const docTemplate = `{
                 "impact": {
                     "$ref": "#/definitions/apimodels.MaintenanceImpact"
                 },
-                "planned_period": {
-                    "$ref": "#/definitions/apimodels.Period"
+                "planned_start": {
+                    "type": "string",
+                    "format": "date-time"
                 },
                 "resources": {
                     "type": "array",
@@ -1306,6 +1528,12 @@ const docTemplate = `{
                 },
                 "scope": {
                     "$ref": "#/definitions/apimodels.MaintenanceScope"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.MaintenanceStepInput"
+                    }
                 },
                 "title": {
                     "type": "string",
@@ -1344,6 +1572,12 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.MaintenanceStep"
+                    }
                 },
                 "title": {
                     "type": "string"
@@ -1402,6 +1636,12 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.MaintenanceStep"
+                    }
+                },
                 "title": {
                     "type": "string"
                 },
@@ -1450,6 +1690,64 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "MaintenanceScopeGlobal",
                 "MaintenanceScopeResources"
+            ]
+        },
+        "apimodels.MaintenanceStep": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "rollback_description": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/apimodels.MaintenanceStepStatus"
+                }
+            }
+        },
+        "apimodels.MaintenanceStepInput": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "rollback_description": {
+                    "type": "string"
+                }
+            }
+        },
+        "apimodels.MaintenanceStepStatus": {
+            "type": "string",
+            "enum": [
+                "unknown",
+                "planned",
+                "started",
+                "completed",
+                "canceled"
+            ],
+            "x-enum-varnames": [
+                "MaintenanceStepStatusUnknown",
+                "MaintenanceStepStatusPlanned",
+                "MaintenanceStepStatusStarted",
+                "MaintenanceStepStatusCompleted",
+                "MaintenanceStepStatusCanceled"
             ]
         },
         "apimodels.Period": {
@@ -1529,8 +1827,9 @@ const docTemplate = `{
                 "impact": {
                     "$ref": "#/definitions/apimodels.MaintenanceImpact"
                 },
-                "planned_period": {
-                    "$ref": "#/definitions/apimodels.Period"
+                "planned_start": {
+                    "type": "string",
+                    "format": "date-time"
                 },
                 "resources": {
                     "type": "array",
@@ -1540,6 +1839,12 @@ const docTemplate = `{
                 },
                 "scope": {
                     "$ref": "#/definitions/apimodels.MaintenanceScope"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.MaintenanceStepInput"
+                    }
                 },
                 "title": {
                     "type": "string",
@@ -1630,18 +1935,18 @@ const docTemplate = `{
             "enum": [
                 "login_success",
                 "login_failed",
-                "role_assigned",
-                "role_revoked",
-                "roles_replaced",
-                "access_denied"
+                "logout_success",
+                "assigned",
+                "revoked",
+                "replaced"
             ],
             "x-enum-varnames": [
-                "AuditLoginSuccess",
-                "AuditLoginFailed",
-                "AuditRoleAssigned",
-                "AuditRoleRevoked",
-                "AuditRolesReplaced",
-                "AuditAccessDenied"
+                "AuditActionLoginSuccess",
+                "AuditActionLoginFailed",
+                "AuditActionLogoutSuccess",
+                "AuditActionRoleAssigned",
+                "AuditActionRoleRevoked",
+                "AuditActionRolesReplaced"
             ]
         },
         "entity.JWK": {
@@ -1801,6 +2106,38 @@ const docTemplate = `{
                 "MaintenanceStatusCompleted"
             ]
         },
+        "uimodels.MaintenanceStep": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "planned_time_end": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "planned_time_start": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "rollback_description": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "uimodels.MaintenanceView": {
             "type": "object",
             "properties": {
@@ -1854,6 +2191,12 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/uimodels.MaintenanceStatus"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/uimodels.MaintenanceStep"
+                    }
                 },
                 "title": {
                     "type": "string"

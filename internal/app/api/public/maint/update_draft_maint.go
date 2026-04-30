@@ -61,7 +61,7 @@ func (i *Implementation) UpdateDraftMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	if err := i.maintSrv.Update(ctx, cmd); err != nil {
+	if err := i.maintSrv.UpdateMaint(ctx, cmd); err != nil {
 		xlog.Error(ctx, "update maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
 		return c.JSON(statusCode, errResp)
@@ -89,14 +89,21 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		return nil, fmt.Errorf("unsupported resource type")
 	}
 
+	steps, err := apimodels.FromAPISteps(req.Steps)
+	if err != nil {
+		xlog.Error(ctx, "unsupported step", xfield.Error(err))
+		return nil, fmt.Errorf("unsupported step")
+	}
+
 	return &entity.UpdateMaintenanceCmd{
-		MaintID:       maintID,
-		Title:         lo.ToPtr(req.Title),
-		Description:   lo.ToPtr(req.Description),
-		PlannedPeriod: lo.ToPtr(apimodels.FromAPIPeriod(req.PlannedPeriod)),
-		Scope:         lo.ToPtr(scope),
-		Impact:        lo.ToPtr(impact),
-		Resources:     resources,
+		MaintID:      maintID,
+		Title:        lo.ToPtr(req.Title),
+		Description:  lo.ToPtr(req.Description),
+		PlannedStart: lo.ToPtr(req.PlannedStart),
+		Scope:        lo.ToPtr(scope),
+		Impact:       lo.ToPtr(impact),
+		Resources:    resources,
+		Steps:        steps,
 	}, nil
 }
 
@@ -104,12 +111,16 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 	return validation.ValidateStructWithContext(ctx, r,
 		validation.Field(&r.Title, validation.Required),
 		validation.Field(&r.Description, validation.Required),
-		validation.Field(&r.PlannedPeriod, validation.Required),
+		validation.Field(&r.PlannedStart, validation.Required),
 		validation.Field(&r.Scope, validation.Required),
 		validation.Field(&r.Impact, validation.Required),
 		validation.Field(&r.Resources, validation.Required.
 			When(r.Scope == apimodels.MaintenanceScopeResources),
 			validation.Each(validation.WithContext(validateResource)),
+		),
+		validation.Field(&r.Steps, validation.Required,
+			validation.Length(1, 100),
+			validation.Each(validation.WithContext(validateStep)),
 		),
 	)
 }

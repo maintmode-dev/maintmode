@@ -69,6 +69,9 @@ type UimodelsMaintenanceView struct {
 	// status
 	Status UimodelsMaintenanceStatus `json:"status,omitempty"`
 
+	// steps
+	Steps []*UimodelsMaintenanceStep `json:"steps"`
+
 	// title
 	Title string `json:"title,omitempty"`
 
@@ -110,6 +113,10 @@ func (m *UimodelsMaintenanceView) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateStatus(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSteps(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -246,6 +253,36 @@ func (m *UimodelsMaintenanceView) validateStatus(formats strfmt.Registry) error 
 	return nil
 }
 
+func (m *UimodelsMaintenanceView) validateSteps(formats strfmt.Registry) error {
+	if swag.IsZero(m.Steps) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Steps); i++ {
+		if swag.IsZero(m.Steps[i]) { // not required
+			continue
+		}
+
+		if m.Steps[i] != nil {
+			if err := m.Steps[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *UimodelsMaintenanceView) validateUpdatedAt(formats strfmt.Registry) error {
 	if swag.IsZero(m.UpdatedAt) { // not required
 		return nil
@@ -267,6 +304,10 @@ func (m *UimodelsMaintenanceView) ContextValidate(ctx context.Context, formats s
 	}
 
 	if err := m.contextValidateStatus(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSteps(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -322,6 +363,35 @@ func (m *UimodelsMaintenanceView) contextValidateStatus(ctx context.Context, for
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *UimodelsMaintenanceView) contextValidateSteps(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Steps); i++ {
+
+		if m.Steps[i] != nil {
+
+			if swag.IsZero(m.Steps[i]) { // not required
+				return nil
+			}
+
+			if err := m.Steps[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil

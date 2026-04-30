@@ -18,6 +18,17 @@ type MaintenanceViewResource struct {
 	Type string    `json:"type"`
 }
 
+type MaintenanceStep struct {
+	ID                  uuid.UUID `json:"id" format:"uuid"`
+	Order               int32     `json:"order"`
+	Description         string    `json:"description"`
+	RollbackDescription string    `json:"rollback_description"`
+	Status              string    `json:"status"`
+	Duration            string    `json:"duration"`
+	PlannedTimeStart    time.Time `json:"planned_time_start" format:"date-time"`
+	PlannedTimeEnd      time.Time `json:"planned_time_end" format:"date-time"`
+}
+
 type MaintenanceView struct {
 	ID                  uuid.UUID                  `json:"id" format:"uuid"`
 	Title               string                     `json:"title"`
@@ -35,6 +46,7 @@ type MaintenanceView struct {
 	CreatedAt           time.Time                  `json:"created_at" format:"date-time"`
 	UpdatedAt           *time.Time                 `json:"updated_at" format:"date-time"`
 	Revision            int64                      `json:"revision"`
+	Steps               []*MaintenanceStep         `json:"steps"`
 }
 
 type ConflictView struct {

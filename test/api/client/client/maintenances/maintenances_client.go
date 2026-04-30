@@ -70,6 +70,12 @@ type ClientService interface {
 
 	PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStartNoContent, error)
 
+	PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error)
+
+	PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error)
+
+	PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error)
+
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -385,6 +391,141 @@ func (a *Client) PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDSta
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PostAPIV1MaintenancesIDStart: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDCancel cancels maintenance step
+
+Cancels a maintenance step by step_id. Allowed only for valid step status transitions.
+*/
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewPostAPIV1MaintenancesIDStepsStepIDCancelParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostAPIV1MaintenancesIDStepsStepIDCancel",
+		Method:             "POST",
+		PathPattern:        "/api/v1/maintenances/{id}/steps/{step_id}/cancel",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostAPIV1MaintenancesIDStepsStepIDCancelReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostAPIV1MaintenancesIDStepsStepIDCancel: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDComplete completes maintenance step
+
+Completes a maintenance step by step_id. Allowed only for valid step status transitions.
+*/
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewPostAPIV1MaintenancesIDStepsStepIDCompleteParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostAPIV1MaintenancesIDStepsStepIDComplete",
+		Method:             "POST",
+		PathPattern:        "/api/v1/maintenances/{id}/steps/{step_id}/complete",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostAPIV1MaintenancesIDStepsStepIDCompleteReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostAPIV1MaintenancesIDStepsStepIDComplete: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDStart starts maintenance step
+
+Starts a maintenance step by step_id. Allowed only for valid step status transitions and step order.
+*/
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewPostAPIV1MaintenancesIDStepsStepIDStartParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostAPIV1MaintenancesIDStepsStepIDStart",
+		Method:             "POST",
+		PathPattern:        "/api/v1/maintenances/{id}/steps/{step_id}/start",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostAPIV1MaintenancesIDStepsStepIDStartReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*PostAPIV1MaintenancesIDStepsStepIDStartNoContent)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostAPIV1MaintenancesIDStepsStepIDStart: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

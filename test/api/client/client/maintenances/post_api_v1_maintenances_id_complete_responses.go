@@ -37,6 +37,12 @@ func (o *PostAPIV1MaintenancesIDCompleteReader) ReadResponse(response runtime.Cl
 			return nil, err
 		}
 		return nil, result
+	case 409:
+		result := NewPostAPIV1MaintenancesIDCompleteConflict()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDCompleteInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -112,7 +118,7 @@ func NewPostAPIV1MaintenancesIDCompleteBadRequest() *PostAPIV1MaintenancesIDComp
 /*
 PostAPIV1MaintenancesIDCompleteBadRequest describes a response with status code 400, with default header values.
 
-Invalid request or forbidden status transition
+Invalid UUID
 */
 type PostAPIV1MaintenancesIDCompleteBadRequest struct {
 	Payload *models.ApierrorsErrorResponse
@@ -163,6 +169,76 @@ func (o *PostAPIV1MaintenancesIDCompleteBadRequest) GetPayload() *models.Apierro
 }
 
 func (o *PostAPIV1MaintenancesIDCompleteBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.ApierrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDCompleteConflict creates a PostAPIV1MaintenancesIDCompleteConflict with default headers values
+func NewPostAPIV1MaintenancesIDCompleteConflict() *PostAPIV1MaintenancesIDCompleteConflict {
+	return &PostAPIV1MaintenancesIDCompleteConflict{}
+}
+
+/*
+PostAPIV1MaintenancesIDCompleteConflict describes a response with status code 409, with default header values.
+
+Forbidden status transition or maintenance has unfinished steps
+*/
+type PostAPIV1MaintenancesIDCompleteConflict struct {
+	Payload *models.ApierrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id complete conflict response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDCompleteConflict) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id complete conflict response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDCompleteConflict) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id complete conflict response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDCompleteConflict) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id complete conflict response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDCompleteConflict) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id complete conflict response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDCompleteConflict) IsCode(code int) bool {
+	return code == 409
+}
+
+// Code gets the status code for the post Api v1 maintenances Id complete conflict response
+func (o *PostAPIV1MaintenancesIDCompleteConflict) Code() int {
+	return 409
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteConflict) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteConflict %s", 409, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteConflict) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteConflict %s", 409, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteConflict) GetPayload() *models.ApierrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.ApierrorsErrorResponse)
 

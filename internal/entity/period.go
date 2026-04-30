@@ -24,3 +24,7 @@ func NewOpenEndedPeriod(start time.Time) Period {
 func (p Period) IsOpen() bool {
 	return p.End == nil
 }
+
+func (p Period) Duration() time.Duration {
+	return p.End.Sub(p.Start)
+}

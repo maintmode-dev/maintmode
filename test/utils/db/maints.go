@@ -35,6 +35,12 @@ func WithStatus(status entity.MaintenanceStatus) MaintChanger {
 	}
 }
 
+func WithSteps(step []*entity.MaintenanceStep) MaintChanger {
+	return func(m *entity.Maintenance) {
+		m.Steps = step
+	}
+}
+
 func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, period entity.Period, changers ...MaintChanger) *entity.Maintenance {
 	t.Helper()
 
@@ -56,18 +62,30 @@ func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, per
 				Type: entity.ResourceTypeDatabase,
 			},
 		},
+		Steps: []*entity.MaintenanceStep{{
+			Order:               1,
+			Description:         "Step 1" + t.Name(),
+			RollbackDescription: "Rollback Step 1" + t.Name(),
+			DurationMinutes:     1,
+			Status:              entity.MaintenanceStepStatusPlanned,
+		}},
 	}
 	for _, changer := range changers {
 		changer(maint)
 	}
 
-	created, err := store.Create(ctx, maint)
+	created, err := store.CreateMaint(ctx, maint)
 	require.NoError(t, err)
 
 	if len(maint.Resources) > 0 {
 		err = store.AddResources(ctx, created.ID, maint.Resources)
 		require.NoError(t, err)
 		created.Resources = maint.Resources
+	}
+	if len(maint.Steps) > 0 {
+		steps, err := store.AddSteps(ctx, created.ID, maint.Steps)
+		require.NoError(t, err)
+		created.Steps = steps
 	}
 
 	return created

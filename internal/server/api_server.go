@@ -58,6 +58,9 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		maintAPI.Add(http.MethodPost, "/:id/cancel", s.maintImpl.CancelMaint)
 		maintAPI.Add(http.MethodPost, "/:id/complete", s.maintImpl.CompleteMaint)
 		maintAPI.Add(http.MethodPost, "/:id/approve", s.maintImpl.ApproveMaint)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/start", s.maintImpl.StartStep)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/complete", s.maintImpl.CompleteStep)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/cancel", s.maintImpl.CancelStep)
 		maintAPI.Add(http.MethodGet, "/:id", s.maintImpl.GetMaint)
 	}
 

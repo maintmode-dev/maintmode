@@ -37,6 +37,12 @@ func (o *PostAPIV1MaintenancesIDCancelReader) ReadResponse(response runtime.Clie
 			return nil, err
 		}
 		return nil, result
+	case 409:
+		result := NewPostAPIV1MaintenancesIDCancelConflict()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDCancelInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -112,7 +118,7 @@ func NewPostAPIV1MaintenancesIDCancelBadRequest() *PostAPIV1MaintenancesIDCancel
 /*
 PostAPIV1MaintenancesIDCancelBadRequest describes a response with status code 400, with default header values.
 
-Invalid request or forbidden status transition
+Invalid request
 */
 type PostAPIV1MaintenancesIDCancelBadRequest struct {
 	Payload *models.ApierrorsErrorResponse
@@ -163,6 +169,76 @@ func (o *PostAPIV1MaintenancesIDCancelBadRequest) GetPayload() *models.Apierrors
 }
 
 func (o *PostAPIV1MaintenancesIDCancelBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.ApierrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDCancelConflict creates a PostAPIV1MaintenancesIDCancelConflict with default headers values
+func NewPostAPIV1MaintenancesIDCancelConflict() *PostAPIV1MaintenancesIDCancelConflict {
+	return &PostAPIV1MaintenancesIDCancelConflict{}
+}
+
+/*
+PostAPIV1MaintenancesIDCancelConflict describes a response with status code 409, with default header values.
+
+Forbidden status transition
+*/
+type PostAPIV1MaintenancesIDCancelConflict struct {
+	Payload *models.ApierrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id cancel conflict response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDCancelConflict) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id cancel conflict response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDCancelConflict) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id cancel conflict response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDCancelConflict) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id cancel conflict response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDCancelConflict) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id cancel conflict response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDCancelConflict) IsCode(code int) bool {
+	return code == 409
+}
+
+// Code gets the status code for the post Api v1 maintenances Id cancel conflict response
+func (o *PostAPIV1MaintenancesIDCancelConflict) Code() int {
+	return 409
+}
+
+func (o *PostAPIV1MaintenancesIDCancelConflict) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/cancel][%d] postApiV1MaintenancesIdCancelConflict %s", 409, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCancelConflict) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/cancel][%d] postApiV1MaintenancesIdCancelConflict %s", 409, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCancelConflict) GetPayload() *models.ApierrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDCancelConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.ApierrorsErrorResponse)
 

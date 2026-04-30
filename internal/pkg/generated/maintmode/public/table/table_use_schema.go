@@ -14,6 +14,7 @@ func UseSchema(schema string) {
 	GooseDbVersion = GooseDbVersion.FromSchema(schema)
 	MaintenanceConflictSnapshot = MaintenanceConflictSnapshot.FromSchema(schema)
 	MaintenanceResources = MaintenanceResources.FromSchema(schema)
+	MaintenanceSteps = MaintenanceSteps.FromSchema(schema)
 	Maintenances = Maintenances.FromSchema(schema)
 	RefreshTokens = RefreshTokens.FromSchema(schema)
 	Resources = Resources.FromSchema(schema)

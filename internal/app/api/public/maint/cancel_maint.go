@@ -21,9 +21,10 @@ import (
 // @Tags Maintenances
 // @Produce json
 // @Param id path string true "Maintenance ID" Format(uuid)
-// @Param request body apimodels.CancelMaintRequest true "Update maintenance draft request"
+// @Param request body apimodels.CancelMaintRequest true "Cancel maintenance request"
 // @Success 204 "Maintenance canceled"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or forbidden status transition"
+// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
+// @Failure 409 {object} apierrors.ErrorResponse "Forbidden status transition"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/cancel [post]
 func (i *Implementation) CancelMaint(c *echo.Context) error {
@@ -58,7 +59,7 @@ func (i *Implementation) CancelMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	err = i.maintSrv.Cancel(ctx, &entity.CancelMaintenanceCmd{
+	err = i.maintSrv.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
 		MaintID:       maintID,
 		Reason:        reason,
 		ReasonComment: req.Comment,

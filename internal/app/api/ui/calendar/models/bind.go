@@ -1,6 +1,8 @@
 package uimodels
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/calendardto"
@@ -42,6 +44,7 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance) *MaintenanceView 
 		CreatedAt:           maintEvent.CreatedAt,
 		UpdatedAt:           maintEvent.UpdatedAt,
 		Revision:            maintEvent.Revision,
+		Steps:               toAPISteps(maintEvent),
 	}
 
 	if maintEvent.ActualPeriod != nil {
@@ -50,6 +53,31 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance) *MaintenanceView 
 	}
 
 	return event
+}
+
+func toAPISteps(maint *calendardto.Maintenance) []*MaintenanceStep {
+	res := make([]*MaintenanceStep, 0, len(maint.Steps))
+
+	start := maint.PlannedPeriod.Start
+	for _, step := range maint.Steps {
+		duration := time.Minute * time.Duration(step.DurationMinutes)
+		end := start.Add(duration)
+
+		res = append(res, &MaintenanceStep{
+			ID:                  step.ID,
+			Order:               step.Order,
+			Description:         step.Description,
+			RollbackDescription: step.RollbackDescription,
+			Status:              string(step.Status),
+			Duration:            duration.String(),
+			PlannedTimeStart:    start,
+			PlannedTimeEnd:      end,
+		})
+
+		// for nextStep.PlannedTimeStart = prevStep.PlannedTimeEnd
+		start = end
+	}
+	return res
 }
 
 func ToAPIConflictView(conflict *calendardto.Conflict) *ConflictView {

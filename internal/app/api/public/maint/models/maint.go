@@ -21,6 +21,32 @@ const (
 	MaintenanceImpactFull    MaintenanceImpact = "full_outage"
 )
 
+type MaintenanceStepStatus string
+
+const (
+	MaintenanceStepStatusUnknown   MaintenanceStepStatus = "unknown"
+	MaintenanceStepStatusPlanned   MaintenanceStepStatus = "planned"
+	MaintenanceStepStatusStarted   MaintenanceStepStatus = "started"
+	MaintenanceStepStatusCompleted MaintenanceStepStatus = "completed"
+	MaintenanceStepStatusCanceled  MaintenanceStepStatus = "canceled"
+)
+
+type MaintenanceStep struct {
+	ID                  uuid.UUID             `json:"id" format:"uuid"`
+	Order               int32                 `json:"order"`
+	Description         string                `json:"description"`
+	RollbackDescription string                `json:"rollback_description"`
+	DurationMinutes     int64                 `json:"duration"`
+	Status              MaintenanceStepStatus `json:"status"`
+}
+
+type MaintenanceStepInput struct {
+	Order               int32  `json:"order"`
+	Description         string `json:"description"`
+	RollbackDescription string `json:"rollback_description"`
+	Duration            string `json:"duration"`
+}
+
 type MaintenanceCancelReason string
 
 const (
@@ -45,36 +71,40 @@ type Maintenance struct {
 	CancelReasonComment string                  `json:"cancel_reason_comment"`
 	CreatedAt           time.Time               `json:"created_at" format:"date-time"`
 	UpdatedAt           *time.Time              `json:"updated_at" format:"date-time"`
+	Steps               []*MaintenanceStep      `json:"steps"`
 }
 
 type CreateDraftMaintRequest struct {
-	Title         string            `json:"title" example:"DB migration"`
-	Description   string            `json:"description" example:"PostgreSQL major upgrade"`
-	PlannedPeriod Period            `json:"planned_period"`
-	Scope         MaintenanceScope  `json:"scope"`
-	Impact        MaintenanceImpact `json:"impact"`
-	Resources     []*Resource       `json:"resources"`
+	Title        string                  `json:"title" example:"DB migration"`
+	Description  string                  `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
+	Scope        MaintenanceScope        `json:"scope"`
+	Impact       MaintenanceImpact       `json:"impact"`
+	Resources    []*Resource             `json:"resources"`
+	Steps        []*MaintenanceStepInput `json:"steps"`
 }
 
 type CreateDraftMaintResponse struct {
-	ID            uuid.UUID   `json:"id" format:"uuid"`
-	Title         string      `json:"title"`
-	Description   string      `json:"description"`
-	PlannedPeriod Period      `json:"planned_period"`
-	Resources     []*Resource `json:"resources"`
-	Scope         string      `json:"scope"`
-	Impact        string      `json:"impact"`
-	Status        string      `json:"status"`
-	CreatedAt     time.Time   `json:"created_at" format:"date-time"`
+	ID            uuid.UUID          `json:"id" format:"uuid"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	PlannedPeriod Period             `json:"planned_period"`
+	Resources     []*Resource        `json:"resources"`
+	Scope         string             `json:"scope"`
+	Impact        string             `json:"impact"`
+	Status        string             `json:"status"`
+	CreatedAt     time.Time          `json:"created_at" format:"date-time"`
+	Steps         []*MaintenanceStep `json:"steps"`
 }
 
 type UpdateDraftMaintRequest struct {
-	Title         string            `json:"title" example:"DB migration"`
-	Description   string            `json:"description" example:"PostgreSQL major upgrade"`
-	PlannedPeriod Period            `json:"planned_period"`
-	Scope         MaintenanceScope  `json:"scope"`
-	Impact        MaintenanceImpact `json:"impact"`
-	Resources     []*Resource       `json:"resources"`
+	Title        string                  `json:"title" example:"DB migration"`
+	Description  string                  `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
+	Scope        MaintenanceScope        `json:"scope"`
+	Impact       MaintenanceImpact       `json:"impact"`
+	Resources    []*Resource             `json:"resources"`
+	Steps        []*MaintenanceStepInput `json:"steps"`
 }
 
 type CancelMaintRequest struct {

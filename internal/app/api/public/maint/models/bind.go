@@ -2,6 +2,7 @@ package apimodels
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -86,18 +87,57 @@ func ToAPIResources(resources []*entity.Resource) []*Resource {
 	})
 }
 
-func FromAPIPeriod(p Period) entity.Period {
-	if p.IsOpen() {
-		return entity.NewOpenEndedPeriod(p.Start)
-	}
-	return entity.NewPeriod(p.Start, lo.FromPtr(p.End))
-}
-
 func ToAPIPeriod(p entity.Period) Period {
 	if p.IsOpen() {
 		return Period{Start: p.Start, End: nil}
 	}
 	return Period{Start: p.Start, End: p.End}
+}
+
+func FromAPISteps(steps []*MaintenanceStepInput) ([]*entity.MaintenanceStepInput, error) {
+	res := make([]*entity.MaintenanceStepInput, 0, len(steps))
+	for _, step := range steps {
+		duration, err := time.ParseDuration(step.Duration)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &entity.MaintenanceStepInput{
+			Order:               step.Order,
+			Description:         step.Description,
+			RollbackDescription: step.RollbackDescription,
+			DurationMinutes:     int64(duration.Minutes()),
+		})
+	}
+
+	return res, nil
+}
+
+func toAPIStepStatus(s entity.MaintenanceStepStatus) MaintenanceStepStatus {
+	switch s {
+	case entity.MaintenanceStepStatusPlanned:
+		return MaintenanceStepStatusPlanned
+	case entity.MaintenanceStepStatusStarted:
+		return MaintenanceStepStatusStarted
+	case entity.MaintenanceStepStatusCompleted:
+		return MaintenanceStepStatusCompleted
+	case entity.MaintenanceStepStatusCanceled:
+		return MaintenanceStepStatusCanceled
+	default:
+		return MaintenanceStepStatusUnknown
+	}
+}
+
+func ToAPISteps(steps []*entity.MaintenanceStep) []*MaintenanceStep {
+	return lo.Map(steps, func(item *entity.MaintenanceStep, _ int) *MaintenanceStep {
+		return &MaintenanceStep{
+			ID:                  item.ID,
+			Order:               item.Order,
+			Description:         item.Description,
+			RollbackDescription: item.RollbackDescription,
+			DurationMinutes:     item.DurationMinutes,
+			Status:              toAPIStepStatus(item.Status),
+		}
+	})
 }
 
 func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
@@ -115,6 +155,7 @@ func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
 		CancelReasonComment: m.CancelReasonComment,
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
+		Steps:               ToAPISteps(m.Steps),
 	}
 
 	if m.ActualPeriod != nil {

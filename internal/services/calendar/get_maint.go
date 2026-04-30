@@ -16,12 +16,17 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Calendar.GetMaint")
 	defer span.End()
 
-	maint, err := s.maintStore.Get(ctx, maintID)
+	maint, err := s.maintStore.GetMaint(ctx, maintID)
 	if err != nil {
 		return nil, err
 	}
 
 	maintResourcesM, err := s.getMaintResources(ctx, []uuid.UUID{maint.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	steps, err := s.maintStore.GetMaintSteps(ctx, maint.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +46,16 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		CreatedAt:           maint.CreatedAt,
 		UpdatedAt:           maint.UpdatedAt,
 		Revision:            maint.Revision(),
+		Steps: lo.Map(steps, func(item *entity.MaintenanceStep, _ int) *calendardto.MaintenanceStep {
+			return &calendardto.MaintenanceStep{
+				ID:                  item.ID,
+				Order:               item.Order,
+				Description:         item.Description,
+				RollbackDescription: item.RollbackDescription,
+				DurationMinutes:     item.DurationMinutes,
+				Status:              item.Status,
+			}
+		}),
 	}, nil
 }
 

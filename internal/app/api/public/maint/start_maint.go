@@ -20,7 +20,8 @@ import (
 // @Produce json
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Success 204 "Maintenance started"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or forbidden status transition"
+// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
+// @Failure 409 {object} apierrors.ErrorResponse "Forbidden status transition"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/start [post]
 func (i *Implementation) StartMaint(c *echo.Context) error {
@@ -35,7 +36,7 @@ func (i *Implementation) StartMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	err = i.maintSrv.Start(ctx, &entity.StartMaintenanceCmd{MaintID: maintID})
+	err = i.maintSrv.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: maintID})
 	if err != nil {
 		xlog.Error(ctx, "start maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)

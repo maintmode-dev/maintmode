@@ -20,7 +20,8 @@ import (
 // @Produce json
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Success 204 "Maintenance completed"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or forbidden status transition"
+// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
+// @Failure 409 {object} apierrors.ErrorResponse "Forbidden status transition or maintenance has unfinished steps"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/complete [post]
 func (i *Implementation) CompleteMaint(c *echo.Context) error {
@@ -35,7 +36,7 @@ func (i *Implementation) CompleteMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	err = i.maintSrv.Complete(ctx, &entity.CompleteMaintenanceCmd{MaintID: maintID})
+	err = i.maintSrv.CompleteMaint(ctx, &entity.CompleteMaintenanceCmd{MaintID: maintID})
 	if err != nil {
 		xlog.Error(ctx, "complete maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)

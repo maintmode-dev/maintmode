@@ -77,3 +77,31 @@ func uuidsToPgUUID(resourceIDs []uuid.UUID) []postgres.StringExpression {
 		return postgres.UUID(item)
 	})
 }
+
+func toDBMaintenanceStep(maintID uuid.UUID, step *entity.MaintenanceStep) *model.MaintenanceSteps {
+	return &model.MaintenanceSteps{
+		MaintenanceID:     maintID,
+		StepOrder:         step.Order,
+		Description:       step.Description,
+		Rollback:          step.RollbackDescription,
+		DurationMinutes:   step.DurationMinutes,
+		Status:            string(step.Status),
+		ActualStartedAt:   step.ActualStartedAt,
+		ActualCompletedAt: step.ActualCompletedAt,
+	}
+}
+
+func fromDBMaintenanceStep(step *model.MaintenanceSteps) *entity.MaintenanceStep {
+	return &entity.MaintenanceStep{
+		ID:                  step.ID,
+		Order:               step.StepOrder,
+		Description:         step.Description,
+		RollbackDescription: step.Rollback,
+		DurationMinutes:     step.DurationMinutes,
+		Status:              entity.MaintenanceStepStatus(step.Status),
+		ActualStartedAt:     step.ActualStartedAt,
+		ActualCompletedAt:   step.ActualCompletedAt,
+		CreatedAt:           step.CreatedAt,
+		UpdatedAt:           step.UpdatedAt,
+	}
+}

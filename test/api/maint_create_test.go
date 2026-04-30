@@ -24,23 +24,20 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 
 	now := xtime.UTCNow()
 	plannedStart := strfmt.DateTime(now.Add(24 * time.Hour))
-	plannedEnd := strfmt.DateTime(now.Add(26 * time.Hour))
 
 	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:       "Test Maintenance",
-		Description: "This is a test maintenance created via API tests",
-		Impact:      models.ApimodelsMaintenanceImpactNone,
-		Scope:       models.ApimodelsMaintenanceScopeResource,
-		PlannedPeriod: &models.ApimodelsPeriod{
-			Start: plannedStart,
-			End:   plannedEnd,
-		},
+		Title:        "Test Maintenance",
+		Description:  "This is a test maintenance created via API tests",
+		Impact:       models.ApimodelsMaintenanceImpactNone,
+		Scope:        models.ApimodelsMaintenanceScopeResource,
+		PlannedStart: plannedStart,
 		Resources: []*models.ApimodelsResource{
 			{
 				ID:   resourceID,
 				Type: models.ApimodelsResourceTypeService,
 			},
 		},
+		Steps: testMaintenanceSteps(),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().

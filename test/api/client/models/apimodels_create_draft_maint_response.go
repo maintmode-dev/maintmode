@@ -47,6 +47,9 @@ type ApimodelsCreateDraftMaintResponse struct {
 	// status
 	Status string `json:"status,omitempty"`
 
+	// steps
+	Steps []*ApimodelsMaintenanceStep `json:"steps"`
+
 	// title
 	Title string `json:"title,omitempty"`
 }
@@ -68,6 +71,10 @@ func (m *ApimodelsCreateDraftMaintResponse) Validate(formats strfmt.Registry) er
 	}
 
 	if err := m.validateResources(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSteps(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -154,6 +161,36 @@ func (m *ApimodelsCreateDraftMaintResponse) validateResources(formats strfmt.Reg
 	return nil
 }
 
+func (m *ApimodelsCreateDraftMaintResponse) validateSteps(formats strfmt.Registry) error {
+	if swag.IsZero(m.Steps) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Steps); i++ {
+		if swag.IsZero(m.Steps[i]) { // not required
+			continue
+		}
+
+		if m.Steps[i] != nil {
+			if err := m.Steps[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this apimodels create draft maint response based on the context it is used
 func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -163,6 +200,10 @@ func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context,
 	}
 
 	if err := m.contextValidateResources(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSteps(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -215,6 +256,35 @@ func (m *ApimodelsCreateDraftMaintResponse) contextValidateResources(ctx context
 				ce := new(errors.CompositeError)
 				if stderrors.As(err, &ce) {
 					return ce.ValidateName("resources" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *ApimodelsCreateDraftMaintResponse) contextValidateSteps(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Steps); i++ {
+
+		if m.Steps[i] != nil {
+
+			if swag.IsZero(m.Steps[i]) { // not required
+				return nil
+			}
+
+			if err := m.Steps[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
 				}
 
 				return err

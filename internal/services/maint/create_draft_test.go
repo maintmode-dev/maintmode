@@ -29,10 +29,25 @@ func TestCreate(t *testing.T) {
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
+			Scope:         entity.MaintenanceScopeResources,
 			Resources: []*entity.Resource{{
 				ID:   xuuid.New(),
 				Type: entity.ResourceTypeService,
 			}},
+			Steps: []*entity.MaintenanceStepInput{
+				{
+					Order:               1,
+					Description:         "Step1" + t.Name(),
+					RollbackDescription: "RollbackStep1" + t.Name(),
+					DurationMinutes:     1,
+				},
+				{
+					Order:               2,
+					Description:         "Step2" + t.Name(),
+					RollbackDescription: "RollbackStep2" + t.Name(),
+					DurationMinutes:     1,
+				},
+			},
 		}
 
 		maint, err := s.CreateDraft(ctx, cmd)
@@ -55,9 +70,16 @@ func TestCreate(t *testing.T) {
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: entity.NewPeriod(now, now.Add(2*time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
+			Scope:         entity.MaintenanceScopeResources,
 			Resources: []*entity.Resource{{
 				ID:   xuuid.New(),
 				Type: entity.ResourceTypeService,
+			}},
+			Steps: []*entity.MaintenanceStepInput{{
+				Order:               1,
+				Description:         "Step1" + t.Name(),
+				RollbackDescription: "RollbackStep1" + t.Name(),
+				DurationMinutes:     1,
 			}},
 		}
 		maint1, err := s.CreateDraft(ctx, cmd)
@@ -67,6 +89,12 @@ func TestCreate(t *testing.T) {
 
 		cmd.Description = "Description2" + t.Name()
 		cmd.PlannedPeriod = entity.NewPeriod(now, now.Add(5*time.Hour))
+		cmd.Steps = append(cmd.Steps, &entity.MaintenanceStepInput{
+			Order:               2,
+			Description:         "Step1" + t.Name(),
+			RollbackDescription: "RollbackStep1" + t.Name(),
+			DurationMinutes:     1,
+		})
 
 		maint2, err := s.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
@@ -90,7 +118,14 @@ func TestCreate(t *testing.T) {
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
+			Scope:         entity.MaintenanceScopeResources,
 			Resources:     []*entity.Resource{resource, resource},
+			Steps: []*entity.MaintenanceStepInput{{
+				Order:               1,
+				Description:         "Step1" + t.Name(),
+				RollbackDescription: "RollbackStep1" + t.Name(),
+				DurationMinutes:     1,
+			}},
 		}
 
 		maint, err := s.CreateDraft(ctx, cmd)

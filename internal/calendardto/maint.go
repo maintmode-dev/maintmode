@@ -14,6 +14,15 @@ type MaintenanceResource struct {
 	Name string
 }
 
+type MaintenanceStep struct {
+	ID                  uuid.UUID
+	Order               int32
+	Description         string
+	RollbackDescription string
+	DurationMinutes     int64
+	Status              entity.MaintenanceStepStatus
+}
+
 type Maintenance struct {
 	ID                  uuid.UUID
 	Title               string
@@ -29,6 +38,7 @@ type Maintenance struct {
 	CreatedAt           time.Time
 	UpdatedAt           *time.Time
 	Revision            int64
+	Steps               []*MaintenanceStep
 }
 
 type MaintenancesMeta struct {

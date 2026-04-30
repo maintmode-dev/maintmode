@@ -672,14 +672,13 @@
                         revoked: '#e74c3c',
                     },
                     login: {
-                        success: '#3498db',
-                        failed: '#e74c3c',
+                        login_success: '#3498db',
+                        login_failed: '#e74c3c',
                     },
                     logout: {
-                        success: '#db6934',
-                        failed: '#e74c3c',
+                        logout_success: '#db6934',
                     }
-                }[e.entity_type][e.action] || '#888';
+                }[e.entity_type]?.[e.action] || '#888';
 
                 return `
                     <div class="cl-entry">

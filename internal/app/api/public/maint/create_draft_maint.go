@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 // CreateDraftMaint godoc
@@ -69,6 +71,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		Impact:        string(maint.Impact),
 		Status:        string(maint.Status),
 		CreatedAt:     maint.CreatedAt,
+		Steps:         apimodels.ToAPISteps(maint.Steps),
 	})
 }
 
@@ -91,26 +94,48 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		return nil, fmt.Errorf("unsupported resource type")
 	}
 
+	steps, err := apimodels.FromAPISteps(req.Steps)
+	if err != nil {
+		xlog.Error(ctx, "unsupported step", xfield.Error(err))
+		return nil, fmt.Errorf("unsupported step")
+	}
+
 	return &entity.CreateMaintenanceCmd{
 		Title:         req.Title,
 		Description:   req.Description,
-		PlannedPeriod: apimodels.FromAPIPeriod(req.PlannedPeriod),
+		PlannedPeriod: recalculatePlannedPeriod(req.PlannedStart, steps),
 		Scope:         scope,
 		Impact:        impact,
 		Resources:     resources,
+		Steps:         steps,
 	}, nil
+}
+
+func recalculatePlannedPeriod(plannedPeriodStart time.Time, steps []*entity.MaintenanceStepInput) entity.Period {
+	totalDuration := lo.SumBy(steps, func(item *entity.MaintenanceStepInput) time.Duration {
+		return time.Duration(item.DurationMinutes) * time.Minute
+	})
+	if totalDuration == 0 {
+		return entity.NewOpenEndedPeriod(plannedPeriodStart)
+	}
+
+	return entity.NewPeriod(plannedPeriodStart, plannedPeriodStart.Add(totalDuration))
 }
 
 func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDraftMaintRequest) error {
 	return validation.ValidateStructWithContext(ctx, r,
 		validation.Field(&r.Title, validation.Required),
 		validation.Field(&r.Description, validation.Required),
-		validation.Field(&r.PlannedPeriod, validation.Required),
+		validation.Field(&r.PlannedStart, validation.Required),
 		validation.Field(&r.Scope, validation.Required),
 		validation.Field(&r.Impact, validation.Required),
 		validation.Field(&r.Resources, validation.Required.
 			When(r.Scope == apimodels.MaintenanceScopeResources),
 			validation.Each(validation.WithContext(validateResource)),
+		),
+		validation.Field(&r.Steps, validation.Required,
+			validation.Length(1, 100),
+			validation.Each(validation.WithContext(validateStep)),
 		),
 	)
 }
@@ -127,14 +152,26 @@ func validateResource(ctx context.Context, value any) error {
 	}
 
 	return validation.ValidateStructWithContext(ctx, resource,
-		validation.Field(&resource.ID, validation.Required, validation.By(uuidNotZero)),
+		validation.Field(&resource.ID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
 		validation.Field(&resource.Type, validation.Required),
 	)
 }
 
-func uuidNotZero(value any) error {
-	if value == uuid.Nil {
-		return fmt.Errorf("id cannot be zero")
+func validateStep(ctx context.Context, value any) error {
+	var step *apimodels.MaintenanceStepInput
+
+	switch v := value.(type) {
+	case *apimodels.MaintenanceStepInput:
+		step = v
+	case apimodels.MaintenanceStepInput:
+		step = &v
+	default:
+		return fmt.Errorf("unsupported step type: %T", v)
 	}
-	return nil
+
+	return validation.ValidateStructWithContext(ctx, step,
+		validation.Field(&step.Description, validation.Required),
+		validation.Field(&step.RollbackDescription, validation.Required),
+		validation.Field(&step.Duration, validation.Required, validation.WithContext(xvalidation.IsStrDuration)),
+	)
 }

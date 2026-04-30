@@ -14,6 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 // ApproveMaint godoc
@@ -25,8 +26,9 @@ import (
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param request body apimodels.ApproveDraftMaintRequest true "Approve maintenance request"
 // @Success 204 "Maintenance approved"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or forbidden status transition"
+// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
 // @Failure 404 {object} apierrors.ErrorResponse "Maintenance not found"
+// @Failure 409 {object} apierrors.ErrorResponse "Forbidden status transition or conflicts changed since preview"
 // @Failure 500 {object} apierrors.ErrorResponse "Internal error"
 // @Router /api/v1/maintenances/{id}/approve [post]
 func (i *Implementation) ApproveMaint(c *echo.Context) error {
@@ -61,7 +63,7 @@ func (i *Implementation) ApproveMaint(c *echo.Context) error {
 		return c.JSON(statusCode, errResp)
 	}
 
-	err = i.maintSrv.Approve(ctx, cmd)
+	err = i.maintSrv.ApproveMaint(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "approve maintenance failed", xfield.Error(err))
 		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
@@ -90,7 +92,7 @@ func validateConflicts(ctx context.Context, value any) error {
 	}
 
 	return validation.ValidateStructWithContext(ctx, conflict,
-		validation.Field(&conflict.MaintenanceID, validation.Required, validation.By(uuidNotZero)),
+		validation.Field(&conflict.MaintenanceID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
 		validation.Field(&conflict.OverlapStart, validation.Required),
 		validation.Field(&conflict.OverlapEnd, validation.Required),
 		validation.Field(&conflict.Scope, validation.Required),

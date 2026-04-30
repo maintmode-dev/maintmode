@@ -73,7 +73,7 @@ type PostAPIV1MaintenancesIDCancelParams struct {
 
 	/* Request.
 
-	   Update maintenance draft request
+	   Cancel maintenance request
 	*/
 	Request *models.ApimodelsCancelMaintRequest
 

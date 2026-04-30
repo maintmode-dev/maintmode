@@ -25,25 +25,22 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 
 	now := xtime.UTCNow()
 	plannedStart := strfmt.DateTime(now.Add(48 * time.Hour))
-	plannedEnd := strfmt.DateTime(now.Add(50 * time.Hour))
 
 	resourceID := strfmt.UUID(xuuid.New().String())
 
 	updateReq := &models.ApimodelsUpdateDraftMaintRequest{
-		Title:       "Updated Maintenance Title",
-		Description: "Updated description for the maintenance",
-		Impact:      models.ApimodelsMaintenanceImpactPartialOutage,
-		Scope:       models.ApimodelsMaintenanceScopeResource,
-		PlannedPeriod: &models.ApimodelsPeriod{
-			Start: plannedStart,
-			End:   plannedEnd,
-		},
+		Title:        "Updated Maintenance Title",
+		Description:  "Updated description for the maintenance",
+		Impact:       models.ApimodelsMaintenanceImpactPartialOutage,
+		Scope:        models.ApimodelsMaintenanceScopeResource,
+		PlannedStart: plannedStart,
 		Resources: []*models.ApimodelsResource{
 			{
 				ID:   resourceID,
 				Type: models.ApimodelsResourceTypeDatabase,
 			},
 		},
+		Steps: testMaintenanceSteps(),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesIDEditParams().

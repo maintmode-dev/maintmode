@@ -80,6 +80,7 @@ func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)
+	completeMaintenanceSteps(ctx, t, apiClient, maintenanceID)
 
 	params := ui.NewGetUIV1MaintenancesIDParams().
 		WithContext(ctx).

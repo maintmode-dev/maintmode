@@ -11,7 +11,7 @@ var (
 	ErrInvalidRequest               ErrorCode = "invalid request"
 	ErrConflictsChangedSincePreview ErrorCode = "conflicts changed since preview"
 	ErrMaintChangedSincePreview     ErrorCode = "maintenance changed since preview"
-	ErrForbiddenStatusTransition    ErrorCode = "forbidden status maintenance"
+	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
 )
 
 type ErrorResponse struct {

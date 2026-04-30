@@ -20,6 +20,7 @@ func TestMaintenancesAPI_CompleteMaintenance(t *testing.T) {
 	apiClient := setupMaintmodeTestClient()
 
 	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)
+	completeMaintenanceSteps(ctx, t, apiClient, maintenanceID)
 
 	params := maintenances.NewPostAPIV1MaintenancesIDCompleteParams().
 		WithContext(ctx).

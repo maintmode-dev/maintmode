@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // ApimodelsUpdateDraftMaintRequest apimodels update draft maint request
@@ -27,14 +28,18 @@ type ApimodelsUpdateDraftMaintRequest struct {
 	// impact
 	Impact ApimodelsMaintenanceImpact `json:"impact,omitempty"`
 
-	// planned period
-	PlannedPeriod *ApimodelsPeriod `json:"planned_period,omitempty"`
+	// planned start
+	// Format: date-time
+	PlannedStart strfmt.DateTime `json:"planned_start,omitempty"`
 
 	// resources
 	Resources []*ApimodelsResource `json:"resources"`
 
 	// scope
 	Scope ApimodelsMaintenanceScope `json:"scope,omitempty"`
+
+	// steps
+	Steps []*ApimodelsMaintenanceStepInput `json:"steps"`
 
 	// title
 	// Example: DB migration
@@ -49,7 +54,7 @@ func (m *ApimodelsUpdateDraftMaintRequest) Validate(formats strfmt.Registry) err
 		res = append(res, err)
 	}
 
-	if err := m.validatePlannedPeriod(formats); err != nil {
+	if err := m.validatePlannedStart(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -58,6 +63,10 @@ func (m *ApimodelsUpdateDraftMaintRequest) Validate(formats strfmt.Registry) err
 	}
 
 	if err := m.validateScope(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSteps(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -88,24 +97,13 @@ func (m *ApimodelsUpdateDraftMaintRequest) validateImpact(formats strfmt.Registr
 	return nil
 }
 
-func (m *ApimodelsUpdateDraftMaintRequest) validatePlannedPeriod(formats strfmt.Registry) error {
-	if swag.IsZero(m.PlannedPeriod) { // not required
+func (m *ApimodelsUpdateDraftMaintRequest) validatePlannedStart(formats strfmt.Registry) error {
+	if swag.IsZero(m.PlannedStart) { // not required
 		return nil
 	}
 
-	if m.PlannedPeriod != nil {
-		if err := m.PlannedPeriod.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("planned_period")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("planned_period")
-			}
-
-			return err
-		}
+	if err := validate.FormatOf("planned_start", "body", "date-time", m.PlannedStart.String(), formats); err != nil {
+		return err
 	}
 
 	return nil
@@ -162,6 +160,36 @@ func (m *ApimodelsUpdateDraftMaintRequest) validateScope(formats strfmt.Registry
 	return nil
 }
 
+func (m *ApimodelsUpdateDraftMaintRequest) validateSteps(formats strfmt.Registry) error {
+	if swag.IsZero(m.Steps) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Steps); i++ {
+		if swag.IsZero(m.Steps[i]) { // not required
+			continue
+		}
+
+		if m.Steps[i] != nil {
+			if err := m.Steps[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this apimodels update draft maint request based on the context it is used
 func (m *ApimodelsUpdateDraftMaintRequest) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -170,15 +198,15 @@ func (m *ApimodelsUpdateDraftMaintRequest) ContextValidate(ctx context.Context, 
 		res = append(res, err)
 	}
 
-	if err := m.contextValidatePlannedPeriod(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateResources(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
 	if err := m.contextValidateScope(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSteps(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -205,31 +233,6 @@ func (m *ApimodelsUpdateDraftMaintRequest) contextValidateImpact(ctx context.Con
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (m *ApimodelsUpdateDraftMaintRequest) contextValidatePlannedPeriod(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.PlannedPeriod != nil {
-
-		if swag.IsZero(m.PlannedPeriod) { // not required
-			return nil
-		}
-
-		if err := m.PlannedPeriod.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("planned_period")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("planned_period")
-			}
-
-			return err
-		}
 	}
 
 	return nil
@@ -281,6 +284,35 @@ func (m *ApimodelsUpdateDraftMaintRequest) contextValidateScope(ctx context.Cont
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsUpdateDraftMaintRequest) contextValidateSteps(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Steps); i++ {
+
+		if m.Steps[i] != nil {
+
+			if swag.IsZero(m.Steps[i]) { // not required
+				return nil
+			}
+
+			if err := m.Steps[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("steps" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil

@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 		},
 	}
 
-	created, err := store.Create(ctx, maint)
+	created, err := store.CreateMaint(ctx, maint)
 	require.NoError(t, err)
 
 	err = store.AddResources(ctx, created.ID, maint.Resources)
@@ -64,4 +65,27 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 	created.Resources = maint.Resources
 
 	return created
+}
+
+func makeSteps(ctx context.Context, t *testing.T, store *Store, maintID uuid.UUID) []*entity.MaintenanceStep {
+	t.Helper()
+
+	steps, err := store.AddSteps(ctx, maintID, []*entity.MaintenanceStep{
+		{
+			Order:               1,
+			Description:         "Description1",
+			RollbackDescription: "RollbackDescription1",
+			DurationMinutes:     1,
+			Status:              entity.MaintenanceStepStatusPlanned,
+		}, {
+			Order:               2,
+			Description:         "Description2",
+			RollbackDescription: "RollbackDescription2",
+			DurationMinutes:     2,
+			Status:              entity.MaintenanceStepStatusPlanned,
+		},
+	})
+	require.NoError(t, err)
+
+	return steps
 }

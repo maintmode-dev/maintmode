@@ -17,14 +17,17 @@ func ToAPIErrResponse(operation string, err error) (int, *ErrorResponse) {
 
 	// Check for specific domain errors first
 	switch {
+	//maint errors
 	case errors.Is(err, apperr.ErrMaintNotFound),
 		errors.Is(err, apperr.ErrResourceNotFound),
-		errors.Is(err, apperr.ErrForbiddenStatusTransition),
+		errors.Is(err, apperr.ErrForbiddenMaintStatusTransition),
 		errors.Is(err, apperr.ErrConflictsChangedSincePreview),
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
+		errors.Is(err, apperr.ErrStepNotFound),
 		errors.Is(err, apperr.ErrValidation):
 		return mapError(err)
+	// auth errors
 	case errors.Is(err, apperr.ErrLockBusy),
 		errors.Is(err, apperr.ErrTokenReuse),
 		errors.Is(err, apperr.ErrRefreshTokenNotFound),
@@ -56,7 +59,7 @@ func mapError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrResourceNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
-	case errors.Is(err, apperr.ErrForbiddenStatusTransition):
+	case errors.Is(err, apperr.ErrForbiddenMaintStatusTransition):
 		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())
 
 	case errors.Is(err, apperr.ErrConflictsChangedSincePreview):
@@ -67,6 +70,14 @@ func mapError(err error) (int, *ErrorResponse) {
 
 	case errors.Is(err, apperr.ErrResourceAlreadyExists):
 		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
+
+	case errors.Is(err, apperr.ErrStepNotFound):
+		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
+
+	case errors.Is(err, apperr.ErrStepOrderViolation),
+		errors.Is(err, apperr.ErrForbiddenStepStatusTransition),
+		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps):
+		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())
 
 	case errors.Is(err, apperr.ErrValidation):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())

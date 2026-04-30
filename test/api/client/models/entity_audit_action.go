@@ -36,17 +36,17 @@ const (
 	// EntityAuditActionLoginFailed captures enum value "login_failed"
 	EntityAuditActionLoginFailed EntityAuditAction = "login_failed"
 
-	// EntityAuditActionRoleAssigned captures enum value "role_assigned"
-	EntityAuditActionRoleAssigned EntityAuditAction = "role_assigned"
+	// EntityAuditActionLogoutSuccess captures enum value "logout_success"
+	EntityAuditActionLogoutSuccess EntityAuditAction = "logout_success"
 
-	// EntityAuditActionRoleRevoked captures enum value "role_revoked"
-	EntityAuditActionRoleRevoked EntityAuditAction = "role_revoked"
+	// EntityAuditActionAssigned captures enum value "assigned"
+	EntityAuditActionAssigned EntityAuditAction = "assigned"
 
-	// EntityAuditActionRolesReplaced captures enum value "roles_replaced"
-	EntityAuditActionRolesReplaced EntityAuditAction = "roles_replaced"
+	// EntityAuditActionRevoked captures enum value "revoked"
+	EntityAuditActionRevoked EntityAuditAction = "revoked"
 
-	// EntityAuditActionAccessDenied captures enum value "access_denied"
-	EntityAuditActionAccessDenied EntityAuditAction = "access_denied"
+	// EntityAuditActionReplaced captures enum value "replaced"
+	EntityAuditActionReplaced EntityAuditAction = "replaced"
 )
 
 // for schema
@@ -54,7 +54,7 @@ var entityAuditActionEnum []any
 
 func init() {
 	var res []EntityAuditAction
-	if err := json.Unmarshal([]byte(`["login_success","login_failed","role_assigned","role_revoked","roles_replaced","access_denied"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["login_success","login_failed","logout_success","assigned","revoked","replaced"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

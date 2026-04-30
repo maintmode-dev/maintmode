@@ -240,7 +240,11 @@ linters:
           deny:
             - pkg: github.com/ruko1202/maintmode/internal/app/api
               desc: "api package is not allowed"
-
+    nolintlint:
+      allow-unused: false  # По умолчанию false, но явное указание помогает избежать путаницы
+      allow-no-explanation: [] # Можно заставить писать пояснения к nolint
+      require-explanation: true # Требовать комментарий, почему линтер отключен
+      require-specific: true    # Запрещает использовать просто // nolint, требует // nolint:errcheck
 
   exclusions:
     rules:
