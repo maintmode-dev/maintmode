@@ -10,7 +10,8 @@
 GOBIN			?= $(PWD)/bin
 
 # CONFIG_FILE - Path to configuration file
-CONFIG_FILE ?= $(PWD)/deployment/maintmode/config/app.local.yaml
+CONFIG_FILE ?= $(PWD)/deployment/maintmode/local/app.config.yaml
+SECRETS_FILE ?= $(PWD)/deployment/maintmode/local/app.secrets.yaml
 
 # -------------------------------------
 # Database Configuration
@@ -22,7 +23,7 @@ DB_DRIVER		?= postgres
 DB_DSN			?=
 
 ifndef DB_DSN
-DB_DSN=$(shell [ -f $(CONFIG_FILE) ] && awk '/^db:/ {in_db=1} in_db && /^[[:space:]]*dsn:/ {print $$2; exit}' $(CONFIG_FILE) | sed "s/[\"']//g" || echo "")
+DB_DSN=$(shell [ -f "$(SECRETS_FILE)" ] && awk '/^"?db\/dsn"?:/ {value=$$0; sub(/^[^:]+:[[:space:]]*/, "", value); gsub(/^"/, "", value); gsub(/"$$/, "", value); print value; exit}' "$(SECRETS_FILE)" || echo "")
 endif
 
 # Ensure GOBIN directory exists
@@ -75,15 +76,21 @@ bin-deps: bin-deps-build
 # -------------------------------------
 .PHONY: run
 run: service=maintmode
-run: config=$(PWD)/deployment/${service}/config/app.local.yaml
+run: config=$(PWD)/deployment/${service}/local/app.config.yaml
+run: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 run:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} go run ./cmd/maintmode
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+		go run ./cmd/${service}
 
 .PHONY: air
 air: service=maintmode
-air: config=$(PWD)/deployment/${service}/config/app.local.yaml
+air: config=$(PWD)/deployment/${service}/local/app.config.yaml
+air: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 air:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} $(GOBIN)/air
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+		$(GOBIN)/air
 
 .PHONY: build
 build: service=maintmode
@@ -110,9 +117,12 @@ build-dev:
 # Note: Package tests are run from project root
 .PHONY: tloc
 tloc: service=maintmode
-tloc: config=$(PWD)/deployment/${service}/config/app.local.yaml
+tloc: config=$(PWD)/deployment/${service}/local/app.config.yaml
+tloc: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 tloc:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} go test -p 2 -count 2 ./internal/...
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+		go test -p 2 -count 2 ./internal/...
 
 # test-cov - Run tests with coverage analysis
 # Generates coverage report excluding mock files
@@ -129,9 +139,11 @@ tloc:
 #   coverage.report: Human-readable coverage report
 .PHONY: test-cov
 test-cov: service=maintmode
-test-cov: config=$(PWD)/deployment/${service}/config/app.local.yaml
+test-cov: config=$(PWD)/deployment/${service}/local/app.config.yaml
+test-cov: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 test-cov:
 	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
 		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
@@ -178,7 +190,7 @@ tloc-all:
 .PHONY: lint
 lint:
 	$(info $(M) running linter...)
-	@$(GOBIN)/golangci-lint run --build-tags=api
+	@$(GOBIN)/golangci-lint run --build-tags=api ./...
 
 # fmt - Format code and organize imports
 # Uses gofmt for code formatting and goimports for import organization

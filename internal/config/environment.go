@@ -10,7 +10,6 @@ const (
 	ProdEnvironment            = "prod"
 	DevEnvironment             = "dev"
 	LocalEnvironment           = "local"
-	APITestEnvironment         = "api_test"
 	PerformanceTestEnvironment = "performance_test"
 )
 
@@ -24,10 +23,6 @@ func (e Environment) IsDev() bool {
 
 func (e Environment) IsLocal() bool {
 	return e == LocalEnvironment
-}
-
-func (e Environment) IsTest() bool {
-	return e == APITestEnvironment || e.IsPerformanceTest()
 }
 
 func (e Environment) IsPerformanceTest() bool {

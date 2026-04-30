@@ -6,6 +6,8 @@ import (
 	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"reflect"
 	"time"
 
 	"github.com/ruko1202/xlog"
@@ -54,8 +56,9 @@ type StubOauthProvider struct {
 }
 
 type OauthProviders struct {
-	Google GoogleOauthProvider `mapstructure:"google"`
-	Stub   StubOauthProvider   `mapstructure:"stub"`
+	UseStub bool                `mapstructure:"use_stub"`
+	Google  GoogleOauthProvider `mapstructure:"google"`
+	Stub    StubOauthProvider   `mapstructure:"stub"`
 }
 
 type JWT struct {
@@ -133,30 +136,53 @@ type AppConfig struct {
 	ExternalServices map[string]ExternalService `mapstructure:"external_services"`
 }
 
-const configPathEnv = "APP_CONFIG_PATH"
+const (
+	configPathEnv = "APP_CONFIG_PATH"
+	secretPathEnv = "APP_SECRETS_PATH" //nolint:gosec
+)
 
 func initConfig(appName string) *AppConfig {
-	cfgReader := viper.New()
-	cfgReader.SetEnvPrefix(appName)
-	cfgReader.AutomaticEnv()
-	cfgReader.SetDefault(configPathEnv, "app.config.yaml")
+	reader := viper.New()
+	reader.SetEnvPrefix(appName)
+	reader.AutomaticEnv()
+	reader.SetDefault(configPathEnv, "app.config.yaml")
+	reader.SetDefault(secretPathEnv, "app.secret.yaml")
 
-	configPath := cfgReader.GetString(configPathEnv)
-	cfgReader.SetConfigFile(configPath)
-
-	if err := cfgReader.ReadInConfig(); err != nil {
-		xlog.Panic(context.Background(),
-			fmt.Sprintf("failed to read config file %s for service %s", configPath, appName),
-			xfield.Error(err),
-		)
+	cfg, err := readConfig(reader.GetString(configPathEnv))
+	if err != nil {
+		log.Panicf("failed to read app '%s' config: %s", appName, err)
 	}
 
-	cfg := new(AppConfig)
-	if err := cfgReader.Unmarshal(cfg); err != nil {
-		xlog.Panic(context.Background(), fmt.Sprintf("failed to unmarshal config file %s", configPath),
-			xfield.Error(err),
-		)
+	secrets, err := readSecrets(reader.GetString(secretPathEnv))
+	if err != nil {
+		log.Panicf("failed to load secrets for service %s: %s", appName, err)
+	}
+
+	if err := cfg.applySecrets(secrets); err != nil {
+		log.Panicf("failed to apply secrets for service %s: %s", appName, err)
 	}
 
 	return cfg
+}
+
+func readConfig(filePath string) (*AppConfig, error) {
+	reader := viper.New()
+	reader.SetConfigFile(filePath)
+
+	if err := reader.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("failed to read config file %s", filePath)
+	}
+
+	cfg := new(AppConfig)
+	if err := reader.Unmarshal(cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config file %s", filePath)
+	}
+
+	return cfg, nil
+}
+
+func (c *AppConfig) applySecrets(secrets secretStore) error {
+	resolver := secretResolver{secrets: secrets}
+
+	return resolver.resolveValue(reflect.ValueOf(c))
 }

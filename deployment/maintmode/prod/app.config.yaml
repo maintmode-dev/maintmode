@@ -1,9 +1,9 @@
-environment: api_test
+environment: prod
 
 app:
 
 logger:
-  level: debug
+  level: info
 
 api_server:
   name: api
@@ -16,7 +16,7 @@ infra_server:
   port: 8001
 
 db:
-  dsn: postgres://postgres:postgres@pg_doorman:6432/maintmode?sslmode=disable
+  dsn: <secret:db/dsn>
   driver: postgres
   max_open_conns: 50
   max_idle_conns: 20
@@ -29,12 +29,12 @@ tracer:
 
 redis:
   addr: redis:6379
-  password: ""
+  password: <secret:redis/password>
   db: 0
 
 external_services:
   auth:
-    secret: maintmode-s2s-token
+    secret: <secret:external_services/auth/secret>
     protocol: http
     host: auth
     port: 8000

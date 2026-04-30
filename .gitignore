@@ -20,6 +20,8 @@ tmp/
 
 plans/
 
+deployment/*/prod/app.secrets.yaml
+
 monitoring/store/
 
 screenshots/

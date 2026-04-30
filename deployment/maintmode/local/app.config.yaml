@@ -1,0 +1,42 @@
+environment: local
+
+app:
+
+logger:
+  level: info
+
+api_server:
+  name: api
+  host: 0.0.0.0
+  port: 8000
+
+infra_server:
+  name: status
+  host: 0.0.0.0
+  port: 8001
+
+db:
+  dsn: <secret:db/dsn>
+  driver: postgres
+  max_open_conns: 50
+  max_idle_conns: 20
+  connection_max_lifetime: 10m
+  connection_max_idle_time: 5m
+
+tracer:
+  collector_host: localhost
+  collector_port: 4317
+
+redis:
+  addr: localhost:6379
+  password: <secret:redis/password>
+  db: 0
+
+external_services:
+  auth:
+    secret: <secret:external_services/auth/secret>
+    protocol: http
+    host: auth
+    port: 8000
+
+s2s:

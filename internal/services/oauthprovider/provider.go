@@ -32,7 +32,7 @@ func NewOAuthProviders(
 		Google: googleoauth.NewService(&cfg.Google),
 	}
 
-	if env.IsTest() {
+	if env.IsDev() && cfg.UseStub {
 		p.Google = p.Stub
 	}
 

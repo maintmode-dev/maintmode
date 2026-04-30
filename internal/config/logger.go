@@ -12,7 +12,7 @@ import (
 )
 
 func NewLogger(env Environment, logCfg LoggerConfig, meta *buildmeta.AppBuildMeta) xlog.Logger {
-	config := zap.NewDevelopmentConfig()
+	config := zap.NewProductionConfig()
 	if env.IsDev() {
 		config = zap.NewDevelopmentConfig()
 	}

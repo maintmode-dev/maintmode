@@ -131,9 +131,32 @@ make build
 ./bin/maintmode
 ```
 
+### Configuration and Secrets
+
+Application config and secrets are split intentionally:
+
+- `app.*.yaml` contains non-secret settings and secret references such as `<secret:db/dsn>`.
+- `secrets.yaml` is a flat key-value file mounted at runtime and ignored by git.
+- Tracked `secrets.*.sample.yaml` files are only for local/dev/ci bootstrapping.
+
+Each service reads its own files:
+
+```bash
+MAINTMODE_APP_CONFIG_PATH=deployment/maintmode/prod/app.config.yaml
+MAINTMODE_SECRETS_PATH=deployment/maintmode/prod/app.secrets.yaml
+
+AUTH_APP_CONFIG_PATH=deployment/auth/prod/app.config.yaml
+AUTH_SECRETS_PATH=deployment/auth/prod/app.secrets.yaml
+```
+
+Production deploys should keep real values in the cloud secret manager, then mount or generate a read-only `/app.secrets.yaml` for each container. The app does not call cloud-specific secret APIs.
+
 ### Development Commands
 
 ```bash
+# Run lightweight secret checks
+make secret-scan
+
 # Run tests with coverage
 make test-cov
 

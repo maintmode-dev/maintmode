@@ -47,7 +47,7 @@ func (s *InfraServer) BindRouters(env config.Environment, appName string) {
 
 	if env.IsDev() {
 		gr.Add(http.MethodGet, "/", s.apiImpl.MainPage)
-		if env.IsDev() && !env.IsLocal() {
+		if !env.IsLocal() {
 			docs.SwaggerInfo.Host = "localhost:9000"
 			docs.SwaggerInfo.BasePath = "/" + appName
 		}
