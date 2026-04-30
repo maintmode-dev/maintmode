@@ -8,7 +8,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -30,22 +30,21 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources: []*entity.Resource{{
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeService,
-			}},
+			Resources: []*entity.Resource{
+				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+			},
 			Steps: []*entity.MaintenanceStepInput{
 				{
 					Order:               1,
 					Description:         "Step1" + t.Name(),
 					RollbackDescription: "RollbackStep1" + t.Name(),
-					DurationMinutes:     1,
+					DurationMinutes:     mixStepDurationsMin,
 				},
 				{
 					Order:               2,
 					Description:         "Step2" + t.Name(),
 					RollbackDescription: "RollbackStep2" + t.Name(),
-					DurationMinutes:     1,
+					DurationMinutes:     mixStepDurationsMin,
 				},
 			},
 		}
@@ -71,15 +70,14 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(2*time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources: []*entity.Resource{{
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeService,
-			}},
+			Resources: []*entity.Resource{
+				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+			},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),
 				RollbackDescription: "RollbackStep1" + t.Name(),
-				DurationMinutes:     1,
+				DurationMinutes:     mixStepDurationsMin,
 			}},
 		}
 		maint1, err := s.CreateDraft(ctx, cmd)
@@ -93,7 +91,7 @@ func TestCreate(t *testing.T) {
 			Order:               2,
 			Description:         "Step1" + t.Name(),
 			RollbackDescription: "RollbackStep1" + t.Name(),
-			DurationMinutes:     1,
+			DurationMinutes:     mixStepDurationsMin,
 		})
 
 		maint2, err := s.CreateDraft(ctx, cmd)
@@ -109,10 +107,7 @@ func TestCreate(t *testing.T) {
 	t.Run("duplicate resources", func(t *testing.T) {
 		t.Parallel()
 
-		resource := &entity.Resource{
-			ID:   xuuid.New(),
-			Type: entity.ResourceTypeService,
-		}
+		resource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
@@ -124,7 +119,7 @@ func TestCreate(t *testing.T) {
 				Order:               1,
 				Description:         "Step1" + t.Name(),
 				RollbackDescription: "RollbackStep1" + t.Name(),
-				DurationMinutes:     1,
+				DurationMinutes:     mixStepDurationsMin,
 			}},
 		}
 

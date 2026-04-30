@@ -32,18 +32,18 @@ func TestGetSnapshots(t *testing.T) {
 		resource3 := makeResource(ctx, t)
 
 		// Create maintenance
-		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
+		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
 		)
 
 		// Create conflicted maintenances
-		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
+		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
 		)
 
-		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
+		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeService}),
@@ -126,18 +126,18 @@ func TestGetSnapshots(t *testing.T) {
 		resource3 := makeResource(ctx, t)
 
 		// Create maintenance
-		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
+		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
 		)
 
 		// Create conflicted maintenances
-		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
+		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
 		)
 
-		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
+		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeDatabase}),
 		)

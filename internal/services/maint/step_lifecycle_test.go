@@ -26,7 +26,7 @@ func TestStepLifeCycle(t *testing.T) {
 	t.Run("StartStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{
@@ -54,7 +54,7 @@ func TestStepLifeCycle(t *testing.T) {
 	t.Run("CompleteStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{
@@ -82,7 +82,7 @@ func TestStepLifeCycle(t *testing.T) {
 	t.Run("CancelStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{

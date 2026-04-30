@@ -18,7 +18,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 )
 
-var db *sqlx.DB
+var (
+	db             *sqlx.DB
+	resourcesStore *resources.Store
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -28,6 +31,7 @@ func TestMain(m *testing.M) {
 	conn := testdbconnutils.NewDB()
 	closer.Add(conn.Close)
 	db = conn
+	resourcesStore = resources.NewStore(conn)
 
 	code := m.Run()
 
@@ -40,7 +44,7 @@ func initService(db *sqlx.DB) *Service {
 	return NewService(
 		dbtx.NewTxManager(db),
 		maintenances.NewStore(db),
-		resources.NewStore(db),
+		resourcesStore,
 		nil,
 	)
 }

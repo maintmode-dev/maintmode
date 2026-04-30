@@ -31,7 +31,7 @@ func TestCancel(t *testing.T) {
 			t.Run(string(status), func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, entity.NewPeriod(now, now.Add(time.Hour)),
+				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 					testdbutils.WithStatus(status),
 				)
 
@@ -49,7 +49,7 @@ func TestCancel(t *testing.T) {
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
 		t.Parallel()
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, entity.NewPeriod(now, now.Add(time.Hour)),
+		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusCompleted),
 		)
 

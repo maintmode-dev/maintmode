@@ -9,7 +9,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 func TestAddResources(t *testing.T) {
@@ -21,11 +20,9 @@ func TestAddResources(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 		maint := makeMaint(ctx, t, store, entity.NewPeriod(now, now.Add(time.Minute)))
+		resource := makeResource(ctx, t, entity.ResourceTypeService)
 
-		err := store.AddResources(ctx, maint.ID, []*entity.Resource{{
-			ID:   xuuid.New(),
-			Type: entity.ResourceTypeService,
-		}})
+		err := store.AddResources(ctx, maint.ID, []*entity.Resource{resource})
 		require.NoError(t, err)
 	})
 

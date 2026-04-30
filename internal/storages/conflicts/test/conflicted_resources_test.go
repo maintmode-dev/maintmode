@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -26,10 +25,7 @@ func TestConflictedResources(t *testing.T) {
 
 	t.Run("has overlap", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := &entity.Resource{
-			ID:   xuuid.New(),
-			Type: entity.ResourceTypeDatabase,
-		}
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeDatabase)
 
 		for _, tc := range []struct {
 			name                        string
@@ -39,11 +35,11 @@ func TestConflictedResources(t *testing.T) {
 		}{
 			{
 				name: "conflicted maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
@@ -52,11 +48,11 @@ func TestConflictedResources(t *testing.T) {
 				},
 			}, {
 				name: "maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
@@ -65,21 +61,21 @@ func TestConflictedResources(t *testing.T) {
 				},
 			}, {
 				name: "has conflicted resources",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(sharedResource, &entity.Resource{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeService,
-					}),
+					testdbutils.WithResources(
+						sharedResource,
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+					),
 				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(sharedResource, &entity.Resource{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeService,
-					}),
+					testdbutils.WithResources(
+						sharedResource,
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+					),
 				),
 				expectedConflictedResources: func(conflictedMaint *entity.Maintenance) map[uuid.UUID][]*entity.Resource {
 					return map[uuid.UUID][]*entity.Resource{
@@ -116,15 +112,15 @@ func TestConflictedResources(t *testing.T) {
 	t.Run("no overlap", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, maintsStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
-			testdbutils.WithResources(&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
 		)
-		notConflictedMaint := testdbutils.MakeMaint(ctx, t, maintsStore,
+		notConflictedMaint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
-			testdbutils.WithResources(&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
 		)
 
 		actualConflictedResources, err := store.ConflictedResources(ctx, &entity.ConflictResourcesQueryCmd{

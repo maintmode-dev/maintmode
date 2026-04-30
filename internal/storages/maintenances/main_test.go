@@ -11,15 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/storages/resources"
 
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-var db *sqlx.DB
+var (
+	db             *sqlx.DB
+	resourcesStore *resources.Store
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -27,6 +31,7 @@ func TestMain(m *testing.M) {
 	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
 	conn := testdbconnutils.NewDB()
 	db = conn
+	resourcesStore = resources.NewStore(conn)
 	closer.Add(conn.Close)
 
 	code := m.Run()
@@ -47,13 +52,8 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 		Status:        entity.MaintenanceStatusPlanned,
 		Impact:        entity.MaintenanceImpactFull,
 		Resources: []*entity.Resource{
-			{
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeService,
-			}, {
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeDatabase,
-			},
+			makeResource(ctx, t, entity.ResourceTypeService),
+			makeResource(ctx, t, entity.ResourceTypeDatabase),
 		},
 	}
 
@@ -65,6 +65,21 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 	created.Resources = maint.Resources
 
 	return created
+}
+
+func makeResource(ctx context.Context, t *testing.T, resourceType entity.ResourceType) *entity.Resource {
+	t.Helper()
+
+	resource, err := resourcesStore.Create(ctx, &entity.ResourceDetails{
+		Name:        "Resource" + xuuid.NewString(),
+		Description: "Description" + t.Name(),
+	})
+	require.NoError(t, err)
+
+	return &entity.Resource{
+		ID:   resource.ID,
+		Type: resourceType,
+	}
 }
 
 func makeSteps(ctx context.Context, t *testing.T, store *Store, maintID uuid.UUID) []*entity.MaintenanceStep {

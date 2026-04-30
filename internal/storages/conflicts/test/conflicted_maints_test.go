@@ -14,7 +14,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
@@ -27,10 +26,7 @@ func TestListConflict(t *testing.T) {
 
 	t.Run("has overlap", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := &entity.Resource{
-			ID:   xuuid.New(),
-			Type: entity.ResourceTypeDatabase,
-		}
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeDatabase)
 
 		for _, tc := range []struct {
 			name            string
@@ -39,45 +35,45 @@ func TestListConflict(t *testing.T) {
 		}{
 			{
 				name: "conflicted maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
 			}, {
 				name: "maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
 			}, {
 				name: "has conflicted resources",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(sharedResource, &entity.Resource{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeService,
-					}),
+					testdbutils.WithResources(
+						sharedResource,
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+					),
 				),
 
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-					testdbutils.WithResources(sharedResource, &entity.Resource{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeService,
-					}),
+					testdbutils.WithResources(
+						sharedResource,
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+					),
 				),
 			},
 		} {
@@ -122,25 +118,25 @@ func TestListConflict(t *testing.T) {
 		}{
 			{
 				name: "by period",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
-				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(end, end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
 			}, {
 				name: "by resources",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}),
+					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
 				),
-				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore,
+				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}),
+					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
 				),
 			},
 		} {

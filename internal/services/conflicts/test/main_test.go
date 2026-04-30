@@ -15,12 +15,14 @@ import (
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	conflictsStore "github.com/ruko1202/maintmode/internal/storages/conflicts"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
+	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 )
 
 var (
-	db         *sqlx.DB
-	maintStore *maintenances.Store
+	db             *sqlx.DB
+	maintStore     *maintenances.Store
+	resourcesStore *resources.Store
 )
 
 func TestMain(m *testing.M) {
@@ -33,6 +35,7 @@ func TestMain(m *testing.M) {
 	closer.Add(conn.Close)
 
 	maintStore = maintenances.NewStore(db)
+	resourcesStore = resources.NewStore(db)
 	code := m.Run()
 
 	closer.CloseAll(ctx)

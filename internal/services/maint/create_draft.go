@@ -16,6 +16,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
+const mixStepDurationsMin = 5
+
 func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenanceCmd) (*entity.Maintenance, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.CreateDraft")
 	defer span.End()
@@ -145,7 +147,7 @@ func validateStepInput(ctx context.Context, value any) error {
 		validation.Field(&step.Order, validation.Required, validation.Min(1)),
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
-		validation.Field(&step.DurationMinutes, validation.Required),
+		validation.Field(&step.DurationMinutes, validation.Required, validation.Min(mixStepDurationsMin)),
 	)
 }
 

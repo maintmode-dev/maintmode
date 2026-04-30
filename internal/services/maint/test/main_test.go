@@ -26,6 +26,7 @@ import (
 var (
 	db             *sqlx.DB
 	maintStore     *maintenances.Store
+	resourcesStore *resources.Store
 	conflictsSrv   *conflicts.Service
 	snapshotsStore *conflictsnapshots.Store
 )
@@ -40,6 +41,7 @@ func TestMain(m *testing.M) {
 	db = conn
 
 	maintStore = maintenances.NewStore(conn)
+	resourcesStore = resources.NewStore(conn)
 	conflictsSrv = conflicts.NewService(
 		conflictsStore.NewStore(db),
 		conflictsnapshots.NewStore(db),
@@ -57,7 +59,7 @@ func initService(db *sqlx.DB) *maint.Service {
 	return maint.NewService(
 		dbtx.NewTxManager(db),
 		maintStore,
-		resources.NewStore(db),
+		resourcesStore,
 		conflictsSrv,
 	)
 }

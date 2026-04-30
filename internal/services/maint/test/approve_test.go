@@ -13,7 +13,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
@@ -24,21 +23,21 @@ func TestApprove(t *testing.T) {
 	s := initService(db)
 
 	t.Run("ok", func(t *testing.T) {
-		sharedResource := &entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
 
 		conflictedMaints := []*entity.Maintenance{
 			// using sharedResource
-			testdbutils.MakeMaint(ctx, t, maintStore,
+			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 				entity.NewPeriod(start.Add(time.Hour), end.Add(-time.Hour)),
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeResources),
 				testdbutils.WithResources(
 					sharedResource,
-					&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService},
+					testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
 				),
 			),
 			// global scope
-			testdbutils.MakeMaint(ctx, t, maintStore,
+			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 				entity.NewPeriod(start, end),
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeGlobal),
@@ -49,12 +48,12 @@ func TestApprove(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		maint := testdbutils.MakeMaint(ctx, t, maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 			testdbutils.WithResources(
 				sharedResource,
-				&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService},
+				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
 			),
 		)
 
@@ -83,7 +82,7 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
-		maint := testdbutils.MakeMaint(ctx, t, maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
@@ -110,7 +109,7 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("change maint revision", func(t *testing.T) {
-		maint := testdbutils.MakeMaint(ctx, t, maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 		)
@@ -141,7 +140,7 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("change conflicts fingerprint", func(t *testing.T) {
-		maint := testdbutils.MakeMaint(ctx, t, maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 		)
@@ -157,7 +156,7 @@ func TestApprove(t *testing.T) {
 		require.NoError(t, err)
 
 		// conflict maint with global scope
-		testdbutils.MakeMaint(ctx, t, maintStore,
+		testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),

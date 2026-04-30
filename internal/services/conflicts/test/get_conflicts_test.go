@@ -11,7 +11,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 	testtimeutils "github.com/ruko1202/maintmode/test/utils/time"
 )
@@ -27,30 +26,30 @@ func TestGetConflicts(t *testing.T) {
 
 	t.Run("has conflicts", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := &entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService}
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
 
-		maint := testdbutils.MakeMaint(ctx, t, maintStore,
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 			testdbutils.WithResources(
 				sharedResource,
-				&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService},
+				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
 			),
 		)
 
 		conflictedMaints := []*entity.Maintenance{
 			// using sharedResource
-			testdbutils.MakeMaint(ctx, t, maintStore,
+			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 				entity.NewPeriod(start.Add(time.Hour), end.Add(-time.Hour)),
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeResources),
 				testdbutils.WithResources(
 					sharedResource,
-					&entity.Resource{ID: xuuid.New(), Type: entity.ResourceTypeService},
+					testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
 				),
 			),
 			// resource with the other resource type
-			testdbutils.MakeMaint(ctx, t, maintStore,
+			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 				entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 				testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 				testdbutils.WithScope(entity.MaintenanceScopeResources),
@@ -60,7 +59,7 @@ func TestGetConflicts(t *testing.T) {
 				),
 			),
 			// global scope
-			testdbutils.MakeMaint(ctx, t, maintStore,
+			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 				entity.NewPeriod(start, end),
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeGlobal),

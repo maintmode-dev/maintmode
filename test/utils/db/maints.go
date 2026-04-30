@@ -8,6 +8,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
+	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -41,7 +42,40 @@ func WithSteps(step []*entity.MaintenanceStep) MaintChanger {
 	}
 }
 
-func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, period entity.Period, changers ...MaintChanger) *entity.Maintenance {
+func MakeResource(ctx context.Context, t *testing.T, store *resources.Store, resourceType entity.ResourceType) *entity.Resource {
+	t.Helper()
+
+	resource, err := store.Create(ctx, &entity.ResourceDetails{
+		Name:        "Resource" + xuuid.NewString(),
+		Description: "Description" + t.Name(),
+	})
+	require.NoError(t, err)
+
+	return &entity.Resource{
+		ID:   resource.ID,
+		Type: resourceType,
+	}
+}
+
+func MakeResources(ctx context.Context, t *testing.T, store *resources.Store, resourceTypes ...entity.ResourceType) []*entity.Resource {
+	t.Helper()
+
+	result := make([]*entity.Resource, 0, len(resourceTypes))
+	for _, resourceType := range resourceTypes {
+		result = append(result, MakeResource(ctx, t, store, resourceType))
+	}
+
+	return result
+}
+
+func MakeMaint(
+	ctx context.Context,
+	t *testing.T,
+	maintStore *maintenances.Store,
+	resourceStore *resources.Store,
+	period entity.Period,
+	changers ...MaintChanger,
+) *entity.Maintenance {
 	t.Helper()
 
 	maint := &entity.Maintenance{
@@ -53,15 +87,10 @@ func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, per
 		Status:        entity.MaintenanceStatusDraft,
 		Impact:        entity.MaintenanceImpactFull,
 		CreatedAt:     xtime.UTCNow(),
-		Resources: []*entity.Resource{
-			{
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeService,
-			}, {
-				ID:   xuuid.New(),
-				Type: entity.ResourceTypeDatabase,
-			},
-		},
+		Resources: MakeResources(ctx, t, resourceStore,
+			entity.ResourceTypeService,
+			entity.ResourceTypeDatabase,
+		),
 		Steps: []*entity.MaintenanceStep{{
 			Order:               1,
 			Description:         "Step 1" + t.Name(),
@@ -74,16 +103,16 @@ func MakeMaint(ctx context.Context, t *testing.T, store *maintenances.Store, per
 		changer(maint)
 	}
 
-	created, err := store.CreateMaint(ctx, maint)
+	created, err := maintStore.CreateMaint(ctx, maint)
 	require.NoError(t, err)
 
 	if len(maint.Resources) > 0 {
-		err = store.AddResources(ctx, created.ID, maint.Resources)
+		err = maintStore.AddResources(ctx, created.ID, maint.Resources)
 		require.NoError(t, err)
 		created.Resources = maint.Resources
 	}
 	if len(maint.Steps) > 0 {
-		steps, err := store.AddSteps(ctx, created.ID, maint.Steps)
+		steps, err := maintStore.AddSteps(ctx, created.ID, maint.Steps)
 		require.NoError(t, err)
 		created.Steps = steps
 	}

@@ -13,8 +13,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -85,10 +83,9 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []*entity.Resource{{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeCluster,
-					}},
+					Resources: []*entity.Resource{
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeCluster),
+					},
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
 					require.Equal(t, cmd.Resources, newMaint.Resources)
@@ -96,10 +93,9 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources[scope global]",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []*entity.Resource{{
-						ID:   xuuid.New(),
-						Type: entity.ResourceTypeCluster,
-					}},
+					Resources: []*entity.Resource{
+						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeCluster),
+					},
 					Scope: lo.ToPtr(entity.MaintenanceScopeGlobal),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
@@ -137,7 +133,7 @@ func TestUpdateDraft(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, defaultPeriod)
+				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, defaultPeriod)
 				tc.cmd.MaintID = maint.ID
 
 				err := s.UpdateMaint(ctx, tc.cmd)
@@ -215,7 +211,7 @@ func TestUpdateDraft(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 
-					maint := testdbutils.MakeMaint(ctx, t, s.maintStore, defaultPeriod)
+					maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, defaultPeriod)
 					tc.cmd.MaintID = maint.ID
 
 					err := s.UpdateMaint(ctx, tc.cmd)
