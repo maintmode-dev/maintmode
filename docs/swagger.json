@@ -268,7 +268,7 @@
         },
         "/api/v1/maintenances/create": {
             "post": {
-                "description": "Creates a maintenance in draft status with planned period and resources",
+                "description": "Creates a maintenance in draft status from planned_start and steps.",
                 "consumes": [
                     "application/json"
                 ],
@@ -527,7 +527,7 @@
         },
         "/api/v1/maintenances/{id}/edit": {
             "post": {
-                "description": "Updates an existing maintenance draft by ID.",
+                "description": "Updates an existing maintenance draft from planned_start and steps.",
                 "consumes": [
                     "application/json"
                 ],

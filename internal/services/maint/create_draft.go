@@ -43,6 +43,9 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		}
 
 		maint.Resources = cmd.Resources
+		if maint.Scope == entity.MaintenanceScopeGlobal {
+			maint.Resources = nil
+		}
 		if len(maint.Resources) > 0 {
 			err = s.maintStore.AddResources(ctx, maint.ID, maint.Resources)
 			if err != nil {

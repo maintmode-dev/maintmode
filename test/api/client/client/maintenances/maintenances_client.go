@@ -127,7 +127,7 @@ func (a *Client) GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, op
 /*
 PostAPIV1MaintenancesCreate creates maintenance draft
 
-Creates a maintenance in draft status with planned period and resources
+Creates a maintenance in draft status from planned_start and steps.
 */
 func (a *Client) PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error) {
 	// NOTE: parameters are not validated before sending
@@ -307,7 +307,7 @@ func (a *Client) PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesID
 /*
 PostAPIV1MaintenancesIDEdit updates maintenance draft
 
-Updates an existing maintenance draft by ID.
+Updates an existing maintenance draft from planned_start and steps.
 */
 func (a *Client) PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEditParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDEditNoContent, error) {
 	// NOTE: parameters are not validated before sending

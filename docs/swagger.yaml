@@ -956,7 +956,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Updates an existing maintenance draft by ID.
+      description: Updates an existing maintenance draft from planned_start and steps.
       parameters:
       - description: Maintenance ID
         format: uuid
@@ -1143,7 +1143,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a maintenance in draft status with planned period and resources
+      description: Creates a maintenance in draft status from planned_start and steps.
       parameters:
       - description: Create maintenance draft request
         in: body

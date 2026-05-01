@@ -11,8 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-
 	"github.com/ruko1202/maintmode/test/api/client/client/ui"
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
@@ -78,7 +76,7 @@ func TestUIAPI_GetCalendarView_WithResourceFilter(t *testing.T) {
 
 	apiClient := setupMaintmodeTestClient()
 
-	resourceID := xuuid.New().String()
+	resourceID := creatResource(ctx, t, apiClient).ID
 	maintenanceID := createMaintenanceWithResource(ctx, t, apiClient, resourceID)
 	require.NotEmpty(t, maintenanceID, "Should create maintenance with specific resource")
 

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
@@ -24,9 +23,9 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 
 	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(48 * time.Hour))
+	plannedStart := strfmt.DateTime(now.Add(48 * time.Hour).Truncate(time.Second))
 
-	resourceID := strfmt.UUID(xuuid.New().String())
+	resource := creatResource(ctx, t, apiClient)
 
 	updateReq := &models.ApimodelsUpdateDraftMaintRequest{
 		Title:        "Updated Maintenance Title",
@@ -36,7 +35,7 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 		PlannedStart: plannedStart,
 		Resources: []*models.ApimodelsResource{
 			{
-				ID:   resourceID,
+				ID:   strfmt.UUID(resource.ID),
 				Type: models.ApimodelsResourceTypeDatabase,
 			},
 		},
@@ -62,4 +61,7 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 
 	require.Equal(t, "Updated Maintenance Title", getResp.Payload.Title)
 	require.Equal(t, "Updated description for the maintenance", getResp.Payload.Description)
+	require.NotNil(t, getResp.Payload.PlannedPeriod)
+	require.Equal(t, plannedStart, getResp.Payload.PlannedPeriod.Start)
+	require.Equal(t, strfmt.DateTime(time.Time(plannedStart).Add(testMaintenanceDuration)), getResp.Payload.PlannedPeriod.End)
 }

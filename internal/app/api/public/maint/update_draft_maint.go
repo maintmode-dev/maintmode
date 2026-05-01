@@ -19,7 +19,7 @@ import (
 
 // UpdateDraftMaint godoc
 // @Summary Update maintenance draft
-// @Description Updates an existing maintenance draft by ID.
+// @Description Updates an existing maintenance draft from planned_start and steps.
 // @Tags Maintenances
 // @Accept json
 // @Produce json

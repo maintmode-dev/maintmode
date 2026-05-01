@@ -108,7 +108,7 @@ func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 
 	apiClient := setupMaintmodeTestClient()
 
-	resourceID := xuuid.New().String()
+	resourceID := creatResource(ctx, t, apiClient).ID
 
 	maintenanceID1 := createMaintenanceWithResource(ctx, t, apiClient, resourceID)
 	approveMaintenance(ctx, t, apiClient, maintenanceID1)

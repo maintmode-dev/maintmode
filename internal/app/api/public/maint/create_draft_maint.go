@@ -20,7 +20,7 @@ import (
 
 // CreateDraftMaint godoc
 // @Summary Create maintenance draft
-// @Description Creates a maintenance in draft status with planned period and resources
+// @Description Creates a maintenance in draft status from planned_start and steps.
 // @Tags Maintenances
 // @Accept json
 // @Produce json
@@ -37,7 +37,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 	req := new(apimodels.CreateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
+		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
 		return c.JSON(statusCode, errResp)
 	}
 
@@ -172,6 +172,6 @@ func validateStep(ctx context.Context, value any) error {
 	return validation.ValidateStructWithContext(ctx, step,
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
-		validation.Field(&step.Duration, validation.Required, validation.WithContext(xvalidation.IsStrDuration)),
+		validation.Field(&step.Duration, validation.Required, validation.WithContext(xvalidation.IsDuration)),
 	)
 }

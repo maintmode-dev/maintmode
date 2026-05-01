@@ -128,4 +128,35 @@ func TestCreate(t *testing.T) {
 		require.NotNil(t, maint)
 		require.NotEmpty(t, maint.ID)
 	})
+
+	t.Run("global scope does not save resources", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &entity.CreateMaintenanceCmd{
+			Title:         "Title" + t.Name(),
+			Description:   "Description" + t.Name(),
+			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+			Impact:        entity.MaintenanceImpactFull,
+			Scope:         entity.MaintenanceScopeGlobal,
+			Resources: []*entity.Resource{
+				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+			},
+			Steps: []*entity.MaintenanceStepInput{{
+				Order:               1,
+				Description:         "Step1" + t.Name(),
+				RollbackDescription: "RollbackStep1" + t.Name(),
+				DurationMinutes:     mixStepDurationsMin,
+			}},
+		}
+
+		maint, err := s.CreateDraft(ctx, cmd)
+		require.NoError(t, err)
+		require.NotNil(t, maint)
+		require.Empty(t, maint.Resources)
+
+		persistedMaint, err := s.GetMaint(ctx, maint.ID)
+		require.NoError(t, err)
+		require.Empty(t, persistedMaint.Resources)
+	})
+
 }

@@ -84,7 +84,9 @@ export function generateResourcePayload() {
 
 // Generate maintenance payload
 export function generateMaintenancePayload(resourceIds = []) {
-  const period = generateFutureDateRange(24, 2);
+  const plannedStart = new Date();
+  plannedStart.setHours(plannedStart.getHours() + 24);
+
   const scope = resourceIds.length > 0 ? 'resource' : 'global';
 
   const payload = {
@@ -92,10 +94,13 @@ export function generateMaintenancePayload(resourceIds = []) {
     description: 'Automated load test maintenance window',
     scope: scope,
     impact: randomItem(MAINTENANCE_IMPACTS),
-    planned_period: {
-      start: period.start,
-      end: period.end
-    }
+    planned_start: plannedStart.toISOString(),
+    steps: [{
+      order: 1,
+      description: 'Run load test maintenance task',
+      rollback_description: 'Rollback load test maintenance task',
+      duration: '2h'
+    }]
   };
 
   if (resourceIds.length > 0) {

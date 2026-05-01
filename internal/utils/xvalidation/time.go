@@ -9,7 +9,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 )
 
-func IsStrDuration(ctx context.Context, value any) error {
+func IsDuration(ctx context.Context, value any) error {
 	var durationStr string
 	switch v := value.(type) {
 	case *string:

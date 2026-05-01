@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
@@ -20,10 +19,11 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 	ctx := context.Background()
 	apiClient := setupMaintmodeTestClient()
 
-	resourceID := strfmt.UUID(xuuid.New().String())
+	resource := creatResource(ctx, t, apiClient)
+	resourceID := strfmt.UUID(resource.ID)
 
 	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(24 * time.Hour))
+	plannedStart := strfmt.DateTime(now.Add(24 * time.Hour).Truncate(time.Second))
 
 	req := &models.ApimodelsCreateDraftMaintRequest{
 		Title:        "Test Maintenance",
@@ -54,4 +54,7 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 	require.Equal(t, "This is a test maintenance created via API tests", payload.Description)
 	require.Equal(t, string(models.UimodelsMaintenanceStatusDraft), payload.Status)
 	require.False(t, payload.CreatedAt.IsZero())
+	require.NotNil(t, payload.PlannedPeriod)
+	require.Equal(t, plannedStart, payload.PlannedPeriod.Start)
+	require.Equal(t, strfmt.DateTime(time.Time(plannedStart).Add(testMaintenanceDuration)), payload.PlannedPeriod.End)
 }
