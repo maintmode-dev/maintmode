@@ -53,7 +53,7 @@ func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string
 
 		// Verify ownership
 		if rt.UserID.String() != accessClaims.Subject {
-			err := fmt.Errorf("%w: mismatch user id in refresh token and access token", apperr.ErrInvalidAccessTokenToken)
+			err := fmt.Errorf("%w: mismatch user id in refresh token and access token", apperr.ErrInvalidAccessToken)
 			xlog.Error(ctx, "mismatch user id in refresh token and access token",
 				xfield.String("rt.user_id", rt.UserID.String()),
 				xfield.String("access_claims.sub", accessClaims.Subject),

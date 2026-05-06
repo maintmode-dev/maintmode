@@ -37,8 +37,26 @@ func (o *PostAPIV1MaintenancesIDEditReader) ReadResponse(response runtime.Client
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1MaintenancesIDEditUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1MaintenancesIDEditForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDEditInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewPostAPIV1MaintenancesIDEditServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -115,7 +133,7 @@ PostAPIV1MaintenancesIDEditBadRequest describes a response with status code 400,
 Invalid request
 */
 type PostAPIV1MaintenancesIDEditBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id edit bad request response has a 2xx status code
@@ -158,13 +176,153 @@ func (o *PostAPIV1MaintenancesIDEditBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDEditBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDEditBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDEditBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDEditUnauthorized creates a PostAPIV1MaintenancesIDEditUnauthorized with default headers values
+func NewPostAPIV1MaintenancesIDEditUnauthorized() *PostAPIV1MaintenancesIDEditUnauthorized {
+	return &PostAPIV1MaintenancesIDEditUnauthorized{}
+}
+
+/*
+PostAPIV1MaintenancesIDEditUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1MaintenancesIDEditUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id edit unauthorized response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id edit unauthorized response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id edit unauthorized response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id edit unauthorized response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id edit unauthorized response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 maintenances Id edit unauthorized response
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDEditUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDEditForbidden creates a PostAPIV1MaintenancesIDEditForbidden with default headers values
+func NewPostAPIV1MaintenancesIDEditForbidden() *PostAPIV1MaintenancesIDEditForbidden {
+	return &PostAPIV1MaintenancesIDEditForbidden{}
+}
+
+/*
+PostAPIV1MaintenancesIDEditForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1MaintenancesIDEditForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id edit forbidden response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDEditForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id edit forbidden response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDEditForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id edit forbidden response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDEditForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id edit forbidden response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDEditForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id edit forbidden response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDEditForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 maintenances Id edit forbidden response
+func (o *PostAPIV1MaintenancesIDEditForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1MaintenancesIDEditForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDEditForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -185,7 +343,7 @@ PostAPIV1MaintenancesIDEditInternalServerError describes a response with status 
 Internal error
 */
 type PostAPIV1MaintenancesIDEditInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id edit internal server error response has a 2xx status code
@@ -228,13 +386,83 @@ func (o *PostAPIV1MaintenancesIDEditInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDEditInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDEditInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDEditInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDEditServiceUnavailable creates a PostAPIV1MaintenancesIDEditServiceUnavailable with default headers values
+func NewPostAPIV1MaintenancesIDEditServiceUnavailable() *PostAPIV1MaintenancesIDEditServiceUnavailable {
+	return &PostAPIV1MaintenancesIDEditServiceUnavailable{}
+}
+
+/*
+PostAPIV1MaintenancesIDEditServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type PostAPIV1MaintenancesIDEditServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id edit service unavailable response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id edit service unavailable response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id edit service unavailable response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id edit service unavailable response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post Api v1 maintenances Id edit service unavailable response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the post Api v1 maintenances Id edit service unavailable response
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/edit][%d] postApiV1MaintenancesIdEditServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDEditServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

@@ -37,6 +37,18 @@ func (o *PostAPIV1MaintenancesIDCompleteReader) ReadResponse(response runtime.Cl
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1MaintenancesIDCompleteUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1MaintenancesIDCompleteForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 409:
 		result := NewPostAPIV1MaintenancesIDCompleteConflict()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -45,6 +57,12 @@ func (o *PostAPIV1MaintenancesIDCompleteReader) ReadResponse(response runtime.Cl
 		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDCompleteInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewPostAPIV1MaintenancesIDCompleteServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -121,7 +139,7 @@ PostAPIV1MaintenancesIDCompleteBadRequest describes a response with status code 
 Invalid UUID
 */
 type PostAPIV1MaintenancesIDCompleteBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id complete bad request response has a 2xx status code
@@ -164,13 +182,153 @@ func (o *PostAPIV1MaintenancesIDCompleteBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDCompleteBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDCompleteBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDCompleteBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDCompleteUnauthorized creates a PostAPIV1MaintenancesIDCompleteUnauthorized with default headers values
+func NewPostAPIV1MaintenancesIDCompleteUnauthorized() *PostAPIV1MaintenancesIDCompleteUnauthorized {
+	return &PostAPIV1MaintenancesIDCompleteUnauthorized{}
+}
+
+/*
+PostAPIV1MaintenancesIDCompleteUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1MaintenancesIDCompleteUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id complete unauthorized response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id complete unauthorized response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id complete unauthorized response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id complete unauthorized response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id complete unauthorized response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 maintenances Id complete unauthorized response
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDCompleteForbidden creates a PostAPIV1MaintenancesIDCompleteForbidden with default headers values
+func NewPostAPIV1MaintenancesIDCompleteForbidden() *PostAPIV1MaintenancesIDCompleteForbidden {
+	return &PostAPIV1MaintenancesIDCompleteForbidden{}
+}
+
+/*
+PostAPIV1MaintenancesIDCompleteForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1MaintenancesIDCompleteForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id complete forbidden response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id complete forbidden response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id complete forbidden response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id complete forbidden response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id complete forbidden response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 maintenances Id complete forbidden response
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -191,7 +349,7 @@ PostAPIV1MaintenancesIDCompleteConflict describes a response with status code 40
 Forbidden status transition or maintenance has unfinished steps
 */
 type PostAPIV1MaintenancesIDCompleteConflict struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id complete conflict response has a 2xx status code
@@ -234,13 +392,13 @@ func (o *PostAPIV1MaintenancesIDCompleteConflict) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteConflict %s", 409, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDCompleteConflict) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDCompleteConflict) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDCompleteConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -261,7 +419,7 @@ PostAPIV1MaintenancesIDCompleteInternalServerError describes a response with sta
 Internal error
 */
 type PostAPIV1MaintenancesIDCompleteInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id complete internal server error response has a 2xx status code
@@ -304,13 +462,83 @@ func (o *PostAPIV1MaintenancesIDCompleteInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDCompleteInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDCompleteInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDCompleteInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDCompleteServiceUnavailable creates a PostAPIV1MaintenancesIDCompleteServiceUnavailable with default headers values
+func NewPostAPIV1MaintenancesIDCompleteServiceUnavailable() *PostAPIV1MaintenancesIDCompleteServiceUnavailable {
+	return &PostAPIV1MaintenancesIDCompleteServiceUnavailable{}
+}
+
+/*
+PostAPIV1MaintenancesIDCompleteServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type PostAPIV1MaintenancesIDCompleteServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id complete service unavailable response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id complete service unavailable response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id complete service unavailable response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id complete service unavailable response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post Api v1 maintenances Id complete service unavailable response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the post Api v1 maintenances Id complete service unavailable response
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/complete][%d] postApiV1MaintenancesIdCompleteServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDCompleteServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

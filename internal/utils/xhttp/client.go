@@ -2,6 +2,7 @@ package xhttp
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -11,7 +12,9 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 )
 
-func NewClient() *http.Client {
+type ClientOptions func(*http.Client)
+
+func NewClient(opts ...ClientOptions) *http.Client {
 	dialer := &net.Dialer{
 		// Время на установку TCP соединения.
 		// 5 секунд обычно хватает даже для межконтинентальных запросов.
@@ -19,11 +22,13 @@ func NewClient() *http.Client {
 		KeepAlive: 30 * time.Second,
 	}
 
-	return &http.Client{
+	client := &http.Client{
 		// Общий лимит на весь запрос: от звонка до конца чтения Body.
 		// 30 секунд — это безопасный максимум. Для быстрых API лучше 5-10с.
 		Timeout: 30 * time.Second,
 		Transport: &transport{
+			beforeRoundTrip: make([]func(req *http.Request), 0),
+			afterRoundTrip:  make([]func(req *http.Response), 0),
 			tr: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				ForceAttemptHTTP2: true,
@@ -43,14 +48,22 @@ func NewClient() *http.Client {
 			},
 		},
 	}
+
+	for _, opt := range opts {
+		opt(client)
+	}
+
+	return client
 }
 
 type transport struct {
-	tr *http.Transport
+	tr              *http.Transport
+	beforeRoundTrip []func(req *http.Request)
+	afterRoundTrip  []func(req *http.Response)
 }
 
-func (c *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	ctx, span := xlog.WithOperationSpan(req.Context(), "xhttpclient.Client.Do",
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx, span := xlog.WithOperationSpan(req.Context(), "xhttpclient.transport.RoundTrip",
 		xfield.String("host", req.Host),
 		xfield.String("method", req.Method),
 		xfield.String("request_uri", req.RequestURI),
@@ -64,20 +77,42 @@ func (c *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		xfield.String("body", dumpRequest(req)),
 	)
 
-	resp, err := c.tr.RoundTrip(req)
+	t.doBeforeRoundTrip(ctx, req)
+
+	resp, err := t.tr.RoundTrip(req)
 	if err != nil {
 		xlog.Error(ctx, "failed to execute request", xfield.Error(err))
 		return nil, err
 	}
 
-	xlog.Debug(ctx, "sending request",
+	xlog.Debug(ctx, "sent request",
 		xfield.String("protocol", resp.Proto),
 		xfield.String("status", resp.Status),
 		xfield.Any("headers", resp.Header),
 		xfield.String("body", dumpResponse(resp)),
 	)
 
+	t.doAfterRoundTrip(ctx, resp)
+
 	return resp, err
+}
+
+func (t *transport) doBeforeRoundTrip(ctx context.Context, req *http.Request) {
+	_, span := xlog.WithOperationSpan(ctx, "xhttpclient.transport.doBeforeRoundTrip")
+	defer span.End()
+
+	for _, f := range t.beforeRoundTrip {
+		f(req)
+	}
+}
+
+func (t *transport) doAfterRoundTrip(ctx context.Context, req *http.Response) {
+	_, span := xlog.WithOperationSpan(ctx, "xhttpclient.transport.afterRoundTrip")
+	defer span.End()
+
+	for _, f := range t.afterRoundTrip {
+		f(req)
+	}
 }
 
 func dumpRequest(req *http.Request) string {

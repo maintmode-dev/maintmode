@@ -37,6 +37,18 @@ func (o *GetAPIV1UserIDRolesReader) ReadResponse(response runtime.ClientResponse
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewGetAPIV1UserIDRolesUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewGetAPIV1UserIDRolesForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewGetAPIV1UserIDRolesInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -129,7 +141,7 @@ GetAPIV1UserIDRolesBadRequest describes a response with status code 400, with de
 Invalid UUID
 */
 type GetAPIV1UserIDRolesBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 user Id roles bad request response has a 2xx status code
@@ -172,13 +184,153 @@ func (o *GetAPIV1UserIDRolesBadRequest) String() string {
 	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesBadRequest %s", 400, payload)
 }
 
-func (o *GetAPIV1UserIDRolesBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1UserIDRolesBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1UserIDRolesBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1UserIDRolesUnauthorized creates a GetAPIV1UserIDRolesUnauthorized with default headers values
+func NewGetAPIV1UserIDRolesUnauthorized() *GetAPIV1UserIDRolesUnauthorized {
+	return &GetAPIV1UserIDRolesUnauthorized{}
+}
+
+/*
+GetAPIV1UserIDRolesUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type GetAPIV1UserIDRolesUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 user Id roles unauthorized response has a 2xx status code
+func (o *GetAPIV1UserIDRolesUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 user Id roles unauthorized response has a 3xx status code
+func (o *GetAPIV1UserIDRolesUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 user Id roles unauthorized response has a 4xx status code
+func (o *GetAPIV1UserIDRolesUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 user Id roles unauthorized response has a 5xx status code
+func (o *GetAPIV1UserIDRolesUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 user Id roles unauthorized response a status code equal to that given
+func (o *GetAPIV1UserIDRolesUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the get Api v1 user Id roles unauthorized response
+func (o *GetAPIV1UserIDRolesUnauthorized) Code() int {
+	return 401
+}
+
+func (o *GetAPIV1UserIDRolesUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1UserIDRolesUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1UserIDRolesUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1UserIDRolesUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1UserIDRolesForbidden creates a GetAPIV1UserIDRolesForbidden with default headers values
+func NewGetAPIV1UserIDRolesForbidden() *GetAPIV1UserIDRolesForbidden {
+	return &GetAPIV1UserIDRolesForbidden{}
+}
+
+/*
+GetAPIV1UserIDRolesForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type GetAPIV1UserIDRolesForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 user Id roles forbidden response has a 2xx status code
+func (o *GetAPIV1UserIDRolesForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 user Id roles forbidden response has a 3xx status code
+func (o *GetAPIV1UserIDRolesForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 user Id roles forbidden response has a 4xx status code
+func (o *GetAPIV1UserIDRolesForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 user Id roles forbidden response has a 5xx status code
+func (o *GetAPIV1UserIDRolesForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 user Id roles forbidden response a status code equal to that given
+func (o *GetAPIV1UserIDRolesForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the get Api v1 user Id roles forbidden response
+func (o *GetAPIV1UserIDRolesForbidden) Code() int {
+	return 403
+}
+
+func (o *GetAPIV1UserIDRolesForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1UserIDRolesForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1UserIDRolesForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1UserIDRolesForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -199,7 +351,7 @@ GetAPIV1UserIDRolesInternalServerError describes a response with status code 500
 Internal error
 */
 type GetAPIV1UserIDRolesInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 user Id roles internal server error response has a 2xx status code
@@ -242,13 +394,13 @@ func (o *GetAPIV1UserIDRolesInternalServerError) String() string {
 	return fmt.Sprintf("[GET /api/v1/user/{id}/roles][%d] getApiV1UserIdRolesInternalServerError %s", 500, payload)
 }
 
-func (o *GetAPIV1UserIDRolesInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1UserIDRolesInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1UserIDRolesInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

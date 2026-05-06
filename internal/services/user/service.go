@@ -8,6 +8,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/config"
+
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -17,17 +19,20 @@ import (
 
 // Service manages user-related operations including role management.
 type Service struct {
+	env        config.Environment
 	txManager  *dbtx.TxManager
 	usersStore *users.Store
 	auditorSrv *auditor.Auditor
 }
 
 func NewService(
+	env config.Environment,
 	txManager *dbtx.TxManager,
 	usersStore *users.Store,
 	auditorSrv *auditor.Auditor,
 ) *Service {
 	return &Service{
+		env:        env,
 		auditorSrv: auditorSrv,
 		txManager:  txManager,
 		usersStore: usersStore,

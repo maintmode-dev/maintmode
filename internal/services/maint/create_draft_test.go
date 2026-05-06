@@ -158,5 +158,4 @@ func TestCreate(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, persistedMaint.Resources)
 	})
-
 }

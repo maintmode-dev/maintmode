@@ -2,6 +2,7 @@ package token
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -17,7 +18,7 @@ func (s *Service) SaveRefreshToken(ctx context.Context, token *entity.RefreshTok
 	err := s.tokensStore.Save(ctx, token)
 	if err != nil {
 		xlog.Error(ctx, "failed to save refresh token", xfield.Error(err))
-		return err
+		return fmt.Errorf("save refresh token: %w", err)
 	}
 
 	return nil

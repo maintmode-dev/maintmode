@@ -3,6 +3,7 @@ package auth
 import (
 	"time"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/token"
@@ -13,14 +14,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
-const (
-	distributedLockTTL = 5 * time.Second
-	gracePeriod        = 30 * time.Second
-	accessTokenTTL     = 15 * time.Minute
-	refreshTokenTTL    = 30 * 24 * time.Hour
-)
-
 type Service struct {
+	cfg            *config.JWT
 	txManager      *dbtx.TxManager
 	usersSrv       *user.Service
 	tokenSrv       *token.Service
@@ -32,6 +27,7 @@ type Service struct {
 }
 
 func NewService(
+	cfg *config.JWT,
 	txManager *dbtx.TxManager,
 	usersSrv *user.Service,
 	locker *distributedlock.Store,
@@ -41,6 +37,7 @@ func NewService(
 	auditorSrv *auditor.Auditor,
 ) *Service {
 	return &Service{
+		cfg:            cfg,
 		txManager:      txManager,
 		usersSrv:       usersSrv,
 		locker:         locker,

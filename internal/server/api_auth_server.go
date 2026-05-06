@@ -7,16 +7,14 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
 
+	"github.com/ruko1202/maintmode/internal/app/api/public/auth"
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
-	"github.com/ruko1202/maintmode/internal/services/token"
-
-	"github.com/ruko1202/maintmode/internal/app/api/public/auth"
-
-	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/server/middlewares"
 
 	_ "github.com/ruko1202/maintmode/docs" // swagger docs
+	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/server/middlewares"
 )
 
 type APIAuthServer struct {
@@ -25,25 +23,30 @@ type APIAuthServer struct {
 	authImpl  *auth.Implementation
 	rolesImpl *roles.Implementation
 	auditImpl *audit.Implementation
-	tokenSrv  *token.Service
+
+	tokenVerifier middlewares.TokenVerifier
+	authorizer    middlewares.Authorizer
 }
 
 func NewAPIAuthServer(
 	cfg config.HTTPServer,
 	s2s config.S2SConfig,
-	tokenSrv *token.Service,
 	authImpl *auth.Implementation,
 	rolesImpl *roles.Implementation,
 	auditImpl *audit.Implementation,
+	tokenVerifier middlewares.TokenVerifier,
+	authorizer middlewares.Authorizer,
 	opts ...Option,
 ) *APIAuthServer {
 	return &APIAuthServer{
 		server:    newServer(cfg, opts...),
-		tokenSrv:  tokenSrv,
 		authImpl:  authImpl,
 		rolesImpl: rolesImpl,
 		auditImpl: auditImpl,
 		s2s:       s2s,
+
+		tokenVerifier: tokenVerifier,
+		authorizer:    authorizer,
 	}
 }
 
@@ -66,16 +69,31 @@ func (s *APIAuthServer) authV1Group(gr *echo.Group) {
 	gr.Add(http.MethodPost, "/refresh", s.authImpl.Refresh)
 
 	withAuthorize := gr.Group("",
-		middlewares.JWTAuth(s.tokenSrv),
+		middlewares.RequireAccessToken(s.tokenVerifier),
 	)
 	withAuthorize.Add(http.MethodPost, "/logout", s.authImpl.Logout)
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.authImpl.LogoutAll)
-	withAuthorize.Add(http.MethodGet, "/roles", s.rolesImpl.AvailableRoles)
-	withAuthorize.Add(http.MethodPost, "/roles/assign", s.rolesImpl.Assign)
-	withAuthorize.Add(http.MethodPost, "/roles/revoke", s.rolesImpl.Revoke)
-	withAuthorize.Add(http.MethodGet, "/user/:id/roles", s.rolesImpl.ListRoles)
+	withAuthorize.Add(http.MethodGet, "/roles",
+		s.rolesImpl.AvailableRoles,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthRolesRead),
+	)
+	withAuthorize.Add(http.MethodPost, "/roles/assign",
+		s.rolesImpl.Assign,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthRolesManage),
+	)
+	withAuthorize.Add(http.MethodPost, "/roles/revoke",
+		s.rolesImpl.Revoke,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthRolesManage),
+	)
+	withAuthorize.Add(http.MethodGet, "/user/:id/roles",
+		s.rolesImpl.ListRoles,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthUserRolesRead),
+	)
 
-	withAuthorize.Add(http.MethodGet, "/audit", s.auditImpl.AuditLog)
+	withAuthorize.Add(http.MethodGet, "/audit/log",
+		s.auditImpl.AuditLog,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthAuditRead),
+	)
 }
 
 // S2S-only: wrap introspect with service token middleware.

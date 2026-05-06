@@ -49,7 +49,7 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		return nil, nil, fmt.Errorf("get or create user: %w", err)
 	}
 
-	pair, err := s.issueTokenPair(ctx, user, cmd.ClientIP)
+	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
 		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user)
 
@@ -83,11 +83,11 @@ func (s *Service) getOAuthProviderUser(ctx context.Context, code string, provide
 	return userInfo, nil
 }
 
-func (s *Service) issueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueTokenPair")
+func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.IssueTokenPair")
 	defer span.End()
 
-	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, accessTokenTTL, user)
+	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, s.cfg.AccessTokenTTL, user)
 	if err != nil {
 		return nil, fmt.Errorf("issue access token: %w", err)
 	}
@@ -101,7 +101,7 @@ func (s *Service) issueTokenPair(ctx context.Context, user *entity.User, clientI
 		Token:     hashed,
 		UserID:    user.ID,
 		Family:    xuuid.New(),
-		ExpiresAt: s.getNowF().Add(refreshTokenTTL),
+		ExpiresAt: s.getNowF().Add(s.cfg.RefreshTokenTTL),
 		BoundIP:   clientIP,
 	})
 	if err != nil {
@@ -111,6 +111,6 @@ func (s *Service) issueTokenPair(ctx context.Context, user *entity.User, clientI
 	return &entity.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: raw,
-		ExpiresIn:    int(accessTokenTTL.Seconds()),
+		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
 	}, nil
 }

@@ -15,9 +15,8 @@ import (
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
-	"github.com/ruko1202/maintmode/internal/server"
-
 	"github.com/ruko1202/maintmode/internal/config/pg"
+	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -56,7 +55,10 @@ func main() {
 
 	// Bootstrap application layers
 	stores := bootstrap.NewStores(db)
-	services := bootstrap.NewServices(stores)
+	services, err := bootstrap.NewServices(ctx, cfg, stores)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
+	}
 
 	// start api server
 	{
@@ -64,7 +66,9 @@ func main() {
 			cfg.APIServer,
 			apimaint.New(services.Maint),
 			resourcesapi.New(services.Resources),
-			uicalendar.New(services.Calendar),
+			uicalendar.New(services.Calendar, services.RBAC),
+			services.JWTVerifier,
+			services.RBAC,
 			server.WithLogger(logger),
 		)
 		s.BindRouters(cfg.Environment, meta)

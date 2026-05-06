@@ -37,6 +37,18 @@ func (o *GetAPIV1ResourceIDTypesReader) ReadResponse(response runtime.ClientResp
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewGetAPIV1ResourceIDTypesUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewGetAPIV1ResourceIDTypesForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewGetAPIV1ResourceIDTypesNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -45,6 +57,12 @@ func (o *GetAPIV1ResourceIDTypesReader) ReadResponse(response runtime.ClientResp
 		return nil, result
 	case 500:
 		result := NewGetAPIV1ResourceIDTypesInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewGetAPIV1ResourceIDTypesServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -135,7 +153,7 @@ GetAPIV1ResourceIDTypesBadRequest describes a response with status code 400, wit
 Invalid request
 */
 type GetAPIV1ResourceIDTypesBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 resource Id types bad request response has a 2xx status code
@@ -178,13 +196,153 @@ func (o *GetAPIV1ResourceIDTypesBadRequest) String() string {
 	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesBadRequest %s", 400, payload)
 }
 
-func (o *GetAPIV1ResourceIDTypesBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1ResourceIDTypesBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1ResourceIDTypesBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1ResourceIDTypesUnauthorized creates a GetAPIV1ResourceIDTypesUnauthorized with default headers values
+func NewGetAPIV1ResourceIDTypesUnauthorized() *GetAPIV1ResourceIDTypesUnauthorized {
+	return &GetAPIV1ResourceIDTypesUnauthorized{}
+}
+
+/*
+GetAPIV1ResourceIDTypesUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type GetAPIV1ResourceIDTypesUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 resource Id types unauthorized response has a 2xx status code
+func (o *GetAPIV1ResourceIDTypesUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 resource Id types unauthorized response has a 3xx status code
+func (o *GetAPIV1ResourceIDTypesUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 resource Id types unauthorized response has a 4xx status code
+func (o *GetAPIV1ResourceIDTypesUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 resource Id types unauthorized response has a 5xx status code
+func (o *GetAPIV1ResourceIDTypesUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 resource Id types unauthorized response a status code equal to that given
+func (o *GetAPIV1ResourceIDTypesUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the get Api v1 resource Id types unauthorized response
+func (o *GetAPIV1ResourceIDTypesUnauthorized) Code() int {
+	return 401
+}
+
+func (o *GetAPIV1ResourceIDTypesUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1ResourceIDTypesUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1ResourceIDTypesForbidden creates a GetAPIV1ResourceIDTypesForbidden with default headers values
+func NewGetAPIV1ResourceIDTypesForbidden() *GetAPIV1ResourceIDTypesForbidden {
+	return &GetAPIV1ResourceIDTypesForbidden{}
+}
+
+/*
+GetAPIV1ResourceIDTypesForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type GetAPIV1ResourceIDTypesForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 resource Id types forbidden response has a 2xx status code
+func (o *GetAPIV1ResourceIDTypesForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 resource Id types forbidden response has a 3xx status code
+func (o *GetAPIV1ResourceIDTypesForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 resource Id types forbidden response has a 4xx status code
+func (o *GetAPIV1ResourceIDTypesForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 resource Id types forbidden response has a 5xx status code
+func (o *GetAPIV1ResourceIDTypesForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 resource Id types forbidden response a status code equal to that given
+func (o *GetAPIV1ResourceIDTypesForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the get Api v1 resource Id types forbidden response
+func (o *GetAPIV1ResourceIDTypesForbidden) Code() int {
+	return 403
+}
+
+func (o *GetAPIV1ResourceIDTypesForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1ResourceIDTypesForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -205,7 +363,7 @@ GetAPIV1ResourceIDTypesNotFound describes a response with status code 404, with 
 Resource not found
 */
 type GetAPIV1ResourceIDTypesNotFound struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 resource Id types not found response has a 2xx status code
@@ -248,13 +406,13 @@ func (o *GetAPIV1ResourceIDTypesNotFound) String() string {
 	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesNotFound %s", 404, payload)
 }
 
-func (o *GetAPIV1ResourceIDTypesNotFound) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1ResourceIDTypesNotFound) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1ResourceIDTypesNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -275,7 +433,7 @@ GetAPIV1ResourceIDTypesInternalServerError describes a response with status code
 Internal error
 */
 type GetAPIV1ResourceIDTypesInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 resource Id types internal server error response has a 2xx status code
@@ -318,13 +476,83 @@ func (o *GetAPIV1ResourceIDTypesInternalServerError) String() string {
 	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesInternalServerError %s", 500, payload)
 }
 
-func (o *GetAPIV1ResourceIDTypesInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1ResourceIDTypesInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1ResourceIDTypesInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1ResourceIDTypesServiceUnavailable creates a GetAPIV1ResourceIDTypesServiceUnavailable with default headers values
+func NewGetAPIV1ResourceIDTypesServiceUnavailable() *GetAPIV1ResourceIDTypesServiceUnavailable {
+	return &GetAPIV1ResourceIDTypesServiceUnavailable{}
+}
+
+/*
+GetAPIV1ResourceIDTypesServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type GetAPIV1ResourceIDTypesServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 resource Id types service unavailable response has a 2xx status code
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 resource Id types service unavailable response has a 3xx status code
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 resource Id types service unavailable response has a 4xx status code
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get Api v1 resource Id types service unavailable response has a 5xx status code
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get Api v1 resource Id types service unavailable response a status code equal to that given
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the get Api v1 resource Id types service unavailable response
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesServiceUnavailable %s", 503, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/resource/{id}/types][%d] getApiV1ResourceIdTypesServiceUnavailable %s", 503, payload)
+}
+
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1ResourceIDTypesServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

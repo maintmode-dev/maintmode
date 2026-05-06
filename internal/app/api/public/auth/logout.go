@@ -2,15 +2,16 @@ package auth
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -23,9 +24,9 @@ import (
 // @Param Authorization header string false "Bearer access token"
 // @Param request body refreshTokenJSONRequest false "Fallback refresh token body when cookie is absent"
 // @Success 204 "Logged out"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid token"
-// @Failure 401 {object} apierrors.ErrorResponse "Unauthorized"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid token"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Header 204 {string} Set-Cookie "Cleared refresh token cookie"
 // @Router /api/v1/logout [post]
 // Logout revokes the current refresh token and blacklists the access token.
@@ -40,8 +41,7 @@ func (i *Implementation) Logout(c *echo.Context) error {
 	refreshToken, err := extractRefreshToken(ctx, c)
 	if err != nil {
 		xlog.Error(ctx, "missing refresh token", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidRefreshTokenToken)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
 	}
 
 	// No refresh token — just clear the cookie.
@@ -52,12 +52,11 @@ func (i *Implementation) Logout(c *echo.Context) error {
 
 	err = i.authSrv.Logout(ctx, &entity.TokenPair{
 		RefreshToken: refreshToken,
-		AccessToken:  extractBearerToken(c),
+		AccessToken:  xhttp.ExtractBearerToken(c.Request()),
 	})
 	if err != nil {
 		xlog.Error(ctx, "invalid token", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	clearRefreshCookie(c)
@@ -71,9 +70,9 @@ func (i *Implementation) Logout(c *echo.Context) error {
 // @Produce json
 // @Param Authorization header string true "Bearer access token"
 // @Success 204 "Logged out from all sessions"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid token"
-// @Failure 401 {object} apierrors.ErrorResponse "Unauthorized"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid token"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Header 204 {string} Set-Cookie "Cleared refresh token cookie"
 // @Router /api/v1/logout/all [post]
 // LogoutAll revokes all refresh tokens for the authenticated user.
@@ -82,28 +81,12 @@ func (i *Implementation) LogoutAll(c *echo.Context) error {
 	defer span.End()
 	op := "logout all"
 
-	err := i.authSrv.LogoutAll(ctx, extractBearerToken(c))
+	err := i.authSrv.LogoutAll(ctx, xhttp.ExtractBearerToken(c.Request()))
 	if err != nil {
 		xlog.Error(ctx, "invalid access token", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	clearRefreshCookie(c)
 	return c.NoContent(http.StatusNoContent)
-}
-
-const bearerHeader = "Bearer "
-
-// extractBearerToken returns the raw Bearer token from the Authorization header,
-// or empty string if absent/malformed.
-func extractBearerToken(c *echo.Context) string {
-	authHeader := c.Request().Header.Get("Authorization")
-
-	token, ok := strings.CutPrefix(authHeader, bearerHeader)
-	if !ok {
-		return ""
-	}
-
-	return token
 }

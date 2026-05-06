@@ -12,6 +12,9 @@ package maintmode
 // @license.name Proprietary
 // @host localhost:8000
 // @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 // @tag.name UI
 // @tag.description Maintenance UI API
 // @tag.name Maintenances

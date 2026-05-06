@@ -9,8 +9,7 @@
 # Default: ./bin in the project root
 GOBIN			?= $(PWD)/bin
 
-# CONFIG_FILE - Path to configuration file
-CONFIG_FILE ?= $(PWD)/deployment/maintmode/local/app.config.yaml
+# SECRETS_FILE - Path to secret file
 SECRETS_FILE ?= $(PWD)/deployment/maintmode/local/app.secrets.yaml
 
 # -------------------------------------
@@ -116,12 +115,11 @@ build-dev:
 #   -count 2: Run each test 2 times to catch flaky tests
 # Note: Package tests are run from project root
 .PHONY: tloc
-tloc: service=maintmode
-tloc: config=$(PWD)/deployment/${service}/local/app.config.yaml
-tloc: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 tloc:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
-		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+	MAINTMODE_APP_CONFIG_PATH=$(PWD)/deployment/maintmode/local/app.config.yaml \
+	MAINTMODE_APP_SECRETS_PATH=$(PWD)/deployment/maintmode/local/app.secrets.yaml \
+	AUTH_APP_CONFIG_PATH=$(PWD)/deployment/auth/local/app.config.yaml \
+	AUTH_APP_SECRETS_PATH=$(PWD)/deployment/auth/local/app.secrets.yaml \
 		go test -p 2 -count 2 ./internal/...
 
 # test-cov - Run tests with coverage analysis
@@ -138,12 +136,11 @@ tloc:
 #   coverage.out: Filtered coverage data (no mocks)
 #   coverage.report: Human-readable coverage report
 .PHONY: test-cov
-test-cov: service=maintmode
-test-cov: config=$(PWD)/deployment/${service}/local/app.config.yaml
-test-cov: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
 test-cov:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
-		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+	MAINTMODE_APP_CONFIG_PATH=$(PWD)/deployment/maintmode/local/app.config.yaml \
+	MAINTMODE_APP_SECRETS_PATH=$(PWD)/deployment/maintmode/local/app.secrets.yaml \
+	AUTH_APP_CONFIG_PATH=$(PWD)/deployment/auth/local/app.config.yaml \
+	AUTH_APP_SECRETS_PATH=$(PWD)/deployment/auth/local/app.secrets.yaml \
 		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
@@ -216,6 +213,8 @@ mocks:
 	rm -rf ./internal/pkg/generated/mocks
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/dbtx/dbtx.go -source ./internal/utils/dbtx/main_test.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/oauthprovider/provider.go -source ./internal/services/oauthprovider/provider.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go
 
 # test-client - Generate API client from Swagger specification
 # Uses go-swagger to generate type-safe REST client

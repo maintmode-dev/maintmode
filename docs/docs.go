@@ -44,6 +44,11 @@ const docTemplate = `{
         },
         "/api/v1/audit/log": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns the last N audit log entries (default and max: 100).",
                 "produces": [
                     "application/json"
@@ -71,13 +76,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid limit parameter",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -108,7 +125,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -150,13 +167,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid state/code",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -204,19 +221,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid token",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -254,19 +271,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid token",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -274,6 +291,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/create": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Creates a maintenance in draft status from planned_start and steps.",
                 "consumes": [
                     "application/json"
@@ -306,13 +328,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -320,6 +360,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns a maintenance entity by its unique identifier.",
                 "consumes": [
                     "application/json"
@@ -351,19 +396,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -371,6 +434,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/approve": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Approves a maintenance draft by ID using an observed revision and conflict snapshot.",
                 "consumes": [
                     "application/json"
@@ -408,25 +476,43 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden status transition or conflicts changed since preview",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -434,6 +520,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/cancel": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Cancel a maintenance by ID. Allowed only for valid status transitions.",
                 "produces": [
                     "application/json"
@@ -468,19 +559,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden status transition",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -488,6 +597,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/complete": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Complete a maintenance by ID. Allowed only for valid status transitions.",
                 "produces": [
                     "application/json"
@@ -513,19 +627,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden status transition or maintenance has unfinished steps",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -533,6 +665,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/edit": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Updates an existing maintenance draft from planned_start and steps.",
                 "consumes": [
                     "application/json"
@@ -570,13 +707,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -584,6 +739,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/start": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Starts a maintenance by ID. Allowed only for valid status transitions.",
                 "produces": [
                     "application/json"
@@ -609,19 +769,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden status transition",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -629,6 +807,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/steps/{step_id}/cancel": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Cancels a maintenance step by step_id. Allowed only for valid step status transitions.",
                 "produces": [
                     "application/json"
@@ -662,25 +845,43 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance or step not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden step status transition",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -688,6 +889,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/steps/{step_id}/complete": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Completes a maintenance step by step_id. Allowed only for valid step status transitions.",
                 "produces": [
                     "application/json"
@@ -721,25 +927,43 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance or step not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden step status transition",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -747,6 +971,11 @@ const docTemplate = `{
         },
         "/api/v1/maintenances/{id}/steps/{step_id}/start": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Starts a maintenance step by step_id. Allowed only for valid step status transitions and step order.",
                 "produces": [
                     "application/json"
@@ -780,25 +1009,43 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance or step not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Forbidden step status transition or step order violation",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -843,19 +1090,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid refresh token",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Refresh lock busy or token reuse",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -863,6 +1110,11 @@ const docTemplate = `{
         },
         "/api/v1/resource/create": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Creates a new resource with the provided details",
                 "consumes": [
                     "application/json"
@@ -895,19 +1147,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Resource already exists",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -915,6 +1185,11 @@ const docTemplate = `{
         },
         "/api/v1/resource/{id}/types": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns available resource types for a specific resource",
                 "produces": [
                     "application/json"
@@ -943,19 +1218,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Resource not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -963,6 +1256,11 @@ const docTemplate = `{
         },
         "/api/v1/resources": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Searches for resources by name using LIKE pattern matching",
                 "produces": [
                     "application/json"
@@ -990,13 +1288,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1004,6 +1320,11 @@ const docTemplate = `{
         },
         "/api/v1/roles": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all roles available in the system.",
                 "produces": [
                     "application/json"
@@ -1018,12 +1339,29 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/apimodels.ListRolesResponse"
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/api/v1/roles/assign": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Assigns a role to a user. Requires admin privileges.",
                 "consumes": [
                     "application/json"
@@ -1053,13 +1391,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1067,6 +1417,11 @@ const docTemplate = `{
         },
         "/api/v1/roles/revoke": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Revokes a role from a user. Requires admin privileges.",
                 "consumes": [
                     "application/json"
@@ -1096,13 +1451,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1142,19 +1509,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Invalid service token",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1162,6 +1529,11 @@ const docTemplate = `{
         },
         "/api/v1/user/{id}/roles": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all roles assigned to a user by their ID.",
                 "produces": [
                     "application/json"
@@ -1190,13 +1562,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid UUID",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1204,6 +1588,11 @@ const docTemplate = `{
         },
         "/ui/v1/calendar": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns maintenance events for the specified date range.",
                 "produces": [
                     "application/json"
@@ -1267,13 +1656,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1281,6 +1688,11 @@ const docTemplate = `{
         },
         "/ui/v1/maintenances/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns aggregated maintenance view for calendar and UI, including conflicts and available actions.",
                 "produces": [
                     "application/json"
@@ -1309,19 +1721,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Maintenance not found",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/apierrors.ErrorResponse"
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
                     }
                 }
@@ -1428,19 +1858,6 @@ const docTemplate = `{
                 },
                 "refresh_token": {
                     "type": "string"
-                }
-            }
-        },
-        "apierrors.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "example": "error code"
-                },
-                "message": {
-                    "type": "string",
-                    "example": "error message"
                 }
             }
         },
@@ -1988,6 +2405,19 @@ const docTemplate = `{
                 "ResourceTypeCluster"
             ]
         },
+        "httperrors.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "error code"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "error message"
+                }
+            }
+        },
         "uimodels.CalendarEvent": {
             "type": "object",
             "properties": {
@@ -2240,20 +2670,13 @@ const docTemplate = `{
             }
         }
     },
-    "tags": [
-        {
-            "description": "Maintenance UI API",
-            "name": "UI"
-        },
-        {
-            "description": "Maintenance management API",
-            "name": "Maintenances"
-        },
-        {
-            "description": "Resource management API",
-            "name": "Resources"
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

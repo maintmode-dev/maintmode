@@ -11,7 +11,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
@@ -25,7 +25,7 @@ import (
 // @Produce plain
 // @Param original_uri query string false "Original frontend path to redirect after login"
 // @Success 307 "Temporary redirect to OAuth provider"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/login/oauth/google [get]
 // GoogleOAuthLogin redirects the user to oauth-provider's OAuth consent screen.
 // Accepts optional ?original_uri=/path to preserve navigation intent through the OAuth flow.
@@ -52,8 +52,7 @@ func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvid
 		err := fmt.Errorf("%w: auth code url is empty", err)
 
 		xlog.Error(ctx, op, xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.Redirect(http.StatusTemporaryRedirect, url)

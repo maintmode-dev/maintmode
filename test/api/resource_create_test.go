@@ -43,7 +43,7 @@ func TestReroucesAPI_Create(t *testing.T) {
 				WithContext(ctx).
 				WithRequest(tc.req)
 
-			resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params)
+			resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params, nil)
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 

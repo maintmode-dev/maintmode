@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	uimodels "github.com/ruko1202/maintmode/internal/app/api/ui/calendar/models"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -32,8 +32,12 @@ import (
 // @Param statuses query []uimodels.MaintenanceStatus false "Maintenance statuses" collectionFormat(multi)
 // @Param resource_ids query []string false "Resource IDs(uuid)" collectionFormat(multi)
 // @Success 200 {object} uimodels.CalendarViewResponse
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /ui/v1/calendar [get]
 func (i *Implementation) CalendarView(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.CalendarView")
@@ -43,18 +47,15 @@ func (i *Implementation) CalendarView(c *echo.Context) error {
 	req := new(uimodels.CalendarViewRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseQuery)
 	}
+
 	req.To.Time = xtime.EndOfTheDay(req.To.Time)
 	req.From.Time = xtime.StartOfTheDay(req.From.Time)
 
 	if err := validateListEventsRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-			apierrors.ErrInvalidRequest,
-			err.Error(),
-		))
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	maints, maintsMeta, err := i.calendarSrv.GetMaints(ctx, &calendardto.GetMaintsFilter{
@@ -66,16 +67,10 @@ func (i *Implementation) CalendarView(c *echo.Context) error {
 	if err != nil {
 		xlog.Error(ctx, "get maintenances failed", xfield.Error(err))
 		if errors.Is(err, apperr.ErrInvalidPeriodInterval) {
-			return c.JSON(http.StatusBadRequest, apierrors.NewErrorResponse(
-				apierrors.ErrInvalidRequest,
-				err.Error(),
-			))
+			return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 		}
 
-		return c.JSON(http.StatusInternalServerError, apierrors.NewErrorResponse(
-			apierrors.ErrInternalError,
-			"get maintenances failed",
-		))
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.JSON(http.StatusOK, &uimodels.CalendarViewResponse{

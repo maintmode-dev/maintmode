@@ -37,8 +37,26 @@ func (o *PostAPIV1MaintenancesCreateReader) ReadResponse(response runtime.Client
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1MaintenancesCreateUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1MaintenancesCreateForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesCreateInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewPostAPIV1MaintenancesCreateServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -129,7 +147,7 @@ PostAPIV1MaintenancesCreateBadRequest describes a response with status code 400,
 Invalid request
 */
 type PostAPIV1MaintenancesCreateBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances create bad request response has a 2xx status code
@@ -172,13 +190,153 @@ func (o *PostAPIV1MaintenancesCreateBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1MaintenancesCreateBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesCreateBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesCreateBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesCreateUnauthorized creates a PostAPIV1MaintenancesCreateUnauthorized with default headers values
+func NewPostAPIV1MaintenancesCreateUnauthorized() *PostAPIV1MaintenancesCreateUnauthorized {
+	return &PostAPIV1MaintenancesCreateUnauthorized{}
+}
+
+/*
+PostAPIV1MaintenancesCreateUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1MaintenancesCreateUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances create unauthorized response has a 2xx status code
+func (o *PostAPIV1MaintenancesCreateUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances create unauthorized response has a 3xx status code
+func (o *PostAPIV1MaintenancesCreateUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances create unauthorized response has a 4xx status code
+func (o *PostAPIV1MaintenancesCreateUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances create unauthorized response has a 5xx status code
+func (o *PostAPIV1MaintenancesCreateUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances create unauthorized response a status code equal to that given
+func (o *PostAPIV1MaintenancesCreateUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 maintenances create unauthorized response
+func (o *PostAPIV1MaintenancesCreateUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1MaintenancesCreateUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesCreateUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesCreateForbidden creates a PostAPIV1MaintenancesCreateForbidden with default headers values
+func NewPostAPIV1MaintenancesCreateForbidden() *PostAPIV1MaintenancesCreateForbidden {
+	return &PostAPIV1MaintenancesCreateForbidden{}
+}
+
+/*
+PostAPIV1MaintenancesCreateForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1MaintenancesCreateForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances create forbidden response has a 2xx status code
+func (o *PostAPIV1MaintenancesCreateForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances create forbidden response has a 3xx status code
+func (o *PostAPIV1MaintenancesCreateForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances create forbidden response has a 4xx status code
+func (o *PostAPIV1MaintenancesCreateForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances create forbidden response has a 5xx status code
+func (o *PostAPIV1MaintenancesCreateForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances create forbidden response a status code equal to that given
+func (o *PostAPIV1MaintenancesCreateForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 maintenances create forbidden response
+func (o *PostAPIV1MaintenancesCreateForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1MaintenancesCreateForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesCreateForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -199,7 +357,7 @@ PostAPIV1MaintenancesCreateInternalServerError describes a response with status 
 Internal error
 */
 type PostAPIV1MaintenancesCreateInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances create internal server error response has a 2xx status code
@@ -242,13 +400,83 @@ func (o *PostAPIV1MaintenancesCreateInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1MaintenancesCreateInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesCreateInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesCreateInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesCreateServiceUnavailable creates a PostAPIV1MaintenancesCreateServiceUnavailable with default headers values
+func NewPostAPIV1MaintenancesCreateServiceUnavailable() *PostAPIV1MaintenancesCreateServiceUnavailable {
+	return &PostAPIV1MaintenancesCreateServiceUnavailable{}
+}
+
+/*
+PostAPIV1MaintenancesCreateServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type PostAPIV1MaintenancesCreateServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances create service unavailable response has a 2xx status code
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances create service unavailable response has a 3xx status code
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances create service unavailable response has a 4xx status code
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post Api v1 maintenances create service unavailable response has a 5xx status code
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post Api v1 maintenances create service unavailable response a status code equal to that given
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the post Api v1 maintenances create service unavailable response
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/create][%d] postApiV1MaintenancesCreateServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesCreateServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

@@ -11,6 +11,7 @@ import (
 
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/ruko1202/xlog"
 
+	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	"github.com/ruko1202/maintmode/test/api/client/client"
@@ -45,6 +48,9 @@ const (
 	testMaintenanceStartOffset = 24 * time.Hour
 	testMaintenanceDuration    = 2 * time.Hour
 	testMaintenanceLongOffset  = 48 * time.Hour
+	testAPIJWTIssuer           = "oauth-service"
+	testAPIJWTPrivateKey       = "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20"
+	testAPIJWTKid              = "99d1e557df9b619fd046322c1e7f196e"
 )
 
 func TestMain(m *testing.M) {
@@ -114,12 +120,70 @@ func waitForAPIHealth(ctx context.Context) error {
 }
 
 func setupMaintmodeTestClient() *client.Maintmode {
+	return setupMaintmodeTestClientWithRoles(entity.RoleAdmin)
+}
+
+func setupMaintmodeTestClientWithoutAuth() *client.Maintmode {
+	return newMaintmodeTestClient("")
+}
+
+func setupMaintmodeTestClientWithRoles(roles ...entity.Role) *client.Maintmode {
+	return newMaintmodeTestClient(mustTestAccessToken(roles...))
+}
+
+func setupMaintmodeTestClientWithToken(token string) *client.Maintmode {
+	return newMaintmodeTestClient(token)
+}
+
+func newMaintmodeTestClient(token string) *client.Maintmode {
 	transport := httptransport.New(
 		fmt.Sprintf("%s:%s", viper.GetString(envAPIHost), viper.GetString(envAPIPort)),
 		"/maintmode",
 		[]string{"http"},
 	)
+	if token != "" {
+		transport.DefaultAuthentication = httptransport.BearerToken(token)
+	}
 	return client.New(transport, strfmt.Default)
+}
+
+func setupAuthTestClientWithRoles(roles ...entity.Role) *client.Maintmode {
+	transport := httptransport.New(
+		fmt.Sprintf("%s:%s", viper.GetString(envAPIHost), viper.GetString(envAPIPort)),
+		"/auth",
+		[]string{"http"},
+	)
+	transport.DefaultAuthentication = httptransport.BearerToken(mustTestAccessToken(roles...))
+	return client.New(transport, strfmt.Default)
+}
+
+func mustTestAccessToken(roles ...entity.Role) string {
+	if len(roles) == 0 {
+		roles = []entity.Role{entity.RoleAdmin}
+	}
+
+	key := config.JWT{PrivateKey: testAPIJWTPrivateKey}.GeneratePrivateKey()
+	now := xtime.UTCNow()
+	claims := entity.AccessClaims{
+		Email: "api-test@example.com",
+		Roles: roles,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        xuuid.NewString(),
+			Subject:   xuuid.NewString(),
+			Issuer:    testAPIJWTIssuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token.Header["kid"] = testAPIJWTKid
+	signed, err := token.SignedString(key)
+	if err != nil {
+		panic(fmt.Sprintf("sign test access token: %v", err))
+	}
+
+	return signed
 }
 
 func testMaintenanceSteps() []*models.ApimodelsMaintenanceStepInput {
@@ -160,7 +224,7 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.
 		WithContext(ctx).
 		WithRequest(req)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
 	require.NoError(t, err, "Failed to create test maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -194,7 +258,7 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 		WithContext(ctx).
 		WithRequest(req)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
 	require.NoError(t, err, "Failed to create maintenance with resource")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -208,7 +272,7 @@ func approveMaintenance(ctx context.Context, t *testing.T, apiClient *client.Mai
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get maintenance before approve")
 	require.NotNil(t, getResp, "Get response should not be nil")
 
@@ -227,7 +291,7 @@ func approveMaintenance(ctx context.Context, t *testing.T, apiClient *client.Mai
 		WithID(strfmt.UUID(maintenanceID)).
 		WithRequest(approveReq)
 
-	_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params)
+	_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params, nil)
 	require.NoError(t, err, "Failed to approve maintenance")
 }
 
@@ -247,7 +311,7 @@ func createAndStartMaintenance(ctx context.Context, t *testing.T, apiClient *cli
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	_, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params)
+	_, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params, nil)
 	require.NoError(t, err, "Failed to start maintenance")
 
 	return maintenanceID
@@ -260,7 +324,7 @@ func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *clie
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get maintenance steps")
 	require.NotNil(t, getResp, "Get response should not be nil")
 	require.NotEmpty(t, getResp.Payload.Steps, "Maintenance should have steps")
@@ -271,7 +335,7 @@ func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *clie
 			WithID(strfmt.UUID(maintenanceID)).
 			WithStepID(step.ID)
 
-		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDStart(startParams)
+		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDStart(startParams, nil)
 		require.NoError(t, err, "Failed to start maintenance step")
 
 		completeParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDCompleteParams().
@@ -279,7 +343,7 @@ func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *clie
 			WithID(strfmt.UUID(maintenanceID)).
 			WithStepID(step.ID)
 
-		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDComplete(completeParams)
+		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDComplete(completeParams, nil)
 		require.NoError(t, err, "Failed to complete maintenance step")
 	}
 }
@@ -297,7 +361,7 @@ func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmod
 		WithContext(ctx).
 		WithRequest(req)
 
-	resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params)
+	resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 

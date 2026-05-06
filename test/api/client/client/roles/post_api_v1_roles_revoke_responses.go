@@ -37,6 +37,18 @@ func (o *PostAPIV1RolesRevokeReader) ReadResponse(response runtime.ClientRespons
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1RolesRevokeUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1RolesRevokeForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1RolesRevokeInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -115,7 +127,7 @@ PostAPIV1RolesRevokeBadRequest describes a response with status code 400, with d
 Invalid request or validation error
 */
 type PostAPIV1RolesRevokeBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 roles revoke bad request response has a 2xx status code
@@ -158,13 +170,153 @@ func (o *PostAPIV1RolesRevokeBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1RolesRevokeBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RolesRevokeBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RolesRevokeBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1RolesRevokeUnauthorized creates a PostAPIV1RolesRevokeUnauthorized with default headers values
+func NewPostAPIV1RolesRevokeUnauthorized() *PostAPIV1RolesRevokeUnauthorized {
+	return &PostAPIV1RolesRevokeUnauthorized{}
+}
+
+/*
+PostAPIV1RolesRevokeUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1RolesRevokeUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 roles revoke unauthorized response has a 2xx status code
+func (o *PostAPIV1RolesRevokeUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 roles revoke unauthorized response has a 3xx status code
+func (o *PostAPIV1RolesRevokeUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 roles revoke unauthorized response has a 4xx status code
+func (o *PostAPIV1RolesRevokeUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 roles revoke unauthorized response has a 5xx status code
+func (o *PostAPIV1RolesRevokeUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 roles revoke unauthorized response a status code equal to that given
+func (o *PostAPIV1RolesRevokeUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 roles revoke unauthorized response
+func (o *PostAPIV1RolesRevokeUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1RolesRevokeUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1RolesRevokeUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1RolesRevokeUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1RolesRevokeUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1RolesRevokeForbidden creates a PostAPIV1RolesRevokeForbidden with default headers values
+func NewPostAPIV1RolesRevokeForbidden() *PostAPIV1RolesRevokeForbidden {
+	return &PostAPIV1RolesRevokeForbidden{}
+}
+
+/*
+PostAPIV1RolesRevokeForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1RolesRevokeForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 roles revoke forbidden response has a 2xx status code
+func (o *PostAPIV1RolesRevokeForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 roles revoke forbidden response has a 3xx status code
+func (o *PostAPIV1RolesRevokeForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 roles revoke forbidden response has a 4xx status code
+func (o *PostAPIV1RolesRevokeForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 roles revoke forbidden response has a 5xx status code
+func (o *PostAPIV1RolesRevokeForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 roles revoke forbidden response a status code equal to that given
+func (o *PostAPIV1RolesRevokeForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 roles revoke forbidden response
+func (o *PostAPIV1RolesRevokeForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1RolesRevokeForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1RolesRevokeForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1RolesRevokeForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1RolesRevokeForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -185,7 +337,7 @@ PostAPIV1RolesRevokeInternalServerError describes a response with status code 50
 Internal error
 */
 type PostAPIV1RolesRevokeInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 roles revoke internal server error response has a 2xx status code
@@ -228,13 +380,13 @@ func (o *PostAPIV1RolesRevokeInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/roles/revoke][%d] postApiV1RolesRevokeInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1RolesRevokeInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RolesRevokeInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RolesRevokeInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

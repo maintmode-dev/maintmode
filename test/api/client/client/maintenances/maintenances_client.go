@@ -56,25 +56,25 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, opts ...ClientOption) (*GetAPIV1MaintenancesIDOK, error)
+	GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MaintenancesIDOK, error)
 
-	PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error)
+	PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error)
 
-	PostAPIV1MaintenancesIDApprove(params *PostAPIV1MaintenancesIDApproveParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDApproveNoContent, error)
+	PostAPIV1MaintenancesIDApprove(params *PostAPIV1MaintenancesIDApproveParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDApproveNoContent, error)
 
-	PostAPIV1MaintenancesIDCancel(params *PostAPIV1MaintenancesIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDCancelNoContent, error)
+	PostAPIV1MaintenancesIDCancel(params *PostAPIV1MaintenancesIDCancelParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDCancelNoContent, error)
 
-	PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDCompleteNoContent, error)
+	PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesIDCompleteParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDCompleteNoContent, error)
 
-	PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEditParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDEditNoContent, error)
+	PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEditParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDEditNoContent, error)
 
-	PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStartNoContent, error)
+	PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDStartParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStartNoContent, error)
 
-	PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error)
+	PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error)
 
-	PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error)
+	PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error)
 
-	PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error)
+	PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -84,7 +84,7 @@ GetAPIV1MaintenancesID gets maintenance by ID
 
 Returns a maintenance entity by its unique identifier.
 */
-func (a *Client) GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, opts ...ClientOption) (*GetAPIV1MaintenancesIDOK, error) {
+func (a *Client) GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MaintenancesIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1MaintenancesIDParams()
@@ -98,6 +98,7 @@ func (a *Client) GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, op
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1MaintenancesIDReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -129,7 +130,7 @@ PostAPIV1MaintenancesCreate creates maintenance draft
 
 Creates a maintenance in draft status from planned_start and steps.
 */
-func (a *Client) PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error) {
+func (a *Client) PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesCreateParams()
@@ -143,6 +144,7 @@ func (a *Client) PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreate
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesCreateReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -174,7 +176,7 @@ PostAPIV1MaintenancesIDApprove approves maintenance draft
 
 Approves a maintenance draft by ID using an observed revision and conflict snapshot.
 */
-func (a *Client) PostAPIV1MaintenancesIDApprove(params *PostAPIV1MaintenancesIDApproveParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDApproveNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDApprove(params *PostAPIV1MaintenancesIDApproveParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDApproveNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDApproveParams()
@@ -188,6 +190,7 @@ func (a *Client) PostAPIV1MaintenancesIDApprove(params *PostAPIV1MaintenancesIDA
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDApproveReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -219,7 +222,7 @@ PostAPIV1MaintenancesIDCancel cancels maintenance
 
 Cancel a maintenance by ID. Allowed only for valid status transitions.
 */
-func (a *Client) PostAPIV1MaintenancesIDCancel(params *PostAPIV1MaintenancesIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDCancelNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDCancel(params *PostAPIV1MaintenancesIDCancelParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDCancelNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDCancelParams()
@@ -233,6 +236,7 @@ func (a *Client) PostAPIV1MaintenancesIDCancel(params *PostAPIV1MaintenancesIDCa
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDCancelReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -264,7 +268,7 @@ PostAPIV1MaintenancesIDComplete completes maintenance
 
 Complete a maintenance by ID. Allowed only for valid status transitions.
 */
-func (a *Client) PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDCompleteNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesIDCompleteParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDCompleteNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDCompleteParams()
@@ -278,6 +282,7 @@ func (a *Client) PostAPIV1MaintenancesIDComplete(params *PostAPIV1MaintenancesID
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDCompleteReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -309,7 +314,7 @@ PostAPIV1MaintenancesIDEdit updates maintenance draft
 
 Updates an existing maintenance draft from planned_start and steps.
 */
-func (a *Client) PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEditParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDEditNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEditParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDEditNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDEditParams()
@@ -323,6 +328,7 @@ func (a *Client) PostAPIV1MaintenancesIDEdit(params *PostAPIV1MaintenancesIDEdit
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDEditReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -354,7 +360,7 @@ PostAPIV1MaintenancesIDStart starts maintenance
 
 Starts a maintenance by ID. Allowed only for valid status transitions.
 */
-func (a *Client) PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStartNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDStartParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStartNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDStartParams()
@@ -368,6 +374,7 @@ func (a *Client) PostAPIV1MaintenancesIDStart(params *PostAPIV1MaintenancesIDSta
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDStartReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -399,7 +406,7 @@ PostAPIV1MaintenancesIDStepsStepIDCancel cancels maintenance step
 
 Cancels a maintenance step by step_id. Allowed only for valid step status transitions.
 */
-func (a *Client) PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1MaintenancesIDStepsStepIDCancelParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCancelNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDStepsStepIDCancelParams()
@@ -413,6 +420,7 @@ func (a *Client) PostAPIV1MaintenancesIDStepsStepIDCancel(params *PostAPIV1Maint
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDStepsStepIDCancelReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -444,7 +452,7 @@ PostAPIV1MaintenancesIDStepsStepIDComplete completes maintenance step
 
 Completes a maintenance step by step_id. Allowed only for valid step status transitions.
 */
-func (a *Client) PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1MaintenancesIDStepsStepIDCompleteParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDCompleteNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDStepsStepIDCompleteParams()
@@ -458,6 +466,7 @@ func (a *Client) PostAPIV1MaintenancesIDStepsStepIDComplete(params *PostAPIV1Mai
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDStepsStepIDCompleteReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -489,7 +498,7 @@ PostAPIV1MaintenancesIDStepsStepIDStart starts maintenance step
 
 Starts a maintenance step by step_id. Allowed only for valid step status transitions and step order.
 */
-func (a *Client) PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error) {
+func (a *Client) PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1MaintenancesIDStepsStepIDStartParams()
@@ -503,6 +512,7 @@ func (a *Client) PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1Mainte
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1MaintenancesIDStepsStepIDStartReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}

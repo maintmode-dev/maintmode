@@ -20,9 +20,8 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
-	"github.com/ruko1202/maintmode/internal/server"
-
 	"github.com/ruko1202/maintmode/internal/config/pg"
+	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -66,14 +65,16 @@ func main() {
 
 	// Bootstrap application layers
 	stores := bootstrap.NewAuthStores(db, redisClient)
-	services := bootstrap.NewAuthServices(cfg, stores)
+	services, err := bootstrap.NewAuthServices(cfg, stores)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
+	}
 
 	// start api server
 	{
 		s := server.NewAPIAuthServer(
 			cfg.APIServer,
 			cfg.S2SConfig,
-			services.Token,
 			auth.New(
 				services.Auth,
 				services.Token,
@@ -83,6 +84,8 @@ func main() {
 				services.User,
 			),
 			audit.New(services.Audit),
+			services.Token,
+			services.RBAC,
 			server.WithLogger(logger),
 		)
 		s.BindRouters(cfg.Environment, meta)

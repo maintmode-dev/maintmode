@@ -109,7 +109,7 @@ GetAPIV1LoginOauthGoogleInternalServerError describes a response with status cod
 Internal error
 */
 type GetAPIV1LoginOauthGoogleInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 login oauth google internal server error response has a 2xx status code
@@ -152,13 +152,13 @@ func (o *GetAPIV1LoginOauthGoogleInternalServerError) String() string {
 	return fmt.Sprintf("[GET /api/v1/login/oauth/google][%d] getApiV1LoginOauthGoogleInternalServerError %s", 500, payload)
 }
 
-func (o *GetAPIV1LoginOauthGoogleInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1LoginOauthGoogleInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1LoginOauthGoogleInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

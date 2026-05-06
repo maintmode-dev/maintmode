@@ -10,7 +10,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
@@ -23,9 +23,9 @@ import (
 // @Produce json
 // @Param request body refreshTokenJSONRequest false "Fallback refresh token body when cookie is absent"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid refresh token"
-// @Failure 409 {object} apierrors.ErrorResponse "Refresh lock busy or token reuse"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid refresh token"
+// @Failure 409 {object} httperrors.ErrorResponse "Refresh lock busy or token reuse"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Header 200 {string} Set-Cookie "Rotated refresh token cookie (if issued)"
 // @Router /api/v1/refresh [post]
 // Refresh rotates the refresh token and issues a new token pair.
@@ -37,8 +37,7 @@ func (i *Implementation) Refresh(c *echo.Context) error {
 	refreshToken, err := extractRefreshToken(ctx, c)
 	if err != nil {
 		xlog.Error(ctx, "missing refresh token", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidRefreshTokenToken)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
 	}
 
 	pair, err := i.authSrv.Refresh(ctx, refreshToken, c.RealIP())
@@ -48,8 +47,7 @@ func (i *Implementation) Refresh(c *echo.Context) error {
 		}
 
 		xlog.Error(ctx, "refresh token failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	if pair.RefreshToken != "" {

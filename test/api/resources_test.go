@@ -47,7 +47,7 @@ func TestReroucesAPI_List(t *testing.T) {
 				WithContext(ctx).
 				WithName(tc.searchName)
 
-			resp, err := apiClient.Resources.GetAPIV1Resources(params)
+			resp, err := apiClient.Resources.GetAPIV1Resources(params, nil)
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 

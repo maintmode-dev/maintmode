@@ -39,3 +39,9 @@ type User struct {
 	Roles           []Role
 	CreatedAt       time.Time
 }
+
+var SystemUser = &User{
+	Email: "system@email.com",
+	Name:  "system",
+	Roles: []Role{RoleAdmin},
+}

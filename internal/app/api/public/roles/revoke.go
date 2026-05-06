@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/roles/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
@@ -26,8 +26,11 @@ import (
 // @Produce json
 // @Param request body apimodels.RevokeRoleRequest true "Revoke role request"
 // @Success 204 "Role revoked"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or validation error"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request or validation error"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/roles/revoke [post]
 func (i *Implementation) Revoke(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Roles.Revoke")
@@ -37,36 +40,31 @@ func (i *Implementation) Revoke(c *echo.Context) error {
 	req := new(apimodels.RevokeRoleRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if err := validateRevokeRoleRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	actor, ok := xecho.UserFromEchoCtx(c)
 	if !ok {
-		err := fmt.Errorf("actor user not found")
+		err := fmt.Errorf("actor not found")
 		xlog.Error(ctx, "actor user not found in echo context", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	cmd, err := toRevokeRoleCmd(ctx, actor, req)
 	if err != nil {
 		xlog.Error(ctx, "to revoke role command failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	err = i.userSrv.RevokeRole(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "revoke role failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

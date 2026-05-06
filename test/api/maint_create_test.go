@@ -44,7 +44,7 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 		WithContext(ctx).
 		WithRequest(req)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
 	require.NoError(t, err, "Failed to create maintenance draft")
 	require.NotNil(t, resp, "Response should not be nil")
 

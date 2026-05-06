@@ -1,9 +1,12 @@
 package bootstrap
 
 import (
+	"fmt"
+
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auth"
+	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
@@ -14,17 +17,19 @@ type AuthServices struct {
 	Token *token.Service
 	User  *user.Service
 	Audit *auditor.Auditor
+	RBAC  *authz.CasbinAuthorizer
 }
 
 func NewAuthServices(
 	cfg *config.AppConfig,
 	stores *AuthStores,
-) *AuthServices {
+) (*AuthServices, error) {
 	auditorSrv := auditor.NewAuditor(
 		stores.Audit,
 	)
 
 	userSrv := user.NewService(
+		cfg.Environment,
 		stores.TxManager,
 		stores.Users,
 		auditorSrv,
@@ -38,10 +43,16 @@ func NewAuthServices(
 		cfg.JWT.Kid,
 	)
 
+	authorizer, err := authz.NewCasbinAuthorizer(cfg.RBAC)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
+	}
+
 	return &AuthServices{
 		Token: tokenSrv,
 		User:  userSrv,
 		Auth: auth.NewService(
+			&cfg.JWT,
 			stores.TxManager,
 			userSrv,
 			stores.Locker,
@@ -51,5 +62,6 @@ func NewAuthServices(
 			auditorSrv,
 		),
 		Audit: auditorSrv,
-	}
+		RBAC:  authorizer,
+	}, nil
 }

@@ -28,6 +28,7 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 COPY docs/ docs/
 COPY test/ test/
+COPY deployment/maintmode/authz/ deployment/maintmode/authz/
 
 # Кэшируем модули и артефакты при выполнении deps и build
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -47,6 +48,7 @@ RUN apk --no-cache add ca-certificates tzdata \
     && adduser -D nonroot
 
 COPY --from=builder /app/bin/maintmode .
+COPY --from=builder /app/deployment/maintmode/authz/ deployment/maintmode/authz/
 RUN chown nonroot:nonroot maintmode
 
 USER nonroot

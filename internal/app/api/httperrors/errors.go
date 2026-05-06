@@ -1,4 +1,4 @@
-package apierrors
+package httperrors
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 var (
 	ErrInvalidUUID = errValidation("id must be a valid UUID")
 	ErrParseBody   = errValidation("parse request body failed")
+	ErrParseQuery  = errValidation("parse request query failed")
 )
 
 func ValidationErr(err error) error {

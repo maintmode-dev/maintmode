@@ -147,7 +147,7 @@ PostAPIV1RefreshBadRequest describes a response with status code 400, with defau
 Invalid refresh token
 */
 type PostAPIV1RefreshBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 refresh bad request response has a 2xx status code
@@ -190,13 +190,13 @@ func (o *PostAPIV1RefreshBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/refresh][%d] postApiV1RefreshBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1RefreshBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RefreshBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RefreshBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -217,7 +217,7 @@ PostAPIV1RefreshConflict describes a response with status code 409, with default
 Refresh lock busy or token reuse
 */
 type PostAPIV1RefreshConflict struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 refresh conflict response has a 2xx status code
@@ -260,13 +260,13 @@ func (o *PostAPIV1RefreshConflict) String() string {
 	return fmt.Sprintf("[POST /api/v1/refresh][%d] postApiV1RefreshConflict %s", 409, payload)
 }
 
-func (o *PostAPIV1RefreshConflict) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RefreshConflict) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RefreshConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -287,7 +287,7 @@ PostAPIV1RefreshInternalServerError describes a response with status code 500, w
 Internal error
 */
 type PostAPIV1RefreshInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 refresh internal server error response has a 2xx status code
@@ -330,13 +330,13 @@ func (o *PostAPIV1RefreshInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/refresh][%d] postApiV1RefreshInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1RefreshInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RefreshInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RefreshInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

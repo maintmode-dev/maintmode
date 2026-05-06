@@ -37,6 +37,18 @@ func (o *PostAPIV1RolesAssignReader) ReadResponse(response runtime.ClientRespons
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1RolesAssignUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1RolesAssignForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostAPIV1RolesAssignInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -115,7 +127,7 @@ PostAPIV1RolesAssignBadRequest describes a response with status code 400, with d
 Invalid request or validation error
 */
 type PostAPIV1RolesAssignBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 roles assign bad request response has a 2xx status code
@@ -158,13 +170,153 @@ func (o *PostAPIV1RolesAssignBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1RolesAssignBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RolesAssignBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RolesAssignBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1RolesAssignUnauthorized creates a PostAPIV1RolesAssignUnauthorized with default headers values
+func NewPostAPIV1RolesAssignUnauthorized() *PostAPIV1RolesAssignUnauthorized {
+	return &PostAPIV1RolesAssignUnauthorized{}
+}
+
+/*
+PostAPIV1RolesAssignUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1RolesAssignUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 roles assign unauthorized response has a 2xx status code
+func (o *PostAPIV1RolesAssignUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 roles assign unauthorized response has a 3xx status code
+func (o *PostAPIV1RolesAssignUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 roles assign unauthorized response has a 4xx status code
+func (o *PostAPIV1RolesAssignUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 roles assign unauthorized response has a 5xx status code
+func (o *PostAPIV1RolesAssignUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 roles assign unauthorized response a status code equal to that given
+func (o *PostAPIV1RolesAssignUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 roles assign unauthorized response
+func (o *PostAPIV1RolesAssignUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1RolesAssignUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1RolesAssignUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1RolesAssignUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1RolesAssignUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1RolesAssignForbidden creates a PostAPIV1RolesAssignForbidden with default headers values
+func NewPostAPIV1RolesAssignForbidden() *PostAPIV1RolesAssignForbidden {
+	return &PostAPIV1RolesAssignForbidden{}
+}
+
+/*
+PostAPIV1RolesAssignForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1RolesAssignForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 roles assign forbidden response has a 2xx status code
+func (o *PostAPIV1RolesAssignForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 roles assign forbidden response has a 3xx status code
+func (o *PostAPIV1RolesAssignForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 roles assign forbidden response has a 4xx status code
+func (o *PostAPIV1RolesAssignForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 roles assign forbidden response has a 5xx status code
+func (o *PostAPIV1RolesAssignForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 roles assign forbidden response a status code equal to that given
+func (o *PostAPIV1RolesAssignForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 roles assign forbidden response
+func (o *PostAPIV1RolesAssignForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1RolesAssignForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1RolesAssignForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1RolesAssignForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1RolesAssignForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -185,7 +337,7 @@ PostAPIV1RolesAssignInternalServerError describes a response with status code 50
 Internal error
 */
 type PostAPIV1RolesAssignInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 roles assign internal server error response has a 2xx status code
@@ -228,13 +380,13 @@ func (o *PostAPIV1RolesAssignInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/roles/assign][%d] postApiV1RolesAssignInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1RolesAssignInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1RolesAssignInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1RolesAssignInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

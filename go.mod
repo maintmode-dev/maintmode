@@ -3,6 +3,9 @@ module github.com/ruko1202/maintmode
 go 1.25.0
 
 require (
+	github.com/MicahParks/jwkset v0.11.0
+	github.com/MicahParks/keyfunc/v3 v3.8.0
+	github.com/casbin/casbin/v3 v3.10.0
 	github.com/go-jet/jet/v2 v2.14.0
 	github.com/go-openapi/errors v0.22.6
 	github.com/go-openapi/runtime v0.29.2
@@ -39,6 +42,7 @@ require (
 	go.uber.org/zap v1.27.1
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.20.0
+	golang.org/x/time v0.15.0
 )
 
 require (
@@ -46,6 +50,8 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
+	github.com/casbin/govaluate v1.10.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -109,7 +115,6 @@ require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect

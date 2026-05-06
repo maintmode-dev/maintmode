@@ -24,7 +24,7 @@ func TestMaintenancesAPI_GetByID(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params)
+	resp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params, nil)
 	require.NoError(t, err, "Failed to get maintenance by ID")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -43,7 +43,7 @@ func TestMaintenancesAPI_GetNonExistent(t *testing.T) {
 		WithContext(ctx).
 		WithID(nonExistentID)
 
-	_, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params)
+	_, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params, nil)
 	require.Error(t, err, "Should return error for non-existent maintenance")
 
 	var apiErr *maintenances.GetAPIV1MaintenancesIDNotFound
@@ -60,7 +60,7 @@ func TestMaintenancesAPI_InvalidUUID(t *testing.T) {
 		WithContext(ctx).
 		WithID("invalid-uuid")
 
-	_, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params)
+	_, err := apiClient.Maintenances.GetAPIV1MaintenancesID(params, nil)
 	require.Error(t, err, "Should return error for invalid UUID")
 
 	var apiErr *maintenances.GetAPIV1MaintenancesIDBadRequest

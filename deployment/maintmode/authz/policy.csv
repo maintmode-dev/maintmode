@@ -1,0 +1,19 @@
+g, editor, guest
+g, reviewer, editor
+g, admin, reviewer
+
+p, guest, calendar.read, execute
+p, guest, maintenance.read, execute
+p, guest, resource.read, execute
+
+p, editor, maintenance.create, execute
+p, editor, maintenance.edit, execute
+p, editor, maintenance.start, execute
+p, editor, maintenance.complete, execute
+p, editor, maintenance.cancel, execute
+p, editor, maintenance.step.start, execute
+p, editor, maintenance.step.complete, execute
+p, editor, maintenance.step.cancel, execute
+p, editor, resource.create, execute
+
+p, reviewer, maintenance.approve, execute

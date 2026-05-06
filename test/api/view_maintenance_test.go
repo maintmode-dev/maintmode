@@ -27,7 +27,7 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.UI.GetUIV1MaintenancesID(params)
+	resp, err := apiClient.UI.GetUIV1MaintenancesID(params, nil)
 	require.NoError(t, err, "Failed to get maintenance view")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -59,7 +59,7 @@ func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.UI.GetUIV1MaintenancesID(params)
+	resp, err := apiClient.UI.GetUIV1MaintenancesID(params, nil)
 	require.NoError(t, err, "Failed to get maintenance view for planned maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -86,7 +86,7 @@ func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.UI.GetUIV1MaintenancesID(params)
+	resp, err := apiClient.UI.GetUIV1MaintenancesID(params, nil)
 	require.NoError(t, err, "Failed to get maintenance view for in-progress maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -119,7 +119,7 @@ func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID2))
 
-	resp, err := apiClient.UI.GetUIV1MaintenancesID(params)
+	resp, err := apiClient.UI.GetUIV1MaintenancesID(params, nil)
 	require.NoError(t, err, "Failed to get maintenance view with conflicts")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -142,7 +142,7 @@ func TestUIAPI_GetMaintenanceView_NonExistent(t *testing.T) {
 		WithContext(ctx).
 		WithID(nonExistentID)
 
-	_, err := apiClient.UI.GetUIV1MaintenancesID(params)
+	_, err := apiClient.UI.GetUIV1MaintenancesID(params, nil)
 	require.Error(t, err, "Should return error for non-existent maintenance")
 
 	var apiErr *ui.GetUIV1MaintenancesIDNotFound

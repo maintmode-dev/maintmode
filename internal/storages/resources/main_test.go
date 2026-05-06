@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 
@@ -22,17 +21,10 @@ import (
 var db *sqlx.DB
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	logger, _ := zap.NewDevelopment()
-	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
-
-	conn := testdbconnutils.NewDB()
-	db = conn
-	closer.Add(conn.Close)
+	db = testdbconnutils.NewDB(config.LoadAppConfig())
+	closer.Add(db.Close)
 
 	code := m.Run()
-
-	closer.CloseAll(ctx)
 
 	os.Exit(code)
 }

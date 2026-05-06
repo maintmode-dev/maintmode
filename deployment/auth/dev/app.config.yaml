@@ -3,6 +3,11 @@ environment: dev
 app:
   frontend_url: http://localhost:9000
 
+rbac:
+  adapter: file
+  model_path: deployment/auth/authz/model.conf
+  policy_path: deployment/auth/authz/policy.csv
+
 logger:
   level: debug
 
@@ -50,6 +55,10 @@ jwt:
   issuer_name: oauth-service
   issuer_private_key: <secret:jwt/issuer_private_key>
   issuer_kid: <secret:jwt/issuer_kid>
+  access_token_ttl: 15m
+  refresh_token_ttl: 720h # 30 days
+  refresh_token_grace_period: 30s
+  refresh_token_distributed_lock_ttl: 5s
 
 external_services:
 

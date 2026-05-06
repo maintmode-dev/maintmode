@@ -1,7 +1,6 @@
 package token
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -11,10 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
@@ -29,16 +27,10 @@ var db *sqlx.DB
 const tokenTTL = 15 * time.Minute
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	logger, _ := zap.NewDevelopment()
-	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
-
-	db = testdbconnutils.NewDB()
+	db = testdbconnutils.NewDB(config.LoadAuthAppConfig())
 	closer.Add(db.Close)
 
 	code := m.Run()
-
-	closer.CloseAll(ctx)
 
 	os.Exit(code)
 }

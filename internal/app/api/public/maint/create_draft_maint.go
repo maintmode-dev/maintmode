@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
@@ -26,8 +26,12 @@ import (
 // @Produce json
 // @Param request body apimodels.CreateDraftMaintRequest true "Create maintenance draft request"
 // @Success 200 {object} apimodels.CreateDraftMaintResponse
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/create [post]
 func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CreateDraftMaint")
@@ -37,28 +41,24 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 	req := new(apimodels.CreateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if err := validateCreateMaintDraftRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	cmd, err := toCreateMaintenanceCmd(ctx, req)
 	if err != nil {
 		xlog.Error(ctx, "to create maintenance command failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	maint, err := i.maintSrv.CreateDraft(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "create maintenances failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.CreateDraftMaintResponse{

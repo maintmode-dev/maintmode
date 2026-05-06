@@ -25,7 +25,7 @@ func TestMaintenancesAPI_StartMaintenance(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params, nil)
 	require.NoError(t, err, "Failed to start maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -33,7 +33,7 @@ func TestMaintenancesAPI_StartMaintenance(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get started maintenance")
 	require.NotNil(t, getResp, "Get response should not be nil")
 

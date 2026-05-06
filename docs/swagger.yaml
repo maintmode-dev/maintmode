@@ -66,15 +66,6 @@ definitions:
       refresh_token:
         type: string
     type: object
-  apierrors.ErrorResponse:
-    properties:
-      code:
-        example: error code
-        type: string
-      message:
-        example: error message
-        type: string
-    type: object
   apimodels.ApproveDraftMaintRequest:
     properties:
       conflicts_snapshot:
@@ -454,6 +445,15 @@ definitions:
     - ResourceTypeService
     - ResourceTypeDatabase
     - ResourceTypeCluster
+  httperrors.ErrorResponse:
+    properties:
+      code:
+        example: error code
+        type: string
+      message:
+        example: error message
+        type: string
+    type: object
   uimodels.CalendarEvent:
     properties:
       end:
@@ -673,11 +673,21 @@ paths:
         "400":
           description: Invalid limit parameter
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get audit log
       tags:
       - Audit
@@ -698,7 +708,7 @@ paths:
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: Start OAuth login
       tags:
       - Auth
@@ -727,11 +737,11 @@ paths:
         "400":
           description: Invalid state/code
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: OAuth callback
       tags:
       - Auth
@@ -763,15 +773,15 @@ paths:
         "400":
           description: Invalid token
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: Logout current session
       tags:
       - Auth
@@ -797,15 +807,15 @@ paths:
         "400":
           description: Invalid token
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: Logout from all sessions
       tags:
       - Auth
@@ -831,15 +841,29 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get maintenance by ID
       tags:
       - Maintenances
@@ -870,19 +894,33 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden status transition or conflicts changed since preview
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Approve maintenance draft
       tags:
       - Maintenances
@@ -910,15 +948,29 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden status transition
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Cancel maintenance
       tags:
       - Maintenances
@@ -940,15 +992,29 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden status transition or maintenance has unfinished steps
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Complete maintenance
       tags:
       - Maintenances
@@ -978,11 +1044,25 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update maintenance draft
       tags:
       - Maintenances
@@ -1004,15 +1084,29 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden status transition
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Start maintenance
       tags:
       - Maintenances
@@ -1041,19 +1135,33 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance or step not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden step status transition
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Cancel maintenance step
       tags:
       - Maintenances
@@ -1082,19 +1190,33 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance or step not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden step status transition
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Complete maintenance step
       tags:
       - Maintenances
@@ -1123,19 +1245,33 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance or step not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Forbidden step status transition or step order violation
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Start maintenance step
       tags:
       - Maintenances
@@ -1161,11 +1297,25 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create maintenance draft
       tags:
       - Maintenances
@@ -1194,15 +1344,15 @@ paths:
         "400":
           description: Invalid refresh token
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Refresh lock busy or token reuse
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: Refresh token pair
       tags:
       - Auth
@@ -1226,15 +1376,29 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Resource not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get available resource types
       tags:
       - Resources
@@ -1260,15 +1424,29 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "409":
           description: Resource already exists
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create a new resource
       tags:
       - Resources
@@ -1291,11 +1469,25 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Search resources by name
       tags:
       - Resources
@@ -1309,6 +1501,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/apimodels.ListRolesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List available roles
       tags:
       - Roles
@@ -1332,11 +1534,21 @@ paths:
         "400":
           description: Invalid request or validation error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Assign role to user
       tags:
       - Roles
@@ -1360,11 +1572,21 @@ paths:
         "400":
           description: Invalid request or validation error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Revoke role from user
       tags:
       - Roles
@@ -1391,15 +1613,15 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "401":
           description: Invalid service token
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
       summary: Introspect access token
       tags:
       - Auth
@@ -1423,11 +1645,21 @@ paths:
         "400":
           description: Invalid UUID
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List user roles
       tags:
       - Roles
@@ -1477,11 +1709,25 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List calendar events
       tags:
       - UI
@@ -1506,23 +1752,35 @@ paths:
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "404":
           description: Maintenance not found
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/apierrors.ErrorResponse'
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get maintenance view
       tags:
       - UI
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
-tags:
-- description: Maintenance UI API
-  name: UI
-- description: Maintenance management API
-  name: Maintenances
-- description: Resource management API
-  name: Resources

@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+
+	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
 
@@ -26,16 +26,10 @@ import (
 var db *sqlx.DB
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	logger, _ := zap.NewDevelopment()
-	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
-
-	db = testdbconnutils.NewDB()
+	db = testdbconnutils.NewDB(config.LoadAuthAppConfig())
 	closer.Add(db.Close)
 
 	code := m.Run()
-
-	closer.CloseAll(ctx)
 
 	os.Exit(code)
 }
@@ -44,6 +38,7 @@ func initService(t *testing.T) *Service {
 	t.Helper()
 
 	return NewService(
+		config.DevEnvironment,
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
 		auditor.NewAuditor(audit.NewStore(db)),

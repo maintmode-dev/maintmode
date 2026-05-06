@@ -7,7 +7,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 )
 
@@ -18,8 +18,12 @@ import (
 // @Produce json
 // @Param name query string true "Resource name to search for"
 // @Success 200 {object} apismodels.SearchResourcesResponse
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/resources [get]
 func (i *Implementation) SearchResources(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.SearchResources")
@@ -29,15 +33,13 @@ func (i *Implementation) SearchResources(c *echo.Context) error {
 	req := new(apimodels.SearchResourcesRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	resources, err := i.resourcesSrv.GetResourcesLikeName(ctx, req.Name)
 	if err != nil {
 		xlog.Error(ctx, "search resources failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.SearchResourcesResponse{

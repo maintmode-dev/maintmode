@@ -1,15 +1,15 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
-	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
 // Introspect godoc
@@ -20,9 +20,9 @@ import (
 // @Produce json
 // @Param request body apiauthmodels.IntrospectRequest true "Introspect request"
 // @Success 200 {object} apiauthmodels.IntrospectResponse
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 401 {object} apierrors.ErrorResponse "Invalid service token"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Invalid service token"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/s2s/introspect [post]
 // Introspect implements AccessToken Introspection (RFC 7662).
 // Downstream services call this for critical operations to check if a token is blacklisted.
@@ -32,24 +32,21 @@ func (i *Implementation) Introspect(c *echo.Context) error {
 	op := "introspect"
 
 	body := new(apiauthmodels.IntrospectRequest)
-	err := c.Bind(body)
-	if err != nil {
+	if err := c.Bind(body); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if body.AccessToken == "" {
+		err := fmt.Errorf("missing token")
 		xlog.Error(ctx, "missing token", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidAccessTokenToken)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	report, err := i.authSrv.Introspect(ctx, body.AccessToken)
 	if err != nil {
 		xlog.Error(ctx, "introspect failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.JSON(http.StatusOK, apiauthmodels.ToAPIIntrospectResponse(report))

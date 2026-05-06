@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/roles/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
@@ -26,8 +26,11 @@ import (
 // @Produce json
 // @Param request body apimodels.AssignRoleRequest true "Assign role request"
 // @Success 204 "Role assigned"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request or validation error"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request or validation error"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/roles/assign [post]
 func (i *Implementation) Assign(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Roles.Assign")
@@ -37,36 +40,31 @@ func (i *Implementation) Assign(c *echo.Context) error {
 	req := new(apimodels.AssignRoleRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if err := validateAssignRoleRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	actor, ok := xecho.UserFromEchoCtx(c)
 	if !ok {
-		err := fmt.Errorf("actor user not found")
+		err := fmt.Errorf("actor not found")
 		xlog.Error(ctx, "actor user not found in echo context", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	cmd, err := toAssignRoleCmd(ctx, actor, req)
 	if err != nil {
 		xlog.Error(ctx, "to assign role command failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	err = i.userSrv.AssignRole(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "assign role failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

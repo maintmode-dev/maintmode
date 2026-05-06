@@ -62,9 +62,13 @@ type OauthProviders struct {
 }
 
 type JWT struct {
-	PrivateKey string `mapstructure:"issuer_private_key"`
-	Issuer     string `mapstructure:"issuer_name"`
-	Kid        string `mapstructure:"issuer_kid"`
+	PrivateKey                      string        `mapstructure:"issuer_private_key"`
+	Issuer                          string        `mapstructure:"issuer_name"`
+	Kid                             string        `mapstructure:"issuer_kid"`
+	AccessTokenTTL                  time.Duration `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL                 time.Duration `mapstructure:"refresh_token_ttl"`
+	RefreshTokenGracePeriod         time.Duration `mapstructure:"refresh_token_grace_period"`
+	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
 }
 
 func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
@@ -91,6 +95,23 @@ type LoggerConfig struct {
 
 type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
+}
+
+type JWTVerifierConfig struct {
+	JWTIssuer                 string        `mapstructure:"jwt_issuer"`
+	JWKSURL                   string        `mapstructure:"jwks_url"`
+	JWKSRefreshInterval       time.Duration `mapstructure:"jwks_refresh_interval"`
+	JWKSHTTPTimeout           time.Duration `mapstructure:"jwks_http_timeout"`
+	JWTLeeway                 time.Duration `mapstructure:"jwt_leeway"`
+	JWKSUnknownKIDRefreshRate time.Duration `mapstructure:"jwks_unknown_kid_refresh_rate"`
+	JWKSUnknownKIDWaitMax     time.Duration `mapstructure:"jwks_unknown_kid_wait_max"`
+}
+
+type RbacConfig struct {
+	Adapter    string `mapstructure:"adapter"`
+	ModelPath  string `mapstructure:"model_path"`
+	PolicyPath string `mapstructure:"policy_path"`
+	PolicyData string `mapstructure:"-"`
 }
 
 type S2S struct {
@@ -124,6 +145,8 @@ func (e ExternalService) GetURL() string {
 type AppConfig struct {
 	App              App                        `mapstructure:"app"`
 	Environment      Environment                `mapstructure:"environment"`
+	JWTVerifier      JWTVerifierConfig          `mapstructure:"jwtverifier"`
+	RBAC             RbacConfig                 `mapstructure:"rbac"`
 	InfraServer      HTTPServer                 `mapstructure:"infra_server"`
 	APIServer        HTTPServer                 `mapstructure:"api_server"`
 	Tracer           Tracer                     `mapstructure:"tracer"`

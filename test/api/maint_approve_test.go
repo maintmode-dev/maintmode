@@ -25,7 +25,7 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get maintenance before approve")
 	require.NotNil(t, getResp, "Get response should not be nil")
 
@@ -41,7 +41,7 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 		WithID(strfmt.UUID(maintenanceID)).
 		WithRequest(approveReq)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params, nil)
 	require.NoError(t, err, "Failed to approve maintenance draft")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -49,7 +49,7 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getRespAfter, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParamsAfter)
+	getRespAfter, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParamsAfter, nil)
 	require.NoError(t, err, "Failed to get approved maintenance")
 	require.NotNil(t, getRespAfter, "Get response should not be nil")
 

@@ -31,7 +31,7 @@ func TestMaintenancesAPI_CancelMaintenance(t *testing.T) {
 		WithID(strfmt.UUID(maintenanceID)).
 		WithRequest(cancelReq)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDCancel(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDCancel(params, nil)
 	require.NoError(t, err, "Failed to cancel maintenance")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -39,7 +39,7 @@ func TestMaintenancesAPI_CancelMaintenance(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get canceled maintenance")
 	require.NotNil(t, getResp, "Get response should not be nil")
 

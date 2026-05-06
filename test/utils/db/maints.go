@@ -24,9 +24,9 @@ func WithScope(scope entity.MaintenanceScope) MaintChanger {
 	}
 }
 
-func WithResources(resources ...*entity.Resource) MaintChanger {
+func WithResources(r ...*entity.Resource) MaintChanger {
 	return func(m *entity.Maintenance) {
-		m.Resources = resources
+		m.Resources = r
 	}
 }
 

@@ -1,7 +1,6 @@
 package apimaint
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -9,9 +8,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
-	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
 // GetMaint godoc
@@ -22,9 +20,13 @@ import (
 // @Produce json
 // @Param id path string true "Maintenance ID (UUID)" Format(uuid)
 // @Success 200 {object} apimodels.Maintenance
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
-// @Failure 404 {object} apierrors.ErrorResponse "Maintenance not found"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid UUID"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 404 {object} httperrors.ErrorResponse "Maintenance not found"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id} [get]
 func (i *Implementation) GetMaint(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.GetMaint")
@@ -34,15 +36,13 @@ func (i *Implementation) GetMaint(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
 	maint, err := i.maintSrv.GetMaint(ctx, maintID)
 	if err != nil {
 		xlog.Error(ctx, "get maintenance failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, fmt.Errorf("%w: '%s'", apperr.ErrMaintNotFound, maintID))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.JSON(http.StatusOK, apimodels.ToAPIMaintenance(maint))

@@ -2,6 +2,20 @@ environment: dev
 
 app:
 
+jwtverifier:
+  jwt_issuer: oauth-service
+  jwks_url: http://auth:8000/api/v1/.well-known/jwks.json
+  jwks_refresh_interval: 1h
+  jwks_http_timeout: 10s
+  jwt_leeway: 30s
+  jwks_unknown_kid_refresh_rate: 5m
+  jwks_unknown_kid_wait_max: 10s
+
+rbac:
+  adapter: file
+  model_path: deployment/maintmode/authz/model.conf
+  policy_path: deployment/maintmode/authz/policy.csv
+
 logger:
   level: debug
 

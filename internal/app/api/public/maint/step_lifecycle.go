@@ -9,7 +9,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -21,10 +21,14 @@ import (
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param step_id path string true "Step ID" Format(uuid)
 // @Success 204 "Step started"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
-// @Failure 404 {object} apierrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} apierrors.ErrorResponse "Forbidden step status transition or step order violation"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid UUID"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition or step order violation"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id}/steps/{step_id}/start [post]
 func (i *Implementation) StartStep(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.StartStep")
@@ -34,20 +38,18 @@ func (i *Implementation) StartStep(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 	stepID, err := uuid.Parse(c.Param("step_id"))
 	if err != nil {
 		xlog.Error(ctx, "parse stepID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	if err = i.maintSrv.StartStep(ctx, &entity.StartMaintenanceStepCmd{MaintID: maintID, StepID: stepID}); err != nil {
+	err = i.maintSrv.StartStep(ctx, &entity.StartMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	if err != nil {
 		xlog.Error(ctx, "start maintenance step failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -61,10 +63,14 @@ func (i *Implementation) StartStep(c *echo.Context) error {
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param step_id path string true "Step ID" Format(uuid)
 // @Success 204 "Step completed"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
-// @Failure 404 {object} apierrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} apierrors.ErrorResponse "Forbidden step status transition"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid UUID"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id}/steps/{step_id}/complete [post]
 func (i *Implementation) CompleteStep(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CompleteStep")
@@ -74,20 +80,18 @@ func (i *Implementation) CompleteStep(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 	stepID, err := uuid.Parse(c.Param("step_id"))
 	if err != nil {
 		xlog.Error(ctx, "parse stepID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	if err = i.maintSrv.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{MaintID: maintID, StepID: stepID}); err != nil {
+	err = i.maintSrv.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	if err != nil {
 		xlog.Error(ctx, "complete maintenance step failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -101,10 +105,14 @@ func (i *Implementation) CompleteStep(c *echo.Context) error {
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param step_id path string true "Step ID" Format(uuid)
 // @Success 204 "Step canceled"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid UUID"
-// @Failure 404 {object} apierrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} apierrors.ErrorResponse "Forbidden step status transition"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid UUID"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id}/steps/{step_id}/cancel [post]
 func (i *Implementation) CancelStep(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.CancelStep")
@@ -114,20 +122,18 @@ func (i *Implementation) CancelStep(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 	stepID, err := uuid.Parse(c.Param("step_id"))
 	if err != nil {
 		xlog.Error(ctx, "parse stepID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	if err = i.maintSrv.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{MaintID: maintID, StepID: stepID}); err != nil {
+	err = i.maintSrv.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	if err != nil {
 		xlog.Error(ctx, "cancel maintenance step failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

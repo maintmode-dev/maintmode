@@ -29,7 +29,7 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*e
 	// Distributed lock prevents two concurrent refreshes of the same token
 	// from both succeeding and creating duplicate token chains.
 	lockKey := distributedLockKey(tokenHash)
-	if err := s.locker.Acquire(ctx, lockKey, distributedLockTTL); err != nil {
+	if err := s.locker.Acquire(ctx, lockKey, s.cfg.RefreshTokenrDistributedLockTTL); err != nil {
 		return nil, apperr.ErrLockBusy
 	}
 	defer func() {
@@ -40,7 +40,7 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*e
 
 	rt, err := s.tokenSrv.GetRefreshTokenByHash(ctx, tokenHash)
 	if err != nil {
-		return nil, apperr.ErrInvalidRefreshTokenToken
+		return nil, apperr.ErrInvalidRefreshToken
 	}
 
 	ctx = xlog.WithFields(ctx,
@@ -98,14 +98,14 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 
 		return &entity.TokenPair{
 			AccessToken:  accessToken,
-			ExpiresIn:    int(accessTokenTTL.Seconds()),
+			ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
 			RefreshToken: "", // RefreshToken intentionally empty — client should keep its current one
 		}, nil
 	}
 
 	// Outside grace period — reuse detection: revoke entire family.
 	xlog.Error(ctx, "token reuse detected",
-		xfield.String("grace_period", gracePeriod.String()),
+		xfield.String("grace_period", s.cfg.RefreshTokenGracePeriod.String()),
 		xfield.String("now", now.String()),
 	)
 	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.Family); err != nil {
@@ -141,7 +141,7 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	// Atomic rotation: update old + save new in a single transaction.
 	err = s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
 		oldRefreshToken.Revoked = true
-		oldRefreshToken.GraceTTL = lo.ToPtr(now.Add(gracePeriod))
+		oldRefreshToken.GraceTTL = lo.ToPtr(now.Add(s.cfg.RefreshTokenGracePeriod))
 		oldRefreshToken.ReplacedBy = &newHash
 
 		if err := s.tokenSrv.UpdateRefreshToken(txCtx, oldRefreshToken); err != nil {
@@ -164,7 +164,7 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	return &entity.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
-		ExpiresIn:    int(accessTokenTTL.Seconds()),
+		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
 	}, nil
 }
 
@@ -176,7 +176,7 @@ func (s *Service) issueAccessByUserID(ctx context.Context, userID uuid.UUID) (st
 	if err != nil {
 		return "", fmt.Errorf("fetch user: %w", err)
 	}
-	return s.tokenSrv.IssueAccessToken(ctx, accessTokenTTL, user)
+	return s.tokenSrv.IssueAccessToken(ctx, s.cfg.AccessTokenTTL, user)
 }
 
 func distributedLockKey(key string) string {

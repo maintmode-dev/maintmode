@@ -2,12 +2,19 @@ package middlewares
 
 import (
 	"context"
-	"net/http"
-	"strings"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
+	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
+	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
@@ -16,42 +23,57 @@ type TokenVerifier interface {
 	VerifyAccessToken(ctx context.Context, tokenString string) (*entity.AccessClaims, error)
 }
 
-// JWTAuth создаёт middleware для проверки JWT токенов.
+// RequireAccessToken создаёт middleware для проверки JWT токенов.
 // Парсит Authorization: Bearer <token>, верифицирует подпись,
 // записывает userID
-func JWTAuth(tokenSrv TokenVerifier) echo.MiddlewareFunc {
+func RequireAccessToken(tokenSrv TokenVerifier) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			req := c.Request()
 			ctx := req.Context()
+			op := "authenticate"
 
-			authHeader := req.Header.Get("Authorization")
-			if authHeader == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "missing oauth token")
-			}
-
-			authToken, ok := strings.CutPrefix(authHeader, "Bearer ")
-			if !ok {
-				return echo.NewHTTPError(http.StatusUnauthorized, "invalid oauth token")
+			authToken := xhttp.ExtractBearerToken(c.Request())
+			if authToken == "" {
+				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 			}
 
 			claims, err := tokenSrv.VerifyAccessToken(ctx, authToken)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, "invalid oauth token")
+				return httperrors.ToAPIError(c, op, err)
 			}
 
-			userID, err := uuid.Parse(claims.Subject)
+			user, err := userFromAccessClaims(ctx, claims)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, "invalid claims")
+				xlog.Error(ctx, "invalid access token claims", xfield.Error(err))
+				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 			}
 
-			xecho.UserToEchoCtx(c, &entity.User{
-				ID:    userID,
-				Email: claims.Email,
-				Roles: claims.Roles,
-			})
+			xecho.UserToEchoCtx(c, user)
 
 			return next(c)
 		}
 	}
+}
+
+func userFromAccessClaims(ctx context.Context, claims *entity.AccessClaims) (*entity.User, error) {
+	err := validation.ValidateStructWithContext(ctx, claims,
+		validation.Field(&claims.Subject, validation.Required, validation.By(xvalidation.UUIDNotNil)),
+		validation.Field(&claims.Email, validation.Required),
+		validation.Field(&claims.Roles, validation.Required, validation.Each(validation.Required)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity.User{
+		ID:    userID,
+		Email: claims.Email,
+		Roles: claims.Roles,
+	}, nil
 }

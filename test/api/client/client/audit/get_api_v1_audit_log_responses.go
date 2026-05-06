@@ -37,6 +37,18 @@ func (o *GetAPIV1AuditLogReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewGetAPIV1AuditLogUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewGetAPIV1AuditLogForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewGetAPIV1AuditLogInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -129,7 +141,7 @@ GetAPIV1AuditLogBadRequest describes a response with status code 400, with defau
 Invalid limit parameter
 */
 type GetAPIV1AuditLogBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 audit log bad request response has a 2xx status code
@@ -172,13 +184,153 @@ func (o *GetAPIV1AuditLogBadRequest) String() string {
 	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogBadRequest %s", 400, payload)
 }
 
-func (o *GetAPIV1AuditLogBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1AuditLogBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1AuditLogBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1AuditLogUnauthorized creates a GetAPIV1AuditLogUnauthorized with default headers values
+func NewGetAPIV1AuditLogUnauthorized() *GetAPIV1AuditLogUnauthorized {
+	return &GetAPIV1AuditLogUnauthorized{}
+}
+
+/*
+GetAPIV1AuditLogUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type GetAPIV1AuditLogUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 audit log unauthorized response has a 2xx status code
+func (o *GetAPIV1AuditLogUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 audit log unauthorized response has a 3xx status code
+func (o *GetAPIV1AuditLogUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 audit log unauthorized response has a 4xx status code
+func (o *GetAPIV1AuditLogUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 audit log unauthorized response has a 5xx status code
+func (o *GetAPIV1AuditLogUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 audit log unauthorized response a status code equal to that given
+func (o *GetAPIV1AuditLogUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the get Api v1 audit log unauthorized response
+func (o *GetAPIV1AuditLogUnauthorized) Code() int {
+	return 401
+}
+
+func (o *GetAPIV1AuditLogUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1AuditLogUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogUnauthorized %s", 401, payload)
+}
+
+func (o *GetAPIV1AuditLogUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1AuditLogUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetAPIV1AuditLogForbidden creates a GetAPIV1AuditLogForbidden with default headers values
+func NewGetAPIV1AuditLogForbidden() *GetAPIV1AuditLogForbidden {
+	return &GetAPIV1AuditLogForbidden{}
+}
+
+/*
+GetAPIV1AuditLogForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type GetAPIV1AuditLogForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Api v1 audit log forbidden response has a 2xx status code
+func (o *GetAPIV1AuditLogForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Api v1 audit log forbidden response has a 3xx status code
+func (o *GetAPIV1AuditLogForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Api v1 audit log forbidden response has a 4xx status code
+func (o *GetAPIV1AuditLogForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Api v1 audit log forbidden response has a 5xx status code
+func (o *GetAPIV1AuditLogForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Api v1 audit log forbidden response a status code equal to that given
+func (o *GetAPIV1AuditLogForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the get Api v1 audit log forbidden response
+func (o *GetAPIV1AuditLogForbidden) Code() int {
+	return 403
+}
+
+func (o *GetAPIV1AuditLogForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1AuditLogForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogForbidden %s", 403, payload)
+}
+
+func (o *GetAPIV1AuditLogForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetAPIV1AuditLogForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -199,7 +351,7 @@ GetAPIV1AuditLogInternalServerError describes a response with status code 500, w
 Internal error
 */
 type GetAPIV1AuditLogInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 audit log internal server error response has a 2xx status code
@@ -242,13 +394,13 @@ func (o *GetAPIV1AuditLogInternalServerError) String() string {
 	return fmt.Sprintf("[GET /api/v1/audit/log][%d] getApiV1AuditLogInternalServerError %s", 500, payload)
 }
 
-func (o *GetAPIV1AuditLogInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1AuditLogInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1AuditLogInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

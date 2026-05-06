@@ -8,6 +8,8 @@ import (
 
 	"github.com/ruko1202/xlog"
 
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -26,7 +28,7 @@ func (g *Service) UserInfo(ctx context.Context, accessToken string) (*entity.OAu
 	if err != nil {
 		return nil, fmt.Errorf("create userinfo request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	xhttp.SetBearerToken(req, accessToken)
 
 	resp, err := g.httpClient.Do(req)
 	if err != nil {

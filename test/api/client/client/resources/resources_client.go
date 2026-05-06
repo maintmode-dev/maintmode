@@ -56,11 +56,11 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error)
+	GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error)
 
-	GetAPIV1Resources(params *GetAPIV1ResourcesParams, opts ...ClientOption) (*GetAPIV1ResourcesOK, error)
+	GetAPIV1Resources(params *GetAPIV1ResourcesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesOK, error)
 
-	PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error)
+	PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -70,7 +70,7 @@ GetAPIV1ResourceIDTypes gets available resource types
 
 Returns available resource types for a specific resource
 */
-func (a *Client) GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error) {
+func (a *Client) GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1ResourceIDTypesParams()
@@ -84,6 +84,7 @@ func (a *Client) GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1ResourceIDTypesReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -115,7 +116,7 @@ GetAPIV1Resources searches resources by name
 
 Searches for resources by name using LIKE pattern matching
 */
-func (a *Client) GetAPIV1Resources(params *GetAPIV1ResourcesParams, opts ...ClientOption) (*GetAPIV1ResourcesOK, error) {
+func (a *Client) GetAPIV1Resources(params *GetAPIV1ResourcesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1ResourcesParams()
@@ -129,6 +130,7 @@ func (a *Client) GetAPIV1Resources(params *GetAPIV1ResourcesParams, opts ...Clie
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1ResourcesReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -160,7 +162,7 @@ PostAPIV1ResourceCreate creates a new resource
 
 Creates a new resource with the provided details
 */
-func (a *Client) PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error) {
+func (a *Client) PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1ResourceCreateParams()
@@ -174,6 +176,7 @@ func (a *Client) PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, 
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1ResourceCreateReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}

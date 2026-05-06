@@ -659,7 +659,7 @@
         el.innerHTML = '<div style="color:#999">Loading...</div>';
 
         try {
-            const { data } = await apiCall('GET', '/auth/api/v1/audit?limit=20');
+            const { data } = await apiCall('GET', '/auth/api/v1/audit/log?limit=20');
             if (!data || !data.logs || data.logs.length === 0) {
                 el.innerHTML = '<div style="color:#999">No events yet.</div>';
                 return;

@@ -56,9 +56,9 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetUIV1Calendar(params *GetUIV1CalendarParams, opts ...ClientOption) (*GetUIV1CalendarOK, error)
+	GetUIV1Calendar(params *GetUIV1CalendarParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetUIV1CalendarOK, error)
 
-	GetUIV1MaintenancesID(params *GetUIV1MaintenancesIDParams, opts ...ClientOption) (*GetUIV1MaintenancesIDOK, error)
+	GetUIV1MaintenancesID(params *GetUIV1MaintenancesIDParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetUIV1MaintenancesIDOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -68,7 +68,7 @@ GetUIV1Calendar lists calendar events
 
 Returns maintenance events for the specified date range.
 */
-func (a *Client) GetUIV1Calendar(params *GetUIV1CalendarParams, opts ...ClientOption) (*GetUIV1CalendarOK, error) {
+func (a *Client) GetUIV1Calendar(params *GetUIV1CalendarParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetUIV1CalendarOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetUIV1CalendarParams()
@@ -82,6 +82,7 @@ func (a *Client) GetUIV1Calendar(params *GetUIV1CalendarParams, opts ...ClientOp
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetUIV1CalendarReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -113,7 +114,7 @@ GetUIV1MaintenancesID gets maintenance view
 
 Returns aggregated maintenance view for calendar and UI, including conflicts and available actions.
 */
-func (a *Client) GetUIV1MaintenancesID(params *GetUIV1MaintenancesIDParams, opts ...ClientOption) (*GetUIV1MaintenancesIDOK, error) {
+func (a *Client) GetUIV1MaintenancesID(params *GetUIV1MaintenancesIDParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetUIV1MaintenancesIDOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetUIV1MaintenancesIDParams()
@@ -127,6 +128,7 @@ func (a *Client) GetUIV1MaintenancesID(params *GetUIV1MaintenancesIDParams, opts
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetUIV1MaintenancesIDReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}

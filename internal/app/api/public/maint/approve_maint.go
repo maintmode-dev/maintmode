@@ -11,7 +11,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
@@ -26,10 +26,14 @@ import (
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param request body apimodels.ApproveDraftMaintRequest true "Approve maintenance request"
 // @Success 204 "Maintenance approved"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 404 {object} apierrors.ErrorResponse "Maintenance not found"
-// @Failure 409 {object} apierrors.ErrorResponse "Forbidden status transition or conflicts changed since preview"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 404 {object} httperrors.ErrorResponse "Maintenance not found"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden status transition or conflicts changed since preview"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id}/approve [post]
 func (i *Implementation) ApproveMaint(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.ApproveMaint")
@@ -39,35 +43,30 @@ func (i *Implementation) ApproveMaint(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
 	req := new(apimodels.ApproveDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if err := validateApproveDraftMaintRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	cmd, err := toApproveMaintenanceCmd(ctx, maintID, req)
 	if err != nil {
 		xlog.Error(ctx, "to approve maintenance command failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	err = i.maintSrv.ApproveMaint(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "approve maintenance failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

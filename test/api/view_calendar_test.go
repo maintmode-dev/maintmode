@@ -31,7 +31,7 @@ func TestUIAPI_GetCalendarView(t *testing.T) {
 		WithFrom(fromDate).
 		WithTo(toDate)
 
-	resp, err := apiClient.UI.GetUIV1Calendar(params)
+	resp, err := apiClient.UI.GetUIV1Calendar(params, nil)
 	require.NoError(t, err, "Failed to get calendar view")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -59,7 +59,7 @@ func TestUIAPI_GetCalendarView_WithStatusFilter(t *testing.T) {
 		WithTo(toDate).
 		WithStatuses(statuses)
 
-	resp, err := apiClient.UI.GetUIV1Calendar(params)
+	resp, err := apiClient.UI.GetUIV1Calendar(params, nil)
 	require.NoError(t, err, "Failed to get calendar view with status filter")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -90,7 +90,7 @@ func TestUIAPI_GetCalendarView_WithResourceFilter(t *testing.T) {
 		WithTo(toDate).
 		WithResourceIds(resourceIDs)
 
-	resp, err := apiClient.UI.GetUIV1Calendar(params)
+	resp, err := apiClient.UI.GetUIV1Calendar(params, nil)
 	require.NoError(t, err, "Failed to get calendar view with resource filter")
 	require.NotNil(t, resp, "Response should not be nil")
 

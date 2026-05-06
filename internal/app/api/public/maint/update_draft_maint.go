@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -26,8 +26,12 @@ import (
 // @Param id path string true "Maintenance ID" Format(uuid)
 // @Param request body apimodels.UpdateDraftMaintRequest true "Update maintenance draft request"
 // @Success 204 "Maintenance draft updated"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid request"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
+// @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
+// @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Security BearerAuth
 // @Router /api/v1/maintenances/{id}/edit [post]
 func (i *Implementation) UpdateDraftMaint(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Maint.UpdateDraftMaint")
@@ -37,34 +41,29 @@ func (i *Implementation) UpdateDraftMaint(c *echo.Context) error {
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrInvalidUUID)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
 	req := new(apimodels.UpdateDraftMaintRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ErrParseBody)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
 	if err := validateUpdateMaintRequest(ctx, req); err != nil {
 		xlog.Error(ctx, "invalid request", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	cmd, err := toUpdateMaintenanceCmd(ctx, maintID, req)
 	if err != nil {
 		xlog.Error(ctx, "to update maintenance command failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apierrors.ValidationErr(err))
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
 	if err := i.maintSrv.UpdateMaint(ctx, cmd); err != nil {
 		xlog.Error(ctx, "update maintenance failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	return c.NoContent(http.StatusNoContent)

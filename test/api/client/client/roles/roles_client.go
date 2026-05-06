@@ -56,13 +56,13 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetAPIV1Roles(params *GetAPIV1RolesParams, opts ...ClientOption) (*GetAPIV1RolesOK, error)
+	GetAPIV1Roles(params *GetAPIV1RolesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1RolesOK, error)
 
-	GetAPIV1UserIDRoles(params *GetAPIV1UserIDRolesParams, opts ...ClientOption) (*GetAPIV1UserIDRolesOK, error)
+	GetAPIV1UserIDRoles(params *GetAPIV1UserIDRolesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1UserIDRolesOK, error)
 
-	PostAPIV1RolesAssign(params *PostAPIV1RolesAssignParams, opts ...ClientOption) (*PostAPIV1RolesAssignNoContent, error)
+	PostAPIV1RolesAssign(params *PostAPIV1RolesAssignParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1RolesAssignNoContent, error)
 
-	PostAPIV1RolesRevoke(params *PostAPIV1RolesRevokeParams, opts ...ClientOption) (*PostAPIV1RolesRevokeNoContent, error)
+	PostAPIV1RolesRevoke(params *PostAPIV1RolesRevokeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1RolesRevokeNoContent, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -72,7 +72,7 @@ GetAPIV1Roles lists available roles
 
 Returns all roles available in the system.
 */
-func (a *Client) GetAPIV1Roles(params *GetAPIV1RolesParams, opts ...ClientOption) (*GetAPIV1RolesOK, error) {
+func (a *Client) GetAPIV1Roles(params *GetAPIV1RolesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1RolesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1RolesParams()
@@ -86,6 +86,7 @@ func (a *Client) GetAPIV1Roles(params *GetAPIV1RolesParams, opts ...ClientOption
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1RolesReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -117,7 +118,7 @@ GetAPIV1UserIDRoles lists user roles
 
 Returns all roles assigned to a user by their ID.
 */
-func (a *Client) GetAPIV1UserIDRoles(params *GetAPIV1UserIDRolesParams, opts ...ClientOption) (*GetAPIV1UserIDRolesOK, error) {
+func (a *Client) GetAPIV1UserIDRoles(params *GetAPIV1UserIDRolesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1UserIDRolesOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1UserIDRolesParams()
@@ -131,6 +132,7 @@ func (a *Client) GetAPIV1UserIDRoles(params *GetAPIV1UserIDRolesParams, opts ...
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1UserIDRolesReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -162,7 +164,7 @@ PostAPIV1RolesAssign assigns role to user
 
 Assigns a role to a user. Requires admin privileges.
 */
-func (a *Client) PostAPIV1RolesAssign(params *PostAPIV1RolesAssignParams, opts ...ClientOption) (*PostAPIV1RolesAssignNoContent, error) {
+func (a *Client) PostAPIV1RolesAssign(params *PostAPIV1RolesAssignParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1RolesAssignNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1RolesAssignParams()
@@ -176,6 +178,7 @@ func (a *Client) PostAPIV1RolesAssign(params *PostAPIV1RolesAssignParams, opts .
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1RolesAssignReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
@@ -207,7 +210,7 @@ PostAPIV1RolesRevoke revokes role from user
 
 Revokes a role from a user. Requires admin privileges.
 */
-func (a *Client) PostAPIV1RolesRevoke(params *PostAPIV1RolesRevokeParams, opts ...ClientOption) (*PostAPIV1RolesRevokeNoContent, error) {
+func (a *Client) PostAPIV1RolesRevoke(params *PostAPIV1RolesRevokeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1RolesRevokeNoContent, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPostAPIV1RolesRevokeParams()
@@ -221,6 +224,7 @@ func (a *Client) PostAPIV1RolesRevoke(params *PostAPIV1RolesRevokeParams, opts .
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &PostAPIV1RolesRevokeReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}

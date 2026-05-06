@@ -37,6 +37,18 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelReader) ReadResponse(response r
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1MaintenancesIDStepsStepIDCancelForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewPostAPIV1MaintenancesIDStepsStepIDCancelNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -51,6 +63,12 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelReader) ReadResponse(response r
 		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewPostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -127,7 +145,7 @@ PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest describes a response with sta
 Invalid UUID
 */
 type PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel bad request response has a 2xx status code
@@ -170,13 +188,153 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDStepsStepIDCancelBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized creates a PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized with default headers values
+func NewPostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized() *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized {
+	return &PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized{}
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel unauthorized response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id steps step Id cancel unauthorized response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id steps step Id cancel unauthorized response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id steps step Id cancel unauthorized response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id steps step Id cancel unauthorized response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 maintenances Id steps step Id cancel unauthorized response
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDStepsStepIDCancelForbidden creates a PostAPIV1MaintenancesIDStepsStepIDCancelForbidden with default headers values
+func NewPostAPIV1MaintenancesIDStepsStepIDCancelForbidden() *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden {
+	return &PostAPIV1MaintenancesIDStepsStepIDCancelForbidden{}
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDCancelForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1MaintenancesIDStepsStepIDCancelForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel forbidden response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id steps step Id cancel forbidden response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id steps step Id cancel forbidden response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id steps step Id cancel forbidden response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id steps step Id cancel forbidden response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 maintenances Id steps step Id cancel forbidden response
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -197,7 +355,7 @@ PostAPIV1MaintenancesIDStepsStepIDCancelNotFound describes a response with statu
 Maintenance or step not found
 */
 type PostAPIV1MaintenancesIDStepsStepIDCancelNotFound struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel not found response has a 2xx status code
@@ -240,13 +398,13 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelNotFound) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelNotFound %s", 404, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDStepsStepIDCancelNotFound) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelNotFound) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDStepsStepIDCancelNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -267,7 +425,7 @@ PostAPIV1MaintenancesIDStepsStepIDCancelConflict describes a response with statu
 Forbidden step status transition
 */
 type PostAPIV1MaintenancesIDStepsStepIDCancelConflict struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel conflict response has a 2xx status code
@@ -310,13 +468,13 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelConflict) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelConflict %s", 409, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDStepsStepIDCancelConflict) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelConflict) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDStepsStepIDCancelConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -337,7 +495,7 @@ PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError describes a response
 Internal error
 */
 type PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel internal server error response has a 2xx status code
@@ -380,13 +538,83 @@ func (o *PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError) String() s
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDStepsStepIDCancelInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable creates a PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable with default headers values
+func NewPostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable() *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable {
+	return &PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable{}
+}
+
+/*
+PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id steps step Id cancel service unavailable response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id steps step Id cancel service unavailable response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id steps step Id cancel service unavailable response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id steps step Id cancel service unavailable response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post Api v1 maintenances Id steps step Id cancel service unavailable response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the post Api v1 maintenances Id steps step Id cancel service unavailable response
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/steps/{step_id}/cancel][%d] postApiV1MaintenancesIdStepsStepIdCancelServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDStepsStepIDCancelServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

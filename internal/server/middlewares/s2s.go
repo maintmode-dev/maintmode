@@ -35,12 +35,12 @@ func RequireS2SToken(s2s config.S2SConfig) echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			reqHeader := c.Request().Header
 
-			headerS2SToken := reqHeader.Get(xS2STokenHeader)
+			headerS2SToken := reqHeader.Get(config.XS2STokenHeader)
 			if headerS2SToken == "" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "missing s2s token")
 			}
 
-			headerS2SAppName := reqHeader.Get(xS2STokenAppNameHeader)
+			headerS2SAppName := reqHeader.Get(config.XS2STokenAppNameHeader)
 			if headerS2SAppName == "" {
 				return echo.NewHTTPError(http.StatusUnauthorized, "missing s2s appName")
 			}

@@ -13,6 +13,8 @@ import (
 
 func FromAPIRole(r Role) (entity.Role, error) {
 	switch r {
+	case RoleGuest:
+		return entity.RoleGuest, nil
 	case RoleEditor:
 		return entity.RoleEditor, nil
 	case RoleReviewer:

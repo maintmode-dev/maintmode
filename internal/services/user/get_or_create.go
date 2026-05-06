@@ -47,5 +47,39 @@ func (s *Service) GetOrCreateByOAuthInfo(ctx context.Context, info *entity.OAuth
 		return nil, err
 	}
 
+	user, err = s.assignAdminRoleBySystem(ctx, user)
+	if err != nil {
+		xlog.Error(ctx, "assign admin role failed", xfield.Error(err))
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// fixme: move to assign roles from `X-Test-Roles` request header
+func (s *Service) assignAdminRoleBySystem(ctx context.Context, user *entity.User) (*entity.User, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.User.assignAdminRoleBySystem",
+		xfield.String("email", user.Email),
+	)
+	defer span.End()
+
+	if !s.env.IsDev() {
+		return user, nil
+	}
+
+	err := s.AssignRole(ctx, &entity.AssignRoleCmd{
+		Actor:  entity.SystemUser,
+		UserID: user.ID,
+		Role:   entity.RoleAdmin,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("assign admin role by system: %w", err)
+	}
+
+	user, err = s.GetByID(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get user after admin role assignment: %w", err)
+	}
+
 	return user, nil
 }

@@ -1,49 +1,62 @@
-package apierrors
+package httperrors
 
 import (
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/labstack/echo/v5"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
-// ToAPIErrResponse maps service-level errors to HTTP responses with operation context
-// Used when the error is related to a specific service operation
-func ToAPIErrResponse(operation string, err error) (int, *ErrorResponse) {
-	if err == nil {
-		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "unknown error")
-	}
+func ToAPIError(c *echo.Context, operation string, err error) error {
+	var (
+		statusCode int
+		errResp    *ErrorResponse
+	)
 
-	// Check for specific domain errors first
 	switch {
-	//maint errors
+	case err == nil:
+		statusCode = http.StatusInternalServerError
+		errResp = NewErrorResponse(ErrInternalError, "unknown error")
+	// maint domain errors
 	case errors.Is(err, apperr.ErrMaintNotFound),
+		errors.Is(err, apperr.ErrUserNotFound),
 		errors.Is(err, apperr.ErrResourceNotFound),
 		errors.Is(err, apperr.ErrForbiddenMaintStatusTransition),
 		errors.Is(err, apperr.ErrConflictsChangedSincePreview),
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
 		errors.Is(err, apperr.ErrStepNotFound),
+		errors.Is(err, apperr.ErrInvalidRole),
 		errors.Is(err, apperr.ErrValidation):
-		return mapError(err)
-	// auth errors
+		statusCode, errResp = mapError(err)
+	// auth domain errors
 	case errors.Is(err, apperr.ErrLockBusy),
 		errors.Is(err, apperr.ErrTokenReuse),
 		errors.Is(err, apperr.ErrRefreshTokenNotFound),
-		errors.Is(err, apperr.ErrInvalidAccessTokenToken),
-		errors.Is(err, apperr.ErrInvalidRefreshTokenToken),
+		errors.Is(err, apperr.ErrInvalidAccessToken),
+		errors.Is(err, apperr.ErrInvalidRefreshToken),
 		errors.Is(err, apperr.ErrSuspiciousActivity),
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
 		errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrInvalidOAuthState):
-		return mapAuthError(err)
-
+		statusCode, errResp = mapAuthError(err)
+	case errors.Is(err, apperr.ErrForbidden):
+		statusCode = http.StatusForbidden
+		errResp = NewErrorResponse(ErrForbidden, err.Error())
+	case errors.Is(err, apperr.ErrAuthUnavailable):
+		statusCode = http.StatusServiceUnavailable
+		errResp = NewErrorResponse(ErrServiceUnavailable, err.Error())
 	default:
 		// For any other error, return internal server error with operation context
-		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, fmt.Sprintf("%s failed", operation))
+		statusCode = http.StatusInternalServerError
+		errResp = NewErrorResponse(ErrInternalError, fmt.Sprintf("%s failed", operation))
 	}
+
+	return c.JSON(statusCode, errResp)
 }
 
 // mapError maps domain errors to HTTP responses
@@ -56,6 +69,7 @@ func mapError(err error) (int, *ErrorResponse) {
 	// Check for specific domain errors
 	switch {
 	case errors.Is(err, apperr.ErrMaintNotFound),
+		errors.Is(err, apperr.ErrUserNotFound),
 		errors.Is(err, apperr.ErrResourceNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
@@ -82,6 +96,9 @@ func mapError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrValidation):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
+	case errors.Is(err, apperr.ErrInvalidRole):
+		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
+
 	default:
 		// For any other error, return internal server error
 		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "internal server error")
@@ -98,8 +115,8 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	// Check for specific domain errors
 	switch {
 	case errors.Is(err, apperr.ErrTokenReuse),
-		errors.Is(err, apperr.ErrInvalidAccessTokenToken),
-		errors.Is(err, apperr.ErrInvalidRefreshTokenToken),
+		errors.Is(err, apperr.ErrInvalidAccessToken),
+		errors.Is(err, apperr.ErrInvalidRefreshToken),
 		errors.Is(err, apperr.ErrRefreshTokenNotFound),
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
@@ -107,6 +124,8 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		return http.StatusUnauthorized, NewErrorResponse(ErrUnauthorized, err.Error())
 	case errors.Is(err, apperr.ErrLockBusy):
 		return http.StatusTooManyRequests, NewErrorResponse(ErrLockBusy, err.Error())
+	case errors.Is(err, apperr.ErrAuthUnavailable):
+		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
 
 	case errors.Is(err, apperr.ErrValidation),
 		errors.Is(err, apperr.ErrUnsupportedProvider),

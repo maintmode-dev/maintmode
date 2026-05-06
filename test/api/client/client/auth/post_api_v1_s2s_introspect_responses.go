@@ -135,7 +135,7 @@ PostAPIV1S2sIntrospectBadRequest describes a response with status code 400, with
 Invalid request
 */
 type PostAPIV1S2sIntrospectBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 s2s introspect bad request response has a 2xx status code
@@ -178,13 +178,13 @@ func (o *PostAPIV1S2sIntrospectBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/s2s/introspect][%d] postApiV1S2sIntrospectBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1S2sIntrospectBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1S2sIntrospectBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1S2sIntrospectBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -205,7 +205,7 @@ PostAPIV1S2sIntrospectUnauthorized describes a response with status code 401, wi
 Invalid service token
 */
 type PostAPIV1S2sIntrospectUnauthorized struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 s2s introspect unauthorized response has a 2xx status code
@@ -248,13 +248,13 @@ func (o *PostAPIV1S2sIntrospectUnauthorized) String() string {
 	return fmt.Sprintf("[POST /api/v1/s2s/introspect][%d] postApiV1S2sIntrospectUnauthorized %s", 401, payload)
 }
 
-func (o *PostAPIV1S2sIntrospectUnauthorized) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1S2sIntrospectUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1S2sIntrospectUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -275,7 +275,7 @@ PostAPIV1S2sIntrospectInternalServerError describes a response with status code 
 Internal error
 */
 type PostAPIV1S2sIntrospectInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 s2s introspect internal server error response has a 2xx status code
@@ -318,13 +318,13 @@ func (o *PostAPIV1S2sIntrospectInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/s2s/introspect][%d] postApiV1S2sIntrospectInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1S2sIntrospectInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1S2sIntrospectInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1S2sIntrospectInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

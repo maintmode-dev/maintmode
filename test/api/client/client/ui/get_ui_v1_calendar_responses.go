@@ -37,8 +37,26 @@ func (o *GetUIV1CalendarReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewGetUIV1CalendarUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewGetUIV1CalendarForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewGetUIV1CalendarInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewGetUIV1CalendarServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -129,7 +147,7 @@ GetUIV1CalendarBadRequest describes a response with status code 400, with defaul
 Invalid request
 */
 type GetUIV1CalendarBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Ui v1 calendar bad request response has a 2xx status code
@@ -172,13 +190,153 @@ func (o *GetUIV1CalendarBadRequest) String() string {
 	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarBadRequest %s", 400, payload)
 }
 
-func (o *GetUIV1CalendarBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetUIV1CalendarBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetUIV1CalendarBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetUIV1CalendarUnauthorized creates a GetUIV1CalendarUnauthorized with default headers values
+func NewGetUIV1CalendarUnauthorized() *GetUIV1CalendarUnauthorized {
+	return &GetUIV1CalendarUnauthorized{}
+}
+
+/*
+GetUIV1CalendarUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type GetUIV1CalendarUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Ui v1 calendar unauthorized response has a 2xx status code
+func (o *GetUIV1CalendarUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Ui v1 calendar unauthorized response has a 3xx status code
+func (o *GetUIV1CalendarUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Ui v1 calendar unauthorized response has a 4xx status code
+func (o *GetUIV1CalendarUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Ui v1 calendar unauthorized response has a 5xx status code
+func (o *GetUIV1CalendarUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Ui v1 calendar unauthorized response a status code equal to that given
+func (o *GetUIV1CalendarUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the get Ui v1 calendar unauthorized response
+func (o *GetUIV1CalendarUnauthorized) Code() int {
+	return 401
+}
+
+func (o *GetUIV1CalendarUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarUnauthorized %s", 401, payload)
+}
+
+func (o *GetUIV1CalendarUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarUnauthorized %s", 401, payload)
+}
+
+func (o *GetUIV1CalendarUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetUIV1CalendarUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetUIV1CalendarForbidden creates a GetUIV1CalendarForbidden with default headers values
+func NewGetUIV1CalendarForbidden() *GetUIV1CalendarForbidden {
+	return &GetUIV1CalendarForbidden{}
+}
+
+/*
+GetUIV1CalendarForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type GetUIV1CalendarForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Ui v1 calendar forbidden response has a 2xx status code
+func (o *GetUIV1CalendarForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Ui v1 calendar forbidden response has a 3xx status code
+func (o *GetUIV1CalendarForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Ui v1 calendar forbidden response has a 4xx status code
+func (o *GetUIV1CalendarForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get Ui v1 calendar forbidden response has a 5xx status code
+func (o *GetUIV1CalendarForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get Ui v1 calendar forbidden response a status code equal to that given
+func (o *GetUIV1CalendarForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the get Ui v1 calendar forbidden response
+func (o *GetUIV1CalendarForbidden) Code() int {
+	return 403
+}
+
+func (o *GetUIV1CalendarForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarForbidden %s", 403, payload)
+}
+
+func (o *GetUIV1CalendarForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarForbidden %s", 403, payload)
+}
+
+func (o *GetUIV1CalendarForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetUIV1CalendarForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -199,7 +357,7 @@ GetUIV1CalendarInternalServerError describes a response with status code 500, wi
 Internal error
 */
 type GetUIV1CalendarInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Ui v1 calendar internal server error response has a 2xx status code
@@ -242,13 +400,83 @@ func (o *GetUIV1CalendarInternalServerError) String() string {
 	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarInternalServerError %s", 500, payload)
 }
 
-func (o *GetUIV1CalendarInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetUIV1CalendarInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetUIV1CalendarInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetUIV1CalendarServiceUnavailable creates a GetUIV1CalendarServiceUnavailable with default headers values
+func NewGetUIV1CalendarServiceUnavailable() *GetUIV1CalendarServiceUnavailable {
+	return &GetUIV1CalendarServiceUnavailable{}
+}
+
+/*
+GetUIV1CalendarServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type GetUIV1CalendarServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this get Ui v1 calendar service unavailable response has a 2xx status code
+func (o *GetUIV1CalendarServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get Ui v1 calendar service unavailable response has a 3xx status code
+func (o *GetUIV1CalendarServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get Ui v1 calendar service unavailable response has a 4xx status code
+func (o *GetUIV1CalendarServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get Ui v1 calendar service unavailable response has a 5xx status code
+func (o *GetUIV1CalendarServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get Ui v1 calendar service unavailable response a status code equal to that given
+func (o *GetUIV1CalendarServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the get Ui v1 calendar service unavailable response
+func (o *GetUIV1CalendarServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *GetUIV1CalendarServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarServiceUnavailable %s", 503, payload)
+}
+
+func (o *GetUIV1CalendarServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /ui/v1/calendar][%d] getUiV1CalendarServiceUnavailable %s", 503, payload)
+}
+
+func (o *GetUIV1CalendarServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *GetUIV1CalendarServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

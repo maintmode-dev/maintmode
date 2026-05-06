@@ -14,7 +14,7 @@ import (
 
 // ApierrorsErrorResponse apierrors error response
 //
-// swagger:model apierrors.ErrorResponse
+// swagger:model httperrors.ErrorResponse
 type ApierrorsErrorResponse struct {
 
 	// code

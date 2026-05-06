@@ -56,7 +56,7 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, opts ...ClientOption) (*GetAPIV1AuditLogOK, error)
+	GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1AuditLogOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -66,7 +66,7 @@ GetAPIV1AuditLog gets audit log
 
 Returns the last N audit log entries (default and max: 100).
 */
-func (a *Client) GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, opts ...ClientOption) (*GetAPIV1AuditLogOK, error) {
+func (a *Client) GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1AuditLogOK, error) {
 	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetAPIV1AuditLogParams()
@@ -80,6 +80,7 @@ func (a *Client) GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, opts ...Client
 		Schemes:            []string{"http"},
 		Params:             params,
 		Reader:             &GetAPIV1AuditLogReader{formats: a.formats},
+		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}

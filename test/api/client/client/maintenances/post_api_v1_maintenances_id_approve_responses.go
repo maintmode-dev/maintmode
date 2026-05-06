@@ -37,6 +37,18 @@ func (o *PostAPIV1MaintenancesIDApproveReader) ReadResponse(response runtime.Cli
 			return nil, err
 		}
 		return nil, result
+	case 401:
+		result := NewPostAPIV1MaintenancesIDApproveUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 403:
+		result := NewPostAPIV1MaintenancesIDApproveForbidden()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 404:
 		result := NewPostAPIV1MaintenancesIDApproveNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -51,6 +63,12 @@ func (o *PostAPIV1MaintenancesIDApproveReader) ReadResponse(response runtime.Cli
 		return nil, result
 	case 500:
 		result := NewPostAPIV1MaintenancesIDApproveInternalServerError()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 503:
+		result := NewPostAPIV1MaintenancesIDApproveServiceUnavailable()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -127,7 +145,7 @@ PostAPIV1MaintenancesIDApproveBadRequest describes a response with status code 4
 Invalid request
 */
 type PostAPIV1MaintenancesIDApproveBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id approve bad request response has a 2xx status code
@@ -170,13 +188,153 @@ func (o *PostAPIV1MaintenancesIDApproveBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDApproveBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDApproveBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDApproveBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDApproveUnauthorized creates a PostAPIV1MaintenancesIDApproveUnauthorized with default headers values
+func NewPostAPIV1MaintenancesIDApproveUnauthorized() *PostAPIV1MaintenancesIDApproveUnauthorized {
+	return &PostAPIV1MaintenancesIDApproveUnauthorized{}
+}
+
+/*
+PostAPIV1MaintenancesIDApproveUnauthorized describes a response with status code 401, with default header values.
+
+Unauthorized
+*/
+type PostAPIV1MaintenancesIDApproveUnauthorized struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id approve unauthorized response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id approve unauthorized response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id approve unauthorized response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id approve unauthorized response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id approve unauthorized response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) IsCode(code int) bool {
+	return code == 401
+}
+
+// Code gets the status code for the post Api v1 maintenances Id approve unauthorized response
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) Code() int {
+	return 401
+}
+
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveUnauthorized %s", 401, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDApproveUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDApproveForbidden creates a PostAPIV1MaintenancesIDApproveForbidden with default headers values
+func NewPostAPIV1MaintenancesIDApproveForbidden() *PostAPIV1MaintenancesIDApproveForbidden {
+	return &PostAPIV1MaintenancesIDApproveForbidden{}
+}
+
+/*
+PostAPIV1MaintenancesIDApproveForbidden describes a response with status code 403, with default header values.
+
+Forbidden
+*/
+type PostAPIV1MaintenancesIDApproveForbidden struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id approve forbidden response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDApproveForbidden) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id approve forbidden response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDApproveForbidden) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id approve forbidden response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDApproveForbidden) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id approve forbidden response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDApproveForbidden) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post Api v1 maintenances Id approve forbidden response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDApproveForbidden) IsCode(code int) bool {
+	return code == 403
+}
+
+// Code gets the status code for the post Api v1 maintenances Id approve forbidden response
+func (o *PostAPIV1MaintenancesIDApproveForbidden) Code() int {
+	return 403
+}
+
+func (o *PostAPIV1MaintenancesIDApproveForbidden) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveForbidden) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveForbidden %s", 403, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveForbidden) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDApproveForbidden) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -197,7 +355,7 @@ PostAPIV1MaintenancesIDApproveNotFound describes a response with status code 404
 Maintenance not found
 */
 type PostAPIV1MaintenancesIDApproveNotFound struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id approve not found response has a 2xx status code
@@ -240,13 +398,13 @@ func (o *PostAPIV1MaintenancesIDApproveNotFound) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveNotFound %s", 404, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDApproveNotFound) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDApproveNotFound) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDApproveNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -267,7 +425,7 @@ PostAPIV1MaintenancesIDApproveConflict describes a response with status code 409
 Forbidden status transition or conflicts changed since preview
 */
 type PostAPIV1MaintenancesIDApproveConflict struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id approve conflict response has a 2xx status code
@@ -310,13 +468,13 @@ func (o *PostAPIV1MaintenancesIDApproveConflict) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveConflict %s", 409, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDApproveConflict) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDApproveConflict) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDApproveConflict) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -337,7 +495,7 @@ PostAPIV1MaintenancesIDApproveInternalServerError describes a response with stat
 Internal error
 */
 type PostAPIV1MaintenancesIDApproveInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 maintenances Id approve internal server error response has a 2xx status code
@@ -380,13 +538,83 @@ func (o *PostAPIV1MaintenancesIDApproveInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1MaintenancesIDApproveInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1MaintenancesIDApproveInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1MaintenancesIDApproveInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+// NewPostAPIV1MaintenancesIDApproveServiceUnavailable creates a PostAPIV1MaintenancesIDApproveServiceUnavailable with default headers values
+func NewPostAPIV1MaintenancesIDApproveServiceUnavailable() *PostAPIV1MaintenancesIDApproveServiceUnavailable {
+	return &PostAPIV1MaintenancesIDApproveServiceUnavailable{}
+}
+
+/*
+PostAPIV1MaintenancesIDApproveServiceUnavailable describes a response with status code 503, with default header values.
+
+Auth service unavailable
+*/
+type PostAPIV1MaintenancesIDApproveServiceUnavailable struct {
+	Payload *models.HttperrorsErrorResponse
+}
+
+// IsSuccess returns true when this post Api v1 maintenances Id approve service unavailable response has a 2xx status code
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post Api v1 maintenances Id approve service unavailable response has a 3xx status code
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post Api v1 maintenances Id approve service unavailable response has a 4xx status code
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post Api v1 maintenances Id approve service unavailable response has a 5xx status code
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post Api v1 maintenances Id approve service unavailable response a status code equal to that given
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) IsCode(code int) bool {
+	return code == 503
+}
+
+// Code gets the status code for the post Api v1 maintenances Id approve service unavailable response
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) Code() int {
+	return 503
+}
+
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[POST /api/v1/maintenances/{id}/approve][%d] postApiV1MaintenancesIdApproveServiceUnavailable %s", 503, payload)
+}
+
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) GetPayload() *models.HttperrorsErrorResponse {
+	return o.Payload
+}
+
+func (o *PostAPIV1MaintenancesIDApproveServiceUnavailable) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

@@ -24,7 +24,7 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 
 		claims, err := srv2.VerifyAccessToken(ctx, tokenStr)
 		require.Nil(t, claims)
-		require.ErrorIs(t, err, apperr.ErrInvalidAccessTokenToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
 
 	t.Run("expired", func(t *testing.T) {
@@ -50,6 +50,6 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
 		require.Nil(t, claims)
-		require.ErrorIs(t, err, apperr.ErrInvalidAccessTokenToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
 }

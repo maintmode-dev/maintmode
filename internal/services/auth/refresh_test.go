@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
@@ -72,7 +73,7 @@ func TestRefresh(t *testing.T) {
 		srv, _ := initService(t)
 
 		newPair, err := srv.Refresh(ctx, "nonexistent", "10.0.0.1")
-		require.ErrorIs(t, err, apperr.ErrInvalidRefreshTokenToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidRefreshToken)
 		require.Nil(t, newPair)
 	})
 
@@ -118,6 +119,7 @@ func TestRefresh(t *testing.T) {
 			t.Parallel()
 
 			srv, mocks := initService(t)
+			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
 			handleCallbackMock(mocks, 1)
 
@@ -171,7 +173,7 @@ func TestRefresh(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, rt.Revoked)
 			// Wait past grace period simulation: manually expire the grace TTL
-			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-gracePeriod))
+			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-cfg.JWT.RefreshTokenGracePeriod))
 			err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
 			require.NoError(t, err)
 

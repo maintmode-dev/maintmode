@@ -45,12 +45,12 @@ func (s *Service) logout(
 	accessClaims, err := s.tokenSrv.VerifyAccessToken(ctx, accessTokenRaw)
 	if err != nil {
 		xlog.Error(ctx, "failed to verify access token", xfield.Error(err))
-		return apperr.ErrInvalidAccessTokenToken
+		return apperr.ErrInvalidAccessToken
 	}
 
 	if err := validateAccessClaims(ctx, accessClaims); err != nil {
 		xlog.Error(ctx, "access claims are required")
-		return apperr.ErrInvalidAccessTokenToken
+		return apperr.ErrInvalidAccessToken
 	}
 
 	if err := revokeFunc(ctx, accessClaims); err != nil {
@@ -60,7 +60,7 @@ func (s *Service) logout(
 
 	// Blacklist access token jti so introspection returns active=false immediately.
 	// If access token is expired/absent — skip (it's useless anyway).
-	err = s.blacklistStore.Add(ctx, accessClaims.ID, accessTokenTTL)
+	err = s.blacklistStore.Add(ctx, accessClaims.ID, s.cfg.AccessTokenTTL)
 	if err != nil {
 		xlog.Error(ctx, "failed to blacklist access token", xfield.Error(err))
 	}

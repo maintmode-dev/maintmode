@@ -22,7 +22,7 @@ func TestReroucesAPI_GetTypes(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(resource.ID))
 
-	resp, err := apiClient.Resources.GetAPIV1ResourceIDTypes(params)
+	resp, err := apiClient.Resources.GetAPIV1ResourceIDTypes(params, nil)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 

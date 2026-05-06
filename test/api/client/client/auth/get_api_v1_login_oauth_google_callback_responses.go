@@ -127,7 +127,7 @@ GetAPIV1LoginOauthGoogleCallbackBadRequest describes a response with status code
 Invalid state/code
 */
 type GetAPIV1LoginOauthGoogleCallbackBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 login oauth google callback bad request response has a 2xx status code
@@ -170,13 +170,13 @@ func (o *GetAPIV1LoginOauthGoogleCallbackBadRequest) String() string {
 	return fmt.Sprintf("[GET /api/v1/login/oauth/google/callback][%d] getApiV1LoginOauthGoogleCallbackBadRequest %s", 400, payload)
 }
 
-func (o *GetAPIV1LoginOauthGoogleCallbackBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1LoginOauthGoogleCallbackBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1LoginOauthGoogleCallbackBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -197,7 +197,7 @@ GetAPIV1LoginOauthGoogleCallbackInternalServerError describes a response with st
 Internal error
 */
 type GetAPIV1LoginOauthGoogleCallbackInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this get Api v1 login oauth google callback internal server error response has a 2xx status code
@@ -240,13 +240,13 @@ func (o *GetAPIV1LoginOauthGoogleCallbackInternalServerError) String() string {
 	return fmt.Sprintf("[GET /api/v1/login/oauth/google/callback][%d] getApiV1LoginOauthGoogleCallbackInternalServerError %s", 500, payload)
 }
 
-func (o *GetAPIV1LoginOauthGoogleCallbackInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *GetAPIV1LoginOauthGoogleCallbackInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1LoginOauthGoogleCallbackInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

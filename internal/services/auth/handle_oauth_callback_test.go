@@ -36,7 +36,7 @@ func TestHandleCallback(t *testing.T) {
 		require.NotNil(t, pair)
 		require.NotEmpty(t, pair.AccessToken)
 		require.NotEmpty(t, pair.RefreshToken)
-		require.Equal(t, int(accessTokenTTL.Seconds()), pair.ExpiresIn)
+		require.Equal(t, int(cfg.JWT.AccessTokenTTL.Seconds()), pair.ExpiresIn)
 
 		// Verify access token claims
 		claims, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
@@ -46,9 +46,9 @@ func TestHandleCallback(t *testing.T) {
 		require.NotEmpty(t, claims.Subject)
 		require.Equal(t, tokenIssuer, claims.Issuer)
 		require.True(t, claims.IssuedAt.After(xtime.UTCNow().Add(-time.Minute)))
-		require.True(t, claims.ExpiresAt.After(xtime.UTCNow().Add(accessTokenTTL-time.Minute)))
+		require.True(t, claims.ExpiresAt.After(xtime.UTCNow().Add(cfg.JWT.AccessTokenTTL-time.Minute)))
 		require.Equal(t, oauthUser.Email, claims.Email)
-		require.Equal(t, entity.DefaultRoles, claims.Roles)
+		require.Equal(t, append(entity.DefaultRoles, entity.RoleAdmin), claims.Roles)
 	})
 
 	t.Run("existingUser", func(t *testing.T) {

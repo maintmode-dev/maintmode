@@ -87,7 +87,7 @@ func TestLogout(t *testing.T) {
 				AccessToken:  "",
 				RefreshToken: pair.RefreshToken,
 			})
-			require.ErrorIs(t, err, apperr.ErrInvalidAccessTokenToken)
+			require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		})
 	})
 
@@ -118,7 +118,7 @@ func TestLogout(t *testing.T) {
 			AccessToken:  pair1.AccessToken,
 			RefreshToken: pair2.RefreshToken,
 		})
-		require.ErrorIs(t, err, apperr.ErrInvalidAccessTokenToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 
 		for _, pair := range []*entity.TokenPair{pair1, pair2} {
 			rt, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)

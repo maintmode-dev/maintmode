@@ -13,7 +13,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 
-	"github.com/ruko1202/maintmode/internal/app/api/apierrors"
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
 )
@@ -26,8 +26,8 @@ import (
 // @Param code query string true "Authorization code"
 // @Param state query string true "Opaque state with nonce"
 // @Success 200 {string} string "HTML page for frontend redirect"
-// @Failure 400 {object} apierrors.ErrorResponse "Invalid state/code"
-// @Failure 500 {object} apierrors.ErrorResponse "Internal error"
+// @Failure 400 {object} httperrors.ErrorResponse "Invalid state/code"
+// @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/login/oauth/google/callback [get]
 // GoogleOauthCallback handles the redirect from Google after consent.
 func (i *Implementation) GoogleOauthCallback(c *echo.Context) error {
@@ -41,15 +41,13 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 	nonceCookie, err := c.Cookie(cookieNonceName)
 	if err != nil {
 		xlog.Error(ctx, "failed to extract nonce", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidOAuthState)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidOAuthState))
 	}
 
 	state, err := i.parseState(c.QueryParam("state"), provider)
 	if err != nil {
 		xlog.Error(ctx, "failed to unmarshal state", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidOAuthState)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidOAuthState))
 	}
 
 	if nonceCookie.Value != state.Nonce {
@@ -57,8 +55,7 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 			xfield.String("query state nonce", state.Nonce),
 			xfield.String("cookie nonce", nonceCookie.Value),
 		)
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, apperr.ErrInvalidOAuthState)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidOAuthState))
 	}
 
 	clearCookieNonce(c)
@@ -70,8 +67,7 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 	})
 	if err != nil {
 		xlog.Error(ctx, "authentication failed", xfield.Error(err))
-		statusCode, errResp := apierrors.ToAPIErrResponse(op, err)
-		return c.JSON(statusCode, errResp)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	setRefreshCookie(c, pair.RefreshToken)

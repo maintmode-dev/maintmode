@@ -1,14 +1,12 @@
 package test
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/ruko1202/xlog"
-	"go.uber.org/zap"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
 	"github.com/ruko1202/maintmode/internal/services/maint"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
@@ -32,16 +30,11 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ctx := context.Background()
-	logger, _ := zap.NewDevelopment()
-	xlog.ReplaceGlobalLogger(xlog.NewZapAdapter(logger))
+	db = testdbconnutils.NewDB(config.LoadAppConfig())
+	closer.Add(db.Close)
 
-	conn := testdbconnutils.NewDB()
-	closer.Add(conn.Close)
-	db = conn
-
-	maintStore = maintenances.NewStore(conn)
-	resourcesStore = resources.NewStore(conn)
+	maintStore = maintenances.NewStore(db)
+	resourcesStore = resources.NewStore(db)
 	conflictsSrv = conflicts.NewService(
 		conflictsStore.NewStore(db),
 		conflictsnapshots.NewStore(db),
@@ -49,8 +42,6 @@ func TestMain(m *testing.M) {
 	snapshotsStore = conflictsnapshots.NewStore(db)
 
 	code := m.Run()
-
-	closer.CloseAll(ctx)
 
 	os.Exit(code)
 }

@@ -47,7 +47,7 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 		WithID(strfmt.UUID(maintenanceID)).
 		WithRequest(updateReq)
 
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDEdit(params)
+	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDEdit(params, nil)
 	require.NoError(t, err, "Failed to update maintenance draft")
 	require.NotNil(t, resp, "Response should not be nil")
 
@@ -55,7 +55,7 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 		WithContext(ctx).
 		WithID(strfmt.UUID(maintenanceID))
 
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams)
+	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
 	require.NoError(t, err, "Failed to get updated maintenance")
 	require.NotNil(t, getResp, "Get response should not be nil")
 

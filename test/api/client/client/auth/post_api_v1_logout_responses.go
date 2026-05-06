@@ -132,7 +132,7 @@ PostAPIV1LogoutBadRequest describes a response with status code 400, with defaul
 Invalid token
 */
 type PostAPIV1LogoutBadRequest struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 logout bad request response has a 2xx status code
@@ -175,13 +175,13 @@ func (o *PostAPIV1LogoutBadRequest) String() string {
 	return fmt.Sprintf("[POST /api/v1/logout][%d] postApiV1LogoutBadRequest %s", 400, payload)
 }
 
-func (o *PostAPIV1LogoutBadRequest) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1LogoutBadRequest) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1LogoutBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -202,7 +202,7 @@ PostAPIV1LogoutUnauthorized describes a response with status code 401, with defa
 Unauthorized
 */
 type PostAPIV1LogoutUnauthorized struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 logout unauthorized response has a 2xx status code
@@ -245,13 +245,13 @@ func (o *PostAPIV1LogoutUnauthorized) String() string {
 	return fmt.Sprintf("[POST /api/v1/logout][%d] postApiV1LogoutUnauthorized %s", 401, payload)
 }
 
-func (o *PostAPIV1LogoutUnauthorized) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1LogoutUnauthorized) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1LogoutUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
@@ -272,7 +272,7 @@ PostAPIV1LogoutInternalServerError describes a response with status code 500, wi
 Internal error
 */
 type PostAPIV1LogoutInternalServerError struct {
-	Payload *models.ApierrorsErrorResponse
+	Payload *models.HttperrorsErrorResponse
 }
 
 // IsSuccess returns true when this post Api v1 logout internal server error response has a 2xx status code
@@ -315,13 +315,13 @@ func (o *PostAPIV1LogoutInternalServerError) String() string {
 	return fmt.Sprintf("[POST /api/v1/logout][%d] postApiV1LogoutInternalServerError %s", 500, payload)
 }
 
-func (o *PostAPIV1LogoutInternalServerError) GetPayload() *models.ApierrorsErrorResponse {
+func (o *PostAPIV1LogoutInternalServerError) GetPayload() *models.HttperrorsErrorResponse {
 	return o.Payload
 }
 
 func (o *PostAPIV1LogoutInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApierrorsErrorResponse)
+	o.Payload = new(models.HttperrorsErrorResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

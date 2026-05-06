@@ -26,6 +26,7 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 COPY docs/ docs/
 COPY test/ test/
+COPY deployment/auth/authz/ deployment/auth/authz/
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -43,6 +44,7 @@ RUN apk --no-cache add ca-certificates tzdata \
     && adduser -D nonroot
 
 COPY --from=builder /app/bin/auth .
+COPY --from=builder /app/deployment/auth/authz/ deployment/auth/authz/
 RUN chown nonroot:nonroot auth
 
 USER nonroot

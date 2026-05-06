@@ -28,13 +28,13 @@ func (s *Service) VerifyAccessToken(ctx context.Context, tokenString string) (*e
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, fmt.Errorf("%w: %w", apperr.ErrTokenExpired, err)
 		}
-		return nil, fmt.Errorf("%w: %w", apperr.ErrInvalidAccessTokenToken, err)
+		return nil, fmt.Errorf("%w: %w", apperr.ErrInvalidAccessToken, err)
 	}
 
 	claims, ok := token.Claims.(*entity.AccessClaims)
 	if !ok || !token.Valid {
 		xlog.Error(ctx, "invalid access token claims")
-		return nil, apperr.ErrInvalidAccessTokenToken
+		return nil, apperr.ErrInvalidAccessToken
 	}
 	return claims, nil
 }
