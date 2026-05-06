@@ -32,7 +32,7 @@ import (
 // Logout revokes the current refresh token and blacklists the access token.
 //
 // If refresh token is absent (e.g. long-lived tab where cookie was already cleared),
-// we just clear the cookie and return success — nothing to revoke on the server.
+// Logout still blacklists the current access token and clears the cookie.
 func (i *Implementation) Logout(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Logout")
 	defer span.End()
@@ -42,12 +42,6 @@ func (i *Implementation) Logout(c *echo.Context) error {
 	if err != nil {
 		xlog.Error(ctx, "missing refresh token", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
-	}
-
-	// No refresh token — just clear the cookie.
-	if refreshToken == "" {
-		clearRefreshCookie(c)
-		return c.NoContent(http.StatusNoContent)
 	}
 
 	err = i.authSrv.Logout(ctx, &entity.TokenPair{

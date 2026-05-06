@@ -19,6 +19,9 @@ func (s *Service) Logout(ctx context.Context, tokenPair *entity.TokenPair) error
 	defer span.End()
 
 	return s.logout(ctx, tokenPair.AccessToken, func(ctx context.Context, claims *entity.AccessClaims) error {
+		if tokenPair.RefreshToken == "" {
+			return nil
+		}
 		return s.tokenSrv.RevokeRefreshToken(ctx, tokenPair.RefreshToken, claims)
 	})
 }

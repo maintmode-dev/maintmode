@@ -64,9 +64,6 @@ func TestLogout(t *testing.T) {
 
 		report, err := impl.authSrv.Introspect(ctx, tokenPair.AccessToken)
 		require.NoError(t, err)
-
-		_ = report
-		t.Skip("bug https://linear.app/ruko/issue/RUK-32")
 		require.False(t, report.Active)
 	})
 }

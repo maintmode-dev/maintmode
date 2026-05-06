@@ -66,7 +66,13 @@ func TestLogout(t *testing.T) {
 				AccessToken:  pair.AccessToken,
 				RefreshToken: "",
 			})
-			require.ErrorIs(t, err, apperr.ErrRefreshTokenNotFound)
+			require.NoError(t, err)
+
+			claims, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
+			require.NoError(t, err)
+			ok, err := srv.blacklistStore.Contains(ctx, claims.ID)
+			require.NoError(t, err)
+			require.True(t, ok)
 		})
 
 		t.Run("AccessToken", func(t *testing.T) {
