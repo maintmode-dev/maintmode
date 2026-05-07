@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
+
+	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 type introspectRequest struct {

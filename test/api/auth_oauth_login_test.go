@@ -18,16 +18,19 @@ func TestAuthAPI_OAuthLogin(t *testing.T) {
 	apiClient := setupAuthTestClient()
 
 	originalURI := "/"
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	params := auth.NewGetAPIV1LoginOauthGoogleParams().
 		WithContext(ctx).
+		WithHTTPClient(noRedirectClient).
 		WithOriginalURI(&originalURI)
 
 	err := apiClient.Auth.GetAPIV1LoginOauthGoogle(params)
 	require.Error(t, err)
 
 	code := extractErrorCode(t, err)
-	// In a configured environment handler redirects to OAuth provider (307).
-	// go-openapi follows the redirect so the final response may be 200 from the OAuth provider.
-	// If provider is not configured the handler may return internal error (500).
-	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, http.StatusTemporaryRedirect, code)
 }

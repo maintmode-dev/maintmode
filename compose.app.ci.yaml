@@ -1,0 +1,8 @@
+services:
+  maintmode:
+    image: maintmode-ci-maintmode:${MAINTMODE_IMAGE_TAG:-local}
+    build: null
+
+  auth:
+    image: maintmode-ci-auth:${AUTH_IMAGE_TAG:-local}
+    build: null

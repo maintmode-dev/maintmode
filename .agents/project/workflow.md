@@ -27,15 +27,35 @@ Useful commands:
 
 ```bash
 git status --short
+make docker-up
 make tloc
+make app-up args="--build"
 make tloc-api
 make tloc-all
 make lint
 make fmt
 ```
 
-`make tloc` is the default local validation target for internal Go packages.
-It sets the local MaintMode config and secrets paths from the Makefile.
+Backend tests are split into deterministic gates:
+
+- CI runs lint with `make bin-deps` and `make lint`.
+- CI builds both service binaries with GoReleaser through `make build` for
+  `maintmode` and `auth`.
+- CI backend tests run `make docker-up` first, then `make tloc`.
+- CI API e2e tests load the images built by the image stage, run `make app-up`,
+  then `make tloc-api`. The API test suite waits for
+  `http://localhost:9001/maintmode/readiness` before executing test cases.
+- CI builds Docker images for `maintmode` and `auth`. Pull requests only build
+  images; pushes to `main`, `master`, or `v*` tags publish to GHCR under
+  `ghcr.io/<owner>/<repo>/<service>`.
+- `make tloc` runs unit and DB-backed internal Go tests together with local
+  config/secrets paths and no extra build tags.
+- `make tloc-api` runs API e2e tests against an already available API with the
+  `api` build tag.
+- `make tloc-all` runs `make tloc` and `make tloc-api` in sequence.
+
+API e2e tests must use the `api` build tag. Internal backend tests must not use
+an additional build tag.
 
 ## Feature Work
 

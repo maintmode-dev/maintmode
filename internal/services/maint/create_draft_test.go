@@ -18,7 +18,7 @@ func TestCreate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow()
+	now := xtime.UTCNow().Round(time.Microsecond)
 	s := initService(db)
 
 	t.Run("ok", func(t *testing.T) {

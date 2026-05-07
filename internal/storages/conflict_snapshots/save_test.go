@@ -22,7 +22,7 @@ func TestSave(t *testing.T) {
 	t.Run("save single conflict snapshot", func(t *testing.T) {
 		t.Parallel()
 
-		now := xtime.UTCNow()
+		now := xtime.UTCNow().Round(time.Microsecond)
 		conflictPeriod := entity.Period{
 			Start: now.Add(time.Hour),
 			End:   lo.ToPtr(now.Add(2 * time.Hour)),
@@ -83,7 +83,7 @@ func TestSave(t *testing.T) {
 	t.Run("save multiple conflict snapshots", func(t *testing.T) {
 		t.Parallel()
 
-		now := xtime.UTCNow()
+		now := xtime.UTCNow().Round(time.Microsecond)
 
 		// Create resources
 		resource1 := makeResource(ctx, t)

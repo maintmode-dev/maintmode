@@ -30,7 +30,7 @@ func TestCreate(t *testing.T) {
 			Token:      uuid.NewString(),
 			UserID:     user.ID,
 			Family:     uuid.New(),
-			ExpiresAt:  xtime.UTCNow().Add(time.Hour),
+			ExpiresAt:  xtime.UTCNow().Add(time.Hour).Round(time.Microsecond),
 			GraceTTL:   nil,
 			Revoked:    false,
 			ReplacedBy: nil,

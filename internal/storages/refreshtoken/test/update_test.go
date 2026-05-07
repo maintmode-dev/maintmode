@@ -27,7 +27,7 @@ func TestUpdate(t *testing.T) {
 		token := makeRefreshToken(ctx, t, store)
 		token.Revoked = true
 		token.ReplacedBy = lo.ToPtr(uuid.NewString())
-		token.GraceTTL = lo.ToPtr(xtime.UTCNow().Add(entity.DefaultGraceTTL))
+		token.GraceTTL = lo.ToPtr(xtime.UTCNow().Add(entity.DefaultGraceTTL).Round(time.Microsecond))
 
 		err := store.Update(ctx, token)
 		require.NoError(t, err)

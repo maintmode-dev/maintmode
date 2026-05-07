@@ -21,7 +21,7 @@ func TestCreate_PlannedPeriod(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow()
+	now := xtime.UTCNow().Round(time.Microsecond)
 
 	store := NewStore(db)
 
@@ -98,7 +98,7 @@ func TestCreate_ActualPeriod(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow()
+	now := xtime.UTCNow().Round(time.Microsecond)
 
 	store := NewStore(db)
 

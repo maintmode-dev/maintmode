@@ -19,7 +19,7 @@ import (
 //nolint:thelper
 func TestUpdateDraft(t *testing.T) {
 	t.Parallel()
-	now := xtime.UTCNow()
+	now := xtime.UTCNow().Round(time.Microsecond)
 
 	ctx := context.Background()
 	s := initService(db)

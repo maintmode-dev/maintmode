@@ -41,7 +41,7 @@ const (
 
 	// Health check configuration
 	healthCheckURL      = "http://localhost:9001/maintmode/readiness"
-	healthCheckTimeout  = 10 * time.Second
+	healthCheckTimeout  = 3 * time.Minute
 	healthCheckInterval = 100 * time.Millisecond
 
 	// Test maintenance timing constants

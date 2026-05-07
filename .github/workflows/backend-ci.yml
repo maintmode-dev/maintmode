@@ -1,0 +1,271 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/backend-ci.yml"
+      - "cmd/**"
+      - "deployment/**"
+      - "docs/**"
+      - "internal/**"
+      - "migrations/**"
+      - "test/**"
+      - "compose*.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make bin-deps
+      - run: make lint
+
+  build-maintmode:
+    name: Build binary (maintmode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make bin-deps-build
+      - run: mkdir -p tmp/bin
+      - run: make build service=maintmode config=deployment/maintmode/.build/.goreleaser.yaml args="--id main --output=./tmp/bin/maintmode"
+
+  build-auth:
+    name: Build binary (auth)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make bin-deps-build
+      - run: mkdir -p tmp/bin
+      - run: make build service=auth config=deployment/auth/.build/.goreleaser.yaml args="--id main --output=./tmp/bin/auth"
+
+  test:
+    name: Backend tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install docker-compose shim
+        run: |
+          sudo tee /usr/local/bin/docker-compose >/dev/null <<'EOF'
+          #!/usr/bin/env bash
+          docker compose "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/docker-compose
+      - run: make docker-up
+      - run: make tloc
+      - name: Collect backend logs
+        if: failure()
+        run: |
+          mkdir -p tmp
+          docker-compose logs --no-color > tmp/backend-compose.log || true
+          docker-compose ps -a > tmp/backend-compose-ps.log || true
+      - run: make docker-down
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: backend-logs
+          path: |
+            tmp/backend-compose.log
+            tmp/backend-compose-ps.log
+          if-no-files-found: ignore
+
+  image-maintmode:
+    name: Build image (maintmode)
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test
+      - build-maintmode
+      - build-auth
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/maintmode
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/maintmode/.build/Dockerfile
+          load: true
+          push: false
+          tags: |
+            maintmode-ci-maintmode:${{ github.sha }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=maintmode
+          cache-to: type=gha,mode=max,scope=maintmode
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              docker push "$tag"
+            fi
+          done <<< "$TAGS"
+      - run: mkdir -p tmp/images
+      - run: docker save maintmode-ci-maintmode:${{ github.sha }} -o tmp/images/maintmode.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maintmode-image
+          path: tmp/images/maintmode.tar
+          if-no-files-found: error
+
+  image-auth:
+    name: Build image (auth)
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test
+      - build-maintmode
+      - build-auth
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/auth
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/auth/.build/Dockerfile
+          load: true
+          push: false
+          tags: |
+            maintmode-ci-auth:${{ github.sha }}
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=auth
+          cache-to: type=gha,mode=max,scope=auth
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              docker push "$tag"
+            fi
+          done <<< "$TAGS"
+      - run: mkdir -p tmp/images
+      - run: docker save maintmode-ci-auth:${{ github.sha }} -o tmp/images/auth.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-image
+          path: tmp/images/auth.tar
+          if-no-files-found: error
+
+  api-test:
+    name: API e2e tests
+    runs-on: ubuntu-22.04
+    needs:
+      - image-maintmode
+      - image-auth
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: maintmode-image
+          path: tmp/images
+      - uses: actions/download-artifact@v4
+        with:
+          name: auth-image
+          path: tmp/images
+      - run: docker load -i tmp/images/maintmode.tar
+      - run: docker load -i tmp/images/auth.tar
+      - name: Install docker-compose shim
+        run: |
+          sudo tee /usr/local/bin/docker-compose >/dev/null <<'EOF'
+          #!/usr/bin/env bash
+          docker compose "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/docker-compose
+      - run: make app-up
+        env:
+          DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
+          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
+          AUTH_IMAGE_TAG: ${{ github.sha }}
+      - run: make tloc-api
+      - name: Collect API logs
+        if: failure()
+        run: |
+          mkdir -p tmp
+          docker-compose -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml ps -a > tmp/api-compose-ps.log || true
+          docker-compose -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml logs --no-color > tmp/api-compose.log || true
+        env:
+          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
+          AUTH_IMAGE_TAG: ${{ github.sha }}
+      - run: make app-down
+        if: always()
+        env:
+          DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
+          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
+          AUTH_IMAGE_TAG: ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: backend-api-e2e-logs
+          path: |
+            tmp/api-compose.log
+            tmp/api-compose-ps.log
+          if-no-files-found: ignore
