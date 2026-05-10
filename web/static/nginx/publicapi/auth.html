@@ -380,8 +380,10 @@
         log('Redirecting to Google OAuth...');
         const originalUri = window.location.pathname + window.location.search + window.location.hash;
         let url = API + '/auth/api/v1/login/oauth/google';
+
+        url += '?oauth_callback_type=html';
         if (originalUri) {
-            url += '?original_uri=' + encodeURIComponent(originalUri);
+            url += '&original_uri=' + encodeURIComponent(originalUri);
             log('Will redirect to ' + originalUri + ' after login');
         }
         window.location.href = url;

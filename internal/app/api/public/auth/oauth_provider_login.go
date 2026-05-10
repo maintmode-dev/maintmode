@@ -20,15 +20,28 @@ import (
 
 // GoogleOAuthLogin godoc
 // @Summary Start OAuth login
-// @Description Redirects user to OAuth provider consent page. Optional original_uri preserves frontend path.
+// @Description Redirects the user to the OAuth provider consent page.
+// @Description
+// @Description The handler issues a short-lived nonce cookie and a signed state
+// @Description that carries `original_uri` and the desired callback response
+// @Description shape (`oauth_callback_type`). Both values are echoed back by
+// @Description the provider to `/login/oauth/google/callback`.
+// @Description
+// @Description Query parameters:
+// @Description - `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).
+// @Description - `oauth_callback_type` — selects the callback response shape:
+// @Description   - `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).
+// @Description   - `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.
 // @Tags Auth
 // @Produce plain
 // @Param original_uri query string false "Original frontend path to redirect after login"
+// @Param oauth_callback_type query string false "Callback response shape: `json` (default, server-side BFF) or `html` (legacy handoff for local testing)" Enums(json, html)
 // @Success 307 "Temporary redirect to OAuth provider"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/login/oauth/google [get]
 // GoogleOAuthLogin redirects the user to oauth-provider's OAuth consent screen.
-// Accepts optional ?original_uri=/path to preserve navigation intent through the OAuth flow.
+// Accepts optional ?original_uri=/path to preserve navigation intent through the OAuth flow,
+// and ?oauth_callback_type=json|html to select the callback response shape (json is default).
 func (i *Implementation) GoogleOAuthLogin(c *echo.Context) error {
 	return i.oauthLogin(c, entity.OAuthProviderGoogle)
 }
@@ -42,8 +55,9 @@ func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvid
 	setCookieNonce(c, nonce)
 
 	encodedState, err := i.stateCodec.Encode(ctx, &entity.OAuthState{
-		Nonce:       nonce,
-		OriginalURI: c.QueryParam("original_uri"),
+		Nonce:             nonce,
+		OriginalURI:       c.QueryParam("original_uri"),
+		OAuthCallbackType: entity.ToOAuthCallbackType(c.QueryParam("oauth_callback_type")),
 	})
 	if err != nil {
 		xlog.Error(ctx, "failed to encode oauth state", xfield.Error(err))

@@ -102,7 +102,7 @@ const docTemplate = `{
         },
         "/api/v1/login/oauth/google": {
             "get": {
-                "description": "Redirects user to OAuth provider consent page. Optional original_uri preserves frontend path.",
+                "description": "Redirects the user to the OAuth provider consent page.\n\nThe handler issues a short-lived nonce cookie and a signed state\nthat carries ` + "`" + `original_uri` + "`" + ` and the desired callback response\nshape (` + "`" + `oauth_callback_type` + "`" + `). Both values are echoed back by\nthe provider to ` + "`" + `/login/oauth/google/callback` + "`" + `.\n\nQuery parameters:\n- ` + "`" + `original_uri` + "`" + ` — frontend path to navigate to after login (preserved through the OAuth flow).\n- ` + "`" + `oauth_callback_type` + "`" + ` — selects the callback response shape:\n- ` + "`" + `json` + "`" + ` *(default)* — callback returns ` + "`" + `OAuthCallbackJSONResponse` + "`" + ` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).\n- ` + "`" + `html` + "`" + ` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.",
                 "produces": [
                     "text/plain"
                 ],
@@ -115,6 +115,16 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Original frontend path to redirect after login",
                         "name": "original_uri",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "json",
+                            "html"
+                        ],
+                        "type": "string",
+                        "description": "Callback response shape: ` + "`" + `json` + "`" + ` (default, server-side BFF) or ` + "`" + `html` + "`" + ` (legacy handoff for local testing)",
+                        "name": "oauth_callback_type",
                         "in": "query"
                     }
                 ],
@@ -133,7 +143,7 @@ const docTemplate = `{
         },
         "/api/v1/login/oauth/google/callback": {
             "get": {
-                "description": "Handles the redirect from Google after the user grants consent.\nValidates the signed ` + "`" + `state` + "`" + ` and the nonce cookie, exchanges the\nauthorization ` + "`" + `code` + "`" + ` for tokens, and returns the result in one of\ntwo response modes selected via the ` + "`" + `Accept` + "`" + ` request header:\n\n**JSON mode** — ` + "`" + `Accept: application/json` + "`" + `\nReturns ` + "`" + `OAuthCallbackJSONResponse` + "`" + ` with the access token, refresh\ntoken, and ` + "`" + `original_uri` + "`" + ` in the response body. No ` + "`" + `Set-Cookie` + "`" + ` for\nthe refresh token is issued — the caller (typically a server-side\nBFF) is expected to persist tokens in its own session storage.\nUse this mode for production server-side integrations (NextAuth,\nsession-backed BFFs) that must not expose tokens to the browser.\n\n**HTML mode** — any other ` + "`" + `Accept` + "`" + ` value (default)\nSets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on\nthe backend domain and returns an HTML handoff page that places\nthe access token into ` + "`" + `sessionStorage` + "`" + ` and redirects to\n` + "`" + `frontendURL + original_uri` + "`" + `. Kept for the legacy prototype frontend.\n\nBoth modes clear the nonce cookie on success.",
+                "description": "Handles the redirect from Google after the user grants consent.\nValidates the signed ` + "`" + `state` + "`" + ` and the nonce cookie, exchanges the\nauthorization ` + "`" + `code` + "`" + ` for tokens, and returns the result.\n\n**Default response — JSON**\nReturns ` + "`" + `OAuthCallbackJSONResponse` + "`" + ` with the access token, refresh\ntoken, and ` + "`" + `original_uri` + "`" + ` in the response body. The refresh token\nis **not** set as a cookie — the caller (typically a server-side\nBFF) persists it in its own session storage. This is the contract\nused by production server-side integrations (NextAuth, BFFs) that\nmust never expose tokens to the browser.\n\nJSON mode is selected when **any** of the following holds:\n- ` + "`" + `Accept: application/json` + "`" + ` request header\n- ` + "`" + `Content-Type: application/json` + "`" + ` request header\n- the signed state was issued with ` + "`" + `oauth_callback_type=json` + "`" + `\n(see ` + "`" + `/login/oauth/google?oauth_callback_type=json` + "`" + `, which is\nalso the default if the parameter is omitted)\n\n**HTML mode (legacy / local testing)** — opt-in via the login\nhandler with ` + "`" + `?oauth_callback_type=html` + "`" + `. In this mode the\nhandler sets an HttpOnly, Secure, SameSite=Strict refresh-token\ncookie on the backend domain and returns an HTML handoff page\nthat stashes the access token in ` + "`" + `sessionStorage` + "`" + ` and redirects\nto ` + "`" + `frontendURL + original_uri` + "`" + `. Kept for the prototype frontend\nand local debugging only — production clients should not use it.\n\nBoth modes clear the nonce cookie on success.",
                 "produces": [
                     "application/json",
                     "text/html"
@@ -141,11 +151,11 @@ const docTemplate = `{
                 "tags": [
                     "Auth"
                 ],
-                "summary": "OAuth callback (HTML or JSON via content negotiation)",
+                "summary": "OAuth callback (JSON by default, HTML opt-in)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Set to ` + "`" + `application/json` + "`" + ` to receive the JSON response; omit or use any other value for the HTML handoff.",
+                        "description": "Optional override: ` + "`" + `application/json` + "`" + ` forces JSON mode regardless of the state flag (JSON is already the default).",
                         "name": "Accept",
                         "in": "header"
                     },
@@ -158,7 +168,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Signed opaque state (HMAC + expiry) issued by /login/oauth/google",
+                        "description": "Signed opaque state (HMAC + expiry) issued by /login/oauth/google; carries the HTML/JSON mode flag set at login time",
                         "name": "state",
                         "in": "query",
                         "required": true
@@ -166,9 +176,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "JSON mode: token pair and original_uri in body, no refresh cookie set",
+                        "description": "Opt-in HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set",
                         "schema": {
-                            "$ref": "#/definitions/apiauthmodels.OAuthCallbackJSONResponse"
+                            "type": "string"
                         },
                         "headers": {
                             "Set-Cookie": {

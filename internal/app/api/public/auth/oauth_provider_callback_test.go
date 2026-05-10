@@ -28,7 +28,7 @@ func TestGoogleOauthCallback(t *testing.T) {
 	t.Run("ok full flow", func(t *testing.T) {
 		t.Parallel()
 
-		state, nonceCookie := makeGoogleOAuthLogin(t, impl)
+		state, nonceCookie := makeGoogleOAuthLogin(t, impl, entity.OAuthCallbackTypeHTML)
 
 		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback", http.NoBody)
 		req.AddCookie(nonceCookie)
@@ -124,10 +124,9 @@ func TestGoogleOauthCallback(t *testing.T) {
 	t.Run("ok JSON mode", func(t *testing.T) {
 		t.Parallel()
 
-		state, nonceCookie := makeGoogleOAuthLogin(t, impl)
+		state, nonceCookie := makeGoogleOAuthLogin(t, impl, entity.OAuthCallbackTypeJSON)
 
 		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback", http.NoBody)
-		req.Header.Set("Accept", "application/json")
 		req.AddCookie(nonceCookie)
 
 		c, rec := echotest.ContextConfig{
@@ -191,11 +190,15 @@ func TestGoogleOauthCallback(t *testing.T) {
 	})
 }
 
-func makeGoogleOAuthLogin(t *testing.T, impl *Implementation) (string, *http.Cookie) {
+func makeGoogleOAuthLogin(t *testing.T, impl *Implementation, oauthCallbackType string) (string, *http.Cookie) {
 	t.Helper()
 
 	c, rec := echotest.ContextConfig{
 		Request: httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google", http.NoBody),
+		QueryValues: url.Values{
+			"original_uri":        {"/calendar"},
+			"oauth_callback_type": {oauthCallbackType},
+		},
 	}.ToContextRecorder(t)
 
 	err := impl.GoogleOAuthLogin(c)

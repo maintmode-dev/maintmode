@@ -22,35 +22,43 @@ import (
 )
 
 // GoogleOauthCallback godoc
-// @Summary OAuth callback (HTML or JSON via content negotiation)
+// @Summary OAuth callback (JSON by default, HTML opt-in)
 // @Description Handles the redirect from Google after the user grants consent.
 // @Description Validates the signed `state` and the nonce cookie, exchanges the
-// @Description authorization `code` for tokens, and returns the result in one of
-// @Description two response modes selected via the `Accept` request header:
+// @Description authorization `code` for tokens, and returns the result.
 // @Description
-// @Description **JSON mode** — `Accept: application/json`
+// @Description **Default response — JSON**
 // @Description Returns `OAuthCallbackJSONResponse` with the access token, refresh
-// @Description token, and `original_uri` in the response body. No `Set-Cookie` for
-// @Description the refresh token is issued — the caller (typically a server-side
-// @Description BFF) is expected to persist tokens in its own session storage.
-// @Description Use this mode for production server-side integrations (NextAuth,
-// @Description session-backed BFFs) that must not expose tokens to the browser.
+// @Description token, and `original_uri` in the response body. The refresh token
+// @Description is **not** set as a cookie — the caller (typically a server-side
+// @Description BFF) persists it in its own session storage. This is the contract
+// @Description used by production server-side integrations (NextAuth, BFFs) that
+// @Description must never expose tokens to the browser.
 // @Description
-// @Description **HTML mode** — any other `Accept` value (default)
-// @Description Sets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on
-// @Description the backend domain and returns an HTML handoff page that places
-// @Description the access token into `sessionStorage` and redirects to
-// @Description `frontendURL + original_uri`. Kept for the legacy prototype frontend.
+// @Description JSON mode is selected when **any** of the following holds:
+// @Description - `Accept: application/json` request header
+// @Description - `Content-Type: application/json` request header
+// @Description - the signed state was issued with `oauth_callback_type=json`
+// @Description   (see `/login/oauth/google?oauth_callback_type=json`, which is
+// @Description   also the default if the parameter is omitted)
+// @Description
+// @Description **HTML mode (legacy / local testing)** — opt-in via the login
+// @Description handler with `?oauth_callback_type=html`. In this mode the
+// @Description handler sets an HttpOnly, Secure, SameSite=Strict refresh-token
+// @Description cookie on the backend domain and returns an HTML handoff page
+// @Description that stashes the access token in `sessionStorage` and redirects
+// @Description to `frontendURL + original_uri`. Kept for the prototype frontend
+// @Description and local debugging only — production clients should not use it.
 // @Description
 // @Description Both modes clear the nonce cookie on success.
 // @Tags Auth
 // @Produce json
 // @Produce html
-// @Param Accept header string false "Set to `application/json` to receive the JSON response; omit or use any other value for the HTML handoff."
+// @Param Accept header string false "Optional override: `application/json` forces JSON mode regardless of the state flag (JSON is already the default)."
 // @Param code query string true "OAuth authorization code returned by the provider"
-// @Param state query string true "Signed opaque state (HMAC + expiry) issued by /login/oauth/google"
-// @Success 200 {string} string "HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set"
-// @Success 200 {object} apiauthmodels.OAuthCallbackJSONResponse "JSON mode: token pair and original_uri in body, no refresh cookie set"
+// @Param state query string true "Signed opaque state (HMAC + expiry) issued by /login/oauth/google; carries the HTML/JSON mode flag set at login time"
+// @Success 200 {object} apiauthmodels.OAuthCallbackJSONResponse "Default JSON mode: token pair and original_uri in body, no refresh cookie set"
+// @Success 200 {string} string "Opt-in HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set"
 // @Failure 400 {object} httperrors.ErrorResponse "Missing/invalid/expired/tampered state or nonce mismatch"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Header 200 {string} Set-Cookie "Refresh token cookie (HTML mode only; not set in JSON mode)"
@@ -101,7 +109,7 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	if wantsJSON(c) {
+	if wantsJSON(c, state) {
 		// JSON mode: refresh token returned in body; no cookie set so the BFF
 		// owns its storage strategy.
 		c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
@@ -112,11 +120,12 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 	return i.callbackHTML(ctx, c, pair.AccessToken, state.OriginalURI)
 }
 
-func wantsJSON(c *echo.Context) bool {
+func wantsJSON(c *echo.Context, state *entity.OAuthState) bool {
 	header := c.Request().Header
 
 	return header.Get(echo.HeaderContentType) == echo.MIMEApplicationJSON ||
-		strings.Contains(header.Get(echo.HeaderAccept), echo.MIMEApplicationJSON)
+		strings.Contains(header.Get(echo.HeaderAccept), echo.MIMEApplicationJSON) ||
+		state.OAuthCallbackType == entity.OAuthCallbackTypeJSON
 }
 
 // callbackHTML returns a small HTML page that stores the access token

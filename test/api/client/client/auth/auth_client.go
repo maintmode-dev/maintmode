@@ -105,9 +105,20 @@ type ClientService interface {
 }
 
 /*
-GetAPIV1LoginOauthGoogle starts o auth login
+	GetAPIV1LoginOauthGoogle starts o auth login
 
-Redirects user to OAuth provider consent page. Optional original_uri preserves frontend path.
+	Redirects the user to the OAuth provider consent page.
+
+The handler issues a short-lived nonce cookie and a signed state
+that carries `original_uri` and the desired callback response
+shape (`oauth_callback_type`). Both values are echoed back by
+the provider to `/login/oauth/google/callback`.
+
+Query parameters:
+- `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).
+- `oauth_callback_type` — selects the callback response shape:
+- `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).
+- `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.
 */
 func (a *Client) GetAPIV1LoginOauthGoogle(params *GetAPIV1LoginOauthGoogleParams, opts ...ClientOption) error {
 	// NOTE: parameters are not validated before sending
@@ -139,27 +150,35 @@ func (a *Client) GetAPIV1LoginOauthGoogle(params *GetAPIV1LoginOauthGoogleParams
 }
 
 /*
-	GetAPIV1LoginOauthGoogleCallback os auth callback HTML or JSON via content negotiation
+	GetAPIV1LoginOauthGoogleCallback os auth callback JSON by default HTML opt in
 
 	Handles the redirect from Google after the user grants consent.
 
 Validates the signed `state` and the nonce cookie, exchanges the
-authorization `code` for tokens, and returns the result in one of
-two response modes selected via the `Accept` request header:
+authorization `code` for tokens, and returns the result.
 
-**JSON mode** — `Accept: application/json`
+**Default response — JSON**
 Returns `OAuthCallbackJSONResponse` with the access token, refresh
-token, and `original_uri` in the response body. No `Set-Cookie` for
-the refresh token is issued — the caller (typically a server-side
-BFF) is expected to persist tokens in its own session storage.
-Use this mode for production server-side integrations (NextAuth,
-session-backed BFFs) that must not expose tokens to the browser.
+token, and `original_uri` in the response body. The refresh token
+is **not** set as a cookie — the caller (typically a server-side
+BFF) persists it in its own session storage. This is the contract
+used by production server-side integrations (NextAuth, BFFs) that
+must never expose tokens to the browser.
 
-**HTML mode** — any other `Accept` value (default)
-Sets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on
-the backend domain and returns an HTML handoff page that places
-the access token into `sessionStorage` and redirects to
-`frontendURL + original_uri`. Kept for the legacy prototype frontend.
+JSON mode is selected when **any** of the following holds:
+- `Accept: application/json` request header
+- `Content-Type: application/json` request header
+- the signed state was issued with `oauth_callback_type=json`
+(see `/login/oauth/google?oauth_callback_type=json`, which is
+also the default if the parameter is omitted)
+
+**HTML mode (legacy / local testing)** — opt-in via the login
+handler with `?oauth_callback_type=html`. In this mode the
+handler sets an HttpOnly, Secure, SameSite=Strict refresh-token
+cookie on the backend domain and returns an HTML handoff page
+that stashes the access token in `sessionStorage` and redirects
+to `frontendURL + original_uri`. Kept for the prototype frontend
+and local debugging only — production clients should not use it.
 
 Both modes clear the nonce cookie on success.
 */

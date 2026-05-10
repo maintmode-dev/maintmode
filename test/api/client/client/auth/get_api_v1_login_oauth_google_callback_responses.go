@@ -56,7 +56,7 @@ func NewGetAPIV1LoginOauthGoogleCallbackOK() *GetAPIV1LoginOauthGoogleCallbackOK
 /*
 GetAPIV1LoginOauthGoogleCallbackOK describes a response with status code 200, with default header values.
 
-JSON mode: token pair and original_uri in body, no refresh cookie set
+Opt-in HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set
 */
 type GetAPIV1LoginOauthGoogleCallbackOK struct {
 
@@ -64,7 +64,7 @@ type GetAPIV1LoginOauthGoogleCallbackOK struct {
 	 */
 	SetCookie string
 
-	Payload *models.ApiauthmodelsOAuthCallbackJSONResponse
+	Payload string
 }
 
 // IsSuccess returns true when this get Api v1 login oauth google callback o k response has a 2xx status code
@@ -107,7 +107,7 @@ func (o *GetAPIV1LoginOauthGoogleCallbackOK) String() string {
 	return fmt.Sprintf("[GET /api/v1/login/oauth/google/callback][%d] getApiV1LoginOauthGoogleCallbackOK %s", 200, payload)
 }
 
-func (o *GetAPIV1LoginOauthGoogleCallbackOK) GetPayload() *models.ApiauthmodelsOAuthCallbackJSONResponse {
+func (o *GetAPIV1LoginOauthGoogleCallbackOK) GetPayload() string {
 	return o.Payload
 }
 
@@ -120,10 +120,8 @@ func (o *GetAPIV1LoginOauthGoogleCallbackOK) readResponse(response runtime.Clien
 		o.SetCookie = hdrSetCookie
 	}
 
-	o.Payload = new(models.ApiauthmodelsOAuthCallbackJSONResponse)
-
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

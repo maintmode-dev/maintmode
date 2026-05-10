@@ -61,6 +61,12 @@ GetAPIV1LoginOauthGoogleParams contains all the parameters to send to the API en
 */
 type GetAPIV1LoginOauthGoogleParams struct {
 
+	/* OauthCallbackType.
+
+	   Callback response shape: `json` (default, server-side BFF) or `html` (legacy handoff for local testing)
+	*/
+	OauthCallbackType *string
+
 	/* OriginalURI.
 
 	   Original frontend path to redirect after login
@@ -120,6 +126,17 @@ func (o *GetAPIV1LoginOauthGoogleParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithOauthCallbackType adds the oauthCallbackType to the get API v1 login oauth google params
+func (o *GetAPIV1LoginOauthGoogleParams) WithOauthCallbackType(oauthCallbackType *string) *GetAPIV1LoginOauthGoogleParams {
+	o.SetOauthCallbackType(oauthCallbackType)
+	return o
+}
+
+// SetOauthCallbackType adds the oauthCallbackType to the get API v1 login oauth google params
+func (o *GetAPIV1LoginOauthGoogleParams) SetOauthCallbackType(oauthCallbackType *string) {
+	o.OauthCallbackType = oauthCallbackType
+}
+
 // WithOriginalURI adds the originalURI to the get API v1 login oauth google params
 func (o *GetAPIV1LoginOauthGoogleParams) WithOriginalURI(originalURI *string) *GetAPIV1LoginOauthGoogleParams {
 	o.SetOriginalURI(originalURI)
@@ -138,6 +155,23 @@ func (o *GetAPIV1LoginOauthGoogleParams) WriteToRequest(r runtime.ClientRequest,
 		return err
 	}
 	var res []error
+
+	if o.OauthCallbackType != nil {
+
+		// query param oauth_callback_type
+		var qrOauthCallbackType string
+
+		if o.OauthCallbackType != nil {
+			qrOauthCallbackType = *o.OauthCallbackType
+		}
+		qOauthCallbackType := qrOauthCallbackType
+		if qOauthCallbackType != "" {
+
+			if err := r.SetQueryParam("oauth_callback_type", qOauthCallbackType); err != nil {
+				return err
+			}
+		}
+	}
 
 	if o.OriginalURI != nil {
 

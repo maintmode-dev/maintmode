@@ -63,7 +63,7 @@ type GetAPIV1LoginOauthGoogleCallbackParams struct {
 
 	/* Accept.
 
-	   Set to `application/json` to receive the JSON response; omit or use any other value for the HTML handoff.
+	   Optional override: `application/json` forces JSON mode regardless of the state flag (JSON is already the default).
 	*/
 	Accept *string
 
@@ -75,7 +75,7 @@ type GetAPIV1LoginOauthGoogleCallbackParams struct {
 
 	/* State.
 
-	   Signed opaque state (HMAC + expiry) issued by /login/oauth/google
+	   Signed opaque state (HMAC + expiry) issued by /login/oauth/google; carries the HTML/JSON mode flag set at login time
 	*/
 	State string
 
