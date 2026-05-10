@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -18,6 +19,7 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 
 	err := s.checkConflicts(ctx, cmd)
 	if err != nil {
+		xlog.Error(ctx, "failed to check conflicts", xfield.Error(err))
 		return fmt.Errorf("checkConflicts: %w", err)
 	}
 
@@ -38,6 +40,7 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 			MaintID:          cmd.MaintID,
 			ConflictSnapshot: cmd.ConflictSnapshot,
 		}); err != nil {
+			xlog.Error(ctx, "failed to bulk insert conflict snapshots", xfield.Error(err))
 			return fmt.Errorf("bulk insert conflict snapshots: %w", err)
 		}
 

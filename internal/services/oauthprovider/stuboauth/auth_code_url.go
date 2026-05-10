@@ -6,12 +6,10 @@ import (
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
-
-	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // AuthCodeURL returns the Google consent screen URL for the given state.
-func (g *Service) AuthCodeURL(ctx context.Context, state *entity.OAuthState) string {
+func (g *Service) AuthCodeURL(ctx context.Context, state string) string {
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.AuthCodeURL")
 	defer span.End() //nolint:gocritic
 
@@ -22,7 +20,7 @@ func (g *Service) AuthCodeURL(ctx context.Context, state *entity.OAuthState) str
 	}
 
 	query := u.Query()
-	query.Add("state", state.ToB64Json(ctx))
+	query.Add("state", state)
 	query.Add("code", "oauth-stub-code")
 
 	u.RawQuery = query.Encode()

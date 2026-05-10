@@ -89,6 +89,8 @@ type ClientService interface {
 
 	GetAPIV1LoginOauthGoogleCallback(params *GetAPIV1LoginOauthGoogleCallbackParams, opts ...ClientOption) (*GetAPIV1LoginOauthGoogleCallbackOK, error)
 
+	GetAPIV1Me(params *GetAPIV1MeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MeOK, error)
+
 	GetAPIV1WellKnownJwksJSON(params *GetAPIV1WellKnownJwksJSONParams, opts ...ClientOption) (*GetAPIV1WellKnownJwksJSONOK, error)
 
 	PostAPIV1Logout(params *PostAPIV1LogoutParams, opts ...ClientOption) (*PostAPIV1LogoutNoContent, error)
@@ -137,9 +139,29 @@ func (a *Client) GetAPIV1LoginOauthGoogle(params *GetAPIV1LoginOauthGoogleParams
 }
 
 /*
-GetAPIV1LoginOauthGoogleCallback os auth callback
+	GetAPIV1LoginOauthGoogleCallback os auth callback HTML or JSON via content negotiation
 
-Handles OAuth provider callback, sets refresh token cookie, and returns redirect HTML with access token handoff.
+	Handles the redirect from Google after the user grants consent.
+
+Validates the signed `state` and the nonce cookie, exchanges the
+authorization `code` for tokens, and returns the result in one of
+two response modes selected via the `Accept` request header:
+
+**JSON mode** — `Accept: application/json`
+Returns `OAuthCallbackJSONResponse` with the access token, refresh
+token, and `original_uri` in the response body. No `Set-Cookie` for
+the refresh token is issued — the caller (typically a server-side
+BFF) is expected to persist tokens in its own session storage.
+Use this mode for production server-side integrations (NextAuth,
+session-backed BFFs) that must not expose tokens to the browser.
+
+**HTML mode** — any other `Accept` value (default)
+Sets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on
+the backend domain and returns an HTML handoff page that places
+the access token into `sessionStorage` and redirects to
+`frontendURL + original_uri`. Kept for the legacy prototype frontend.
+
+Both modes clear the nonce cookie on success.
 */
 func (a *Client) GetAPIV1LoginOauthGoogleCallback(params *GetAPIV1LoginOauthGoogleCallbackParams, opts ...ClientOption) (*GetAPIV1LoginOauthGoogleCallbackOK, error) {
 	// NOTE: parameters are not validated before sending
@@ -150,7 +172,7 @@ func (a *Client) GetAPIV1LoginOauthGoogleCallback(params *GetAPIV1LoginOauthGoog
 		ID:                 "GetAPIV1LoginOauthGoogleCallback",
 		Method:             "GET",
 		PathPattern:        "/api/v1/login/oauth/google/callback",
-		ProducesMediaTypes: []string{"text/html"},
+		ProducesMediaTypes: []string{"application/json", "text/html"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
@@ -178,6 +200,52 @@ func (a *Client) GetAPIV1LoginOauthGoogleCallback(params *GetAPIV1LoginOauthGoog
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetAPIV1LoginOauthGoogleCallback: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+GetAPIV1Me gets current authenticated user
+
+Returns the profile of the user identified by the Bearer access token.
+*/
+func (a *Client) GetAPIV1Me(params *GetAPIV1MeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MeOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewGetAPIV1MeParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetAPIV1Me",
+		Method:             "GET",
+		PathPattern:        "/api/v1/me",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetAPIV1MeReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*GetAPIV1MeOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetAPIV1Me: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

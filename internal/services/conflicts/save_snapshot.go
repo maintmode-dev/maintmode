@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -14,6 +15,7 @@ func (s *Service) SaveSnapshot(ctx context.Context, cmd *entity.SaveConflictsSna
 	defer span.End()
 
 	if err := s.conflictSnapshotsStore.Save(ctx, cmd.MaintID, cmd.ConflictSnapshot.Conflicts); err != nil {
+		xlog.Error(ctx, "failed to bulk insert conflict snapshots", xfield.Error(err))
 		return fmt.Errorf("bulk insert conflict snapshots: %w", err)
 	}
 

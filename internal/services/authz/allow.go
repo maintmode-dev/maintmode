@@ -11,7 +11,7 @@ import (
 )
 
 func (a *CasbinAuthorizer) Allow(ctx context.Context, roles []entity.Role, scenario entity.AuthzScenario) (bool, error) {
-	_, span := xlog.WithOperationSpan(ctx, "service.Authz.Allow",
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Authz.Allow",
 		xfield.String("scenario", string(scenario)),
 	)
 	defer span.End()
@@ -23,6 +23,7 @@ func (a *CasbinAuthorizer) Allow(ctx context.Context, roles []entity.Role, scena
 
 		allowed, err := a.enforcer.Enforce(string(role), string(scenario), entity.AuthzActExecute)
 		if err != nil {
+			xlog.Error(ctx, "failed to enforce policy", xfield.Error(err))
 			return false, fmt.Errorf("enforce policy: %w", err)
 		}
 		if allowed {

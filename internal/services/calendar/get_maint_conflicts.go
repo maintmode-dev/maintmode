@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/calendardto"
@@ -22,6 +23,7 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQue
 		ResourceIDs:   cmd.ResourceIDs,
 	})
 	if err != nil {
+		xlog.Error(ctx, "failed to get conflicts", xfield.Error(err))
 		return nil, err
 	}
 
@@ -35,6 +37,7 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQue
 		}),
 	)
 	if err != nil {
+		xlog.Error(ctx, "failed to get resources details", xfield.Error(err))
 		return nil, err
 	}
 

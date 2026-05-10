@@ -65,6 +65,8 @@ func initImpl(t *testing.T) *Implementation {
 	return New(
 		services.Auth,
 		services.Token,
+		services.User,
+		services.StateCodec,
 		cfg.App.FrontendURL,
 	)
 }

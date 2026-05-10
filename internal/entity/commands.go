@@ -103,7 +103,7 @@ type CreateResourceCmd struct {
 
 type GetAuthCodeURLCmd struct {
 	Provider OAuthProvider
-	State    *OAuthState
+	State    string // State is an opaque, already-encoded value (typically signed via SignedStateCodec).
 }
 
 type HandleOAuthCallbackCmd struct {

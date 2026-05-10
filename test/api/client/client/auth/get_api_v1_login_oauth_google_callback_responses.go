@@ -56,10 +56,15 @@ func NewGetAPIV1LoginOauthGoogleCallbackOK() *GetAPIV1LoginOauthGoogleCallbackOK
 /*
 GetAPIV1LoginOauthGoogleCallbackOK describes a response with status code 200, with default header values.
 
-HTML page for frontend redirect
+JSON mode: token pair and original_uri in body, no refresh cookie set
 */
 type GetAPIV1LoginOauthGoogleCallbackOK struct {
-	Payload string
+
+	/* Refresh token cookie (HTML mode only; not set in JSON mode)
+	 */
+	SetCookie string
+
+	Payload *models.ApiauthmodelsOAuthCallbackJSONResponse
 }
 
 // IsSuccess returns true when this get Api v1 login oauth google callback o k response has a 2xx status code
@@ -102,14 +107,23 @@ func (o *GetAPIV1LoginOauthGoogleCallbackOK) String() string {
 	return fmt.Sprintf("[GET /api/v1/login/oauth/google/callback][%d] getApiV1LoginOauthGoogleCallbackOK %s", 200, payload)
 }
 
-func (o *GetAPIV1LoginOauthGoogleCallbackOK) GetPayload() string {
+func (o *GetAPIV1LoginOauthGoogleCallbackOK) GetPayload() *models.ApiauthmodelsOAuthCallbackJSONResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1LoginOauthGoogleCallbackOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
+	// hydrates response header Set-Cookie
+	hdrSetCookie := response.GetHeader("Set-Cookie")
+
+	if hdrSetCookie != "" {
+		o.SetCookie = hdrSetCookie
+	}
+
+	o.Payload = new(models.ApiauthmodelsOAuthCallbackJSONResponse)
+
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -124,7 +138,7 @@ func NewGetAPIV1LoginOauthGoogleCallbackBadRequest() *GetAPIV1LoginOauthGoogleCa
 /*
 GetAPIV1LoginOauthGoogleCallbackBadRequest describes a response with status code 400, with default header values.
 
-Invalid state/code
+Missing/invalid/expired/tampered state or nonce mismatch
 */
 type GetAPIV1LoginOauthGoogleCallbackBadRequest struct {
 	Payload *models.HttperrorsErrorResponse

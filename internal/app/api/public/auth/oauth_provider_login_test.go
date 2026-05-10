@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -49,7 +50,7 @@ func TestGoogleOAuthLogin(t *testing.T) {
 
 		query := u.Query()
 		b64State := query.Get("state")
-		assertState(t, &entity.OAuthState{
+		assertState(t, impl, &entity.OAuthState{
 			Nonce:       cookieNonce.Value,
 			OriginalURI: "",
 		}, b64State)
@@ -89,20 +90,22 @@ func TestGoogleOAuthLogin(t *testing.T) {
 
 		query := u.Query()
 		b64State := query.Get("state")
-		assertState(t, &entity.OAuthState{
+		assertState(t, impl, &entity.OAuthState{
 			Nonce:       cookieNonce.Value,
 			OriginalURI: "/calendar",
 		}, b64State)
 	})
 }
 
-func assertState(t *testing.T, expected *entity.OAuthState, b64ActualState string) {
+func assertState(t *testing.T, impl *Implementation, expected *entity.OAuthState, encodedState string) {
 	t.Helper()
 
-	require.NotEmpty(t, b64ActualState)
+	require.NotEmpty(t, encodedState)
 
-	state, err := entity.NewOAuthStateFromB64Json(b64ActualState)
+	state, err := impl.stateCodec.Decode(context.Background(), encodedState)
 	require.NoError(t, err)
 	require.NotNil(t, state)
-	require.Equal(t, expected, state)
+	require.Equal(t, expected.Nonce, state.Nonce)
+	require.Equal(t, expected.OriginalURI, state.OriginalURI)
+	require.Greater(t, state.ExpiresAt, int64(0))
 }

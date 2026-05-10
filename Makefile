@@ -146,26 +146,6 @@ test-cov:
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
 
 
-# test-api - Run API integration tests
-# Executes tests in test/api/ directory with api build tag
-# Tests use generated swagger client to test API endpoints
-# Environment variables:
-#   TEST_API_HOST: API host (default: localhost)
-#   TEST_API_PORT: API port (default: 8080)
-#   TEST_HEALTH_CHECK: Enable health check before tests (default: false)
-.PHONY: test-api
-test-api: ## Run API integration tests
-test-api: app-down
-	make app-up args="--build"
-	$(info $(M) running API integration tests...)
-	@set -e; \
-	docker-compose $(DOCKER_COMPOSE_APP_CONFIGS) -f compose.app.test.yaml logs -f maintmode > ./tmp/maintmode.log & \
-	LOG_PID=$$!; \
-	trap "kill $$LOG_PID" EXIT; \
-	go test -tags=api -v -p 2 -count=2 ./test/api/...; \
-	kill $$LOG_PID
-	make app-down
-
 .PHONY: tloc-api
 tloc-api: ## Run API integration tests
 	$(info $(M) running API integration tests...)

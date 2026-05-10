@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -16,6 +17,7 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *entity.ConflictQueryCmd
 
 	conflicts, err := s.conflictsStore.ConflictedMaints(ctx, cmd)
 	if err != nil {
+		xlog.Error(ctx, "failed to get conflicted maints", xfield.Error(err))
 		return nil, err
 	}
 
@@ -26,6 +28,7 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *entity.ConflictQueryCmd
 		}),
 	})
 	if err != nil {
+		xlog.Error(ctx, "failed to get conflicted resources", xfield.Error(err))
 		return nil, err
 	}
 

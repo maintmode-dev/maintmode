@@ -41,12 +41,18 @@ func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvid
 	nonce := generateNonce(ctx)
 	setCookieNonce(c, nonce)
 
+	encodedState, err := i.stateCodec.Encode(ctx, &entity.OAuthState{
+		Nonce:       nonce,
+		OriginalURI: c.QueryParam("original_uri"),
+	})
+	if err != nil {
+		xlog.Error(ctx, "failed to encode oauth state", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, err)
+	}
+
 	url, err := i.authSrv.GetAuthCodeURL(ctx, &entity.GetAuthCodeURLCmd{
 		Provider: provider,
-		State: &entity.OAuthState{
-			Nonce:       nonce,
-			OriginalURI: c.QueryParam("original_uri"),
-		},
+		State:    encodedState,
 	})
 	if err != nil || url == "" {
 		err := fmt.Errorf("%w: auth code url is empty", err)

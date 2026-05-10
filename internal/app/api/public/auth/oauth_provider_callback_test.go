@@ -2,15 +2,20 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	statecodec "github.com/ruko1202/maintmode/internal/services/state_codec"
+
+	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -94,14 +99,14 @@ func TestGoogleOauthCallback(t *testing.T) {
 	t.Run("nonce mismatch", func(t *testing.T) {
 		t.Parallel()
 
-		// Create a valid state with a different nonce than the cookie
-		state := &entity.OAuthState{
+		// Encode a valid state with a different nonce than the cookie.
+		encoded, err := impl.stateCodec.Encode(ctx, &entity.OAuthState{
 			Nonce:       "wrong-nonce",
 			OriginalURI: "/",
-		}
-		stateB64 := state.ToB64Json(ctx)
+		})
+		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback?state="+stateB64+"&code=string", http.NoBody)
+		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback?state="+encoded+"&code=string", http.NoBody)
 		req.AddCookie(&http.Cookie{
 			Name:  cookieNonceName,
 			Value: "correct-nonce",
@@ -111,7 +116,76 @@ func TestGoogleOauthCallback(t *testing.T) {
 			Request: req,
 		}.ToContextRecorder(t)
 
+		err = impl.GoogleOauthCallback(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("ok JSON mode", func(t *testing.T) {
+		t.Parallel()
+
+		state, nonceCookie := makeGoogleOAuthLogin(t, impl)
+
+		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback", http.NoBody)
+		req.Header.Set("Accept", "application/json")
+		req.AddCookie(nonceCookie)
+
+		c, rec := echotest.ContextConfig{
+			Request: req,
+			QueryValues: url.Values{
+				"state": []string{state},
+				"code":  []string{"string"},
+			},
+		}.ToContextRecorder(t)
+
 		err := impl.GoogleOauthCallback(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+
+		// In JSON mode the refresh token must NOT be set as a cookie.
+		_, hasRefresh := lo.Find(rec.Result().Cookies(), func(c *http.Cookie) bool {
+			return c.Name == cookieRefreshTokenName
+		})
+		require.False(t, hasRefresh, "refresh token cookie must not be set in JSON mode")
+
+		// Nonce cookie still cleared.
+		clearedNonce, ok := lo.Find(rec.Result().Cookies(), func(c *http.Cookie) bool {
+			return c.Name == cookieNonceName
+		})
+		require.True(t, ok)
+		require.Equal(t, "", clearedNonce.Value)
+		require.Equal(t, -1, clearedNonce.MaxAge)
+
+		var body apiauthmodels.OAuthCallbackJSONResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		require.NotEmpty(t, body.Token.AccessToken)
+		require.NotEmpty(t, body.Token.RefreshToken)
+		require.Greater(t, body.Token.ExpiresIn, 0)
+	})
+
+	t.Run("expired state", func(t *testing.T) {
+		t.Parallel()
+
+		// Build a codec that has already expired (ttl < 0) so any encode is dead on arrival.
+		expiredCodec := statecodec.NewService(
+			[]byte(cfg.JWT.OAuthStateSigningKey),
+			-time.Hour,
+		)
+		encoded, err := expiredCodec.Encode(ctx, &entity.OAuthState{Nonce: "n", OriginalURI: "/"})
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google/callback?state="+encoded+"&code=string", http.NoBody)
+		req.AddCookie(&http.Cookie{
+			Name:  cookieNonceName,
+			Value: "n",
+			Path:  cookieNoncePath,
+		})
+		c, rec := echotest.ContextConfig{
+			Request: req,
+		}.ToContextRecorder(t)
+
+		err = impl.GoogleOauthCallback(c)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})

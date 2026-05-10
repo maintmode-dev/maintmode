@@ -127,25 +127,32 @@
         },
         "/api/v1/login/oauth/google/callback": {
             "get": {
-                "description": "Handles OAuth provider callback, sets refresh token cookie, and returns redirect HTML with access token handoff.",
+                "description": "Handles the redirect from Google after the user grants consent.\nValidates the signed `state` and the nonce cookie, exchanges the\nauthorization `code` for tokens, and returns the result in one of\ntwo response modes selected via the `Accept` request header:\n\n**JSON mode** — `Accept: application/json`\nReturns `OAuthCallbackJSONResponse` with the access token, refresh\ntoken, and `original_uri` in the response body. No `Set-Cookie` for\nthe refresh token is issued — the caller (typically a server-side\nBFF) is expected to persist tokens in its own session storage.\nUse this mode for production server-side integrations (NextAuth,\nsession-backed BFFs) that must not expose tokens to the browser.\n\n**HTML mode** — any other `Accept` value (default)\nSets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on\nthe backend domain and returns an HTML handoff page that places\nthe access token into `sessionStorage` and redirects to\n`frontendURL + original_uri`. Kept for the legacy prototype frontend.\n\nBoth modes clear the nonce cookie on success.",
                 "produces": [
+                    "application/json",
                     "text/html"
                 ],
                 "tags": [
                     "Auth"
                 ],
-                "summary": "OAuth callback",
+                "summary": "OAuth callback (HTML or JSON via content negotiation)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Authorization code",
+                        "description": "Set to `application/json` to receive the JSON response; omit or use any other value for the HTML handoff.",
+                        "name": "Accept",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth authorization code returned by the provider",
                         "name": "code",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Opaque state with nonce",
+                        "description": "Signed opaque state (HMAC + expiry) issued by /login/oauth/google",
                         "name": "state",
                         "in": "query",
                         "required": true
@@ -153,13 +160,19 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "HTML page for frontend redirect",
+                        "description": "JSON mode: token pair and original_uri in body, no refresh cookie set",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/apiauthmodels.OAuthCallbackJSONResponse"
+                        },
+                        "headers": {
+                            "Set-Cookie": {
+                                "type": "string",
+                                "description": "Refresh token cookie (HTML mode only; not set in JSON mode)"
+                            }
                         }
                     },
                     "400": {
-                        "description": "Invalid state/code",
+                        "description": "Missing/invalid/expired/tampered state or nonce mismatch",
                         "schema": {
                             "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
@@ -1045,6 +1058,43 @@
                 }
             }
         },
+        "/api/v1/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the profile of the user identified by the Bearer access token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get current authenticated user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apiauthmodels.MeResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/refresh": {
             "post": {
                 "description": "Rotates refresh token and issues a new access token pair.",
@@ -1838,6 +1888,40 @@
                     "items": {
                         "$ref": "#/definitions/entity.JWK"
                     }
+                }
+            }
+        },
+        "apiauthmodels.MeResponse": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "oauth_provider": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "apiauthmodels.OAuthCallbackJSONResponse": {
+            "type": "object",
+            "properties": {
+                "original_uri": {
+                    "type": "string"
+                },
+                "token": {
+                    "$ref": "#/definitions/apiauthmodels.TokenPairResponse"
                 }
             }
         },

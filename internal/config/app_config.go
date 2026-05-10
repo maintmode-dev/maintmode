@@ -69,6 +69,8 @@ type JWT struct {
 	RefreshTokenTTL                 time.Duration `mapstructure:"refresh_token_ttl"`
 	RefreshTokenGracePeriod         time.Duration `mapstructure:"refresh_token_grace_period"`
 	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
+	OAuthStateSigningKey            string        `mapstructure:"oauth_state_signing_key"`
+	OAuthStateTTL                   time.Duration `mapstructure:"oauth_state_ttl"`
 }
 
 func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {

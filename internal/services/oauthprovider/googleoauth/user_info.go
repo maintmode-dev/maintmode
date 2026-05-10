@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 
@@ -26,22 +27,27 @@ func (g *Service) UserInfo(ctx context.Context, accessToken string) (*entity.OAu
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.googleUserInfoURL, http.NoBody)
 	if err != nil {
+		xlog.Error(ctx, "failed to create userinfo request", xfield.Error(err))
 		return nil, fmt.Errorf("create userinfo request: %w", err)
 	}
 	xhttp.SetBearerToken(req, accessToken)
 
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
+		xlog.Error(ctx, "failed to fetch userinfo", xfield.Error(err))
 		return nil, fmt.Errorf("fetch userinfo: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google userinfo returned status %d", resp.StatusCode)
+		err := fmt.Errorf("google userinfo returned status %d", resp.StatusCode)
+		xlog.Error(ctx, "failed to fetch userinfo", xfield.Error(err))
+		return nil, err
 	}
 
 	var payload googleUserInfoPayload
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		xlog.Error(ctx, "failed to decode userinfo", xfield.Error(err))
 		return nil, fmt.Errorf("decode userinfo: %w", err)
 	}
 

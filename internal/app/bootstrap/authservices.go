@@ -8,16 +8,18 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+	statecodec "github.com/ruko1202/maintmode/internal/services/state_codec"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
 )
 
 type AuthServices struct {
-	Auth  *auth.Service
-	Token *token.Service
-	User  *user.Service
-	Audit *auditor.Auditor
-	RBAC  *authz.CasbinAuthorizer
+	Auth       *auth.Service
+	Token      *token.Service
+	User       *user.Service
+	Audit      *auditor.Auditor
+	RBAC       *authz.CasbinAuthorizer
+	StateCodec *statecodec.Service
 }
 
 func NewAuthServices(
@@ -48,6 +50,11 @@ func NewAuthServices(
 		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
 	}
 
+	stateCodec := statecodec.NewService(
+		[]byte(cfg.JWT.OAuthStateSigningKey),
+		cfg.JWT.OAuthStateTTL,
+	)
+
 	return &AuthServices{
 		Token: tokenSrv,
 		User:  userSrv,
@@ -61,7 +68,8 @@ func NewAuthServices(
 			tokenSrv,
 			auditorSrv,
 		),
-		Audit: auditorSrv,
-		RBAC:  authorizer,
+		Audit:      auditorSrv,
+		RBAC:       authorizer,
+		StateCodec: stateCodec,
 	}, nil
 }

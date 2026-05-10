@@ -42,7 +42,9 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
 		errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrInvalidOAuthState):
+		errors.Is(err, apperr.ErrInvalidOAuthState),
+		errors.Is(err, apperr.ErrOAuthStateExpired),
+		errors.Is(err, apperr.ErrOAuthStateTampered):
 		statusCode, errResp = mapAuthError(err)
 	case errors.Is(err, apperr.ErrForbidden):
 		statusCode = http.StatusForbidden
@@ -129,7 +131,9 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 
 	case errors.Is(err, apperr.ErrValidation),
 		errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrInvalidOAuthState):
+		errors.Is(err, apperr.ErrInvalidOAuthState),
+		errors.Is(err, apperr.ErrOAuthStateExpired),
+		errors.Is(err, apperr.ErrOAuthStateTampered):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
 	default:

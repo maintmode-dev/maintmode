@@ -78,6 +78,8 @@ func main() {
 			auth.New(
 				services.Auth,
 				services.Token,
+				services.User,
+				services.StateCodec,
 				cfg.App.FrontendURL,
 			),
 			roles.New(

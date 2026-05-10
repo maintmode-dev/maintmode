@@ -19,6 +19,7 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 	defer span.End()
 
 	if err := validateUpdate(ctx, cmd); err != nil {
+		xlog.Error(ctx, "validation failed", xfield.Error(err))
 		return err
 	}
 
@@ -95,22 +96,32 @@ func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 
 func (s *Service) replaceResources(ctx context.Context, maint *entity.Maintenance) error {
 	if err := s.maintStore.DeleteResources(ctx, maint.ID); err != nil {
+		xlog.Error(ctx, "failed to delete resources", xfield.Error(err))
 		return err
 	}
 	if maint.Scope == entity.MaintenanceScopeGlobal {
 		return nil
 	}
 
-	return s.maintStore.AddResources(ctx, maint.ID, maint.Resources)
+	if err := s.maintStore.AddResources(ctx, maint.ID, maint.Resources); err != nil {
+		xlog.Error(ctx, "failed to add resources", xfield.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (s *Service) replaceSteps(ctx context.Context, maint *entity.Maintenance) error {
 	if err := s.maintStore.DeleteSteps(ctx, maint.ID); err != nil {
+		xlog.Error(ctx, "failed to delete steps", xfield.Error(err))
 		return err
 	}
 
 	_, err := s.maintStore.AddSteps(ctx, maint.ID, maint.Steps)
-	return err
+	if err != nil {
+		xlog.Error(ctx, "failed to add steps", xfield.Error(err))
+		return err
+	}
+	return nil
 }
 
 func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error {
@@ -134,16 +145,19 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 	return s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		maint, err := s.maintStore.GetMaintForUpdate(ctx, maintID)
 		if err != nil {
+			xlog.Error(ctx, "failed to get maint for update", xfield.Error(err))
 			return err
 		}
 
 		err = apply(ctx, maint)
 		if err != nil {
+			xlog.Error(ctx, "apply failed", xfield.Error(err))
 			return err
 		}
 
 		err = s.maintStore.UpdateMaint(ctx, maint)
 		if err != nil {
+			xlog.Error(ctx, "failed to update maint", xfield.Error(err))
 			return err
 		}
 

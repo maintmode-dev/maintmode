@@ -57,6 +57,28 @@ definitions:
           $ref: '#/definitions/entity.JWK'
         type: array
     type: object
+  apiauthmodels.MeResponse:
+    properties:
+      display_name:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      oauth_provider:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+    type: object
+  apiauthmodels.OAuthCallbackJSONResponse:
+    properties:
+      original_uri:
+        type: string
+      token:
+        $ref: '#/definitions/apiauthmodels.TokenPairResponse'
+    type: object
   apiauthmodels.TokenPairResponse:
     properties:
       access_token:
@@ -714,35 +736,65 @@ paths:
       - Auth
   /api/v1/login/oauth/google/callback:
     get:
-      description: Handles OAuth provider callback, sets refresh token cookie, and
-        returns redirect HTML with access token handoff.
+      description: |-
+        Handles the redirect from Google after the user grants consent.
+        Validates the signed `state` and the nonce cookie, exchanges the
+        authorization `code` for tokens, and returns the result in one of
+        two response modes selected via the `Accept` request header:
+
+        **JSON mode** — `Accept: application/json`
+        Returns `OAuthCallbackJSONResponse` with the access token, refresh
+        token, and `original_uri` in the response body. No `Set-Cookie` for
+        the refresh token is issued — the caller (typically a server-side
+        BFF) is expected to persist tokens in its own session storage.
+        Use this mode for production server-side integrations (NextAuth,
+        session-backed BFFs) that must not expose tokens to the browser.
+
+        **HTML mode** — any other `Accept` value (default)
+        Sets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on
+        the backend domain and returns an HTML handoff page that places
+        the access token into `sessionStorage` and redirects to
+        `frontendURL + original_uri`. Kept for the legacy prototype frontend.
+
+        Both modes clear the nonce cookie on success.
       parameters:
-      - description: Authorization code
+      - description: Set to `application/json` to receive the JSON response; omit
+          or use any other value for the HTML handoff.
+        in: header
+        name: Accept
+        type: string
+      - description: OAuth authorization code returned by the provider
         in: query
         name: code
         required: true
         type: string
-      - description: Opaque state with nonce
+      - description: Signed opaque state (HMAC + expiry) issued by /login/oauth/google
         in: query
         name: state
         required: true
         type: string
       produces:
+      - application/json
       - text/html
       responses:
         "200":
-          description: HTML page for frontend redirect
+          description: 'JSON mode: token pair and original_uri in body, no refresh
+            cookie set'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie (HTML mode only; not set in JSON mode)
+              type: string
           schema:
-            type: string
+            $ref: '#/definitions/apiauthmodels.OAuthCallbackJSONResponse'
         "400":
-          description: Invalid state/code
+          description: Missing/invalid/expired/tampered state or nonce mismatch
           schema:
             $ref: '#/definitions/httperrors.ErrorResponse'
         "500":
           description: Internal error
           schema:
             $ref: '#/definitions/httperrors.ErrorResponse'
-      summary: OAuth callback
+      summary: OAuth callback (HTML or JSON via content negotiation)
       tags:
       - Auth
   /api/v1/logout:
@@ -1319,6 +1371,30 @@ paths:
       summary: Create maintenance draft
       tags:
       - Maintenances
+  /api/v1/me:
+    get:
+      description: Returns the profile of the user identified by the Bearer access
+        token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiauthmodels.MeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current authenticated user
+      tags:
+      - Auth
   /api/v1/refresh:
     post:
       consumes:

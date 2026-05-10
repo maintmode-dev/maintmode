@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
@@ -14,25 +16,50 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
+	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
 )
 
 // GoogleOauthCallback godoc
-// @Summary OAuth callback
-// @Description Handles OAuth provider callback, sets refresh token cookie, and returns redirect HTML with access token handoff.
+// @Summary OAuth callback (HTML or JSON via content negotiation)
+// @Description Handles the redirect from Google after the user grants consent.
+// @Description Validates the signed `state` and the nonce cookie, exchanges the
+// @Description authorization `code` for tokens, and returns the result in one of
+// @Description two response modes selected via the `Accept` request header:
+// @Description
+// @Description **JSON mode** — `Accept: application/json`
+// @Description Returns `OAuthCallbackJSONResponse` with the access token, refresh
+// @Description token, and `original_uri` in the response body. No `Set-Cookie` for
+// @Description the refresh token is issued — the caller (typically a server-side
+// @Description BFF) is expected to persist tokens in its own session storage.
+// @Description Use this mode for production server-side integrations (NextAuth,
+// @Description session-backed BFFs) that must not expose tokens to the browser.
+// @Description
+// @Description **HTML mode** — any other `Accept` value (default)
+// @Description Sets an HttpOnly, Secure, SameSite=Strict refresh-token cookie on
+// @Description the backend domain and returns an HTML handoff page that places
+// @Description the access token into `sessionStorage` and redirects to
+// @Description `frontendURL + original_uri`. Kept for the legacy prototype frontend.
+// @Description
+// @Description Both modes clear the nonce cookie on success.
 // @Tags Auth
+// @Produce json
 // @Produce html
-// @Param code query string true "Authorization code"
-// @Param state query string true "Opaque state with nonce"
-// @Success 200 {string} string "HTML page for frontend redirect"
-// @Failure 400 {object} httperrors.ErrorResponse "Invalid state/code"
+// @Param Accept header string false "Set to `application/json` to receive the JSON response; omit or use any other value for the HTML handoff."
+// @Param code query string true "OAuth authorization code returned by the provider"
+// @Param state query string true "Signed opaque state (HMAC + expiry) issued by /login/oauth/google"
+// @Success 200 {string} string "HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set"
+// @Success 200 {object} apiauthmodels.OAuthCallbackJSONResponse "JSON mode: token pair and original_uri in body, no refresh cookie set"
+// @Failure 400 {object} httperrors.ErrorResponse "Missing/invalid/expired/tampered state or nonce mismatch"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Header 200 {string} Set-Cookie "Refresh token cookie (HTML mode only; not set in JSON mode)"
 // @Router /api/v1/login/oauth/google/callback [get]
 // GoogleOauthCallback handles the redirect from Google after consent.
 func (i *Implementation) GoogleOauthCallback(c *echo.Context) error {
 	return i.oauthCallback(c, entity.OAuthProviderGoogle)
 }
+
 func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthProvider) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), fmt.Sprintf("api.Auth.%s.OauthCallback", provider))
 	defer span.End()
@@ -44,9 +71,13 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidOAuthState))
 	}
 
-	state, err := i.parseState(c.QueryParam("state"), provider)
+	state, err := i.stateCodec.Decode(ctx, c.QueryParam("state"))
 	if err != nil {
-		xlog.Error(ctx, "failed to unmarshal state", xfield.Error(err))
+		xlog.Error(ctx, "failed to decode oauth state", xfield.Error(err))
+		// Decode returns ErrOAuthStateExpired / ErrOAuthStateTampered; both surface as 400 via httperrors.
+		if errors.Is(err, apperr.ErrOAuthStateExpired) || errors.Is(err, apperr.ErrOAuthStateTampered) {
+			return httperrors.ToAPIError(c, op, err)
+		}
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidOAuthState))
 	}
 
@@ -70,17 +101,22 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 		return httperrors.ToAPIError(c, op, err)
 	}
 
+	if wantsJSON(c) {
+		// JSON mode: refresh token returned in body; no cookie set so the BFF
+		// owns its storage strategy.
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
+		return c.JSON(http.StatusOK, apiauthmodels.ToOAuthCallbackJSONResponse(pair, state.OriginalURI))
+	}
+
 	setRefreshCookie(c, pair.RefreshToken)
 	return i.callbackHTML(ctx, c, pair.AccessToken, state.OriginalURI)
 }
 
-func (i *Implementation) parseState(stateData string, provider entity.OAuthProvider) (*entity.OAuthState, error) {
-	switch provider {
-	case entity.OAuthProviderGoogle:
-		return entity.NewOAuthStateFromB64Json(stateData)
-	default:
-		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, provider)
-	}
+func wantsJSON(c *echo.Context) bool {
+	header := c.Request().Header
+
+	return header.Get(echo.HeaderContentType) == echo.MIMEApplicationJSON ||
+		strings.Contains(header.Get(echo.HeaderAccept), echo.MIMEApplicationJSON)
 }
 
 // callbackHTML returns a small HTML page that stores the access token

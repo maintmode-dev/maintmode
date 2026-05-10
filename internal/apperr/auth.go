@@ -12,6 +12,8 @@ var (
 	ErrTokenReuse           = errors.New("token reuse detected")
 	ErrSuspiciousActivity   = errors.New("suspicious activity detected")
 	ErrInvalidOAuthState    = errors.New("invalid oauth state")
+	ErrOAuthStateTampered   = errors.New("oauth state tampered")
+	ErrOAuthStateExpired    = errors.New("oauth state expired")
 	ErrLogoutAlready        = errors.New("logout already")
 	ErrUnsupportedProvider  = errors.New("unsupported provider")
 	ErrAuthUnavailable      = errors.New("auth unavailable")

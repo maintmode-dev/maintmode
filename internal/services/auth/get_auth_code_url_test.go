@@ -28,7 +28,7 @@ func TestAuthCodeURL(t *testing.T) {
 
 		url, err := srv.GetAuthCodeURL(ctx, &entity.GetAuthCodeURLCmd{
 			Provider: entity.OAuthProviderGoogle,
-			State:    &entity.OAuthState{Nonce: "my-nonce"},
+			State:    "my-encoded-state",
 		})
 		require.NoError(t, err)
 		require.Equal(t, "my-url", url)
@@ -41,7 +41,7 @@ func TestAuthCodeURL(t *testing.T) {
 
 		url, err := srv.GetAuthCodeURL(ctx, &entity.GetAuthCodeURLCmd{
 			Provider: "unsupported",
-			State:    &entity.OAuthState{Nonce: "my-nonce"},
+			State:    "my-encoded-state",
 		})
 		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
 		require.Empty(t, url)

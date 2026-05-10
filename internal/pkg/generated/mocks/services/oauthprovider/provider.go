@@ -42,7 +42,7 @@ func (m *MockOAuthProvider) EXPECT() *MockOAuthProviderMockRecorder {
 }
 
 // AuthCodeURL mocks base method.
-func (m *MockOAuthProvider) AuthCodeURL(ctx context.Context, state *entity.OAuthState) string {
+func (m *MockOAuthProvider) AuthCodeURL(ctx context.Context, state string) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthCodeURL", ctx, state)
 	ret0, _ := ret[0].(string)
@@ -68,13 +68,13 @@ func (c *MockOAuthProviderAuthCodeURLCall) Return(arg0 string) *MockOAuthProvide
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderAuthCodeURLCall) Do(f func(context.Context, *entity.OAuthState) string) *MockOAuthProviderAuthCodeURLCall {
+func (c *MockOAuthProviderAuthCodeURLCall) Do(f func(context.Context, string) string) *MockOAuthProviderAuthCodeURLCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderAuthCodeURLCall) DoAndReturn(f func(context.Context, *entity.OAuthState) string) *MockOAuthProviderAuthCodeURLCall {
+func (c *MockOAuthProviderAuthCodeURLCall) DoAndReturn(f func(context.Context, string) string) *MockOAuthProviderAuthCodeURLCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

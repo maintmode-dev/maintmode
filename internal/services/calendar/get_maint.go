@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -18,16 +19,19 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 
 	maint, err := s.maintStore.GetMaint(ctx, maintID)
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint", xfield.Error(err))
 		return nil, err
 	}
 
 	maintResourcesM, err := s.getMaintResources(ctx, []uuid.UUID{maint.ID})
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint resources", xfield.Error(err))
 		return nil, err
 	}
 
 	steps, err := s.maintStore.GetMaintSteps(ctx, maint.ID)
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint steps", xfield.Error(err))
 		return nil, err
 	}
 

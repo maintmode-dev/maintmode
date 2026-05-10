@@ -7,6 +7,7 @@ import (
 	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -19,6 +20,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 
 	maint, err := s.maintStore.GetMaint(ctx, maintID)
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint", xfield.Error(err))
 		if errors.Is(err, qrm.ErrNoRows) {
 			return nil, apperr.ErrMaintNotFound
 		}
@@ -27,6 +29,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 
 	resources, err := s.maintStore.GetMaintResources(ctx, []uuid.UUID{maint.ID})
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint resources", xfield.Error(err))
 		return nil, err
 	}
 
@@ -34,6 +37,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 
 	steps, err := s.maintStore.GetMaintSteps(ctx, maintID)
 	if err != nil {
+		xlog.Error(ctx, "failed to get maint steps", xfield.Error(err))
 		return nil, err
 	}
 	maint.Steps = steps

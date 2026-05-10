@@ -91,7 +91,7 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 			return nil, apperr.ErrRefreshTokenNotFound
 		}
 
-		accessToken, err := s.issueAccessByUserID(ctx, rt.UserID)
+		accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	}
 
 	// Issue access token before DB writes — if signing fails, no state is mutated.
-	accessToken, err := s.issueAccessByUserID(ctx, oldRefreshToken.UserID)
+	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, err
@@ -168,7 +168,7 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	}, nil
 }
 
-func (s *Service) issueAccessByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
+func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueAccessByUserID")
 	defer span.End()
 

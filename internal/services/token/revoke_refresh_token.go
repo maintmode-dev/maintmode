@@ -48,7 +48,9 @@ func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		rt, err := s.tokensStore.GetByTokenHashForUpdate(ctx, xhash.HashSha256([]byte(refreshTokenRaw)))
 		if err != nil {
-			return fmt.Errorf("%w: get refresh token: %w", apperr.ErrRefreshTokenNotFound, err)
+			err := fmt.Errorf("%w: get refresh token: %w", apperr.ErrRefreshTokenNotFound, err)
+			xlog.Error(ctx, "failed to get refresh token", xfield.Error(err))
+			return err
 		}
 
 		// Verify ownership

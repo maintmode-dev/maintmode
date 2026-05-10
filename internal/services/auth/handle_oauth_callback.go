@@ -10,7 +10,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 // HandleOAuthCallback exchanges the authorization code, creates or finds the user,
@@ -81,36 +80,4 @@ func (s *Service) getOAuthProviderUser(ctx context.Context, code string, provide
 	}
 
 	return userInfo, nil
-}
-
-func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.IssueTokenPair")
-	defer span.End()
-
-	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, s.cfg.AccessTokenTTL, user)
-	if err != nil {
-		return nil, fmt.Errorf("issue access token: %w", err)
-	}
-
-	raw, hashed, err := s.tokenSrv.GenerateRefreshToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("generate refresh token: %w", err)
-	}
-
-	err = s.tokenSrv.SaveRefreshToken(ctx, &entity.RefreshToken{
-		Token:     hashed,
-		UserID:    user.ID,
-		Family:    xuuid.New(),
-		ExpiresAt: s.getNowF().Add(s.cfg.RefreshTokenTTL),
-		BoundIP:   clientIP,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("save refresh token: %w", err)
-	}
-
-	return &entity.TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: raw,
-		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
-	}, nil
 }

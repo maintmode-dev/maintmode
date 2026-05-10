@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"golang.org/x/oauth2"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -19,6 +20,7 @@ func (g *Service) Exchange(ctx context.Context, code string) (*entity.OAuthProvi
 
 	token, err := g.config.Exchange(ctx, code)
 	if err != nil {
+		xlog.Error(ctx, "failed to exchange google token", xfield.Error(err))
 		return nil, fmt.Errorf("google token exchange: %w", err)
 	}
 

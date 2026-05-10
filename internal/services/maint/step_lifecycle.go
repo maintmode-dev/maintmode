@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -75,21 +76,29 @@ func (s *Service) updateStepWithApply(
 
 	return s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if maint.Status != entity.MaintenanceStatusInProgress {
-			return fmt.Errorf("%w: maint is not in %s status", apperr.ErrForbiddenStepStatusTransition, entity.MaintenanceStatusInProgress)
+			err := fmt.Errorf("%w: maint is not in %s status",
+				apperr.ErrForbiddenStepStatusTransition,
+				entity.MaintenanceStatusInProgress,
+			)
+			xlog.Error(ctx, "maint is not in progress", xfield.Error(err))
+			return err
 		}
 
 		steps, err := s.maintStore.GetMaintStepsForUpdate(ctx, maintID)
 		if err != nil {
+			xlog.Error(ctx, "failed to get maint steps for update", xfield.Error(err))
 			return err
 		}
 
 		stepsForUpdate, err := applyF(ctx, steps)
 		if err != nil {
+			xlog.Error(ctx, "failed to apply step transition", xfield.Error(err))
 			return err
 		}
 
 		for _, step := range stepsForUpdate {
 			if err := s.maintStore.UpdateStep(ctx, maintID, step); err != nil {
+				xlog.Error(ctx, "failed to update step", xfield.Error(err))
 				return err
 			}
 		}

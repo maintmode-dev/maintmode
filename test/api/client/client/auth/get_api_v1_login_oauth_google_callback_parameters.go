@@ -61,15 +61,21 @@ GetAPIV1LoginOauthGoogleCallbackParams contains all the parameters to send to th
 */
 type GetAPIV1LoginOauthGoogleCallbackParams struct {
 
+	/* Accept.
+
+	   Set to `application/json` to receive the JSON response; omit or use any other value for the HTML handoff.
+	*/
+	Accept *string
+
 	/* Code.
 
-	   Authorization code
+	   OAuth authorization code returned by the provider
 	*/
 	Code string
 
 	/* State.
 
-	   Opaque state with nonce
+	   Signed opaque state (HMAC + expiry) issued by /login/oauth/google
 	*/
 	State string
 
@@ -126,6 +132,17 @@ func (o *GetAPIV1LoginOauthGoogleCallbackParams) SetHTTPClient(client *http.Clie
 	o.HTTPClient = client
 }
 
+// WithAccept adds the accept to the get API v1 login oauth google callback params
+func (o *GetAPIV1LoginOauthGoogleCallbackParams) WithAccept(accept *string) *GetAPIV1LoginOauthGoogleCallbackParams {
+	o.SetAccept(accept)
+	return o
+}
+
+// SetAccept adds the accept to the get API v1 login oauth google callback params
+func (o *GetAPIV1LoginOauthGoogleCallbackParams) SetAccept(accept *string) {
+	o.Accept = accept
+}
+
 // WithCode adds the code to the get API v1 login oauth google callback params
 func (o *GetAPIV1LoginOauthGoogleCallbackParams) WithCode(code string) *GetAPIV1LoginOauthGoogleCallbackParams {
 	o.SetCode(code)
@@ -155,6 +172,14 @@ func (o *GetAPIV1LoginOauthGoogleCallbackParams) WriteToRequest(r runtime.Client
 		return err
 	}
 	var res []error
+
+	if o.Accept != nil {
+
+		// header param Accept
+		if err := r.SetHeaderParam("Accept", *o.Accept); err != nil {
+			return err
+		}
+	}
 
 	// query param code
 	qrCode := o.Code

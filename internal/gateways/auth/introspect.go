@@ -37,9 +37,11 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.A
 
 	resp, err := s.callIntrospect(ctx, tokenString)
 	if err != nil {
+		xlog.Error(ctx, "introspect call failed", xfield.Error(err))
 		return nil, err
 	}
 	if !resp.Active {
+		xlog.Error(ctx, "access token inactive")
 		return nil, apperr.ErrInvalidAccessToken
 	}
 
