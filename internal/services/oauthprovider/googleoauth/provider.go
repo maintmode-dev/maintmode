@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/MicahParks/keyfunc/v3"
+	"github.com/ruko1202/xlog"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -59,7 +60,9 @@ type googleVerifier struct {
 }
 
 func newGoogleVerifier(ctx context.Context, cfg config.JWTVerifierConfig) (*googleVerifier, error) {
-	v := &googleVerifier{}
+	v := &googleVerifier{
+		cfg: cfg,
+	}
 
 	kf, err := xjwt.NewKeyFunc(ctx, cfg, v.updateLastRefreshFailedAt)
 	if err != nil {
@@ -70,7 +73,8 @@ func newGoogleVerifier(ctx context.Context, cfg config.JWTVerifierConfig) (*goog
 	return v, nil
 }
 
-func (s *googleVerifier) updateLastRefreshFailedAt(_ context.Context) {
+func (s *googleVerifier) updateLastRefreshFailedAt(ctx context.Context) {
+	xlog.Info(ctx, "update last refresh failed at")
 	s.lastRefreshFailedAt.Store(xtime.UTCNow().UnixNano())
 }
 

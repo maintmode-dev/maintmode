@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/MicahParks/keyfunc/v3"
+	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/utils/xjwt"
@@ -35,6 +36,7 @@ func (s *Service) LastRefreshFailedAt(_ context.Context) int64 {
 	return s.lastRefreshFailedAt.Load()
 }
 
-func (s *Service) updateLastRefreshFailedAt(_ context.Context) {
+func (s *Service) updateLastRefreshFailedAt(ctx context.Context) {
+	xlog.Info(ctx, "update last refresh failed at")
 	s.lastRefreshFailedAt.Store(xtime.UTCNow().UnixNano())
 }

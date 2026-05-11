@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
@@ -60,10 +61,12 @@ func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAut
 		return nil, fmt.Errorf("%w: %w", apperr.ErrInvalidAccessToken, err)
 	}
 	if !tok.Valid {
+		xlog.Error(ctx, "google id token is invalid")
 		return nil, fmt.Errorf("%w: token invalid", apperr.ErrInvalidAccessToken)
 	}
 
 	if err := validateClaims(ctx, claims, &p.jwtVerifier.cfg); err != nil {
+		xlog.Error(ctx, "invalid google id token claims", xfield.Error(err))
 		return nil, fmt.Errorf("%w: %w", apperr.ErrInvalidAccessToken, err)
 	}
 
@@ -94,11 +97,13 @@ func validateClaims(ctx context.Context, claims *googleIDTokenClaims, cfg *confi
 		validation.Field(&claims.EmailVerified, validation.Required),
 		validation.Field(&claims.Subject, validation.Required),
 		validation.Field(&claims.Issuer, validation.Required,
-			validation.In(cfg.JWTIssuers).Error(fmt.Sprintf("unexpected issuer %s", claims.Issuer)),
+			validation.In(lo.ToAnySlice(cfg.JWTIssuers)...).
+				Error(fmt.Sprintf("unexpected issuer %s. expected one of: %v", claims.Issuer, cfg.JWTIssuers)),
 		),
-		validation.Field(claims.HostedDomain,
+		validation.Field(&claims.HostedDomain,
 			validation.Required.When(len(cfg.AllowedHostedDomains) > 0),
-			validation.In(cfg.AllowedHostedDomains).Error(fmt.Sprintf("unexpected hd=%s", claims.HostedDomain)),
+			validation.In(lo.ToAnySlice(cfg.AllowedHostedDomains)...).
+				Error(fmt.Sprintf("unexpected hd=%s. expected one of: %v", claims.HostedDomain, cfg.AllowedHostedDomains)),
 		),
 	)
 }

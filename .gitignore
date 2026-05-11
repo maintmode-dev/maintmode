@@ -31,3 +31,4 @@ screenshots/
 .playwright-mcp/
 
 .DS_Store
+.claude/skills
