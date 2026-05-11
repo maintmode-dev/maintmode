@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+
 	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -82,9 +84,7 @@ func waitForAPIHealth(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
 
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	httpClient := xhttp.NewClient(xhttp.WithTimeout(5 * time.Second))
 
 	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()

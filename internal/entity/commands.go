@@ -112,6 +112,12 @@ type HandleOAuthCallbackCmd struct {
 	ClientIP     string
 }
 
+type ExchangeIDTokenCmd struct {
+	Provider OAuthProvider
+	IDToken  string
+	ClientIP string
+}
+
 // --- Roles commands ---
 
 type AssignRoleCmd struct {

@@ -63,7 +63,7 @@ bin-deps-build:
 .PHONY: bin-deps
 bin-deps: bin-deps-build
 	GOBIN=$(GOBIN) go install github.com/pressly/goose/v3/cmd/goose@v3.26.0 && \
-	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.3.0 && \
+	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 && \
 	GOBIN=$(GOBIN) go install go.uber.org/mock/mockgen@v0.6.0 && \
 	GOBIN=$(GOBIN) go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
 	GOBIN=$(GOBIN) go install github.com/go-delve/delve/cmd/dlv@v1.26.0 && \
@@ -122,7 +122,7 @@ tloc:
 	AUTH_APP_SECRETS_PATH=$(PWD)/deployment/auth/local/app.secrets.yaml \
 		go test -p 2 -count 2 ./internal/...
 
-# test-cov - Run tests with coverage analysis
+# tloc-cov - Run tests with coverage analysis
 # Generates coverage report excluding mock files
 # Options:
 #   -race: Enable data race detection
@@ -135,8 +135,8 @@ tloc:
 #   coverage.tmp: Raw coverage data
 #   coverage.out: Filtered coverage data (no mocks)
 #   coverage.report: Human-readable coverage report
-.PHONY: test-cov
-test-cov:
+.PHONY: tloc-cov
+tloc-cov:
 	MAINTMODE_APP_CONFIG_PATH=$(PWD)/deployment/maintmode/local/app.config.yaml \
 	MAINTMODE_APP_SECRETS_PATH=$(PWD)/deployment/maintmode/local/app.secrets.yaml \
 	AUTH_APP_CONFIG_PATH=$(PWD)/deployment/auth/local/app.config.yaml \
@@ -149,6 +149,14 @@ test-cov:
 .PHONY: tloc-api
 tloc-api: ## Run API integration tests
 	$(info $(M) running API integration tests...)
+	go test -tags=api -v -p 2 -count=2 ./test/api/...
+
+
+.PHONY: test-api
+test-api: ## Run API integration tests like in CI
+	$(info $(M) running API integration tests...)
+	DOCKER_COMPOSE_APP_CONFIGS="-f compose.yaml -f compose.app.yaml -f compose.app.test.yaml" \
+		make app-up
 	go test -tags=api -v -p 2 -count=2 ./test/api/...
 
 .PHONY: tloc-all

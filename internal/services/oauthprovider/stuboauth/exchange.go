@@ -9,7 +9,7 @@ import (
 )
 
 // Exchange trades an authorization code for Google tokens.
-func (g *Service) Exchange(ctx context.Context, _ string) (*entity.OAuthProviderTokens, error) {
+func (p *Service) Exchange(ctx context.Context, _ string) (*entity.OAuthProviderTokens, error) {
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.Exchange")
 	defer span.End()
 

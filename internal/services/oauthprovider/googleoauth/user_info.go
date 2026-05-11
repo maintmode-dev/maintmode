@@ -21,18 +21,18 @@ type googleUserInfoPayload struct {
 }
 
 // UserInfo fetches the authenticated user's profile from Google.
-func (g *Service) UserInfo(ctx context.Context, accessToken string) (*entity.OAuthProviderUserInfo, error) {
+func (p *Service) UserInfo(ctx context.Context, accessToken string) (*entity.OAuthProviderUserInfo, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.OAuth.Google.UserInfo")
 	defer span.End()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.googleUserInfoURL, http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.googleUserInfoURL, http.NoBody)
 	if err != nil {
 		xlog.Error(ctx, "failed to create userinfo request", xfield.Error(err))
 		return nil, fmt.Errorf("create userinfo request: %w", err)
 	}
 	xhttp.SetBearerToken(req, accessToken)
 
-	resp, err := g.httpClient.Do(req)
+	resp, err := p.httpClient.Do(req)
 	if err != nil {
 		xlog.Error(ctx, "failed to fetch userinfo", xfield.Error(err))
 		return nil, fmt.Errorf("fetch userinfo: %w", err)

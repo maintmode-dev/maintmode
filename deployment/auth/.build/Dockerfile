@@ -5,12 +5,12 @@ WORKDIR /app
 RUN apk add --no-cache make git
 
 COPY Makefile ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make bin-deps-build
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
     go mod download
 
 # --- Stage 1: build auth binary ---
@@ -28,12 +28,12 @@ COPY docs/ docs/
 COPY test/ test/
 COPY deployment/auth/authz/ deployment/auth/authz/
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make deps
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make build config=.goreleaser.yaml service=auth args="--id main --output=/app/bin/auth"
 
 # --- Stage 2: production image ---

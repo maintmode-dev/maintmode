@@ -19,7 +19,14 @@ import (
 )
 
 // GoogleOAuthLogin godoc
-// @Summary Start OAuth login
+// @Summary Start OAuth login (deprecated for production)
+// @Deprecated
+// @Description **Deprecated for production.** Production clients should use
+// @Description the BFF-owned flow: complete OAuth at the frontend BFF and
+// @Description exchange the resulting Google ID token via
+// @Description `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+// @Description local prototype / HTML-mode testing.
+// @Description
 // @Description Redirects the user to the OAuth provider consent page.
 // @Description
 // @Description The handler issues a short-lived nonce cookie and a signed state
@@ -113,6 +120,7 @@ func clearCookieNonce(c *echo.Context) {
 		Path:     cookieNoncePath,
 		HttpOnly: true,
 		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
 }

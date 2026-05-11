@@ -18,8 +18,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 
 	switch {
 	case err == nil:
-		statusCode = http.StatusInternalServerError
-		errResp = NewErrorResponse(ErrInternalError, "unknown error")
+		statusCode, errResp = http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "unknown error")
 	// maint domain errors
 	case errors.Is(err, apperr.ErrMaintNotFound),
 		errors.Is(err, apperr.ErrUserNotFound),
@@ -29,8 +28,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
 		errors.Is(err, apperr.ErrStepNotFound),
-		errors.Is(err, apperr.ErrInvalidRole),
-		errors.Is(err, apperr.ErrValidation):
+		errors.Is(err, apperr.ErrInvalidRole):
 		statusCode, errResp = mapError(err)
 	// auth domain errors
 	case errors.Is(err, apperr.ErrLockBusy),
@@ -44,18 +42,22 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrInvalidOAuthState),
 		errors.Is(err, apperr.ErrOAuthStateExpired),
-		errors.Is(err, apperr.ErrOAuthStateTampered):
+		errors.Is(err, apperr.ErrOAuthStateTampered),
+		errors.Is(err, apperr.ErrAuthUnavailable):
 		statusCode, errResp = mapAuthError(err)
+
+	// common errors. check after specific domain errors
+	case errors.Is(err, apperr.ErrValidation):
+		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 	case errors.Is(err, apperr.ErrForbidden):
-		statusCode = http.StatusForbidden
-		errResp = NewErrorResponse(ErrForbidden, err.Error())
-	case errors.Is(err, apperr.ErrAuthUnavailable):
-		statusCode = http.StatusServiceUnavailable
-		errResp = NewErrorResponse(ErrServiceUnavailable, err.Error())
+		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrForbidden, err.Error())
+	case errors.Is(err, apperr.ErrMethodNotAllowedInProd):
+		statusCode, errResp = http.StatusMethodNotAllowed, NewErrorResponse(ErrServiceUnavailable, err.Error())
 	default:
 		// For any other error, return internal server error with operation context
-		statusCode = http.StatusInternalServerError
-		errResp = NewErrorResponse(ErrInternalError, fmt.Sprintf("%s failed", operation))
+		statusCode, errResp = http.StatusInternalServerError, NewErrorResponse(ErrInternalError,
+			fmt.Sprintf("%s failed", operation),
+		)
 	}
 
 	return c.JSON(statusCode, errResp)
@@ -95,9 +97,6 @@ func mapError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps):
 		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())
 
-	case errors.Is(err, apperr.ErrValidation):
-		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
-
 	case errors.Is(err, apperr.ErrInvalidRole):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
@@ -129,8 +128,7 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrAuthUnavailable):
 		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
 
-	case errors.Is(err, apperr.ErrValidation),
-		errors.Is(err, apperr.ErrUnsupportedProvider),
+	case errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrInvalidOAuthState),
 		errors.Is(err, apperr.ErrOAuthStateExpired),
 		errors.Is(err, apperr.ErrOAuthStateTampered):

@@ -61,7 +61,7 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.A
 func (s *Service) callIntrospect(ctx context.Context, tokenString string) (*introspectResponse, error) {
 	buf := new(bytes.Buffer)
 
-	err := json.NewEncoder(buf).Encode(introspectRequest{AccessToken: tokenString})
+	err := json.NewEncoder(buf).Encode(introspectRequest{AccessToken: tokenString}) //nolint:gosec // Introspection must send the bearer token to the auth service.
 	if err != nil {
 		return nil, fmt.Errorf("marshal introspect request: %w", err)
 	}

@@ -2,8 +2,10 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
 
@@ -56,15 +58,29 @@ func (s *APIAuthServer) BindRouters(env config.Environment, meta *buildmeta.AppB
 	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	v1Gr := rootGr.Group("/api/v1")
-	s.authV1Group(v1Gr)
+	s.authV1Group(v1Gr, env)
 	s.s2sV1Group(v1Gr.Group("/s2s"))
 }
 
 // auth V1 API group
-func (s *APIAuthServer) authV1Group(gr *echo.Group) {
+func (s *APIAuthServer) authV1Group(gr *echo.Group, env config.Environment) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.authImpl.JWKS)
-	gr.Add(http.MethodGet, "/login/oauth/google", s.authImpl.GoogleOAuthLogin)
-	gr.Add(http.MethodGet, "/login/oauth/google/callback", s.authImpl.GoogleOauthCallback)
+
+	loginOAuthGr := gr.Group("/login/oauth",
+		middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      0.5, // 30 RPM
+			Burst:     30,
+			ExpiresIn: 3 * time.Minute,
+		})),
+	)
+
+	loginOAuthGr.Add(http.MethodGet, "/google", s.authImpl.GoogleOAuthLogin)
+	loginOAuthGr.Add(http.MethodGet, "/google/callback", s.authImpl.GoogleOauthCallback,
+		middlewares.NotAllowedInProd(env),
+	)
+	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.authImpl.ExchangeGoogleToken,
+		middlewares.NotAllowedInProd(env),
+	)
 
 	gr.Add(http.MethodPost, "/refresh", s.authImpl.Refresh)
 

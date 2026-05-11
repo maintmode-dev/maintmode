@@ -158,7 +158,7 @@ Production deploys should keep real values in the cloud secret manager, then mou
 make secret-scan
 
 # Run tests with coverage
-make test-cov
+make tloc-cov
 
 # Run linter
 make lint

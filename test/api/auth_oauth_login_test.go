@@ -6,8 +6,11 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 
 	"github.com/ruko1202/maintmode/test/api/client/client/auth"
 )
@@ -18,11 +21,11 @@ func TestAuthAPI_OAuthLogin(t *testing.T) {
 	apiClient := setupAuthTestClient()
 
 	originalURI := "/"
-	noRedirectClient := &http.Client{
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	noRedirectClient := xhttp.NewClient(
+		xhttp.WithTimeout(5*time.Second),
+		xhttp.WithoutRedirect(),
+	)
+
 	params := auth.NewGetAPIV1LoginOauthGoogleParams().
 		WithContext(ctx).
 		WithHTTPClient(noRedirectClient).

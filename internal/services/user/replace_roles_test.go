@@ -23,10 +23,14 @@ func TestReplaceRoles(t *testing.T) {
 		user := makeUser(ctx, t, srv, entity.RoleReviewer, entity.RoleEditor, entity.RoleAdmin)
 
 		newRoles := []entity.Role{entity.RoleAdmin, entity.RoleEditor}
+		rolesInput := make([]entity.Role, 0, 4)
+		rolesInput = append(rolesInput, newRoles...)
+		rolesInput = append(rolesInput, entity.RoleEditor, "superuser")
+
 		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
 			Actor:  &entity.User{},
 			UserID: user.ID,
-			Roles:  append(newRoles, entity.RoleEditor, "superuser"),
+			Roles:  rolesInput,
 		})
 		require.NoError(t, err)
 

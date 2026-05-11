@@ -28,6 +28,12 @@ definitions:
           $ref: '#/definitions/apiauthmodels.AuditLog'
         type: array
     type: object
+  apiauthmodels.ExchangeIDTokenRequest:
+    properties:
+      id_token:
+        description: IDToken is the upstream provider's signed JWT.
+        type: string
+    type: object
   apiauthmodels.IntrospectRequest:
     properties:
       access_token:
@@ -676,6 +682,43 @@ paths:
       summary: Get JWKS
       tags:
       - Auth
+  /api/v1//login/oauth/exchange/google:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Google ID token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apiauthmodels.ExchangeIDTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apiauthmodels.TokenPairResponse'
+        "400":
+          description: INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: DOMAIN_NOT_ALLOWED
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      summary: Exchange a Google ID token for a backend token pair
+      tags:
+      - Auth
   /api/v1/audit/log:
     get:
       description: 'Returns the last N audit log entries (default and max: 100).'
@@ -715,7 +758,14 @@ paths:
       - Audit
   /api/v1/login/oauth/google:
     get:
+      deprecated: true
       description: |-
+        **Deprecated for production.** Production clients should use
+        the BFF-owned flow: complete OAuth at the frontend BFF and
+        exchange the resulting Google ID token via
+        `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+        local prototype / HTML-mode testing.
+
         Redirects the user to the OAuth provider consent page.
 
         The handler issues a short-lived nonce cookie and a signed state
@@ -750,12 +800,19 @@ paths:
           description: Internal error
           schema:
             $ref: '#/definitions/httperrors.ErrorResponse'
-      summary: Start OAuth login
+      summary: Start OAuth login (deprecated for production)
       tags:
       - Auth
   /api/v1/login/oauth/google/callback:
     get:
+      deprecated: true
       description: |-
+        **Deprecated for production.** Production clients should use
+        the BFF-owned flow: the frontend BFF completes OAuth with
+        Google directly and posts the resulting ID token to
+        `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+        local prototype / HTML-mode testing.
+
         Handles the redirect from Google after the user grants consent.
         Validates the signed `state` and the nonce cookie, exchanges the
         authorization `code` for tokens, and returns the result.
@@ -822,7 +879,7 @@ paths:
           description: Internal error
           schema:
             $ref: '#/definitions/httperrors.ErrorResponse'
-      summary: OAuth callback (JSON by default, HTML opt-in)
+      summary: OAuth callback (JSON by default, HTML opt-in) (deprecated for production)
       tags:
       - Auth
   /api/v1/logout:

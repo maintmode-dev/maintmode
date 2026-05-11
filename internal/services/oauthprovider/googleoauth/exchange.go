@@ -12,13 +12,13 @@ import (
 )
 
 // Exchange trades an authorization code for Google tokens.
-func (g *Service) Exchange(ctx context.Context, code string) (*entity.OAuthProviderTokens, error) {
+func (p *Service) Exchange(ctx context.Context, code string) (*entity.OAuthProviderTokens, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.OAuth.Google.Exchange")
 	defer span.End()
 
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, g.httpClient)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, p.httpClient)
 
-	token, err := g.config.Exchange(ctx, code)
+	token, err := p.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		xlog.Error(ctx, "failed to exchange google token", xfield.Error(err))
 		return nil, fmt.Errorf("google token exchange: %w", err)

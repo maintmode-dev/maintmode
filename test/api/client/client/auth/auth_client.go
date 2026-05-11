@@ -93,6 +93,8 @@ type ClientService interface {
 
 	GetAPIV1WellKnownJwksJSON(params *GetAPIV1WellKnownJwksJSONParams, opts ...ClientOption) (*GetAPIV1WellKnownJwksJSONOK, error)
 
+	PostAPIV1LoginOauthExchangeGoogle(params *PostAPIV1LoginOauthExchangeGoogleParams, opts ...ClientOption) (*PostAPIV1LoginOauthExchangeGoogleOK, error)
+
 	PostAPIV1Logout(params *PostAPIV1LogoutParams, opts ...ClientOption) (*PostAPIV1LogoutNoContent, error)
 
 	PostAPIV1LogoutAll(params *PostAPIV1LogoutAllParams, opts ...ClientOption) (*PostAPIV1LogoutAllNoContent, error)
@@ -105,9 +107,16 @@ type ClientService interface {
 }
 
 /*
-	GetAPIV1LoginOauthGoogle starts o auth login
+	GetAPIV1LoginOauthGoogle starts o auth login deprecated for production
 
-	Redirects the user to the OAuth provider consent page.
+	**Deprecated for production.** Production clients should use
+
+the BFF-owned flow: complete OAuth at the frontend BFF and
+exchange the resulting Google ID token via
+`POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+local prototype / HTML-mode testing.
+
+Redirects the user to the OAuth provider consent page.
 
 The handler issues a short-lived nonce cookie and a signed state
 that carries `original_uri` and the desired callback response
@@ -150,10 +159,16 @@ func (a *Client) GetAPIV1LoginOauthGoogle(params *GetAPIV1LoginOauthGoogleParams
 }
 
 /*
-	GetAPIV1LoginOauthGoogleCallback os auth callback JSON by default HTML opt in
+	GetAPIV1LoginOauthGoogleCallback os auth callback JSON by default HTML opt in deprecated for production
 
-	Handles the redirect from Google after the user grants consent.
+	**Deprecated for production.** Production clients should use
 
+the BFF-owned flow: the frontend BFF completes OAuth with
+Google directly and posts the resulting ID token to
+`POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+local prototype / HTML-mode testing.
+
+Handles the redirect from Google after the user grants consent.
 Validates the signed `state` and the nonce cookie, exchanges the
 authorization `code` for tokens, and returns the result.
 
@@ -310,6 +325,49 @@ func (a *Client) GetAPIV1WellKnownJwksJSON(params *GetAPIV1WellKnownJwksJSONPara
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetAPIV1WellKnownJwksJSON: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+PostAPIV1LoginOauthExchangeGoogle exchanges a google ID token for a backend token pair
+*/
+func (a *Client) PostAPIV1LoginOauthExchangeGoogle(params *PostAPIV1LoginOauthExchangeGoogleParams, opts ...ClientOption) (*PostAPIV1LoginOauthExchangeGoogleOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewPostAPIV1LoginOauthExchangeGoogleParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostAPIV1LoginOauthExchangeGoogle",
+		Method:             "POST",
+		PathPattern:        "/api/v1//login/oauth/exchange/google",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostAPIV1LoginOauthExchangeGoogleReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*PostAPIV1LoginOauthExchangeGoogleOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostAPIV1LoginOauthExchangeGoogle: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

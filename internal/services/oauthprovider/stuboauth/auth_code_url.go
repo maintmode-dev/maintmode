@@ -9,11 +9,11 @@ import (
 )
 
 // AuthCodeURL returns the Google consent screen URL for the given state.
-func (g *Service) AuthCodeURL(ctx context.Context, state string) string {
+func (p *Service) AuthCodeURL(ctx context.Context, state string) string {
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.AuthCodeURL")
 	defer span.End() //nolint:gocritic
 
-	u, err := url.Parse(g.authRedirectURL)
+	u, err := url.Parse(p.authRedirectURL)
 	if err != nil {
 		xlog.Error(ctx, "failed to parse auth redirect url", xfield.Error(err))
 		return ""

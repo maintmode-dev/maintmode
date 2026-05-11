@@ -25,21 +25,6 @@ var (
 	cfg   *config.AppConfig
 )
 
-func TestMain(m *testing.M) {
-	cfg = config.LoadAuthAppConfig()
-	cfg.OauthProviders.UseStub = true
-
-	db = testdbconnutils.NewDB(cfg)
-	closer.Add(db.Close)
-
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
-
-	code := m.Run()
-
-	os.Exit(code)
-}
-
 const authPolicy = `
 g, editor, guest
 g, reviewer, editor
@@ -52,16 +37,30 @@ p, admin, auth.roles.manage, execute
 p, admin, auth.audit.read, execute
 `
 
-func initImpl(t *testing.T) *Implementation {
-	t.Helper()
-
+func TestMain(m *testing.M) {
+	cfg = config.LoadAuthAppConfig()
+	cfg.OauthProviders.UseStub = true
 	cfg.RBAC = config.RbacConfig{
 		ModelPath:  "../../../../../deployment/auth/authz/model.conf",
 		Adapter:    config.AuthorizationAdapterMemory,
 		PolicyData: authPolicy,
 	}
 
-	services, err := bootstrap.NewAuthServices(cfg, bootstrap.NewAuthStores(db, redis))
+	db = testdbconnutils.NewDB(cfg)
+	closer.Add(db.Close)
+
+	redis = testdbconnutils.NewRedisClient(cfg)
+	closer.Add(redis.Close)
+
+	code := m.Run()
+
+	os.Exit(code)
+}
+
+func initImpl(t *testing.T) *Implementation {
+	t.Helper()
+
+	services, err := bootstrap.NewAuthServices(t.Context(), cfg, bootstrap.NewAuthStores(db, redis))
 	require.NoError(t, err)
 
 	return New(services.User)

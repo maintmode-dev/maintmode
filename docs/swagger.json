@@ -36,6 +36,63 @@
                 }
             }
         },
+        "/api/v1//login/oauth/exchange/google": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Exchange a Google ID token for a backend token pair",
+                "parameters": [
+                    {
+                        "description": "Google ID token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/apiauthmodels.ExchangeIDTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apiauthmodels.TokenPairResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "DOMAIN_NOT_ALLOWED",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/audit/log": {
             "get": {
                 "security": [
@@ -96,14 +153,15 @@
         },
         "/api/v1/login/oauth/google": {
             "get": {
-                "description": "Redirects the user to the OAuth provider consent page.\n\nThe handler issues a short-lived nonce cookie and a signed state\nthat carries `original_uri` and the desired callback response\nshape (`oauth_callback_type`). Both values are echoed back by\nthe provider to `/login/oauth/google/callback`.\n\nQuery parameters:\n- `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).\n- `oauth_callback_type` — selects the callback response shape:\n- `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).\n- `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.",
+                "description": "**Deprecated for production.** Production clients should use\nthe BFF-owned flow: complete OAuth at the frontend BFF and\nexchange the resulting Google ID token via\n`POST /api/v1/auth/exchange/google`. This endpoint is kept only for\nlocal prototype / HTML-mode testing.\n\nRedirects the user to the OAuth provider consent page.\n\nThe handler issues a short-lived nonce cookie and a signed state\nthat carries `original_uri` and the desired callback response\nshape (`oauth_callback_type`). Both values are echoed back by\nthe provider to `/login/oauth/google/callback`.\n\nQuery parameters:\n- `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).\n- `oauth_callback_type` — selects the callback response shape:\n- `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).\n- `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.",
                 "produces": [
                     "text/plain"
                 ],
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Start OAuth login",
+                "summary": "Start OAuth login (deprecated for production)",
+                "deprecated": true,
                 "parameters": [
                     {
                         "type": "string",
@@ -137,7 +195,7 @@
         },
         "/api/v1/login/oauth/google/callback": {
             "get": {
-                "description": "Handles the redirect from Google after the user grants consent.\nValidates the signed `state` and the nonce cookie, exchanges the\nauthorization `code` for tokens, and returns the result.\n\n**Default response — JSON**\nReturns `OAuthCallbackJSONResponse` with the access token, refresh\ntoken, and `original_uri` in the response body. The refresh token\nis **not** set as a cookie — the caller (typically a server-side\nBFF) persists it in its own session storage. This is the contract\nused by production server-side integrations (NextAuth, BFFs) that\nmust never expose tokens to the browser.\n\nJSON mode is selected when **any** of the following holds:\n- `Accept: application/json` request header\n- `Content-Type: application/json` request header\n- the signed state was issued with `oauth_callback_type=json`\n(see `/login/oauth/google?oauth_callback_type=json`, which is\nalso the default if the parameter is omitted)\n\n**HTML mode (legacy / local testing)** — opt-in via the login\nhandler with `?oauth_callback_type=html`. In this mode the\nhandler sets an HttpOnly, Secure, SameSite=Strict refresh-token\ncookie on the backend domain and returns an HTML handoff page\nthat stashes the access token in `sessionStorage` and redirects\nto `frontendURL + original_uri`. Kept for the prototype frontend\nand local debugging only — production clients should not use it.\n\nBoth modes clear the nonce cookie on success.",
+                "description": "**Deprecated for production.** Production clients should use\nthe BFF-owned flow: the frontend BFF completes OAuth with\nGoogle directly and posts the resulting ID token to\n`POST /api/v1/auth/exchange/google`. This endpoint is kept only for\nlocal prototype / HTML-mode testing.\n\nHandles the redirect from Google after the user grants consent.\nValidates the signed `state` and the nonce cookie, exchanges the\nauthorization `code` for tokens, and returns the result.\n\n**Default response — JSON**\nReturns `OAuthCallbackJSONResponse` with the access token, refresh\ntoken, and `original_uri` in the response body. The refresh token\nis **not** set as a cookie — the caller (typically a server-side\nBFF) persists it in its own session storage. This is the contract\nused by production server-side integrations (NextAuth, BFFs) that\nmust never expose tokens to the browser.\n\nJSON mode is selected when **any** of the following holds:\n- `Accept: application/json` request header\n- `Content-Type: application/json` request header\n- the signed state was issued with `oauth_callback_type=json`\n(see `/login/oauth/google?oauth_callback_type=json`, which is\nalso the default if the parameter is omitted)\n\n**HTML mode (legacy / local testing)** — opt-in via the login\nhandler with `?oauth_callback_type=html`. In this mode the\nhandler sets an HttpOnly, Secure, SameSite=Strict refresh-token\ncookie on the backend domain and returns an HTML handoff page\nthat stashes the access token in `sessionStorage` and redirects\nto `frontendURL + original_uri`. Kept for the prototype frontend\nand local debugging only — production clients should not use it.\n\nBoth modes clear the nonce cookie on success.",
                 "produces": [
                     "application/json",
                     "text/html"
@@ -145,7 +203,8 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "OAuth callback (JSON by default, HTML opt-in)",
+                "summary": "OAuth callback (JSON by default, HTML opt-in) (deprecated for production)",
+                "deprecated": true,
                 "parameters": [
                     {
                         "type": "string",
@@ -1853,6 +1912,15 @@
                     "items": {
                         "$ref": "#/definitions/apiauthmodels.AuditLog"
                     }
+                }
+            }
+        },
+        "apiauthmodels.ExchangeIDTokenRequest": {
+            "type": "object",
+            "properties": {
+                "id_token": {
+                    "description": "IDToken is the upstream provider's signed JWT.",
+                    "type": "string"
                 }
             }
         },

@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+bin
+tmp
+dist
+coverage.tmp
+coverage.out
+coverage.report
+*.log
+
+deployment/**/local/*.secrets.yaml
+deployment/**/dev/*.secrets.yaml
+deployment/**/config/secrets.yaml

@@ -38,9 +38,10 @@ make fmt
 
 Backend tests are split into deterministic gates:
 
-- CI runs lint with `make bin-deps` and `make lint`.
-- CI builds both service binaries with GoReleaser through `make build` for
-  `maintmode` and `auth`.
+- CI runs lint through the official `golangci/golangci-lint-action` with the
+  repository `.golangci.yaml` configuration.
+- CI builds both service binaries with the official `goreleaser/goreleaser-action`
+  for `maintmode` and `auth`.
 - CI backend tests run `make docker-up` first, then `make tloc`.
 - CI API e2e tests load the images built by the image stage, run `make app-up`,
   then `make tloc-api`. The API test suite waits for

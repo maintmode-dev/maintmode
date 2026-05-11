@@ -22,7 +22,14 @@ import (
 )
 
 // GoogleOauthCallback godoc
-// @Summary OAuth callback (JSON by default, HTML opt-in)
+// @Summary OAuth callback (JSON by default, HTML opt-in) (deprecated for production)
+// @Deprecated
+// @Description **Deprecated for production.** Production clients should use
+// @Description the BFF-owned flow: the frontend BFF completes OAuth with
+// @Description Google directly and posts the resulting ID token to
+// @Description `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+// @Description local prototype / HTML-mode testing.
+// @Description
 // @Description Handles the redirect from Google after the user grants consent.
 // @Description Validates the signed `state` and the nonce cookie, exchanges the
 // @Description authorization `code` for tokens, and returns the result.
@@ -177,6 +184,7 @@ func clearRefreshCookie(c *echo.Context) {
 		Path:     cookieRefreshTokenPath,
 		HttpOnly: true,
 		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
 }

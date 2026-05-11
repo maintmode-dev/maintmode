@@ -3,5 +3,6 @@ package apperr
 import "errors"
 
 var (
-	ErrValidation = errors.New("validation failed")
+	ErrValidation             = errors.New("validation failed")
+	ErrMethodNotAllowedInProd = errors.New("method not allowed in prod")
 )

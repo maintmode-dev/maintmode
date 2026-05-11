@@ -45,11 +45,11 @@ func TestSignedStateCodec(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		encPayload, encSig, err := extractParts(encoded)
-		require.NoError(t, err)
-
 		t.Run("change payload", func(t *testing.T) {
 			t.Parallel()
+
+			encPayload, encSig, err := extractParts(encoded)
+			require.NoError(t, err)
 
 			// Flip a character in payload — signature won't match.
 			tamperedPayload := "X" + encPayload[1:]
@@ -59,6 +59,9 @@ func TestSignedStateCodec(t *testing.T) {
 
 		t.Run("change sign", func(t *testing.T) {
 			t.Parallel()
+
+			encPayload, encSig, err := extractParts(encoded)
+			require.NoError(t, err)
 
 			// Flip a character in signature.
 			tamperedSig := "X" + encSig[1:]

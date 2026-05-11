@@ -30,6 +30,11 @@ type IntrospectRequest struct {
 	AccessToken string `json:"access_token"`
 }
 
+type ExchangeIDTokenRequest struct {
+	// IDToken is the upstream provider's signed JWT.
+	IDToken string `json:"id_token"`
+}
+
 type IntrospectResponse struct {
 	Active  bool     `json:"active"`
 	JTI     string   `json:"jti,omitempty"`

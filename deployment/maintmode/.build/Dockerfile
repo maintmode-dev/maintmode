@@ -5,14 +5,12 @@ WORKDIR /app
 RUN apk add --no-cache make git
 
 COPY Makefile ./
-# Кэшируем модули и артефакты сборки для бинарных зависимостей
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make bin-deps-build
 
 COPY go.mod go.sum ./
-# Кэшируем скачивание основных зависимостей проекта
-RUN --mount=type=cache,target=/go/pkg/mod \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
     go mod download
 
 # --- Stage 1: build backend (Go) ---
@@ -30,13 +28,12 @@ COPY docs/ docs/
 COPY test/ test/
 COPY deployment/maintmode/authz/ deployment/maintmode/authz/
 
-# Кэшируем модули и артефакты при выполнении deps и build
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make deps
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=maintmode-go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=maintmode-go-build,target=/root/.cache/go-build,sharing=locked \
     make build config=.goreleaser.yaml service=maintmode args="--id main --output=/app/bin/maintmode"
 
 

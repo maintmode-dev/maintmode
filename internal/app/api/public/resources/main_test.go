@@ -24,17 +24,6 @@ var (
 	cfg *config.AppConfig
 )
 
-func TestMain(m *testing.M) {
-	cfg = config.LoadAppConfig()
-
-	db = testdbconnutils.NewDB(cfg)
-	closer.Add(db.Close)
-
-	code := m.Run()
-
-	os.Exit(code)
-}
-
 const maintmodePolicy = `
 g, editor, guest
 g, reviewer, editor
@@ -57,14 +46,24 @@ p, editor, resource.create, execute
 p, reviewer, maintenance.approve, execute
 `
 
-func initImpl(t *testing.T) *Implementation {
-	t.Helper()
-
+func TestMain(m *testing.M) {
+	cfg = config.LoadAppConfig()
 	cfg.RBAC = config.RbacConfig{
 		ModelPath:  "../../../../../deployment/maintmode/authz/model.conf",
 		Adapter:    config.AuthorizationAdapterMemory,
 		PolicyData: maintmodePolicy,
 	}
+
+	db = testdbconnutils.NewDB(cfg)
+	closer.Add(db.Close)
+
+	code := m.Run()
+
+	os.Exit(code)
+}
+
+func initImpl(t *testing.T) *Implementation {
+	t.Helper()
 
 	stores := bootstrap.NewStores(db)
 	services, err := bootstrap.NewServices(context.Background(), cfg, stores)

@@ -11,7 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func (g *Service) UserInfo(ctx context.Context, _ string) (*entity.OAuthProviderUserInfo, error) {
+func (p *Service) UserInfo(ctx context.Context, _ string) (*entity.OAuthProviderUserInfo, error) {
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.UserInfo")
 	defer span.End()
 

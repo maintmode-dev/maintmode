@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/base64"
@@ -48,22 +49,34 @@ func buildECPublicKey(t *testing.T, jwk *models.EntityJWK) *ecdsa.PublicKey {
 	yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
 	require.NoError(t, err, "failed to decode Y coordinate")
 
-	var curve elliptic.Curve
+	var (
+		ecdhCurve ecdh.Curve
+		curve     elliptic.Curve
+	)
+
 	switch jwk.Crv {
 	case "P-256":
+		ecdhCurve = ecdh.P256()
 		curve = elliptic.P256()
 	case "P-384":
+		ecdhCurve = ecdh.P384()
 		curve = elliptic.P384()
 	case "P-521":
+		ecdhCurve = ecdh.P521()
 		curve = elliptic.P521()
 	default:
 		t.Fatalf("unsupported curve: %s", jwk.Crv)
 	}
 
+	encodedPoint := make([]byte, 1, 1+len(xBytes)+len(yBytes))
+	encodedPoint[0] = 4
+	encodedPoint = append(encodedPoint, xBytes...)
+	encodedPoint = append(encodedPoint, yBytes...)
+	_, err = ecdhCurve.NewPublicKey(encodedPoint)
+	require.NoError(t, err, "point (X, Y) must be on curve %s", jwk.Crv)
+
 	x := new(big.Int).SetBytes(xBytes)
 	y := new(big.Int).SetBytes(yBytes)
-
-	require.True(t, curve.IsOnCurve(x, y), "point (X, Y) must be on curve %s", jwk.Crv)
 
 	return &ecdsa.PublicKey{Curve: curve, X: x, Y: y}
 }

@@ -7,8 +7,6 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/apperr"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -63,20 +61,19 @@ func (s *Service) getOAuthProviderUser(ctx context.Context, code string, provide
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.getOAuthProviderUser")
 	defer span.End()
 
-	var userInfo *entity.OAuthProviderUserInfo
-	switch provider {
-	case entity.OAuthProviderGoogle:
-		providerTokens, err := s.oauthProviders.Google.Exchange(ctx, code)
-		if err != nil {
-			return nil, fmt.Errorf("exchange code: %w", err)
-		}
+	oauthProvider, err := s.oauthProviders.Get(ctx, provider)
+	if err != nil {
+		return nil, fmt.Errorf("get oauth provider: %w", err)
+	}
 
-		userInfo, err = s.oauthProviders.Google.UserInfo(ctx, providerTokens.AccessToken)
-		if err != nil {
-			return nil, fmt.Errorf("fetch user info: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, provider)
+	providerTokens, err := oauthProvider.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("exchange code: %w", err)
+	}
+
+	userInfo, err := oauthProvider.UserInfo(ctx, providerTokens.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("fetch user info: %w", err)
 	}
 
 	return userInfo, nil

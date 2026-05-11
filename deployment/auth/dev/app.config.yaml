@@ -43,13 +43,26 @@ oauth_providers:
     redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
   google:
     client_id: <secret:oauth/google/client_id>
+    # client_secret is deprecated for production
     client_secret: <secret:oauth/google/client_secret>
+    # redirect_url is deprecated for production
     redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+    # google_userinfo_url is deprecated for production
     google_userinfo_url: https://www.googleapis.com/oauth2/v2/userinfo
     scopes:
       - "openid"
       - "email"
       - "profile"
+    jwtverifier:
+      jwks_url: https://www.googleapis.com/oauth2/v3/certs
+      jwt_issuers:
+        - "accounts.google.com"
+        - "https://accounts.google.com"
+      jwks_refresh_interval: 1h
+      jwks_http_timeout: 10s
+      jwt_leeway: 30s
+      jwks_unknown_kid_refresh_rate: 5m
+      jwks_unknown_kid_wait_max: 10s
 
 jwt:
   issuer_name: oauth-service

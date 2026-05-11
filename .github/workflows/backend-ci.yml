@@ -21,6 +21,11 @@ on:
     tags:
       - "v*"
 
+env:
+  DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
+  MAINTMODE_IMAGE_TAG: ${{ github.sha }}
+  AUTH_IMAGE_TAG: ${{ github.sha }}
+
 jobs:
   lint:
     name: Lint
@@ -31,8 +36,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make bin-deps
-      - run: make lint
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12.2
+          args: -v --build-tags=api ./...
+          cache-invalidation-interval: 3
 
   build-maintmode:
     name: Build binary (maintmode)
@@ -43,9 +51,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make bin-deps-build
       - run: mkdir -p tmp/bin
-      - run: make build service=maintmode config=deployment/maintmode/.build/.goreleaser.yaml args="--id main --output=./tmp/bin/maintmode"
+      - uses: goreleaser/goreleaser-action@v6.4.0
+        with:
+          version: v2.13.1
+          args: build -f deployment/maintmode/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/maintmode
 
   build-auth:
     name: Build binary (auth)
@@ -56,9 +66,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make bin-deps-build
       - run: mkdir -p tmp/bin
-      - run: make build service=auth config=deployment/auth/.build/.goreleaser.yaml args="--id main --output=./tmp/bin/auth"
+      - uses: goreleaser/goreleaser-action@v6.4.0
+        with:
+          version: v2.13.1
+          args: build -f deployment/auth/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/auth
 
   test:
     name: Backend tests
@@ -241,26 +253,15 @@ jobs:
           EOF
           sudo chmod +x /usr/local/bin/docker-compose
       - run: make app-up
-        env:
-          DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
-          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
-          AUTH_IMAGE_TAG: ${{ github.sha }}
       - run: make tloc-api
       - name: Collect API logs
         if: failure()
         run: |
           mkdir -p tmp
-          docker-compose -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml ps -a > tmp/api-compose-ps.log || true
-          docker-compose -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml logs --no-color > tmp/api-compose.log || true
-        env:
-          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
-          AUTH_IMAGE_TAG: ${{ github.sha }}
+          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ps -a > tmp/api-compose-ps.log || true
+          docker-compose -${{ env.DOCKER_COMPOSE_APP_CONFIGS }} logs --no-color > tmp/api-compose.log || true
       - run: make app-down
         if: always()
-        env:
-          DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.infra.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
-          MAINTMODE_IMAGE_TAG: ${{ github.sha }}
-          AUTH_IMAGE_TAG: ${{ github.sha }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

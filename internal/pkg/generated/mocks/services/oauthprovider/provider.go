@@ -118,6 +118,44 @@ func (c *MockOAuthProviderExchangeCall) DoAndReturn(f func(context.Context, stri
 	return c
 }
 
+// ProviderID mocks base method.
+func (m *MockOAuthProvider) ProviderID() entity.OAuthProvider {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProviderID")
+	ret0, _ := ret[0].(entity.OAuthProvider)
+	return ret0
+}
+
+// ProviderID indicates an expected call of ProviderID.
+func (mr *MockOAuthProviderMockRecorder) ProviderID() *MockOAuthProviderProviderIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderID", reflect.TypeOf((*MockOAuthProvider)(nil).ProviderID))
+	return &MockOAuthProviderProviderIDCall{Call: call}
+}
+
+// MockOAuthProviderProviderIDCall wrap *gomock.Call
+type MockOAuthProviderProviderIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOAuthProviderProviderIDCall) Return(arg0 entity.OAuthProvider) *MockOAuthProviderProviderIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOAuthProviderProviderIDCall) Do(f func() entity.OAuthProvider) *MockOAuthProviderProviderIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOAuthProviderProviderIDCall) DoAndReturn(f func() entity.OAuthProvider) *MockOAuthProviderProviderIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UserInfo mocks base method.
 func (m *MockOAuthProvider) UserInfo(ctx context.Context, accessToken string) (*entity.OAuthProviderUserInfo, error) {
 	m.ctrl.T.Helper()
@@ -153,6 +191,45 @@ func (c *MockOAuthProviderUserInfoCall) Do(f func(context.Context, string) (*ent
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOAuthProviderUserInfoCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthProviderUserInfo, error)) *MockOAuthProviderUserInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// VerifyToken mocks base method.
+func (m *MockOAuthProvider) VerifyToken(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyToken", ctx, idToken)
+	ret0, _ := ret[0].(*entity.OAuthIDTokenClaims)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VerifyToken indicates an expected call of VerifyToken.
+func (mr *MockOAuthProviderMockRecorder) VerifyToken(ctx, idToken any) *MockOAuthProviderVerifyTokenCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyToken", reflect.TypeOf((*MockOAuthProvider)(nil).VerifyToken), ctx, idToken)
+	return &MockOAuthProviderVerifyTokenCall{Call: call}
+}
+
+// MockOAuthProviderVerifyTokenCall wrap *gomock.Call
+type MockOAuthProviderVerifyTokenCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOAuthProviderVerifyTokenCall) Return(arg0 *entity.OAuthIDTokenClaims, arg1 error) *MockOAuthProviderVerifyTokenCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOAuthProviderVerifyTokenCall) Do(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockOAuthProviderVerifyTokenCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOAuthProviderVerifyTokenCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockOAuthProviderVerifyTokenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

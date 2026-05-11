@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
@@ -19,8 +21,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
-
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 
 	"github.com/ruko1202/maintmode/internal/services/user"
 
@@ -69,6 +69,10 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	mocks := &serviceMocks{
 		oauthProvider: mock_oauthprovider.NewMockOAuthProvider(ctrl),
 	}
+	mocks.oauthProvider.EXPECT().
+		ProviderID().
+		Return(entity.OAuthProviderGoogle).
+		AnyTimes()
 
 	txManager := dbtx.NewTxManager(db)
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -85,9 +89,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		),
 		distributedlock.NewStore(redis),
 		blacklisttoken.NewStore(redis),
-		&oauthprovider.Providers{
-			Google: mocks.oauthProvider,
-		},
+		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		token.NewService(
 			txManager,
 			refreshtoken.NewStore(db),

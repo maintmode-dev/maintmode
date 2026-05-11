@@ -27,11 +27,12 @@ type TokenVerifier interface {
 // Парсит Authorization: Bearer <token>, верифицирует подпись,
 // записывает userID
 func RequireAccessToken(tokenSrv TokenVerifier) echo.MiddlewareFunc {
+	op := "authenticate"
+
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			req := c.Request()
 			ctx := req.Context()
-			op := "authenticate"
 
 			authToken := xhttp.ExtractBearerToken(c.Request())
 			if authToken == "" {

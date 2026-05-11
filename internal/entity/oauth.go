@@ -3,7 +3,9 @@ package entity
 type OAuthProvider string
 
 const (
+	OAuthProviderStub   OAuthProvider = "stub"
 	OAuthProviderGoogle OAuthProvider = "google"
+	OAuthProviderGithub OAuthProvider = "github"
 )
 
 type OAuthCallbackType = string
@@ -41,4 +43,12 @@ type OAuthProviderUserInfo struct {
 	ID    string
 	Email string
 	Name  string
+}
+
+// OAuthIDTokenClaims is the verified subset of an upstream OIDC ID token
+// (currently Google) that the backend trusts to identify a user.
+type OAuthIDTokenClaims struct {
+	Subject string
+	Email   string
+	Name    string
 }

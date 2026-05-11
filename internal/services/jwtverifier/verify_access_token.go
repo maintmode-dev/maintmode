@@ -31,7 +31,9 @@ func (s *Service) VerifyAccessToken(ctx context.Context, tokenString string) (*e
 		jwt.WithIssuer(s.cfg.JWTIssuer),
 		jwt.WithIssuedAt(),
 		jwt.WithLeeway(s.cfg.JWTLeeway),
+		jwt.WithExpirationRequired(),
 	)
+
 	if err != nil {
 		xlog.Error(ctx, "failed to verify access token", xfield.Error(err))
 
@@ -62,5 +64,5 @@ func (s *Service) authUnavailable(ctx context.Context, verifyStartedAt time.Time
 		return true
 	}
 
-	return s.LastRefreshFailedAt() >= verifyStartedAt.UnixNano()
+	return s.LastRefreshFailedAt(ctx) >= verifyStartedAt.UnixNano()
 }

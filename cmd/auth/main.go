@@ -65,7 +65,7 @@ func main() {
 
 	// Bootstrap application layers
 	stores := bootstrap.NewAuthStores(db, redisClient)
-	services, err := bootstrap.NewAuthServices(cfg, stores)
+	services, err := bootstrap.NewAuthServices(ctx, cfg, stores)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
 	}

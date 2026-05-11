@@ -44,11 +44,13 @@ type Redis struct {
 }
 
 type GoogleOauthProvider struct {
-	ClientID          string   `mapstructure:"client_id"`
-	ClientSecret      string   `mapstructure:"client_secret"`
-	RedirectURL       string   `mapstructure:"redirect_url"`
-	GoogleUserInfoURL string   `mapstructure:"google_userinfo_url"`
-	Scopes            []string `mapstructure:"scopes"`
+	ClientID string `mapstructure:"client_id"`
+	// ClientSecret is deprecated for production: the BFF-owned OAuth flow
+	ClientSecret      string            `mapstructure:"client_secret"`
+	RedirectURL       string            `mapstructure:"redirect_url"`
+	GoogleUserInfoURL string            `mapstructure:"google_userinfo_url"`
+	Scopes            []string          `mapstructure:"scopes"`
+	JWTVerify         JWTVerifierConfig `mapstructure:"jwtverifier"`
 }
 
 type StubOauthProvider struct {
@@ -100,8 +102,12 @@ type App struct {
 }
 
 type JWTVerifierConfig struct {
-	JWTIssuer                 string        `mapstructure:"jwt_issuer"`
-	JWKSURL                   string        `mapstructure:"jwks_url"`
+	JWTIssuer  string   `mapstructure:"jwt_issuer"`  // JWTIssuer is the expected issuer of the JWT.
+	JWTIssuers []string `mapstructure:"jwt_issuers"` // JWTIssuers is a list of expected issuers of the JWT.
+	JWKSURL    string   `mapstructure:"jwks_url"`
+	// AllowedHostedDomains, when non-empty, restricts ID tokens to those
+	// whose `hd` claim matches one of the listed domains.
+	AllowedHostedDomains      []string      `mapstructure:"allowed_hosted_domains"`
 	JWKSRefreshInterval       time.Duration `mapstructure:"jwks_refresh_interval"`
 	JWKSHTTPTimeout           time.Duration `mapstructure:"jwks_http_timeout"`
 	JWTLeeway                 time.Duration `mapstructure:"jwt_leeway"`
