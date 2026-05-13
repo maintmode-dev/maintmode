@@ -59,16 +59,25 @@ func main() {
 	if err != nil {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
 	}
+	gateways, err := bootstrap.NewGateways(cfg)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init gateways", xfield.Error(err))
+	}
 
 	// start api server
 	{
 		s := server.NewAPIServer(
 			cfg.APIServer,
-			apimaint.New(services.Maint),
-			resourcesapi.New(services.Resources),
-			uicalendar.New(services.Calendar, services.RBAC),
-			services.JWTVerifier,
-			services.RBAC,
+			server.APIServerHandlers{
+				Maint:     apimaint.New(services.Maint),
+				Resources: resourcesapi.New(services.Resources),
+				Calendar:  uicalendar.New(services.Calendar, services.RBAC),
+			},
+			server.APIServerSecurity{
+				TokenVerifier: services.JWTVerifier,
+				Introspector:  gateways.Auth,
+				Authorizer:    services.RBAC,
+			},
 			server.WithLogger(logger),
 		)
 		s.BindRouters(cfg.Environment, meta)

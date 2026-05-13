@@ -21,9 +21,14 @@ func WithS2S(appName, s2sToken string) ClientOptions {
 	}
 }
 
+// WithTimeout overrides the http.Client request timeout. A non-positive value
+// is ignored so callers can pass an unset config field without accidentally
+// disabling the default NewClient ceiling.
 func WithTimeout(timeout time.Duration) ClientOptions {
 	return func(c *http.Client) {
-		c.Timeout = timeout
+		if timeout > 0 {
+			c.Timeout = timeout
+		}
 	}
 }
 

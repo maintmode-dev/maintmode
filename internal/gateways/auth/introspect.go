@@ -31,7 +31,7 @@ type introspectResponse struct {
 	Exp     int64    `json:"exp,omitempty"`
 }
 
-func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
+func (s *Gateway) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "gateway.Auth.Introspect")
 	defer span.End()
 
@@ -58,7 +58,7 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.A
 	}, nil
 }
 
-func (s *Service) callIntrospect(ctx context.Context, tokenString string) (*introspectResponse, error) {
+func (s *Gateway) callIntrospect(ctx context.Context, tokenString string) (*introspectResponse, error) {
 	buf := new(bytes.Buffer)
 
 	err := json.NewEncoder(buf).Encode(introspectRequest{AccessToken: tokenString}) //nolint:gosec // Introspection must send the bearer token to the auth service.

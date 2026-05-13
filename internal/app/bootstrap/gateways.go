@@ -9,7 +9,7 @@ import (
 
 // Gateways contains all external gateways layer dependencies
 type Gateways struct {
-	Auth *authgateway.Service
+	Auth *authgateway.Gateway
 }
 
 func NewGateways(cfg *config.AppConfig) (*Gateways, error) {
@@ -17,9 +17,8 @@ func NewGateways(cfg *config.AppConfig) (*Gateways, error) {
 	if !ok {
 		return nil, fmt.Errorf("auth external service config is missing")
 	}
-	auth := authgateway.NewService(autCfg)
 
 	return &Gateways{
-		Auth: auth,
+		Auth: authgateway.New(autCfg),
 	}, nil
 }

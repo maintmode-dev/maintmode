@@ -16,31 +16,40 @@ import (
 	"github.com/ruko1202/maintmode/internal/server/middlewares"
 )
 
+// APIServerHandlers holds the per-domain Echo handler implementations served
+// by the API server. Adding a new domain means adding a field here, not a new
+// constructor argument.
+type APIServerHandlers struct {
+	Maint     *apimaint.Implementation
+	Resources *resourcesapi.Implementation
+	Calendar  *uicalendar.Implementation
+}
+
+// APIServerSecurity holds the security primitives wired into middleware
+// chains: local JWT verification, auth-gateway introspect for active-token
+// checks on critical mutations, and RBAC scenario authorization.
+type APIServerSecurity struct {
+	TokenVerifier middlewares.TokenVerifier
+	Introspector  middlewares.ActiveTokenIntrospector
+	Authorizer    middlewares.Authorizer
+}
+
 type APIServer struct {
 	*server
-	maintImpl     *apimaint.Implementation
-	resourcesImpl *resourcesapi.Implementation
-	calendarImpl  *uicalendar.Implementation
-	tokenVerifier middlewares.TokenVerifier
-	authorizer    middlewares.Authorizer
+	handlers APIServerHandlers
+	security APIServerSecurity
 }
 
 func NewAPIServer(
 	cfg config.HTTPServer,
-	maintImpl *apimaint.Implementation,
-	resourcesImpl *resourcesapi.Implementation,
-	calendarImpl *uicalendar.Implementation,
-	tokenVerifier middlewares.TokenVerifier,
-	authorizer middlewares.Authorizer,
+	handlers APIServerHandlers,
+	security APIServerSecurity,
 	opts ...Option,
 ) *APIServer {
 	return &APIServer{
-		server:        newServer(cfg, opts...),
-		maintImpl:     maintImpl,
-		resourcesImpl: resourcesImpl,
-		calendarImpl:  calendarImpl,
-		tokenVerifier: tokenVerifier,
-		authorizer:    authorizer,
+		server:   newServer(cfg, opts...),
+		handlers: handlers,
+		security: security,
 	}
 }
 
@@ -50,11 +59,22 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	s.apiV1Group(rootGr.Group("/api/v1",
-		middlewares.RequireAccessToken(s.tokenVerifier),
+		middlewares.RequireAccessToken(s.security.TokenVerifier),
 	))
 	s.uiV1Group(rootGr.Group("/ui/v1",
-		middlewares.RequireAccessToken(s.tokenVerifier),
+		middlewares.RequireAccessToken(s.security.TokenVerifier),
 	))
+}
+
+func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFunc {
+	return middlewares.RequireScenario(s.security.Authorizer, scenario)
+}
+
+func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []echo.MiddlewareFunc {
+	return []echo.MiddlewareFunc{
+		middlewares.RequireActiveToken(s.security.Introspector),
+		s.scenarioMW(scenario),
+	}
 }
 
 // api V1 API group
@@ -62,79 +82,50 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	// maint API group
 	{
 		maintAPI := gr.Group("/maintenances")
-		maintAPI.Add(http.MethodPost, "/create",
-			s.maintImpl.CreateDraftMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceCreate),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/edit",
-			s.maintImpl.UpdateDraftMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceEdit),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/start",
-			s.maintImpl.StartMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceStart),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/cancel",
-			s.maintImpl.CancelMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceCancel),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/complete",
-			s.maintImpl.CompleteMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceComplete),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/approve",
-			s.maintImpl.ApproveMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceApprove),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/start",
-			s.maintImpl.StartStep,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceStepStart),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/complete",
-			s.maintImpl.CompleteStep,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceStepComplete),
-		)
-		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/cancel",
-			s.maintImpl.CancelStep,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceStepCancel),
-		)
-		maintAPI.Add(http.MethodGet, "/:id",
-			s.maintImpl.GetMaint,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceRead),
-		)
+		maintAPI.Add(http.MethodPost, "/create", s.handlers.Maint.CreateDraftMaint,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceCreate))
+		maintAPI.Add(http.MethodPost, "/:id/edit", s.handlers.Maint.UpdateDraftMaint,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceEdit))
+		maintAPI.Add(http.MethodPost, "/:id/start", s.handlers.Maint.StartMaint,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStart)...)
+		maintAPI.Add(http.MethodPost, "/:id/cancel", s.handlers.Maint.CancelMaint,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceCancel)...)
+		maintAPI.Add(http.MethodPost, "/:id/complete", s.handlers.Maint.CompleteMaint,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceComplete)...)
+		maintAPI.Add(http.MethodPost, "/:id/approve", s.handlers.Maint.ApproveMaint,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceApprove)...)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/start", s.handlers.Maint.StartStep,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepStart)...)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/complete", s.handlers.Maint.CompleteStep,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepComplete)...)
+		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/cancel", s.handlers.Maint.CancelStep,
+			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepCancel)...)
+		maintAPI.Add(http.MethodGet, "/:id", s.handlers.Maint.GetMaint,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	}
 
 	// resources API group
 	{
 		resourcesAPI := gr.Group("/resources")
-		resourcesAPI.Add(http.MethodGet, "",
-			s.resourcesImpl.SearchResources,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioResourceRead),
-		)
+		resourcesAPI.Add(http.MethodGet, "", s.handlers.Resources.SearchResources,
+			s.scenarioMW(entity.AuthzScenarioResourceRead))
 	}
 
 	// resource API group
 	{
 		resourceAPI := gr.Group("/resource")
-		resourceAPI.Add(http.MethodGet, "/:id/types",
-			s.resourcesImpl.GetResourceTypes,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioResourceRead),
-		)
-		resourceAPI.Add(http.MethodPost, "/create",
-			s.resourcesImpl.CreateResource,
-			middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioResourceCreate),
-		)
+		resourceAPI.Add(http.MethodGet, "/:id/types", s.handlers.Resources.GetResourceTypes,
+			s.scenarioMW(entity.AuthzScenarioResourceRead))
+
+		resourceAPI.Add(http.MethodPost, "/create", s.handlers.Resources.CreateResource,
+			s.scenarioMW(entity.AuthzScenarioResourceCreate))
 	}
 }
 
 // ui V1 API group
 func (s *APIServer) uiV1Group(gr *echo.Group) {
-	gr.Add(http.MethodGet, "/calendar",
-		s.calendarImpl.CalendarView,
-		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioCalendarRead),
-	)
-	gr.Add(http.MethodGet, "/maintenances/:id",
-		s.calendarImpl.MaintView,
-		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioMaintenanceRead),
-	)
+	gr.Add(http.MethodGet, "/calendar", s.handlers.Calendar.CalendarView,
+		s.scenarioMW(entity.AuthzScenarioCalendarRead))
+	gr.Add(http.MethodGet, "/maintenances/:id", s.handlers.Calendar.MaintView,
+		s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 }

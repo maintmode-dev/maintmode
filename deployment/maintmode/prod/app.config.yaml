@@ -52,5 +52,6 @@ external_services:
     protocol: http
     host: auth
     port: 8000
+    timeout: 3s
 
 s2s:

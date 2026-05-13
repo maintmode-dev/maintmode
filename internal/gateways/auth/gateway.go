@@ -11,16 +11,17 @@ const (
 	introspectURI = "/api/v1/s2s/introspect"
 )
 
-type Service struct {
+type Gateway struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-func NewService(cfg config.ExternalService) *Service {
-	return &Service{
+func New(cfg config.ExternalService) *Gateway {
+	return &Gateway{
 		baseURL: cfg.GetURL(),
 		httpClient: xhttp.NewClient(
 			xhttp.WithS2S(config.GetAppBuildMeta().AppName, cfg.Secret),
+			xhttp.WithTimeout(cfg.Timeout),
 		),
 	}
 }

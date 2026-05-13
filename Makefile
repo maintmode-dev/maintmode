@@ -202,6 +202,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/dbtx/dbtx.go -source ./internal/utils/dbtx/main_test.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/oauthprovider/provider.go -source ./internal/services/oauthprovider/provider.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go
 
 # test-client - Generate API client from Swagger specification

@@ -132,10 +132,11 @@ type S2S struct {
 type S2SConfig = map[string]S2S
 
 type ExternalService struct {
-	Secret   string `mapstructure:"secret"`
-	Protocol string `mapstructure:"protocol"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
+	Secret   string        `mapstructure:"secret"`
+	Protocol string        `mapstructure:"protocol"`
+	Host     string        `mapstructure:"host"`
+	Port     int           `mapstructure:"port"`
+	Timeout  time.Duration `mapstructure:"timeout"`
 }
 
 func (e ExternalService) GetURL() string {
