@@ -138,7 +138,7 @@ func NewGetAPIV1AuditLogBadRequest() *GetAPIV1AuditLogBadRequest {
 /*
 GetAPIV1AuditLogBadRequest describes a response with status code 400, with default header values.
 
-Invalid limit parameter
+Invalid query parameters
 */
 type GetAPIV1AuditLogBadRequest struct {
 	Payload *models.HttperrorsErrorResponse

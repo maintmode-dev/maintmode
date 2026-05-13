@@ -87,7 +87,7 @@ func mapError(err error) (int, *ErrorResponse) {
 		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
 
 	case errors.Is(err, apperr.ErrResourceAlreadyExists):
-		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
+		return http.StatusConflict, NewErrorResponse(ErrResourceAlreadyExists, err.Error())
 
 	case errors.Is(err, apperr.ErrStepNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())

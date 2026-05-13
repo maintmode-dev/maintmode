@@ -62,9 +62,11 @@ type ClientService interface {
 }
 
 /*
-GetAPIV1AuditLog gets audit log
+	GetAPIV1AuditLog gets audit log
 
-Returns the last N audit log entries (default and max: 100).
+	Returns audit log entries ordered by created_at DESC.
+
+Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
 */
 func (a *Client) GetAPIV1AuditLog(params *GetAPIV1AuditLogParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1AuditLogOK, error) {
 	// NOTE: parameters are not validated before sending

@@ -106,7 +106,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the last N audit log entries (default and max: 100).",
+                "description": "Returns audit log entries ordered by created_at DESC.\nSupports optional filtering by action, actor, and created_at range, plus offset/limit pagination.",
                 "produces": [
                     "application/json"
                 ],
@@ -121,6 +121,37 @@ const docTemplate = `{
                         "description": "Number of entries to return (max 100)",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by audit action (e.g. assigned, revoked, login_success)",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by actor (exact match)",
+                        "name": "actor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by created_at \u003e= this RFC3339 timestamp",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by created_at \u003c= this RFC3339 timestamp",
+                        "name": "created_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -131,7 +162,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid limit parameter",
+                        "description": "Invalid query parameters",
                         "schema": {
                             "$ref": "#/definitions/httperrors.ErrorResponse"
                         }

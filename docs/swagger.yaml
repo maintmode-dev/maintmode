@@ -721,13 +721,36 @@ paths:
       - Auth
   /api/v1/audit/log:
     get:
-      description: 'Returns the last N audit log entries (default and max: 100).'
+      description: |-
+        Returns audit log entries ordered by created_at DESC.
+        Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
       parameters:
       - default: 100
         description: Number of entries to return (max 100)
         in: query
         name: limit
         type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - description: Filter by audit action (e.g. assigned, revoked, login_success)
+        in: query
+        name: action
+        type: string
+      - description: Filter by actor (exact match)
+        in: query
+        name: actor
+        type: string
+      - description: Filter by created_at >= this RFC3339 timestamp
+        in: query
+        name: created_from
+        type: string
+      - description: Filter by created_at <= this RFC3339 timestamp
+        in: query
+        name: created_to
+        type: string
       produces:
       - application/json
       responses:
@@ -736,7 +759,7 @@ paths:
           schema:
             $ref: '#/definitions/apiauthmodels.AuditLogResponse'
         "400":
-          description: Invalid limit parameter
+          description: Invalid query parameters
           schema:
             $ref: '#/definitions/httperrors.ErrorResponse'
         "401":

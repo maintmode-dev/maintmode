@@ -18,6 +18,7 @@ var (
 	ErrInvalidRequest               ErrorCode = "invalid request"
 	ErrConflictsChangedSincePreview ErrorCode = "conflicts changed since preview"
 	ErrMaintChangedSincePreview     ErrorCode = "maintenance changed since preview"
+	ErrResourceAlreadyExists        ErrorCode = "resource already exists"
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
 )
 

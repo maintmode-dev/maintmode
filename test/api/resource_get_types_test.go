@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/go-openapi/strfmt"
@@ -40,4 +41,18 @@ func TestReroucesAPI_GetTypes(t *testing.T) {
 
 	require.Equal(t, len(expected), len(payload.Types))
 	require.Equal(t, expected, payload.Types)
+}
+
+func TestReroucesAPI_GetTypes_UnknownResource(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	apiClient := setupMaintmodeTestClient()
+
+	params := resources.NewGetAPIV1ResourceIDTypesParams().
+		WithContext(ctx).
+		WithID(strfmt.UUID("00000000-0000-0000-0000-000000000000"))
+
+	_, err := apiClient.Resources.GetAPIV1ResourceIDTypes(params, nil)
+	require.Error(t, err)
+	require.Equal(t, http.StatusNotFound, extractErrorCode(t, err))
 }

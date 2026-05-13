@@ -12,17 +12,18 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) GetLogs(ctx context.Context, f *entity.AuditFilter, limit int64) ([]*entity.AuditEntry, error) {
+func (s *Store) GetLogs(ctx context.Context, cmd *entity.GetAuditLogsCmd) ([]*entity.AuditEntry, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Audit.GetLogs")
 	defer span.End()
 
 	stmt := table.AuditLog.
 		SELECT(table.AuditLog.AllColumns).
-		WHERE(filterToWhereExp(f)).
+		WHERE(filterToWhereExp(cmd.Filter)).
 		ORDER_BY(table.AuditLog.CreatedAt.DESC()).
-		LIMIT(limit)
+		LIMIT(cmd.Limit).
+		OFFSET(cmd.Offset)
 
-	logs := make([]*model.AuditLog, 0, limit)
+	logs := make([]*model.AuditLog, 0, cmd.Limit)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), &logs)
 	if err != nil {
 		return nil, err
@@ -34,9 +35,24 @@ func (s *Store) GetLogs(ctx context.Context, f *entity.AuditFilter, limit int64)
 }
 
 func filterToWhereExp(f *entity.AuditFilter) postgres.BoolExpression {
+	cond := postgres.Bool(true)
 	if f == nil {
-		return postgres.Bool(true)
+		return cond
 	}
 
-	return nil
+	if f.Action != nil {
+		action := lo.FromPtr(f.Action)
+		cond = cond.AND(table.AuditLog.Action.EQ(postgres.String(string(action))))
+	}
+	if f.Actor != nil {
+		cond = cond.AND(table.AuditLog.Actor.EQ(postgres.String(lo.FromPtr(f.Actor))))
+	}
+	if f.CreatedFrom != nil {
+		cond = cond.AND(table.AuditLog.CreatedAt.GT_EQ(postgres.TimestampzT(lo.FromPtr(f.CreatedFrom))))
+	}
+	if f.CreatedTo != nil {
+		cond = cond.AND(table.AuditLog.CreatedAt.LT_EQ(postgres.TimestampzT(lo.FromPtr(f.CreatedTo))))
+	}
+
+	return cond
 }

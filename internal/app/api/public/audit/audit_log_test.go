@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/audit/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
@@ -57,10 +56,6 @@ func TestAuditLog(t *testing.T) {
 				name:         fmt.Sprintf("limit=%d", defaultMaxLogsCount+1),
 				queryValues:  url.Values{"limit": {fmt.Sprint(defaultMaxLogsCount + 1)}},
 				maxLogsCount: defaultMaxLogsCount,
-			}, {
-				name:         "negative limit",
-				queryValues:  url.Values{"limit": {fmt.Sprint(-1)}},
-				maxLogsCount: defaultMaxLogsCount, // don't raise an error, but return default logs count
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -72,7 +67,7 @@ func TestAuditLog(t *testing.T) {
 
 				err := impl.AuditLog(c)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, rec.Code)
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 				require.Equal(t, echo.MIMEApplicationJSON, rec.Header().Get(echo.HeaderContentType))
 
 				resp := new(apiauthmodels.AuditLogResponse)
@@ -94,8 +89,48 @@ func TestAuditLog(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 		require.Equal(t, echo.MIMEApplicationJSON, rec.Header().Get(echo.HeaderContentType))
+		require.Contains(t, rec.Body.String(), "invalid limit")
+	})
 
-		resp := httperrors.NewErrorResponse(httperrors.ErrInvalidRequest, httperrors.ErrParseBody.Error())
-		require.Equal(t, resp.JSON(), rec.Body.String())
+	t.Run("offset is not a digit", func(t *testing.T) {
+		t.Parallel()
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{"offset": {"not a digit"}},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "invalid offset")
+	})
+
+	t.Run("invalid created_from", func(t *testing.T) {
+		t.Parallel()
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{"created_from": {"not-a-time"}},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "invalid created_from")
+	})
+
+	t.Run("created_from after created_to", func(t *testing.T) {
+		t.Parallel()
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{
+				"created_from": {"2026-05-13T12:00:00Z"},
+				"created_to":   {"2026-05-13T11:00:00Z"},
+			},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "created_from must be")
 	})
 }

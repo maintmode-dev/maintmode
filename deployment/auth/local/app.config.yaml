@@ -71,7 +71,7 @@ jwt:
   issuer_kid: <secret:jwt/issuer_kid>
   access_token_ttl: 15m
   refresh_token_ttl: 720h # 30 days
-  refresh_token_grace_period: 5s
+  refresh_token_grace_period: 1ms
   refresh_token_distributed_lock_ttl: 5s
   oauth_state_signing_key: <secret:jwt/oauth_state_signing_key>
   oauth_state_ttl: 5m

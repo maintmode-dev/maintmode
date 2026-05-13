@@ -68,4 +68,11 @@ type AuditEntry struct {
 	CreatedAt  time.Time
 }
 
-type AuditFilter struct{}
+// AuditFilter is a read-time filter for audit log entries.
+// All fields are optional; a nil pointer means "do not filter by this field".
+type AuditFilter struct {
+	Action      *AuditAction
+	Actor       *string
+	CreatedFrom *time.Time
+	CreatedTo   *time.Time
+}

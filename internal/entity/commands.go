@@ -137,3 +137,11 @@ type ReplaceRolesCmd struct {
 	UserID uuid.UUID
 	Roles  []Role
 }
+
+// --- Audit log commands ---
+
+type GetAuditLogsCmd struct {
+	Filter *AuditFilter
+	Limit  int64
+	Offset int64
+}

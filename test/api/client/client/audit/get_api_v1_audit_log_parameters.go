@@ -62,6 +62,30 @@ GetAPIV1AuditLogParams contains all the parameters to send to the API endpoint
 */
 type GetAPIV1AuditLogParams struct {
 
+	/* Action.
+
+	   Filter by audit action (e.g. assigned, revoked, login_success)
+	*/
+	Action *string
+
+	/* Actor.
+
+	   Filter by actor (exact match)
+	*/
+	Actor *string
+
+	/* CreatedFrom.
+
+	   Filter by created_at >= this RFC3339 timestamp
+	*/
+	CreatedFrom *string
+
+	/* CreatedTo.
+
+	   Filter by created_at <= this RFC3339 timestamp
+	*/
+	CreatedTo *string
+
 	/* Limit.
 
 	   Number of entries to return (max 100)
@@ -69,6 +93,12 @@ type GetAPIV1AuditLogParams struct {
 	   Default: 100
 	*/
 	Limit *int64
+
+	/* Offset.
+
+	   Pagination offset
+	*/
+	Offset *int64
 
 	timeout    time.Duration
 	Context    context.Context
@@ -89,10 +119,13 @@ func (o *GetAPIV1AuditLogParams) WithDefaults() *GetAPIV1AuditLogParams {
 func (o *GetAPIV1AuditLogParams) SetDefaults() {
 	var (
 		limitDefault = int64(100)
+
+		offsetDefault = int64(0)
 	)
 
 	val := GetAPIV1AuditLogParams{
-		Limit: &limitDefault,
+		Limit:  &limitDefault,
+		Offset: &offsetDefault,
 	}
 
 	val.timeout = o.timeout
@@ -134,6 +167,50 @@ func (o *GetAPIV1AuditLogParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithAction adds the action to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) WithAction(action *string) *GetAPIV1AuditLogParams {
+	o.SetAction(action)
+	return o
+}
+
+// SetAction adds the action to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) SetAction(action *string) {
+	o.Action = action
+}
+
+// WithActor adds the actor to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) WithActor(actor *string) *GetAPIV1AuditLogParams {
+	o.SetActor(actor)
+	return o
+}
+
+// SetActor adds the actor to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) SetActor(actor *string) {
+	o.Actor = actor
+}
+
+// WithCreatedFrom adds the createdFrom to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) WithCreatedFrom(createdFrom *string) *GetAPIV1AuditLogParams {
+	o.SetCreatedFrom(createdFrom)
+	return o
+}
+
+// SetCreatedFrom adds the createdFrom to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) SetCreatedFrom(createdFrom *string) {
+	o.CreatedFrom = createdFrom
+}
+
+// WithCreatedTo adds the createdTo to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) WithCreatedTo(createdTo *string) *GetAPIV1AuditLogParams {
+	o.SetCreatedTo(createdTo)
+	return o
+}
+
+// SetCreatedTo adds the createdTo to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) SetCreatedTo(createdTo *string) {
+	o.CreatedTo = createdTo
+}
+
 // WithLimit adds the limit to the get API v1 audit log params
 func (o *GetAPIV1AuditLogParams) WithLimit(limit *int64) *GetAPIV1AuditLogParams {
 	o.SetLimit(limit)
@@ -145,6 +222,17 @@ func (o *GetAPIV1AuditLogParams) SetLimit(limit *int64) {
 	o.Limit = limit
 }
 
+// WithOffset adds the offset to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) WithOffset(offset *int64) *GetAPIV1AuditLogParams {
+	o.SetOffset(offset)
+	return o
+}
+
+// SetOffset adds the offset to the get API v1 audit log params
+func (o *GetAPIV1AuditLogParams) SetOffset(offset *int64) {
+	o.Offset = offset
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetAPIV1AuditLogParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -152,6 +240,74 @@ func (o *GetAPIV1AuditLogParams) WriteToRequest(r runtime.ClientRequest, reg str
 		return err
 	}
 	var res []error
+
+	if o.Action != nil {
+
+		// query param action
+		var qrAction string
+
+		if o.Action != nil {
+			qrAction = *o.Action
+		}
+		qAction := qrAction
+		if qAction != "" {
+
+			if err := r.SetQueryParam("action", qAction); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.Actor != nil {
+
+		// query param actor
+		var qrActor string
+
+		if o.Actor != nil {
+			qrActor = *o.Actor
+		}
+		qActor := qrActor
+		if qActor != "" {
+
+			if err := r.SetQueryParam("actor", qActor); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.CreatedFrom != nil {
+
+		// query param created_from
+		var qrCreatedFrom string
+
+		if o.CreatedFrom != nil {
+			qrCreatedFrom = *o.CreatedFrom
+		}
+		qCreatedFrom := qrCreatedFrom
+		if qCreatedFrom != "" {
+
+			if err := r.SetQueryParam("created_from", qCreatedFrom); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.CreatedTo != nil {
+
+		// query param created_to
+		var qrCreatedTo string
+
+		if o.CreatedTo != nil {
+			qrCreatedTo = *o.CreatedTo
+		}
+		qCreatedTo := qrCreatedTo
+		if qCreatedTo != "" {
+
+			if err := r.SetQueryParam("created_to", qCreatedTo); err != nil {
+				return err
+			}
+		}
+	}
 
 	if o.Limit != nil {
 
@@ -165,6 +321,23 @@ func (o *GetAPIV1AuditLogParams) WriteToRequest(r runtime.ClientRequest, reg str
 		if qLimit != "" {
 
 			if err := r.SetQueryParam("limit", qLimit); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.Offset != nil {
+
+		// query param offset
+		var qrOffset int64
+
+		if o.Offset != nil {
+			qrOffset = *o.Offset
+		}
+		qOffset := swag.FormatInt64(qrOffset)
+		if qOffset != "" {
+
+			if err := r.SetQueryParam("offset", qOffset); err != nil {
 				return err
 			}
 		}

@@ -34,7 +34,7 @@ func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDet
 
 	stmt := table.Resources.
 		SELECT(table.Resources.AllColumns).
-		WHERE(table.Resources.Name.EQ(postgres.String(name)))
+		WHERE(postgres.LOWER(table.Resources.Name).EQ(postgres.LOWER(postgres.String(name))))
 
 	return s.get(ctx, stmt)
 }

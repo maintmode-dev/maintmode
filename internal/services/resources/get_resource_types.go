@@ -2,9 +2,11 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -13,11 +15,11 @@ func (s *Service) GetResourceTypes(ctx context.Context, resourceID uuid.UUID) ([
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.GetResourceTypes")
 	defer span.End()
 
-	_ = ctx
-	_ = resourceID
+	if _, err := s.store.GetByID(ctx, resourceID); err != nil {
+		xlog.Error(ctx, "failed to get resource", xfield.Error(err))
+		return nil, fmt.Errorf("get resource: %w", err)
+	}
 
-	// For prototype, return all resource type constants
-	// In the future, this could filter by types the resource has been used with
 	return []entity.ResourceType{
 		entity.ResourceTypeService,
 		entity.ResourceTypeDatabase,
