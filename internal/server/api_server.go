@@ -102,6 +102,8 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepCancel)...)
 		maintAPI.Add(http.MethodGet, "/:id", s.handlers.Maint.GetMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
+		maintAPI.Add(http.MethodGet, "/cancel-reasons", s.handlers.Maint.CancelMaintReasons,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	}
 
 	// resources API group

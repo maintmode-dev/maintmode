@@ -1435,6 +1435,32 @@ paths:
       summary: Start maintenance step
       tags:
       - Maintenances
+  /api/v1/maintenances/cancel-reasons:
+    get:
+      description: Returns all supported reasons that can be used when canceling a
+        maintenance.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/apimodels.MaintenanceCancelReason'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List maintenance cancel reasons
+      tags:
+      - Maintenances
   /api/v1/maintenances/create:
     post:
       consumes:

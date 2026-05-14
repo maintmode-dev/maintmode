@@ -56,6 +56,8 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
+	GetAPIV1MaintenancesCancelReasons(params *GetAPIV1MaintenancesCancelReasonsParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MaintenancesCancelReasonsOK, error)
+
 	GetAPIV1MaintenancesID(params *GetAPIV1MaintenancesIDParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MaintenancesIDOK, error)
 
 	PostAPIV1MaintenancesCreate(params *PostAPIV1MaintenancesCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesCreateOK, error)
@@ -77,6 +79,52 @@ type ClientService interface {
 	PostAPIV1MaintenancesIDStepsStepIDStart(params *PostAPIV1MaintenancesIDStepsStepIDStartParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1MaintenancesIDStepsStepIDStartNoContent, error)
 
 	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+GetAPIV1MaintenancesCancelReasons lists maintenance cancel reasons
+
+Returns all supported reasons that can be used when canceling a maintenance.
+*/
+func (a *Client) GetAPIV1MaintenancesCancelReasons(params *GetAPIV1MaintenancesCancelReasonsParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1MaintenancesCancelReasonsOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewGetAPIV1MaintenancesCancelReasonsParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetAPIV1MaintenancesCancelReasons",
+		Method:             "GET",
+		PathPattern:        "/api/v1/maintenances/cancel-reasons",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetAPIV1MaintenancesCancelReasonsReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*GetAPIV1MaintenancesCancelReasonsOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetAPIV1MaintenancesCancelReasons: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*

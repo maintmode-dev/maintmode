@@ -402,6 +402,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/maintenances/cancel-reasons": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all supported reasons that can be used when canceling a maintenance.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Maintenances"
+                ],
+                "summary": "List maintenance cancel reasons",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/apimodels.MaintenanceCancelReason"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/maintenances/create": {
             "post": {
                 "security": [
