@@ -1,0 +1,52 @@
+# Production overlay for single-VM Docker Compose deployment.
+#
+# Activates:
+#   - prod app.config.yaml + app.secrets.yaml mounts (deployment/{auth,maintmode}/prod/)
+#   - Caddy on :80/:443 with auto Let's Encrypt (Caddyfile.prod)
+#   - Grafana admin password from env (no admin/admin default)
+#
+# Usage:
+#   cp .env.prod.sample .env.prod && edit
+#   make prod-up
+#
+# Required env vars in .env.prod:
+#   DOMAIN, ACME_EMAIL, MAINTMODE_IMAGE_TAG, AUTH_IMAGE_TAG,
+#   GRAFANA_ADMIN_PASSWORD, ALERTMANAGER_SLACK_WEBHOOK (optional)
+
+services:
+  maintmode:
+    image: ${MAINTMODE_IMAGE:-ghcr.io/ruko1202/maintmode/maintmode}:${MAINTMODE_IMAGE_TAG:-latest}
+    build: null
+    volumes:
+      - ./deployment/maintmode/prod/app.config.yaml:/app/app.config.yaml:ro
+      - ./deployment/maintmode/prod/app.secrets.yaml:/app/app.secrets.yaml:ro
+
+  auth:
+    image: ${AUTH_IMAGE:-ghcr.io/ruko1202/maintmode/auth}:${AUTH_IMAGE_TAG:-latest}
+    build: null
+    volumes:
+      - ./deployment/auth/prod/app.config.yaml:/app/app.config.yaml:ro
+      - ./deployment/auth/prod/app.secrets.yaml:/app/app.secrets.yaml:ro
+
+  caddy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./web/static/nginx:/var/www/html:ro
+      - ./deployment/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://${DOMAIN}/grafana/
+      GF_FEATURE_TOGGLES_ENABLE: traceToMetrics
+      GF_INSTALL_PLUGINS: grafana-pyroscope-datasource

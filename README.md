@@ -115,6 +115,15 @@ UI ориентирован на:
 
 
 
+## Operations
+
+For deploying MaintMode to a single VM with HTTPS, monitoring, backup
+runbooks, and the production smoke-test checklist, see the
+**maintmode-docs/ops/** directory in the separate
+[`maintmode-docs`](../maintmode-docs/ops/README.md) repository. The
+backend repo holds the compose files and Caddy configuration; the
+docs repo is the canonical source for operator procedures.
+
 ### Quick Start
 
 ```bash

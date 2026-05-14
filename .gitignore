@@ -22,6 +22,9 @@ plans/
 
 deployment/*/prod/app.secrets.yaml
 
+.env.prod
+.env.local
+
 monitoring/store/
 
 screenshots/

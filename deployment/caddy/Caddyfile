@@ -1,0 +1,38 @@
+# Caddy configuration for MaintMode — local/dev.
+#
+# Public API on :3000 (mapped to host :9000 in compose.yaml).
+# Infra / status API on :3001 (mapped to host :9001).
+# No TLS locally. Routing mirrors the legacy deployment/nginx.conf.
+#
+# For production HTTPS use deployment/caddy/Caddyfile.prod via the
+# compose.app.prod.yaml overlay.
+
+:3000 {
+	encode gzip
+
+	handle_path /auth/* {
+		reverse_proxy auth:8000
+	}
+
+	handle_path /maintmode/* {
+		reverse_proxy maintmode:8000
+	}
+
+	root * /var/www/html/publicapi
+	file_server
+}
+
+:3001 {
+	encode gzip
+
+	handle_path /auth/* {
+		reverse_proxy auth:8001
+	}
+
+	handle_path /maintmode/* {
+		reverse_proxy maintmode:8001
+	}
+
+	root * /var/www/html/infra
+	file_server
+}

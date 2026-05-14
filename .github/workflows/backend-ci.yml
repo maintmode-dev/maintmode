@@ -22,7 +22,10 @@ on:
       - "v*"
 
 env:
-  DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
+  DOCKER_COMPOSE_APP_CONFIGS: -f compose.yaml -f compose.app.test.yaml -f compose.app.ci.yaml
+  # CI runs without the monitoring profile to keep test runs lean.
+  # See Makefile (COMPOSE_PROFILES_FLAGS) for the local/prod default.
+  COMPOSE_PROFILES_FLAGS: --profile storages --profile app
   MAINTMODE_IMAGE_TAG: ${{ github.sha }}
   AUTH_IMAGE_TAG: ${{ github.sha }}
 
@@ -94,8 +97,8 @@ jobs:
         if: failure()
         run: |
           mkdir -p tmp
-          docker-compose logs --no-color > tmp/backend-compose.log || true
-          docker-compose ps -a > tmp/backend-compose-ps.log || true
+          docker-compose --profile storages logs --no-color > tmp/backend-compose.log || true
+          docker-compose --profile storages ps -a > tmp/backend-compose-ps.log || true
       - run: make docker-down
         if: always()
       - uses: actions/upload-artifact@v4
@@ -258,8 +261,8 @@ jobs:
         if: failure()
         run: |
           mkdir -p tmp
-          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ps -a > tmp/api-compose-ps.log || true
-          docker-compose -${{ env.DOCKER_COMPOSE_APP_CONFIGS }} logs --no-color > tmp/api-compose.log || true
+          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ${{ env.COMPOSE_PROFILES_FLAGS }} ps -a > tmp/api-compose-ps.log || true
+          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ${{ env.COMPOSE_PROFILES_FLAGS }} logs --no-color > tmp/api-compose.log || true
       - run: make app-down
         if: always()
       - uses: actions/upload-artifact@v4

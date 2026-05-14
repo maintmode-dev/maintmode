@@ -1,0 +1,33 @@
+# Caddy configuration for MaintMode — production.
+#
+# Serves public API over HTTPS on :443 for $DOMAIN, with automatic
+# Let's Encrypt certificates. Mounted by compose.app.prod.yaml.
+#
+# Required env vars:
+#   DOMAIN       — public hostname (e.g. maintmode.example.com)
+#   ACME_EMAIL   — operator email for Let's Encrypt notifications
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	handle_path /auth/* {
+		reverse_proxy auth:8000
+	}
+
+	handle_path /maintmode/* {
+		reverse_proxy maintmode:8000
+	}
+
+	root * /var/www/html/publicapi
+	file_server
+}

@@ -1,8 +1,36 @@
+# MaintMode — single-VM Docker Compose stack.
+#
+# All services live in this file and are organised into three profiles
+# so a single compose command can scope what runs:
+#
+#   storages     postgres, pg_doorman, redis, apply-migrations
+#   app          maintmode, auth, caddy
+#   monitoring   victoria-metrics, grafana, loki, promtail, postgres-exporter,
+#                redis-exporter, jaeger, otel-collector, pyroscope, alloy,
+#                vmalert, alertmanager
+#
+# Bring up the full local stack:
+#   docker compose --profile storages --profile app --profile monitoring up -d
+#
+# Or use the convenience Makefile targets: `make app-up` (full), `make docker-up`
+# (storages only), `make prod-up` (prod overlay).
+#
+# Overlays:
+#   compose.app.test.yaml   — test env configs for `make test-api`
+#   compose.app.ci.yaml     — pre-built images for CI
+#   compose.app.prod.yaml   — production: HTTPS via Caddy, prod app configs
+#   compose.k6.yaml         — k6 load testing
+#
+# Operator docs: maintmode-docs/ops/
+
 services:
-  # Наша база данных
+  # -----------------------------------------------------------------
+  # Storages
+  # -----------------------------------------------------------------
   postgres:
     image: postgres:18-alpine
     container_name: postgres
+    profiles: ["storages"]
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -21,11 +49,10 @@ services:
     networks:
       - theapp
 
-
-  # PostgreSQL connection pooler
   pg_doorman:
     image: ghcr.io/ozontech/pg_doorman:latest
     container_name: pg_doorman
+    profiles: ["storages"]
     restart: unless-stopped
     command: ["pg_doorman", "-l", "info", "/etc/pg_doorman/pg_doorman.toml"]
     ports:
@@ -42,6 +69,7 @@ services:
   redis:
     image: redis:8-alpine
     container_name: redis
+    profiles: ["storages"]
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -60,6 +88,7 @@ services:
   apply-migrations:
     image: kukymbr/goose-docker:3.26.0
     container_name: apply-migrations
+    profiles: ["storages"]
     environment:
       GOOSE_DBSTRING: 'postgres://postgres:postgres@postgres:5432/maintmode?sslmode=disable'
       GOOSE_DRIVER: postgres
@@ -71,9 +100,296 @@ services:
     networks:
       - theapp
 
+  # -----------------------------------------------------------------
+  # Application
+  # -----------------------------------------------------------------
+  maintmode:
+    build:
+      context: .
+      dockerfile: deployment/maintmode/.build/Dockerfile
+    container_name: maintmode
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      MAINTMODE_APP_CONFIG_PATH: /app/app.config.yaml
+      MAINTMODE_APP_SECRETS_PATH: /app/app.secrets.yaml
+    volumes:
+      - ./deployment/maintmode/dev/app.config.yaml:/app/app.config.yaml:ro
+      - ./deployment/maintmode/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg_doorman:
+        condition: service_started
+      apply-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - theapp
+
+  auth:
+    build:
+      context: .
+      dockerfile: deployment/auth/.build/Dockerfile
+    container_name: auth
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      AUTH_APP_CONFIG_PATH: /app/app.config.yaml
+      AUTH_APP_SECRETS_PATH: /app/app.secrets.yaml
+    volumes:
+      - ./deployment/auth/dev/app.config.yaml:/app/app.config.yaml:ro
+      - ./deployment/auth/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg_doorman:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      apply-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - theapp
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    profiles: ["app"]
+    restart: unless-stopped
+    ports:
+      - "9000:3000"
+      - "9001:3001"
+    environment:
+      DOMAIN: ${DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./web/static/nginx:/var/www/html:ro
+      - ./deployment/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      auth:
+        condition: service_healthy
+      maintmode:
+        condition: service_healthy
+    networks:
+      - theapp
+
+  # -----------------------------------------------------------------
+  # Monitoring
+  # -----------------------------------------------------------------
+  # VictoriaMetrics — Prometheus-compatible TSDB
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.103.0
+    container_name: victoria-metrics
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    ports:
+      - "8428:8428"
+      - "8429:8429"
+    volumes:
+      - victoria-metrics:/victoria-metrics-data
+      - ./monitoring/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--promscrape.config=/etc/prometheus/prometheus.yml"
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--httpListenAddr=:8428"
+      - "--retentionPeriod=30d"
+    networks:
+      - theapp
+
+  # Grafana — metrics & logs UI
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    ports:
+      - "8003:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_FEATURE_TOGGLES_ENABLE: traceToMetrics
+      GF_INSTALL_PLUGINS: grafana-pyroscope-datasource
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./monitoring/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - victoria-metrics
+      - loki
+    networks:
+      - theapp
+
+  # Loki — log aggregation
+  loki:
+    image: grafana/loki:3.3.0
+    container_name: loki
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki:/loki
+      - ./monitoring/config/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+    networks:
+      - theapp
+
+  # Promtail — ships container logs to Loki
+  promtail:
+    image: grafana/promtail:3.3.0
+    container_name: promtail
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/config/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - theapp
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: postgres-exporter
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/maintmode?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - theapp
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    container_name: redis-exporter
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - theapp
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    profiles: ["monitoring"]
+    ports:
+      - "16686:16686" # UI
+      - "4317"        # internal gRPC
+    networks:
+      - theapp
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    profiles: ["monitoring"]
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./monitoring/config/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+    depends_on:
+      - jaeger
+    networks:
+      - theapp
+
+  pyroscope:
+    image: grafana/pyroscope:latest
+    profiles: ["monitoring"]
+    ports:
+      - "4040" # internal port
+    command:
+      - "server"
+    networks:
+      - theapp
+
+  alloy:
+    image: grafana/alloy:latest
+    profiles: ["monitoring"]
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./monitoring/config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    depends_on:
+      - pyroscope
+    networks:
+      - theapp
+
+  # vmalert — evaluates Prometheus alert rules against VictoriaMetrics
+  vmalert:
+    image: victoriametrics/vmalert:v1.103.0
+    container_name: vmalert
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
+    volumes:
+      - ./monitoring/config/alerts.yml:/etc/alerts/alerts.yml:ro
+    command:
+      - "--rule=/etc/alerts/alerts.yml"
+      - "--datasource.url=http://victoria-metrics:8428"
+      - "--remoteWrite.url=http://victoria-metrics:8428"
+      - "--notifier.url=http://alertmanager:9093"
+      - "--httpListenAddr=:8880"
+      - "--evaluationInterval=30s"
+    depends_on:
+      - victoria-metrics
+      - alertmanager
+    networks:
+      - theapp
+
+  # alertmanager — routes alerts to Slack / email / webhook receivers
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    networks:
+      - theapp
+
 volumes:
   db_data:
   redis_data:
+  caddy_data:
+  caddy_config:
+  victoria-metrics:
+  grafana:
+  loki:
+  alertmanager:
 
 networks:
   theapp:

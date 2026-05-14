@@ -1,4 +1,11 @@
 # -------------------------------------
+# Production single-VM deployment
+# -------------------------------------
+# prod-up / prod-down / prod-logs / prod-ps live in makefile.prod.mk
+# so the root Makefile stays focused on dev workflows.
+-include makefile.prod.mk
+
+# -------------------------------------
 # Shared Configuration
 # -------------------------------------
 # This file contains common configuration variables shared across all Makefiles.
@@ -29,7 +36,14 @@ endif
 $(shell mkdir -p $(GOBIN))
 $(shell mkdir -p ./tmp)
 
-DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml -f compose.app.yaml -f compose.infra.yaml
+DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml
+
+# Compose profiles. After RUK-21, every service in compose.yaml declares a
+# `profiles:` key, so any compose command that should start services must
+# pass these flags explicitly. Override COMPOSE_PROFILES_FLAGS=... for
+# selective runs (e.g. test-api drops monitoring).
+COMPOSE_PROFILES_FLAGS ?= --profile storages --profile app --profile monitoring
+COMPOSE_PROFILES_STORAGES ?= --profile storages
 
 # -------------------------------------
 # Default target
@@ -94,7 +108,7 @@ air:
 .PHONY: build
 build: service=maintmode
 build: args=--id main --output=$(GOBIN)/${service}
-build: config=$(PWD)/deployment/${service}/config/app.local.yaml
+build: config=$(PWD)/deployment/${service}/.build/.goreleaser.yaml
 build:
 	$(GOBIN)/goreleaser build -f ${config} --snapshot --single-target --clean ${args}
 
@@ -155,7 +169,8 @@ tloc-api: ## Run API integration tests
 .PHONY: test-api
 test-api: ## Run API integration tests like in CI
 	$(info $(M) running API integration tests...)
-	DOCKER_COMPOSE_APP_CONFIGS="-f compose.yaml -f compose.app.yaml -f compose.app.test.yaml" \
+	DOCKER_COMPOSE_APP_CONFIGS="-f compose.yaml -f compose.app.test.yaml" \
+		COMPOSE_PROFILES_FLAGS="--profile storages --profile app" \
 		make app-up
 	go test -tags=api -v -p 2 -count=2 ./test/api/...
 
@@ -298,7 +313,7 @@ db-models: ## Generate models
 .PHONY: docker-up
 docker-up: ## Start all databases with Docker Compose
 	$(info $(M) starting databases with Docker Compose...)
-	docker-compose up -d
+	docker-compose ${COMPOSE_PROFILES_STORAGES} up -d
 	make docker-ps
 
 # docker-down - Stop and remove all database containers
@@ -308,7 +323,7 @@ docker-up: ## Start all databases with Docker Compose
 .PHONY: docker-down
 docker-down: ## Stop and remove all database containers with volumes
 	$(info $(M) stopping all database containers and removing volumes...)
-	docker-compose down -v --remove-orphans
+	docker-compose ${COMPOSE_PROFILES_STORAGES} down -v --remove-orphans
 	make docker-ps
 
 .PHONY: docker-reup
@@ -322,7 +337,7 @@ docker-reup:
 # Useful for debugging connection issues or monitoring queries
 .PHONY: docker-logs
 docker-logs: ## Show logs from all database containers
-	docker-compose logs -f
+	docker-compose ${COMPOSE_PROFILES_STORAGES} logs -f
 
 # docker-ps - Show status of database containers
 # Displays:
@@ -332,20 +347,19 @@ docker-logs: ## Show logs from all database containers
 # Useful for verifying that databases are ready to accept connections
 .PHONY: docker-ps
 docker-ps: ## Show status of database containers
-	docker-compose ps -a
+	docker-compose ${COMPOSE_PROFILES_STORAGES} ps -a
 
 # -------------------------------------
 # Docker Compose Commands with App
 # -------------------------------------
-# Commands for managing full application stack via Docker Compose
-# Uses compose.app.yaml in project root
+# Commands for managing the full application stack via Docker Compose.
+# Uses compose.yaml in project root with profiles (storages/app/monitoring).
 #
-# Services defined:
-#   - postgres: PostgreSQL 18 on port 5432
-#   - redis: Redis 8 on port 6379
-#   - pg_doorman: PostgreSQL connection pooler on port 6432
-#   - apply-migrations: Database migration runner
-#   - maintmode: Main application on port 8080
+# Services activated by COMPOSE_PROFILES_FLAGS (default = all three):
+#   storages    postgres, pg_doorman, redis, apply-migrations
+#   app         maintmode, auth, caddy
+#   monitoring  VictoriaMetrics, Grafana, Loki, Promtail, exporters,
+#               Jaeger, OTEL, Pyroscope, Alloy, vmalert, alertmanager
 
 # app-up - Start all services including maintmode application
 # Starts PostgreSQL, Redis, pg_doorman, apply-migrations, and maintmode
@@ -356,7 +370,7 @@ app-up: app-down
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting all services with maintmode...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} up -d ${args}
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} up -d ${args}
 	make app-ps
 
 # app-down - Stop and remove all containers
@@ -366,14 +380,13 @@ app-up: ## Start all services with maintmode using Docker Compose
 .PHONY: app-down
 app-down: ## Stop and remove all containers
 	$(info $(M) stopping all containers...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} down -v --remove-orphans
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} down -v --remove-orphans
 	make app-ps
 
 .PHONY: app-reup
 app-reup: ## Stop and start all containers
 	make app-down
-# 	make app-up args="--build"
-	make app-up
+	make app-up args="--build"
 
 # app-logs - Stream logs from maintmode container
 # Shows continuous log output from maintmode service
@@ -381,7 +394,7 @@ app-reup: ## Stop and start all containers
 # Useful for debugging application issues
 .PHONY: app-logs
 app-logs: ## Show logs from maintmode container
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} logs -f maintmode
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} logs -f maintmode
 
 # app-ps - Show status of all containers
 # Displays:
@@ -391,7 +404,7 @@ app-logs: ## Show logs from maintmode container
 # Useful for verifying that all services are running
 .PHONY: app-ps
 app-ps: ## Show status of all containers
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ps -a
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} ps -a
 
 # -------------------------------------
 # K6 Load Testing

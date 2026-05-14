@@ -1,0 +1,71 @@
+# Prometheus-compatible alerting rules evaluated by vmalert against
+# VictoriaMetrics. Fired alerts are routed to alertmanager.
+#
+# Starter set focused on single-VM Docker Compose deployment health.
+# Extend with app-level SLOs as MaintMode evolves.
+
+groups:
+  - name: maintmode.availability
+    interval: 30s
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} target down"
+          description: "Prometheus target {{ $labels.instance }} ({{ $labels.job }}) has been unreachable for 2m."
+
+      - alert: HighHTTP5xxRate
+        expr: |
+          sum by (job) (rate(echo_http_requests_total{status=~"5.."}[5m]))
+          /
+          sum by (job) (rate(echo_http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }}: 5xx rate > 5%"
+          description: "Service {{ $labels.job }} is returning more than 5% 5xx responses over the last 5 minutes."
+
+  - name: maintmode.storage
+    interval: 30s
+    rules:
+      - alert: PostgresConnectionsHigh
+        expr: |
+          sum(pg_stat_database_numbackends)
+          /
+          max(pg_settings_max_connections)
+          > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postgres connection pool > 80% utilized"
+          description: "{{ $value | humanizePercentage }} of max_connections in use. Investigate connection leaks or scale max_connections."
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "redis-exporter reports redis_up == 0 for 2 minutes."
+
+      - alert: PgDoormanPoolSaturated
+        # pg_doorman exports pgdoorman_databases_pool_clients_active and pool_size per pool.
+        # Adjust label selector when pool is renamed.
+        expr: |
+          max by (pool) (pgdoorman_databases_pool_clients_active)
+          /
+          max by (pool) (pgdoorman_databases_pool_size)
+          > 0.9
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "pg_doorman pool {{ $labels.pool }} > 90% saturated"
+          description: "Connection pooler is close to capacity. Investigate slow queries or raise pool_size."

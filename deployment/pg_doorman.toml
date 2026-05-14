@@ -29,6 +29,11 @@ pooler_check_query = ";"
 tls_rate_limit_per_second = 0
 server_tls = false
 verify_server_certificate = false
+# TODO(RUK-21 follow-up): pg_doorman.toml does not support env-var
+# interpolation today. For prod, generate this file from a template at
+# deploy time, or fork the file as pg_doorman.prod.toml with rotated
+# credentials. The admin endpoint is reachable only on the internal
+# Docker network, so the risk is bounded but real.
 admin_username = "admin"
 admin_password = "admin"
 prepared_statements = true
