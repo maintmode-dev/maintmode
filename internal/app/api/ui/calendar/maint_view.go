@@ -121,8 +121,8 @@ func (i *Implementation) resolveActions(ctx context.Context, roles []entity.Role
 	case entity.MaintenanceStatusInProgress:
 		userCanComplete := can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceComplete)
 		return &uimodels.MaintenanceActions{
-			CanFinish: userCanComplete && allStepsTerminal(m.Steps),
-			CanCancel: can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceCancel),
+			CanComplete: userCanComplete && allStepsTerminal(m.Steps),
+			CanCancel:   can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceCancel),
 		}
 	case entity.MaintenanceStatusCancelled, entity.MaintenanceStatusCompleted:
 		return &uimodels.MaintenanceActions{}

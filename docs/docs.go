@@ -2741,10 +2741,10 @@ const docTemplate = `{
                 "can_cancel": {
                     "type": "boolean"
                 },
-                "can_edit": {
+                "can_complete": {
                     "type": "boolean"
                 },
-                "can_finish": {
+                "can_edit": {
                     "type": "boolean"
                 },
                 "can_start": {

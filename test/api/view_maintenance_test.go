@@ -45,7 +45,7 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 	require.True(t, actions.CanEdit, "Should be able to edit draft")
 	require.True(t, actions.CanApprove, "Should be able to approve draft")
 	require.False(t, actions.CanStart, "Should not be able to start draft")
-	require.False(t, actions.CanFinish, "Should not be able to finish draft")
+	require.False(t, actions.CanComplete, "Should not be able to finish draft")
 }
 
 func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
@@ -99,7 +99,7 @@ func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 	require.False(t, actions.CanEdit, "Should not be able to edit in-progress maintenance")
 	require.False(t, actions.CanApprove, "Should not be able to approve in-progress maintenance")
 	require.False(t, actions.CanStart, "Should not be able to start in-progress maintenance")
-	require.True(t, actions.CanFinish, "Should be able to finish in-progress maintenance")
+	require.True(t, actions.CanComplete, "Should be able to finish in-progress maintenance")
 	require.True(t, actions.CanCancel, "Should be able to cancel in-progress maintenance")
 }
 

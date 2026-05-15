@@ -59,11 +59,11 @@ type ConflictView struct {
 }
 
 type MaintenanceActions struct {
-	CanEdit    bool `json:"can_edit"`
-	CanApprove bool `json:"can_approve"`
-	CanStart   bool `json:"can_start"`
-	CanCancel  bool `json:"can_cancel"`
-	CanFinish  bool `json:"can_finish"`
+	CanEdit     bool `json:"can_edit"`
+	CanApprove  bool `json:"can_approve"`
+	CanStart    bool `json:"can_start"`
+	CanCancel   bool `json:"can_cancel"`
+	CanComplete bool `json:"can_complete"`
 }
 
 type MaintenanceViewResponse struct {

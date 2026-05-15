@@ -23,11 +23,11 @@ type UimodelsMaintenanceActions struct {
 	// can cancel
 	CanCancel bool `json:"can_cancel,omitempty"`
 
+	// can complete
+	CanComplete bool `json:"can_complete,omitempty"`
+
 	// can edit
 	CanEdit bool `json:"can_edit,omitempty"`
-
-	// can finish
-	CanFinish bool `json:"can_finish,omitempty"`
 
 	// can start
 	CanStart bool `json:"can_start,omitempty"`

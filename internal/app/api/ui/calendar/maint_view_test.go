@@ -172,8 +172,8 @@ func TestResolveActionsRoleAware(t *testing.T) {
 				},
 			},
 			expected: &uimodels.MaintenanceActions{
-				CanCancel: true,
-				CanFinish: true,
+				CanCancel:   true,
+				CanComplete: true,
 			},
 		},
 	}

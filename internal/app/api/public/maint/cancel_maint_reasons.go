@@ -4,8 +4,9 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/xlog"
+
+	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 )
 
 // CancelMaintReasons godoc
