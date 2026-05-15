@@ -11,7 +11,16 @@
 #
 # Required env vars in .env.prod:
 #   DOMAIN, ACME_EMAIL, MAINTMODE_IMAGE_TAG, AUTH_IMAGE_TAG,
-#   GRAFANA_ADMIN_PASSWORD, ALERTMANAGER_SLACK_WEBHOOK (optional)
+#   GRAFANA_ADMIN_PASSWORD
+#
+# Telegram alerting: monitoring/config/alertmanager.yml is shared with
+# base compose.yaml — the prod overlay only swaps which bot-token file
+# is mounted (deployment/infra/prod/...) and flips vmalert's env label
+# to prod, so messages land in the prod topic of the shared Telegram
+# supergroup. Place the bot token in deployment/infra/prod/
+# telegram_bot_token (chmod 600). See
+# deployment/infra/prod/telegram_bot_token.sample and
+# maintmode-docs/ops/monitoring.md.
 
 services:
   maintmode:
@@ -41,6 +50,26 @@ services:
       - ./deployment/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+
+  vmalert:
+    # Override the base env=dev label so Alertmanager dispatches fired
+    # alerts to the prod topic of the shared Telegram supergroup.
+    command:
+      - "--rule=/etc/alerts/alerts.yml"
+      - "--datasource.url=http://victoria-metrics:8428"
+      - "--remoteWrite.url=http://victoria-metrics:8428"
+      - "--notifier.url=http://alertmanager:9093"
+      - "--httpListenAddr=:8880"
+      - "--evaluationInterval=30s"
+      - "--external.label=env=prod"
+
+  alertmanager:
+    # Same alertmanager.yml as base, only the bot-token secret comes
+    # from deployment/infra/prod/. The token file is gitignored.
+    volumes: !override
+      - ./monitoring/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./deployment/infra/prod/telegram_bot_token:/etc/alertmanager/secrets/telegram_bot_token:ro
+      - alertmanager:/alertmanager
 
   grafana:
     environment:

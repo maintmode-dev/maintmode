@@ -22,6 +22,10 @@ plans/
 
 deployment/*/prod/app.secrets.yaml
 
+# Real Telegram bot tokens for Alertmanager — keep secret.
+# Only the .sample files are tracked.
+deployment/infra/*/telegram_bot_token
+
 .env.prod
 .env.local
 

@@ -341,7 +341,10 @@ services:
     networks:
       - theapp
 
-  # vmalert — evaluates Prometheus alert rules against VictoriaMetrics
+  # vmalert — evaluates Prometheus alert rules against VictoriaMetrics.
+  # Base compose targets the dev environment: fired alerts are tagged
+  # env=dev, which Alertmanager routes to the dev topic in the shared
+  # Telegram chat. compose.app.prod.yaml overrides this to env=prod.
   vmalert:
     image: victoriametrics/vmalert:v1.103.0
     container_name: vmalert
@@ -358,15 +361,19 @@ services:
       - "--notifier.url=http://alertmanager:9093"
       - "--httpListenAddr=:8880"
       - "--evaluationInterval=30s"
+      - "--external.label=env=dev"
     depends_on:
       - victoria-metrics
       - alertmanager
     networks:
       - theapp
 
-  # alertmanager — routes alerts to Slack / email / webhook receivers
+  # alertmanager — routes alerts to the Telegram supergroup, dispatching
+  # by env label to the right topic. Same alertmanager.yml is mounted in
+  # prod via compose.app.prod.yaml; only the bot-token secret differs
+  # per environment (deployment/infra/{dev,prod}/telegram_bot_token).
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.28.0
     container_name: alertmanager
     profiles: ["monitoring"]
     restart: unless-stopped
@@ -374,6 +381,7 @@ services:
       - "9093:9093"
     volumes:
       - ./monitoring/config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./deployment/infra/dev/telegram_bot_token:/etc/alertmanager/secrets/telegram_bot_token:ro
       - alertmanager:/alertmanager
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"

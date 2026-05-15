@@ -3,6 +3,10 @@
 #
 # Starter set focused on single-VM Docker Compose deployment health.
 # Extend with app-level SLOs as MaintMode evolves.
+#
+# Every rule sets `runbook_url` to the matching section in
+# maintmode-docs/ops/alert-runbooks.md so on-call has a one-click
+# triage doc in the Telegram message.
 
 groups:
   - name: maintmode.availability
@@ -10,12 +14,13 @@ groups:
     rules:
       - alert: InstanceDown
         expr: up == 0
-        for: 2m
+        for: 30s
         labels:
           severity: critical
         annotations:
           summary: "{{ $labels.job }} target down"
-          description: "Prometheus target {{ $labels.instance }} ({{ $labels.job }}) has been unreachable for 2m."
+          description: "Prometheus cannot scrape {{ $labels.instance }} ({{ $labels.job }}). Container likely stopped, crashed, or network is partitioned."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#instancedown"
 
       - alert: HighHTTP5xxRate
         expr: |
@@ -29,6 +34,7 @@ groups:
         annotations:
           summary: "{{ $labels.job }}: 5xx rate > 5%"
           description: "Service {{ $labels.job }} is returning more than 5% 5xx responses over the last 5 minutes."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#highhttp5xxrate"
 
   - name: maintmode.storage
     interval: 30s
@@ -45,15 +51,17 @@ groups:
         annotations:
           summary: "Postgres connection pool > 80% utilized"
           description: "{{ $value | humanizePercentage }} of max_connections in use. Investigate connection leaks or scale max_connections."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#postgresconnectionshigh"
 
       - alert: RedisDown
         expr: redis_up == 0
-        for: 2m
+        for: 30s
         labels:
           severity: critical
         annotations:
           summary: "Redis is down"
-          description: "redis-exporter reports redis_up == 0 for 2 minutes."
+          description: "redis-exporter reports redis_up == 0. Cache misses will fall through to Postgres; rate limiting and session storage are degraded."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#redisdown"
 
       - alert: PgDoormanPoolSaturated
         # pg_doorman exports pgdoorman_databases_pool_clients_active and pool_size per pool.
@@ -69,3 +77,4 @@ groups:
         annotations:
           summary: "pg_doorman pool {{ $labels.pool }} > 90% saturated"
           description: "Connection pooler is close to capacity. Investigate slow queries or raise pool_size."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#pgdoormanpoolsaturated"

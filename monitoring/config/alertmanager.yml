@@ -1,34 +1,118 @@
-# Alertmanager config — minimal default.
+# Alertmanager config — shared by ALL real deployments (local dev,
+# dev VM, prod VM). The same file is mounted by both compose.yaml and
+# compose.app.prod.yaml so dev and prod can never drift.
 #
-# Locally, alerts are routed to a null receiver and are only visible in
-# the alertmanager UI at http://localhost:9093.
+# Routing strategy
+# ----------------
+# Both environments push to the same Telegram supergroup (chat_id
+# below), but to different topics (threads) so the channel UI stays
+# tidy. vmalert tags every fired alert with --external.label=env=<env>
+# (dev in base compose.yaml, prod in compose.app.prod.yaml), and the
+# top-level route dispatches on that label:
 #
-# In production, set ALERTMANAGER_SLACK_WEBHOOK (or replace this file via
-# a secrets mount) and switch the default route to the slack receiver.
+#   env=dev  -> telegram-dev  -> message_thread_id 3
+#   env=prod -> telegram-prod -> message_thread_id 2
+#
+# The two real receivers share everything except the thread id. To
+# keep the common bits in one place, this file defines a sentinel
+# receiver `_telegram_base` whose sole purpose is to anchor the
+# shared `telegram_configs` block (&telegram_base). The real
+# receivers (`telegram-prod`, `telegram-dev`) merge that anchor with
+# `<<: *telegram_base` and override only `message_thread_id`. The
+# sentinel itself is never referenced from any route, so Alertmanager
+# just sees an unused receiver — harmless.
+#
+# Secret handling
+# ---------------
+# The Telegram bot token is read from a file mounted into the
+# container at /etc/alertmanager/secrets/telegram_bot_token. The host
+# file lives at deployment/infra/<env>/telegram_bot_token (gitignored)
+# and is selected by the compose overlay — see
+# deployment/infra/prod/telegram_bot_token.sample.
+#
+# chat_id and message_thread_id are not secret (you need the bot token
+# to post, and the bot must be a member of the chat / topic), so they
+# stay in this committed file.
 
 global:
   resolve_timeout: 5m
 
 route:
-  receiver: default
-  group_by: ["alertname", "severity"]
-  group_wait: 30s
+  receiver: telegram-dev
+  group_by: ["alertname", "severity", "env"]
+  group_wait: 10s
   group_interval: 5m
   repeat_interval: 4h
   routes:
     - matchers:
-        - severity = "critical"
-      receiver: default
-      repeat_interval: 1h
+        - env = "prod"
+      receiver: telegram-prod
+      routes:
+        - matchers:
+            - severity = "critical"
+          receiver: telegram-prod
+          repeat_interval: 1h
+    - matchers:
+        - env = "dev"
+      receiver: telegram-dev
+      routes:
+        - matchers:
+            - severity = "critical"
+          receiver: telegram-dev
+          repeat_interval: 1h
 
 receivers:
-  - name: default
-    # No-op receiver. Inspect fired alerts in the Alertmanager UI on :9093.
+  # Sentinel receiver — exists only to host the &telegram_base anchor
+  # that the real receivers below merge in. Never referenced by any
+  # route. Do NOT remove or rename without updating *telegram_base
+  # aliases.
+  - name: _telegram_base
+    telegram_configs:
+      - &telegram_base
+        chat_id: -1003978734945
+        # General topic (thread 1) — real receivers below override this.
+        # Present in the base so the anchor is a complete, valid
+        # telegram_config on its own.
+        message_thread_id: 1
+        bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+        parse_mode: HTML
+        send_resolved: true
+        # Title legend:
+        #   🔥 firing  / ✅ resolved
+        #   🟥 critical / 🟧 warning / ⚪ unknown
+        # Per-alert lines include the instance label so multi-instance
+        # outages (e.g. two redis replicas) are distinguishable, plus a
+        # runbook link from the alert's annotations. Timestamps are
+        # always rendered in UTC so log/metric correlation is unambiguous
+        # regardless of who reads the message and where they're sitting.
+        message: |-
+          {{- $statusIcon := "⚪" -}}
+          {{- if eq .Status "firing" -}}{{- $statusIcon = "🔥" -}}{{- end -}}
+          {{- if eq .Status "resolved" -}}{{- $statusIcon = "✅" -}}{{- end -}}
+          {{- $sevIcon := "⚪" -}}
+          {{- if eq .CommonLabels.severity "critical" -}}{{- $sevIcon = "🟥" -}}{{- end -}}
+          {{- if eq .CommonLabels.severity "warning" -}}{{- $sevIcon = "🟧" -}}{{- end -}}
+          <b>{{ $statusIcon }} [{{ .CommonLabels.env | toUpper }}] {{ .Status | toUpper }} — {{ .CommonLabels.alertname }} ({{ $sevIcon }} {{ .CommonLabels.severity }})</b>
+          {{ range .Alerts -}}
 
-  # Example Slack receiver — duplicate, fill in webhook, and reference
-  # from the route above.
-  # - name: slack
-  #   slack_configs:
-  #     - api_url: ${ALERTMANAGER_SLACK_WEBHOOK}
-  #       channel: "#maintmode-alerts"
-  #       send_resolved: true
+          <b>{{ .Annotations.summary }}</b>
+          {{ .Annotations.description }}
+          {{- if .Labels.instance }}
+          📍 <code>{{ .Labels.instance }}</code>{{ if .Labels.component }} · {{ .Labels.component }}{{ end }}
+          {{- end }}
+          ⏱ Started {{ .StartsAt.UTC.Format "15:04:05 UTC" }}
+          {{- if eq .Status "resolved" }} · Resolved {{ .EndsAt.UTC.Format "15:04:05 UTC" }} · Duration {{ .EndsAt.Sub .StartsAt }}{{ end }}
+          {{- if .Annotations.runbook_url }}
+          🔗 <a href="{{ .Annotations.runbook_url }}">Runbook</a>
+          {{- end }}
+          {{ end }}
+
+  - name: telegram-prod
+    telegram_configs:
+      - <<: *telegram_base
+        message_thread_id: 2
+
+  - name: telegram-dev
+    telegram_configs:
+      - <<: *telegram_base
+        message_thread_id: 3
