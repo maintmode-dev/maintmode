@@ -10,10 +10,12 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
+	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
+	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
+
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 
-	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -24,35 +26,8 @@ var (
 	cfg *config.AppConfig
 )
 
-const maintmodePolicy = `
-g, editor, guest
-g, reviewer, editor
-g, admin, reviewer
-
-p, guest, calendar.read, execute
-p, guest, maintenance.read, execute
-p, guest, resource.read, execute
-
-p, editor, maintenance.create, execute
-p, editor, maintenance.edit, execute
-p, editor, maintenance.start, execute
-p, editor, maintenance.complete, execute
-p, editor, maintenance.cancel, execute
-p, editor, maintenance.step.start, execute
-p, editor, maintenance.step.complete, execute
-p, editor, maintenance.step.cancel, execute
-p, editor, resource.create, execute
-
-p, reviewer, maintenance.approve, execute
-`
-
 func TestMain(m *testing.M) {
-	cfg = config.LoadAppConfig()
-	cfg.RBAC = config.RbacConfig{
-		ModelPath:  "../../../../../deployment/maintmode/authz/model.conf",
-		Adapter:    config.AuthorizationAdapterMemory,
-		PolicyData: maintmodePolicy,
-	}
+	cfg = testconfigutils.LoadMaintConfig()
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
@@ -65,9 +40,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	stores := bootstrap.NewStores(db)
-	services, err := bootstrap.NewServices(context.Background(), cfg, stores)
-	require.NoError(t, err)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
 	return New(services.Resources)
 }

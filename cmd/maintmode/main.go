@@ -54,14 +54,28 @@ func main() {
 	closer.Add(db.Close)
 
 	// Bootstrap application layers
-	stores := bootstrap.NewStores(db)
-	services, err := bootstrap.NewServices(ctx, cfg, stores)
+	stores, err := bootstrap.NewStores(db)
 	if err != nil {
-		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
+		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
 	gateways, err := bootstrap.NewGateways(cfg)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init gateways", xfield.Error(err))
+	}
+	services, err := bootstrap.NewServices(ctx, cfg, stores, gateways)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
+	}
+
+	// start async task processor
+	{
+		taskProcessors := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services, gateways)
+		closer.Add(closer.NoErrCloseFunc(taskProcessors.Stop))
+		go func() {
+			if err := taskProcessors.Run(ctx); err != nil {
+				xlog.Fatal(ctx, "messaging goque exited with error", xfield.Error(err))
+			}
+		}()
 	}
 
 	// start api server

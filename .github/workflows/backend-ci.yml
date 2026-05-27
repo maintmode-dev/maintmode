@@ -109,6 +109,7 @@ jobs:
             tmp/backend-compose.log
             tmp/backend-compose-ps.log
           if-no-files-found: ignore
+          retention-days: 1
 
   image-maintmode:
     name: Build image (maintmode)
@@ -167,6 +168,7 @@ jobs:
           name: maintmode-image
           path: tmp/images/maintmode.tar
           if-no-files-found: error
+          retention-days: 1
 
   image-auth:
     name: Build image (auth)
@@ -225,6 +227,7 @@ jobs:
           name: auth-image
           path: tmp/images/auth.tar
           if-no-files-found: error
+          retention-days: 1
 
   api-test:
     name: API e2e tests
@@ -273,3 +276,4 @@ jobs:
             tmp/api-compose.log
             tmp/api-compose-ps.log
           if-no-files-found: ignore
+          retention-days: 1

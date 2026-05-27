@@ -142,12 +142,18 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApply")
 	defer span.End()
 
-	return s.txManager.WithinTx(ctx, func(ctx context.Context) error {
+	var (
+		prev    *entity.Maintenance
+		current *entity.Maintenance
+	)
+	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		maint, err := s.maintStore.GetMaintForUpdate(ctx, maintID)
 		if err != nil {
 			xlog.Error(ctx, "failed to get maint for update", xfield.Error(err))
 			return err
 		}
+		prev = maint.Clone()
+		current = maint
 
 		err = apply(ctx, maint)
 		if err != nil {
@@ -163,4 +169,26 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 
 		return nil
 	})
+	if err != nil {
+		xlog.Error(ctx, "failed to update maint", xfield.Error(err))
+		return err
+	}
+
+	return s.dispatchMaintLifecycle(ctx, prev, current)
+}
+
+func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *entity.Maintenance) error {
+	var eventType entity.NotifyEventKind
+	switch {
+	case prev.Status == entity.MaintenanceStatusPlanned && current.Status == entity.MaintenanceStatusInProgress:
+		eventType = entity.NotifyEventMaintStarted
+	case prev.Status == entity.MaintenanceStatusInProgress && current.Status == entity.MaintenanceStatusCancelled:
+		eventType = entity.NotifyEventMaintCancelled
+	case prev.Status == entity.MaintenanceStatusInProgress && current.Status == entity.MaintenanceStatusCompleted:
+		eventType = entity.NotifyEventMaintCompleted
+	default:
+		return nil
+	}
+
+	return s.notifier.NotifyMaintLifecycle(ctx, eventType, current)
 }

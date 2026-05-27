@@ -14,6 +14,9 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
+	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
+	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
+
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	resourcemodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
@@ -30,35 +33,8 @@ var (
 	testMaintenanceIndex atomic.Int64
 )
 
-const maintmodePolicy = `
-g, editor, guest
-g, reviewer, editor
-g, admin, reviewer
-
-p, guest, calendar.read, execute
-p, guest, maintenance.read, execute
-p, guest, resource.read, execute
-
-p, editor, maintenance.create, execute
-p, editor, maintenance.edit, execute
-p, editor, maintenance.start, execute
-p, editor, maintenance.complete, execute
-p, editor, maintenance.cancel, execute
-p, editor, maintenance.step.start, execute
-p, editor, maintenance.step.complete, execute
-p, editor, maintenance.step.cancel, execute
-p, editor, resource.create, execute
-
-p, reviewer, maintenance.approve, execute
-`
-
 func TestMain(m *testing.M) {
-	cfg = config.LoadAppConfig()
-	cfg.RBAC = config.RbacConfig{
-		ModelPath:  "../../../../../deployment/maintmode/authz/model.conf",
-		Adapter:    config.AuthorizationAdapterMemory,
-		PolicyData: maintmodePolicy,
-	}
+	cfg = testconfigutils.LoadMaintConfig()
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
@@ -71,8 +47,13 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	stores := bootstrap.NewStores(db)
-	services, err := bootstrap.NewServices(context.Background(), cfg, stores)
+	stores, err := bootstrap.NewStores(db)
+	require.NoError(t, err)
+
+	gateways, err := bootstrap.NewGateways(cfg)
+	require.NoError(t, err)
+
+	services, err := bootstrap.NewServices(context.Background(), cfg, stores, gateways)
 	require.NoError(t, err)
 
 	return New(services.Maint)
@@ -144,7 +125,7 @@ func startMaint(t *testing.T, impl *Implementation, maint *apimodels.CreateDraft
 
 	err := impl.StartMaint(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 }
 
 func startStep(t *testing.T, impl *Implementation, maintID, stepID uuid.UUID) {
@@ -201,9 +182,7 @@ func requireMaintStillMatchesDraft(t *testing.T, draft *apimodels.CreateDraftMai
 func createResource(ctx context.Context, t *testing.T) *apimodels.Resource {
 	t.Helper()
 
-	stores := bootstrap.NewStores(db)
-	services, err := bootstrap.NewServices(context.Background(), cfg, stores)
-	require.NoError(t, err)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
 	impl := resourcesapi.New(services.Resources)
 	req := &resourcemodels.CreateResourceRequest{
@@ -216,7 +195,7 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.Resource {
 	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
 
-	err = impl.CreateResource(c)
+	err := impl.CreateResource(c)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 

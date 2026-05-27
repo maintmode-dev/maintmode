@@ -111,11 +111,12 @@ services:
     profiles: ["app"]
     restart: unless-stopped
     environment:
-      MAINTMODE_APP_CONFIG_PATH: /app/app.config.yaml
-      MAINTMODE_APP_SECRETS_PATH: /app/app.secrets.yaml
+      MAINTMODE_CONFIG_DIR: /app
+      MAINTMODE_AUTHZ_DIR: /app/authz
     volumes:
       - ./deployment/maintmode/dev/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/maintmode/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
+      - ./deployment/maintmode/authz:/app/authz:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,11 +141,12 @@ services:
     profiles: ["app"]
     restart: unless-stopped
     environment:
-      AUTH_APP_CONFIG_PATH: /app/app.config.yaml
-      AUTH_APP_SECRETS_PATH: /app/app.secrets.yaml
+      AUTH_CONFIG_DIR: /app
+      AUTH_AUTHZ_DIR: /app/authz
     volumes:
       - ./deployment/auth/dev/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/auth/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
+      - ./deployment/auth/authz:/app/authz:ro
     depends_on:
       postgres:
         condition: service_healthy

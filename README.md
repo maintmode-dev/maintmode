@@ -148,14 +148,18 @@ Application config and secrets are split intentionally:
 - `secrets.yaml` is a flat key-value file mounted at runtime and ignored by git.
 - Tracked `secrets.*.sample.yaml` files are only for local/dev/ci bootstrapping.
 
-Each service reads its own files:
+Each service reads `app.config.yaml` and `app.secrets.yaml` from
+`<APP>_CONFIG_DIR`, and `model.conf` + `policy.csv` from
+`<APP>_AUTHZ_DIR`. File names can be overridden via
+`<APP>_CONFIG_FILE` / `<APP>_SECRETS_FILE`. All env vars default to
+`.` (cwd) when unset.
 
 ```bash
-MAINTMODE_APP_CONFIG_PATH=deployment/maintmode/prod/app.config.yaml
-MAINTMODE_SECRETS_PATH=deployment/maintmode/prod/app.secrets.yaml
+MAINTMODE_CONFIG_DIR=deployment/maintmode/prod
+MAINTMODE_AUTHZ_DIR=deployment/maintmode/authz
 
-AUTH_APP_CONFIG_PATH=deployment/auth/prod/app.config.yaml
-AUTH_SECRETS_PATH=deployment/auth/prod/app.secrets.yaml
+AUTH_CONFIG_DIR=deployment/auth/prod
+AUTH_AUTHZ_DIR=deployment/auth/authz
 ```
 
 Production deploys should keep real values in the cloud secret manager, then mount or generate a read-only `/app.secrets.yaml` for each container. The app does not call cloud-specific secret APIs.

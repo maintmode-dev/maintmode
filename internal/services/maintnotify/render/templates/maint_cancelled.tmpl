@@ -1,0 +1,7 @@
+Maintenance cancelled: {{.MaintTitle}}
+
+Cancelled at {{.OccurredAt.Format "2006-01-02 15:04 MST"}}.
+{{- if .CancelReason}}
+Reason: {{.CancelReason}}{{if .CancelReasonComment}} — {{.CancelReasonComment}}{{end}}
+{{- end}}
+Details: {{.MaintURL}}

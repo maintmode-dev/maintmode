@@ -201,6 +201,11 @@ linters:
             - "!**/internal/app/**/*.go"
             - "!**/internal/server/*.go"
             - "!**/internal/server/**/*.go"
+            # Integration test helpers and integration-style main_test.go
+            # files legitimately wire the full bootstrap stack.
+            - "!**/test/utils/bootstrap/*.go"
+            - "!**/test/**/main_test.go"
+            - "!**/internal/services/maint/test/main_test.go"
           # List of allowed packages.
           # Entries can be a variable (starting with $), a string prefix, or an exact match (if ending with $).
           # Default: []

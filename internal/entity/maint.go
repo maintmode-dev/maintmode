@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type MaintenanceStatus string
@@ -89,4 +90,8 @@ func (m *Maintenance) Revision() int64 {
 		return m.UpdatedAt.UnixMicro()
 	}
 	return m.CreatedAt.UnixMicro()
+}
+
+func (m *Maintenance) Clone() *Maintenance {
+	return lo.ToPtr(lo.FromPtr(m))
 }

@@ -2,6 +2,7 @@ package maint
 
 import (
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
+	"github.com/ruko1202/maintmode/internal/services/maintnotify"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -13,6 +14,7 @@ type Service struct {
 	resourcesStore *resources.Store
 
 	conflictsSrv *conflicts.Service
+	notifier     *maintnotify.Service
 }
 
 func NewService(
@@ -20,11 +22,13 @@ func NewService(
 	maintStore *maintenances.Store,
 	resourcesStore *resources.Store,
 	conflictsSrv *conflicts.Service,
+	notifier *maintnotify.Service,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
 		maintStore:     maintStore,
 		resourcesStore: resourcesStore,
 		conflictsSrv:   conflictsSrv,
+		notifier:       notifier,
 	}
 }

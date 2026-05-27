@@ -3,6 +3,7 @@ package maint
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -74,7 +75,13 @@ func (s *Service) updateStepWithApply(
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateStepWithApply")
 	defer span.End()
 
-	return s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	var (
+		currMaint *entity.Maintenance
+		currSteps []*entity.MaintenanceStep
+	)
+	err := s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
+		currMaint = maint
+
 		if maint.Status != entity.MaintenanceStatusInProgress {
 			err := fmt.Errorf("%w: maint is not in %s status",
 				apperr.ErrForbiddenStepStatusTransition,
@@ -95,6 +102,7 @@ func (s *Service) updateStepWithApply(
 			xlog.Error(ctx, "failed to apply step transition", xfield.Error(err))
 			return err
 		}
+		currSteps = stepsForUpdate
 
 		for _, step := range stepsForUpdate {
 			if err := s.maintStore.UpdateStep(ctx, maintID, step); err != nil {
@@ -105,6 +113,15 @@ func (s *Service) updateStepWithApply(
 
 		return nil
 	})
+	if err != nil {
+		xlog.Error(ctx, "failed to update maint", xfield.Error(err))
+		return err
+	}
+
+	notifyErrs := lo.Map(currSteps, func(item *entity.MaintenanceStep, _ int) error {
+		return s.dispatchStepLifecycle(ctx, currMaint, item)
+	})
+	return errors.Join(notifyErrs...)
 }
 
 func canChangeStepStatusTo(steps []*entity.MaintenanceStep, stepID uuid.UUID, newStatus entity.MaintenanceStepStatus) (*entity.MaintenanceStep, error) {
@@ -133,4 +150,20 @@ func canChangeStepStatusTo(steps []*entity.MaintenanceStep, stepID uuid.UUID, ne
 	}
 
 	return step, nil
+}
+
+func (s *Service) dispatchStepLifecycle(ctx context.Context, maint *entity.Maintenance, step *entity.MaintenanceStep) error {
+	var eventType entity.NotifyEventKind
+	switch {
+	case maint.Status == entity.MaintenanceStatusInProgress && step.Status == entity.MaintenanceStepStatusStarted:
+		eventType = entity.NotifyEventStepStarted
+	case maint.Status == entity.MaintenanceStatusInProgress && step.Status == entity.MaintenanceStepStatusCompleted:
+		eventType = entity.NotifyEventStepCompleted
+	case maint.Status == entity.MaintenanceStatusInProgress && step.Status == entity.MaintenanceStepStatusCanceled:
+		eventType = entity.NotifyEventStepCancelled
+	default:
+		return nil
+	}
+
+	return s.notifier.NotifyStepLifecycle(ctx, eventType, maint, step)
 }

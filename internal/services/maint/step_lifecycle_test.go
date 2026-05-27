@@ -21,7 +21,7 @@ func TestStepLifeCycle(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 
-	s := initService(db)
+	s := services.Maint
 
 	t.Run("StartStep", func(t *testing.T) {
 		t.Parallel()

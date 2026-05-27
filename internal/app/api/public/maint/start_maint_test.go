@@ -31,7 +31,7 @@ func TestStartMaint(t *testing.T) {
 
 		err := impl.StartMaint(c2)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusNoContent, rec2.Code)
+		require.Equal(t, http.StatusNoContent, rec2.Code, rec2.Body.String())
 
 		maint := getMaintByID(t, impl, draft.ID)
 		requireMaintStillMatchesDraft(t, draft, maint)

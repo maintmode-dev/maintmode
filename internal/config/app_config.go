@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"path"
 	"reflect"
 	"time"
 
@@ -101,6 +102,52 @@ type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
 }
 
+type SlackConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	BotToken string `mapstructure:"bot_token"`
+	// APIURL overrides the default Slack API base URL. Leave empty in
+	// production; set for integration tests against an httptest mock,
+	// for egress through a corporate proxy, or for a self-hosted Slack
+	// API endpoint.
+	APIURL  string        `mapstructure:"api_url"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type TelegramConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	BotToken string `mapstructure:"bot_token"`
+	// APIURL overrides the default Telegram Bot API base URL. Leave
+	// empty in production; set for integration tests, corporate
+	// proxies, or a self-hosted telegram-bot-api server.
+	APIURL  string        `mapstructure:"api_url"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+type MessengersConfig struct {
+	UseStub  bool           `mapstructure:"use_stub"`
+	Slack    SlackConfig    `mapstructure:"slack"`
+	Telegram TelegramConfig `mapstructure:"telegram"`
+}
+
+type TaskProcessorConfig struct {
+	Messaging TaskProcessorMessagingConfig `mapstructure:"messaging"`
+}
+
+type TaskProcessorMessagingConfig struct {
+	Workers     int   `mapstructure:"workers"`
+	MaxAttempts int32 `mapstructure:"max_attempts"`
+}
+
+type MaintNotifyRoute struct {
+	Event     string `mapstructure:"event"`
+	Transport string `mapstructure:"transport"`
+	Target    string `mapstructure:"target"`
+}
+
+type MaintNotifyConfig struct {
+	Routes []MaintNotifyRoute `mapstructure:"routes"`
+}
+
 type JWTVerifierConfig struct {
 	JWTIssuer  string   `mapstructure:"jwt_issuer"`  // JWTIssuer is the expected issuer of the JWT.
 	JWTIssuers []string `mapstructure:"jwt_issuers"` // JWTIssuers is a list of expected issuers of the JWT.
@@ -116,9 +163,17 @@ type JWTVerifierConfig struct {
 }
 
 type RbacConfig struct {
-	Adapter    string `mapstructure:"adapter"`
-	ModelPath  string `mapstructure:"model_path"`
-	PolicyPath string `mapstructure:"policy_path"`
+	Adapter string `mapstructure:"adapter"`
+	// Model and Policy are file names (not full paths) read from YAML.
+	// Their directory comes from <APP>_AUTHZ_DIR env.
+	Model  string `mapstructure:"model"`
+	Policy string `mapstructure:"policy"`
+	// ModelPath and PolicyPath are derived at startup as
+	// path.Join(AUTHZ_DIR, Model|Policy) and are not read from YAML.
+	ModelPath  string `mapstructure:"-"`
+	PolicyPath string `mapstructure:"-"`
+	// PolicyData is the inline policy used by tests with the in-memory
+	// adapter (instead of reading from disk).
 	PolicyData string `mapstructure:"-"`
 }
 
@@ -166,26 +221,50 @@ type AppConfig struct {
 	JWT              JWT                        `mapstructure:"jwt"`
 	S2SConfig        S2SConfig                  `mapstructure:"s2s"`
 	ExternalServices map[string]ExternalService `mapstructure:"external_services"`
+	Messengers       MessengersConfig           `mapstructure:"messengers"`
+	MaintNotify      MaintNotifyConfig          `mapstructure:"maint_notify"`
+	TaskProcessor    TaskProcessorConfig        `mapstructure:"taskprocessor"`
 }
 
 const (
-	configPathEnv = "APP_CONFIG_PATH"
-	secretPathEnv = "APP_SECRETS_PATH" //nolint:gosec
+	// CONFIG_DIR is the directory holding both the app config and the
+	// secrets file. CONFIG_FILE / SECRETS_FILE name them within that
+	// directory. Split into two env vars (instead of a single
+	// APP_CONFIG_PATH) so callers can keep file names as defaults and
+	// only override the directory per environment.
+	configDirEnv       = "CONFIG_DIR"
+	configFileEnv      = "CONFIG_FILE"
+	secretsFileEnv     = "SECRETS_FILE" //nolint:gosec
+	defaultConfigFile  = "app.config.yaml"
+	defaultSecretsFile = "app.secrets.yaml" //nolint:gosec // file name, not a credential
+
+	// AUTHZ_DIR is the directory holding RBAC model + policy files.
+	// File names themselves come from rbac.model / rbac.policy in YAML.
+	authzDirEnv = "AUTHZ_DIR"
 )
 
 func initConfig(appName string) *AppConfig {
 	reader := viper.New()
 	reader.SetEnvPrefix(appName)
 	reader.AutomaticEnv()
-	reader.SetDefault(configPathEnv, "app.config.yaml")
-	reader.SetDefault(secretPathEnv, "app.secret.yaml")
+	reader.SetDefault(configDirEnv, ".")
+	reader.SetDefault(configFileEnv, defaultConfigFile)
+	reader.SetDefault(secretsFileEnv, defaultSecretsFile)
+	reader.SetDefault(authzDirEnv, ".")
 
-	cfg, err := readConfig(reader.GetString(configPathEnv))
+	configDir := reader.GetString(configDirEnv)
+	authzDir := reader.GetString(authzDirEnv)
+	configPath := path.Join(configDir, reader.GetString(configFileEnv))
+	secretsPath := path.Join(configDir, reader.GetString(secretsFileEnv))
+
+	cfg, err := readConfig(configPath)
 	if err != nil {
 		log.Panicf("failed to read app '%s' config: %s", appName, err)
 	}
+	cfg.RBAC.ModelPath = path.Join(authzDir, cfg.RBAC.Model)
+	cfg.RBAC.PolicyPath = path.Join(authzDir, cfg.RBAC.Policy)
 
-	secrets, err := readSecrets(reader.GetString(secretPathEnv))
+	secrets, err := readSecrets(secretsPath)
 	if err != nil {
 		log.Panicf("failed to load secrets for service %s: %s", appName, err)
 	}

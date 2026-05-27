@@ -20,7 +20,7 @@ func TestApprove(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 	start, end := now, now.Add(5*time.Hour)
-	s := initService(db)
+	s := services.Maint
 
 	t.Run("ok", func(t *testing.T) {
 		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)

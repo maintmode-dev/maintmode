@@ -4,16 +4,18 @@ services:
   # Основное приложение maintmode
   maintmode:
     environment:
-      MAINTMODE_APP_CONFIG_PATH: /app/app.config.yaml
-      MAINTMODE_APP_SECRETS_PATH: /app/app.secrets.yaml
+      MAINTMODE_CONFIG_DIR: /app
+      MAINTMODE_AUTHZ_DIR: /app/authz
     volumes:
       - ./deployment/maintmode/test/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/maintmode/test/app.secrets.yaml:/app/app.secrets.yaml:ro
+      - ./deployment/maintmode/authz:/app/authz:ro
 
   auth:
     environment:
-      AUTH_APP_CONFIG_PATH: /app/app.config.yaml
-      AUTH_APP_SECRETS_PATH: /app/app.secrets.yaml
+      AUTH_CONFIG_DIR: /app
+      AUTH_AUTHZ_DIR: /app/authz
     volumes:
       - ./deployment/auth/test/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/auth/test/app.secrets.yaml:/app/app.secrets.yaml:ro
+      - ./deployment/auth/authz:/app/authz:ro

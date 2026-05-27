@@ -10,6 +10,8 @@ import (
 	redisDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
+	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
@@ -24,26 +26,8 @@ var (
 	cfg   *config.AppConfig
 )
 
-const authPolicy = `
-g, editor, guest
-g, reviewer, editor
-g, admin, reviewer
-
-p, guest, auth.roles.read, execute
-p, guest, auth.user_roles.read, execute
-
-p, admin, auth.roles.manage, execute
-p, admin, auth.audit.read, execute
-`
-
 func TestMain(m *testing.M) {
-	cfg = config.LoadAuthAppConfig()
-	cfg.OauthProviders.UseStub = true
-	cfg.RBAC = config.RbacConfig{
-		ModelPath:  "../../../../../deployment/auth/authz/model.conf",
-		Adapter:    config.AuthorizationAdapterMemory,
-		PolicyData: authPolicy,
-	}
+	cfg = testconfigutils.LoadAuthConfig()
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)

@@ -22,7 +22,7 @@ func TestUpdateDraft(t *testing.T) {
 	now := xtime.UTCNow().Round(time.Microsecond)
 
 	ctx := context.Background()
-	s := initService(db)
+	s := services.Maint
 	defaultPeriod := entity.NewPeriod(now, now.Add(time.Hour))
 
 	t.Run("ok", func(t *testing.T) {

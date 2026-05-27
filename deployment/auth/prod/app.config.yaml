@@ -5,8 +5,9 @@ app:
 
 rbac:
   adapter: file
-  model_path: deployment/auth/authz/model.conf
-  policy_path: deployment/auth/authz/policy.csv
+  # Files live in <APP>_AUTHZ_DIR (env). Override "memory" only in tests.
+  model: model.conf
+  policy: policy.csv
 
 logger:
   level: info

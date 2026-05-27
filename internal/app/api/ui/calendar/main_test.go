@@ -13,6 +13,9 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
+	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
+	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
+
 	maintapi "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	maintmodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
@@ -31,21 +34,12 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	cfg = config.LoadAppConfig()
-	cfg.RBAC = config.RbacConfig{
-		ModelPath:  "../../../../../deployment/maintmode/authz/model.conf",
-		Adapter:    config.AuthorizationAdapterMemory,
-		PolicyData: maintmodePolicy,
-	}
+	cfg = testconfigutils.LoadMaintConfig()
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	var err error
-	services, err = bootstrap.NewServices(context.Background(), cfg, bootstrap.NewStores(db))
-	if err != nil {
-		panic(err)
-	}
+	services = testbootstraputils.InitServices(context.Background(), db, cfg)
 
 	maintImpl = maintapi.New(services.Maint)
 

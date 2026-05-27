@@ -13,8 +13,9 @@ jwtverifier:
 
 rbac:
   adapter: file
-  model_path: deployment/maintmode/authz/model.conf
-  policy_path: deployment/maintmode/authz/policy.csv
+  # Files live in <APP>_AUTHZ_DIR (env). Override "memory" only in tests.
+  model: model.conf
+  policy: policy.csv
 
 logger:
   level: debug
@@ -55,3 +56,36 @@ external_services:
     timeout: 3s
 
 s2s:
+
+messengers:
+  use_stub: true
+  slack:
+    enabled: false
+    bot_token: <secret:messengers/slack/bot_token>
+    # api_url overrides the default Slack API base URL.
+    # Leave empty in production;
+    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
+    api_url: ""
+    timeout: 10s
+  telegram:
+    enabled: false
+    bot_token: <secret:messengers/telegram/bot_token>
+    # api_url overrides the default Telegram Bot API base URL.
+    # Leave empty in production;
+    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
+    api_url: ""
+    timeout: 10s
+
+task_processor:
+  messaging:
+    workers: 10
+    max_attempts: 5
+
+maint_notify:
+  routes:
+    - { event: maint.started,   transport: slack, target: "#maint-test" }
+    - { event: maint.completed, transport: slack, target: "#maint-test" }
+    - { event: maint.cancelled, transport: slack, target: "#maint-test" }
+    - { event: step.started,    transport: slack, target: "#maint-test" }
+    - { event: step.completed,  transport: slack, target: "#maint-test" }
+    - { event: step.cancelled,  transport: slack, target: "#maint-test" }

@@ -89,20 +89,20 @@ bin-deps: bin-deps-build
 # -------------------------------------
 .PHONY: run
 run: service=maintmode
-run: config=$(PWD)/deployment/${service}/local/app.config.yaml
-run: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
+run: config_dir=$(PWD)/deployment/${service}/local
+run: authz_dir=$(PWD)/deployment/${service}/authz
 run:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
-		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_CONFIG_DIR=${config_dir} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_AUTHZ_DIR=${authz_dir} \
 		go run ./cmd/${service}
 
 .PHONY: air
 air: service=maintmode
-air: config=$(PWD)/deployment/${service}/local/app.config.yaml
-air: secrets=$(PWD)/deployment/${service}/local/app.secrets.yaml
+air: config_dir=$(PWD)/deployment/${service}/local
+air: authz_dir=$(PWD)/deployment/${service}/authz
 air:
-	$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_CONFIG_PATH=${config} \
-		$(shell echo ${service} | tr 'a-z' 'A-Z')_APP_SECRETS_PATH=${secrets} \
+	$(shell echo ${service} | tr 'a-z' 'A-Z')_CONFIG_DIR=${config_dir} \
+		$(shell echo ${service} | tr 'a-z' 'A-Z')_AUTHZ_DIR=${authz_dir} \
 		$(GOBIN)/air
 
 .PHONY: build
@@ -130,10 +130,10 @@ build-dev:
 # Note: Package tests are run from project root
 .PHONY: tloc
 tloc:
-	MAINTMODE_APP_CONFIG_PATH=$(PWD)/deployment/maintmode/local/app.config.yaml \
-	MAINTMODE_APP_SECRETS_PATH=$(PWD)/deployment/maintmode/local/app.secrets.yaml \
-	AUTH_APP_CONFIG_PATH=$(PWD)/deployment/auth/local/app.config.yaml \
-	AUTH_APP_SECRETS_PATH=$(PWD)/deployment/auth/local/app.secrets.yaml \
+	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
+	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
+	AUTH_CONFIG_DIR=$(PWD)/deployment/auth/local \
+	AUTH_AUTHZ_DIR=$(PWD)/deployment/auth/authz \
 		go test -p 2 -count 2 ./internal/...
 
 # tloc-cov - Run tests with coverage analysis
@@ -151,10 +151,10 @@ tloc:
 #   coverage.report: Human-readable coverage report
 .PHONY: tloc-cov
 tloc-cov:
-	MAINTMODE_APP_CONFIG_PATH=$(PWD)/deployment/maintmode/local/app.config.yaml \
-	MAINTMODE_APP_SECRETS_PATH=$(PWD)/deployment/maintmode/local/app.secrets.yaml \
-	AUTH_APP_CONFIG_PATH=$(PWD)/deployment/auth/local/app.config.yaml \
-	AUTH_APP_SECRETS_PATH=$(PWD)/deployment/auth/local/app.secrets.yaml \
+	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
+	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
+	AUTH_CONFIG_DIR=$(PWD)/deployment/auth/local \
+	AUTH_AUTHZ_DIR=$(PWD)/deployment/auth/authz \
 		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
