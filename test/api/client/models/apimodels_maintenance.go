@@ -48,7 +48,7 @@ type ApimodelsMaintenance struct {
 	PlannedPeriod *ApimodelsPeriod `json:"planned_period,omitempty"`
 
 	// resources
-	Resources []*ApimodelsResource `json:"resources"`
+	Resources []*ApimodelsResourceRef `json:"resources"`
 
 	// scope
 	Scope ApimodelsMaintenanceScope `json:"scope,omitempty"`

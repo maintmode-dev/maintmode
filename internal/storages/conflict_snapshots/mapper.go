@@ -14,11 +14,11 @@ func toDBSnaphots(maintID uuid.UUID, snaphots []*entity.ConflictWithResources) [
 
 	for _, snapshot := range snaphots {
 		if len(snapshot.Resources) > 0 {
-			for _, resource := range snapshot.Resources {
+			for _, resourceID := range snapshot.Resources {
 				result = append(result, &model.MaintenanceConflictSnapshot{
 					MaintenanceID:           maintID,
 					ConflictedMaintenanceID: snapshot.MaintenanceID,
-					ResourceID:              lo.ToPtr(resource.ID),
+					ResourceID:              lo.ToPtr(resourceID),
 					ConflictPeriod:          xtime.ToPgRange(entity.NewPeriod(snapshot.OverlapStart, snapshot.OverlapEnd)),
 				})
 			}
@@ -46,13 +46,10 @@ func fromDBSnaphots(snaphots []*conflictSnapshots) []*entity.ConflictWithResourc
 		conflictedMaint := snapshots[0]
 
 		// Collect resources
-		resources := lo.FilterMap(snapshots, func(item *conflictSnapshots, _ int) (*entity.Resource, bool) {
+		resources := lo.FilterMap(snapshots, func(item *conflictSnapshots, _ int) (uuid.UUID, bool) {
 			// collect only if OK
 			ok := item.ResourceID != nil
-			return &entity.Resource{
-				ID: lo.FromPtr(item.ResourceID),
-				// Type is not stored in snapshot, will be loaded separately if needed
-			}, ok
+			return lo.FromPtr(item.ResourceID), ok
 		})
 
 		conflictPeriod := xtime.FromPgRange(conflictedMaint.ConflictPeriod)

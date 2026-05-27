@@ -33,7 +33,6 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance) *MaintenanceView 
 			return &MaintenanceViewResource{
 				ID:   item.ID,
 				Name: item.Name,
-				Type: string(item.Type),
 			}
 		}),
 		Scope:               string(maintEvent.Scope),
@@ -91,7 +90,6 @@ func ToAPIConflictView(conflict *calendardto.Conflict) *ConflictView {
 			return &MaintenanceViewResource{
 				ID:   item.ID,
 				Name: item.Name,
-				Type: string(item.Type),
 			}
 		}),
 	}

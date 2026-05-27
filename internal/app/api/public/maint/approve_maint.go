@@ -105,11 +105,7 @@ func validateConflicts(ctx context.Context, value any) error {
 func toApproveMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimodels.ApproveDraftMaintRequest) (*entity.ApproveMaintenanceCmd, error) {
 	conflictsSnapshot := make([]*entity.ConflictWithResources, 0, len(req.ConflictsSnapshot))
 	for _, conflict := range req.ConflictsSnapshot {
-		resources, err := apimodels.FromAPIResources(conflict.Resources)
-		if err != nil {
-			xlog.Error(ctx, "unsupported resource type", xfield.Error(err))
-			return nil, fmt.Errorf("unsupported resource type")
-		}
+		resources := apimodels.FromAPIResources(conflict.Resources)
 
 		scope, err := apimodels.FromAPIScope(conflict.Scope)
 		if err != nil {

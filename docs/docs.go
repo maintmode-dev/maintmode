@@ -1323,7 +1323,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/apismodels.CreateResourceRequest"
+                            "$ref": "#/definitions/apimodels.CreateResourceRequest"
                         }
                     }
                 ],
@@ -1331,7 +1331,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/apismodels.Resource"
+                            "$ref": "#/definitions/apimodels.Resource"
                         }
                     },
                     "400": {
@@ -1354,77 +1354,6 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Resource already exists",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal error",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Auth service unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/resource/{id}/types": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns available resource types for a specific resource",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Resources"
-                ],
-                "summary": "Get available resource types",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Resource ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/apismodels.GetResourceTypesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/httperrors.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Resource not found",
                         "schema": {
                             "$ref": "#/definitions/httperrors.ErrorResponse"
                         }
@@ -1472,7 +1401,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/apismodels.SearchResourcesResponse"
+                            "$ref": "#/definitions/apimodels.SearchResourcesResponse"
                         }
                     },
                     "400": {
@@ -2148,7 +2077,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/apimodels.Resource"
+                        "$ref": "#/definitions/apimodels.ResourceRef"
                     }
                 },
                 "scope": {
@@ -2173,7 +2102,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/apimodels.Resource"
+                        "$ref": "#/definitions/apimodels.ResourceRef"
                     }
                 },
                 "scope": {
@@ -2214,7 +2143,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/apimodels.Resource"
+                        "$ref": "#/definitions/apimodels.ResourceRef"
                     }
                 },
                 "scope": {
@@ -2230,6 +2159,20 @@ const docTemplate = `{
                     }
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "apimodels.CreateResourceRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -2277,7 +2220,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/apimodels.Resource"
+                        "$ref": "#/definitions/apimodels.ResourceRef"
                     }
                 },
                 "scope": {
@@ -2418,28 +2361,38 @@ const docTemplate = `{
         "apimodels.Resource": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "external_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-4466554400000"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            }
+        },
+        "apimodels.ResourceRef": {
+            "type": "object",
+            "properties": {
                 "id": {
                     "type": "string",
                     "format": "uuid",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
-                },
-                "type": {
-                    "$ref": "#/definitions/apimodels.ResourceType"
                 }
             }
-        },
-        "apimodels.ResourceType": {
-            "type": "string",
-            "enum": [
-                "service",
-                "database",
-                "cluster"
-            ],
-            "x-enum-varnames": [
-                "ResourceTypeService",
-                "ResourceTypeDatabase",
-                "ResourceTypeCluster"
-            ]
         },
         "apimodels.RevokeRoleRequest": {
             "type": "object",
@@ -2467,6 +2420,17 @@ const docTemplate = `{
                 "RoleAdmin"
             ]
         },
+        "apimodels.SearchResourcesResponse": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.Resource"
+                    }
+                }
+            }
+        },
         "apimodels.UpdateDraftMaintRequest": {
             "type": "object",
             "properties": {
@@ -2484,7 +2448,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/apimodels.Resource"
+                        "$ref": "#/definitions/apimodels.ResourceRef"
                     }
                 },
                 "scope": {
@@ -2499,76 +2463,6 @@ const docTemplate = `{
                 "title": {
                     "type": "string",
                     "example": "DB migration"
-                }
-            }
-        },
-        "apismodels.CreateResourceRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "external_id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "apismodels.GetResourceTypesResponse": {
-            "type": "object",
-            "properties": {
-                "types": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/apismodels.ResourceType"
-                    }
-                }
-            }
-        },
-        "apismodels.Resource": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string",
-                    "format": "date-time"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "external_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-4466554400000"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string",
-                    "format": "date-time"
-                }
-            }
-        },
-        "apismodels.ResourceType": {
-            "type": "object",
-            "properties": {
-                "type": {
-                    "$ref": "#/definitions/entity.ResourceType"
-                }
-            }
-        },
-        "apismodels.SearchResourcesResponse": {
-            "type": "object",
-            "properties": {
-                "resources": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/apismodels.Resource"
-                    }
                 }
             }
         },
@@ -2624,19 +2518,6 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
-        },
-        "entity.ResourceType": {
-            "type": "string",
-            "enum": [
-                "service",
-                "database",
-                "cluster"
-            ],
-            "x-enum-varnames": [
-                "ResourceTypeService",
-                "ResourceTypeDatabase",
-                "ResourceTypeCluster"
-            ]
         },
         "httperrors.ErrorResponse": {
             "type": "object",
@@ -2878,9 +2759,6 @@ const docTemplate = `{
                     "format": "uuid"
                 },
                 "name": {
-                    "type": "string"
-                },
-                "type": {
                     "type": "string"
                 }
             }

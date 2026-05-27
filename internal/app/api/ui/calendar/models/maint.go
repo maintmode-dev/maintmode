@@ -15,7 +15,6 @@ type MaintenanceStatus = entity.MaintenanceStatus
 type MaintenanceViewResource struct {
 	ID   uuid.UUID `json:"id" format:"uuid"`
 	Name string    `json:"name"`
-	Type string    `json:"type"`
 }
 
 type MaintenanceStep struct {

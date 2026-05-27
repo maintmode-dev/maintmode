@@ -211,11 +211,8 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.
 		Impact:       models.ApimodelsMaintenanceImpactNone,
 		Scope:        models.ApimodelsMaintenanceScopeResource,
 		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResource{
-			{
-				ID:   strfmt.UUID(resource.ID),
-				Type: models.ApimodelsResourceTypeDatabase,
-			},
+		Resources: []*models.ApimodelsResourceRef{
+			{ID: strfmt.UUID(resource.ID)},
 		},
 		Steps: testMaintenanceSteps(),
 	}
@@ -245,11 +242,8 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 		Impact:       models.ApimodelsMaintenanceImpactNone,
 		Scope:        models.ApimodelsMaintenanceScopeResource,
 		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResource{
-			{
-				ID:   resourceUUID,
-				Type: models.ApimodelsResourceTypeService,
-			},
+		Resources: []*models.ApimodelsResourceRef{
+			{ID: resourceUUID},
 		},
 		Steps: testMaintenanceSteps(),
 	}
@@ -348,10 +342,10 @@ func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *clie
 	}
 }
 
-func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApismodelsResource {
+func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApimodelsResource {
 	t.Helper()
 
-	req := &models.ApismodelsCreateResourceRequest{
+	req := &models.ApimodelsCreateResourceRequest{
 		Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
 		Description: "This is a test resource created via API tests",
 		ExternalID:  xuuid.NewString(),

@@ -68,13 +68,27 @@ const (
 	MaintenanceCancelReasonMistake          MaintenanceCancelReason = "mistake"
 )
 
+// Maintenance is a planned work window over one or more resources (or the whole
+// system when Scope is global).
+//
+// Conflict semantics:
+//
+// Two maintenances over the same resource_id in overlapping time always
+// conflict, regardless of Impact (none / partial_outage / full_outage). A
+// maintenance is a coordination tool — even non-blocking work (read-only
+// vacuum, monitoring exporter rollout) should surface as a conflict so on-call
+// sees both windows at once and the teams can coordinate.
+//
+// If a real product case for "co-existing maintenances on the same resource"
+// appears (e.g., explicitly read-only maintenance must run in parallel with a
+// deploy), introduce a dedicated flag — do not overload Impact for that.
 type Maintenance struct {
 	ID                  uuid.UUID
 	Title               string
 	Description         string
 	PlannedPeriod       Period
 	ActualPeriod        *Period
-	Resources           []*Resource
+	Resources           []uuid.UUID
 	Scope               MaintenanceScope
 	Impact              MaintenanceImpact
 	Status              MaintenanceStatus
@@ -83,6 +97,16 @@ type Maintenance struct {
 	CreatedAt           time.Time
 	UpdatedAt           *time.Time
 	Steps               []*MaintenanceStep
+}
+
+// Normalize enforces the Scope ↔ Resources invariant: a global-scoped
+// maintenance has no associated resources. Idempotent — safe to call multiple
+// times. Callers that mutate Scope or Resources should invoke Normalize before
+// persisting.
+func (m *Maintenance) Normalize() {
+	if m.Scope == MaintenanceScopeGlobal {
+		m.Resources = nil
+	}
 }
 
 func (m *Maintenance) Revision() int64 {

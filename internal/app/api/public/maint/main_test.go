@@ -72,7 +72,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 		PlannedStart: plannedStart,
 		Scope:        apimodels.MaintenanceScopeResources,
 		Impact:       apimodels.MaintenanceImpactPartial,
-		Resources: []*apimodels.Resource{
+		Resources: []*apimodels.ResourceRef{
 			resource,
 		},
 		Steps: []*apimodels.MaintenanceStepInput{
@@ -179,7 +179,7 @@ func requireMaintStillMatchesDraft(t *testing.T, draft *apimodels.CreateDraftMai
 	}
 }
 
-func createResource(ctx context.Context, t *testing.T) *apimodels.Resource {
+func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	t.Helper()
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
@@ -201,8 +201,7 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.Resource {
 
 	resource := testjsonudils.JSONToAny[resourcemodels.Resource](t, rec.Body)
 
-	return &apimodels.Resource{
-		ID:   resource.ID,
-		Type: apimodels.ResourceTypeService,
+	return &apimodels.ResourceRef{
+		ID: resource.ID,
 	}
 }

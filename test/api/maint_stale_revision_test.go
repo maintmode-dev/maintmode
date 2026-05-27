@@ -39,11 +39,8 @@ func TestMaintenancesAPI_ApproveRejectsStaleRevision(t *testing.T) {
 		Impact:       models.ApimodelsMaintenanceImpactPartialOutage,
 		Scope:        models.ApimodelsMaintenanceScopeResource,
 		PlannedStart: strfmt.DateTime(xtime.UTCNow().Add(72 * time.Hour).Truncate(time.Second)),
-		Resources: []*models.ApimodelsResource{
-			{
-				ID:   strfmt.UUID(resource.ID),
-				Type: models.ApimodelsResourceTypeDatabase,
-			},
+		Resources: []*models.ApimodelsResourceRef{
+			{ID: strfmt.UUID(resource.ID)},
 		},
 		Steps: testMaintenanceSteps(),
 	}

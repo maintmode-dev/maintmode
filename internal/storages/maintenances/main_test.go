@@ -45,9 +45,9 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 		Scope:         entity.MaintenanceScopeResources,
 		Status:        entity.MaintenanceStatusPlanned,
 		Impact:        entity.MaintenanceImpactFull,
-		Resources: []*entity.Resource{
-			makeResource(ctx, t, entity.ResourceTypeService),
-			makeResource(ctx, t, entity.ResourceTypeDatabase),
+		Resources: []uuid.UUID{
+			makeResource(ctx, t),
+			makeResource(ctx, t),
 		},
 	}
 
@@ -61,7 +61,7 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 	return created
 }
 
-func makeResource(ctx context.Context, t *testing.T, resourceType entity.ResourceType) *entity.Resource {
+func makeResource(ctx context.Context, t *testing.T) uuid.UUID {
 	t.Helper()
 
 	resource, err := resourcesStore.Create(ctx, &entity.ResourceDetails{
@@ -70,10 +70,7 @@ func makeResource(ctx context.Context, t *testing.T, resourceType entity.Resourc
 	})
 	require.NoError(t, err)
 
-	return &entity.Resource{
-		ID:   resource.ID,
-		Type: resourceType,
-	}
+	return resource.ID
 }
 
 func makeSteps(ctx context.Context, t *testing.T, store *Store, maintID uuid.UUID) []*entity.MaintenanceStep {

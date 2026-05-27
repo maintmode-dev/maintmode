@@ -43,9 +43,7 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		}
 
 		maint.Resources = cmd.Resources
-		if maint.Scope == entity.MaintenanceScopeGlobal {
-			maint.Resources = nil
-		}
+		maint.Normalize()
 		if len(maint.Resources) > 0 {
 			err = s.maintStore.AddResources(ctx, maint.ID, maint.Resources)
 			if err != nil {
@@ -98,7 +96,7 @@ func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error
 		validation.Field(&cmd.Title, validation.Required),
 		validation.Field(&cmd.Resources,
 			validation.Required.When(cmd.Scope == entity.MaintenanceScopeResources),
-			validation.Each(validation.WithContext(validateResource)),
+			validation.Each(validation.By(xvalidation.UUIDNotNil)),
 		),
 		validation.Field(&cmd.Description, validation.Required),
 		validation.Field(&cmd.PlannedPeriod, validation.Required,
@@ -151,23 +149,5 @@ func validateStepInput(ctx context.Context, value any) error {
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
 		validation.Field(&step.DurationMinutes, validation.Required, validation.Min(mixStepDurationsMin)),
-	)
-}
-
-func validateResource(ctx context.Context, value any) error {
-	var resource *entity.Resource
-
-	switch v := value.(type) {
-	case *entity.Resource:
-		resource = v
-	case entity.Resource:
-		resource = &v
-	default:
-		return fmt.Errorf("invalid type: %T", v)
-	}
-
-	return validation.ValidateStructWithContext(ctx, resource,
-		validation.Field(&resource.ID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
-		validation.Field(&resource.Type, validation.Required),
 	)
 }

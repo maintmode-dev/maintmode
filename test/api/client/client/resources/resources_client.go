@@ -56,59 +56,11 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error)
-
 	GetAPIV1Resources(params *GetAPIV1ResourcesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesOK, error)
 
 	PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
-}
-
-/*
-GetAPIV1ResourceIDTypes gets available resource types
-
-Returns available resource types for a specific resource
-*/
-func (a *Client) GetAPIV1ResourceIDTypes(params *GetAPIV1ResourceIDTypesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourceIDTypesOK, error) {
-	// NOTE: parameters are not validated before sending
-	if params == nil {
-		params = NewGetAPIV1ResourceIDTypesParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "GetAPIV1ResourceIDTypes",
-		Method:             "GET",
-		PathPattern:        "/api/v1/resource/{id}/types",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetAPIV1ResourceIDTypesReader{formats: a.formats},
-		AuthInfo:           authInfo,
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-
-	// only one success response has to be checked
-	success, ok := result.(*GetAPIV1ResourceIDTypesOK)
-	if ok {
-		return success, nil
-	}
-
-	// unexpected success response.
-
-	// no default response is defined.
-	//
-	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for GetAPIV1ResourceIDTypes: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
 }
 
 /*

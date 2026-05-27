@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
@@ -30,9 +31,7 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources: []*entity.Resource{
-				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
-			},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{
 				{
 					Order:               1,
@@ -70,9 +69,7 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(2*time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources: []*entity.Resource{
-				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
-			},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),
@@ -107,14 +104,14 @@ func TestCreate(t *testing.T) {
 	t.Run("duplicate resources", func(t *testing.T) {
 		t.Parallel()
 
-		resource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
+		resourceID := testdbutils.MakeResource(ctx, t, resourcesStore).ID
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources:     []*entity.Resource{resource, resource},
+			Resources:     []uuid.UUID{resourceID, resourceID},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),
@@ -138,9 +135,7 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeGlobal,
-			Resources: []*entity.Resource{
-				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
-			},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),

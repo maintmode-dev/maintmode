@@ -82,11 +82,7 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
-	resources, err := apimodels.FromAPIResources(req.Resources)
-	if err != nil {
-		xlog.Error(ctx, "unsupported resource type", xfield.Error(err))
-		return nil, fmt.Errorf("unsupported resource type")
-	}
+	resources := apimodels.FromAPIResources(req.Resources)
 
 	steps, err := apimodels.FromAPISteps(req.Steps)
 	if err != nil {

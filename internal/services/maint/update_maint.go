@@ -10,8 +10,8 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
-
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error {
@@ -92,15 +92,14 @@ func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 	if len(cmd.Resources) > 0 {
 		maint.Resources = cmd.Resources
 	}
+
+	maint.Normalize()
 }
 
 func (s *Service) replaceResources(ctx context.Context, maint *entity.Maintenance) error {
 	if err := s.maintStore.DeleteResources(ctx, maint.ID); err != nil {
 		xlog.Error(ctx, "failed to delete resources", xfield.Error(err))
 		return err
-	}
-	if maint.Scope == entity.MaintenanceScopeGlobal {
-		return nil
 	}
 
 	if err := s.maintStore.AddResources(ctx, maint.ID, maint.Resources); err != nil {
@@ -133,7 +132,7 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 		validation.Field(&cmd.Impact, validation.NilOrNotEmpty),
 
 		// validate only if changed
-		validation.Field(&cmd.Resources, validation.Each(validation.WithContext(validateResource))),
+		validation.Field(&cmd.Resources, validation.Each(validation.By(xvalidation.UUIDNotNil))),
 		validation.Field(&cmd.Steps, validation.Each(validation.WithContext(validateStepInput))),
 	)
 }

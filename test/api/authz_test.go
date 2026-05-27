@@ -55,7 +55,7 @@ func TestMaintmodeAPIRBAC_GuestMutationForbidden(t *testing.T) {
 
 	params := resources.NewPostAPIV1ResourceCreateParams().
 		WithContext(ctx).
-		WithRequest(&models.ApismodelsCreateResourceRequest{
+		WithRequest(&models.ApimodelsCreateResourceRequest{
 			Name:        "forbidden resource",
 			Description: "guest must not create resources",
 		})

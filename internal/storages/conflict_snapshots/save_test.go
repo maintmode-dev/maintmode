@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
@@ -28,23 +29,18 @@ func TestSave(t *testing.T) {
 			End:   lo.ToPtr(now.Add(2 * time.Hour)),
 		}
 
-		// Create resources
 		resource1 := makeResource(ctx, t)
 		resource2 := makeResource(ctx, t)
 
-		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, conflictPeriod,
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource1.ID),
 		)
 
-		// Create conflicted maintenance
 		conflictedMaintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, conflictPeriod,
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource2.ID),
 		)
-
-		// Get resource from conflicted maintenance
 
 		snapshots := []*entity.ConflictWithResources{
 			{
@@ -55,19 +51,13 @@ func TestSave(t *testing.T) {
 					OverlapEnd:    *conflictPeriod.End,
 					Scope:         entity.MaintenanceScopeResources,
 				},
-				Resources: []*entity.Resource{
-					{
-						ID:   resource2.ID,
-						Type: entity.ResourceTypeService,
-					},
-				},
+				Resources: []uuid.UUID{resource2.ID},
 			},
 		}
 
 		err := store.Save(ctx, maintenance.ID, snapshots)
 		require.NoError(t, err)
 
-		// Verify snapshot was saved
 		retrieved, err := store.GetSnapshots(ctx, maintenance.ID)
 		require.NoError(t, err)
 		require.Len(t, retrieved, 1)
@@ -77,7 +67,7 @@ func TestSave(t *testing.T) {
 		require.Equal(t, conflictPeriod.Start, actual.OverlapStart)
 		require.Equal(t, *conflictPeriod.End, actual.OverlapEnd)
 		require.Len(t, actual.Resources, 1)
-		require.Equal(t, resource2.ID, actual.Resources[0].ID)
+		require.Equal(t, resource2.ID, actual.Resources[0])
 	})
 
 	t.Run("save multiple conflict snapshots", func(t *testing.T) {
@@ -85,27 +75,24 @@ func TestSave(t *testing.T) {
 
 		now := xtime.UTCNow().Round(time.Microsecond)
 
-		// Create resources
 		resource1 := makeResource(ctx, t)
 		resource2 := makeResource(ctx, t)
 		resource3 := makeResource(ctx, t)
 
-		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource1.ID),
 		)
 
-		// Create conflicted maintenances
 		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource2.ID),
 		)
 
 		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
-			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource3.ID),
 		)
 
 		snapshots := []*entity.ConflictWithResources{
@@ -117,9 +104,7 @@ func TestSave(t *testing.T) {
 					OverlapEnd:    now.Add(2 * time.Hour),
 					Scope:         entity.MaintenanceScopeResources,
 				},
-				Resources: []*entity.Resource{
-					{ID: conflictedMaint1.Resources[0].ID, Type: entity.ResourceTypeService},
-				},
+				Resources: []uuid.UUID{conflictedMaint1.Resources[0]},
 			},
 			{
 				Conflict: &entity.Conflict{
@@ -129,7 +114,7 @@ func TestSave(t *testing.T) {
 					OverlapEnd:    now.Add(4 * time.Hour),
 					Scope:         entity.MaintenanceScopeGlobal,
 				},
-				Resources: nil, // Global scope has no resources
+				Resources: nil,
 			},
 		}
 

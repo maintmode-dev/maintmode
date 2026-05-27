@@ -90,8 +90,8 @@ func TestCreateDraftMaint(t *testing.T) {
 			PlannedStart: time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second),
 			Scope:        apimodels.MaintenanceScopeResources,
 			Impact:       apimodels.MaintenanceImpactPartial,
-			Resources: []*apimodels.Resource{
-				{ID: resource.ID, Type: apimodels.ResourceTypeService},
+			Resources: []*apimodels.ResourceRef{
+				{ID: resource.ID},
 			},
 			Steps: []*apimodels.MaintenanceStepInput{
 				{
@@ -126,7 +126,6 @@ func TestCreateDraftMaint(t *testing.T) {
 		require.Equal(t, "draft", maint.Status)
 		require.Len(t, maint.Resources, 1)
 		require.Equal(t, resource.ID, maint.Resources[0].ID)
-		require.Equal(t, resource.Type, maint.Resources[0].Type)
 		require.Len(t, maint.Steps, 1)
 		require.Equal(t, req.Steps[0].Description, maint.Steps[0].Description)
 		require.Equal(t, int64(15), maint.Steps[0].DurationMinutes)
@@ -157,7 +156,7 @@ func TestCreateDraftMaint(t *testing.T) {
 			}, {
 				name: "resource scope without resources",
 				reqMutator: func(req *apimodels.CreateDraftMaintRequest) {
-					req.Resources = []*apimodels.Resource{}
+					req.Resources = []*apimodels.ResourceRef{}
 				},
 			},
 		} {
@@ -171,8 +170,8 @@ func TestCreateDraftMaint(t *testing.T) {
 					PlannedStart: time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second),
 					Scope:        apimodels.MaintenanceScopeResources,
 					Impact:       apimodels.MaintenanceImpactPartial,
-					Resources: []*apimodels.Resource{
-						{ID: resource.ID, Type: apimodels.ResourceTypeService},
+					Resources: []*apimodels.ResourceRef{
+						{ID: resource.ID},
 					},
 					Steps: []*apimodels.MaintenanceStepInput{
 						{

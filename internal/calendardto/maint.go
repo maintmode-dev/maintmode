@@ -10,7 +10,6 @@ import (
 
 type MaintenanceResource struct {
 	ID   uuid.UUID
-	Type entity.ResourceType
 	Name string
 }
 

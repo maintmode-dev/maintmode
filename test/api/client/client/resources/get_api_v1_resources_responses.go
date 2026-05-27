@@ -77,7 +77,7 @@ GetAPIV1ResourcesOK describes a response with status code 200, with default head
 OK
 */
 type GetAPIV1ResourcesOK struct {
-	Payload *models.ApismodelsSearchResourcesResponse
+	Payload *models.ApimodelsSearchResourcesResponse
 }
 
 // IsSuccess returns true when this get Api v1 resources o k response has a 2xx status code
@@ -120,13 +120,13 @@ func (o *GetAPIV1ResourcesOK) String() string {
 	return fmt.Sprintf("[GET /api/v1/resources][%d] getApiV1ResourcesOK %s", 200, payload)
 }
 
-func (o *GetAPIV1ResourcesOK) GetPayload() *models.ApismodelsSearchResourcesResponse {
+func (o *GetAPIV1ResourcesOK) GetPayload() *models.ApimodelsSearchResourcesResponse {
 	return o.Payload
 }
 
 func (o *GetAPIV1ResourcesOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApismodelsSearchResourcesResponse)
+	o.Payload = new(models.ApimodelsSearchResourcesResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {

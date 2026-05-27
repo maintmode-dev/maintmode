@@ -57,18 +57,10 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
 	return maint
 }
 
-func toDBMaintenanceResource(maintID uuid.UUID, resource *entity.Resource) *model.MaintenanceResources {
+func toDBMaintenanceResource(maintID, resourceID uuid.UUID) *model.MaintenanceResources {
 	return &model.MaintenanceResources{
 		MaintenanceID: maintID,
-		ResourceID:    resource.ID,
-		ResourceType:  string(resource.Type),
-	}
-}
-
-func fromDBMaintenanceResource(r *model.MaintenanceResources) *entity.Resource {
-	return &entity.Resource{
-		ID:   r.ResourceID,
-		Type: entity.ResourceType(r.ResourceType),
+		ResourceID:    resourceID,
 	}
 }
 

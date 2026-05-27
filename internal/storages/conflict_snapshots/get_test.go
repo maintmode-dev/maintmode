@@ -34,19 +34,19 @@ func TestGetSnapshots(t *testing.T) {
 		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource1.ID),
 		)
 
 		// Create conflicted maintenances
 		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource2.ID),
 		)
 
 		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
-			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource3.ID),
 		)
 
 		snapshots := []*entity.ConflictWithResources{
@@ -58,9 +58,7 @@ func TestGetSnapshots(t *testing.T) {
 					OverlapEnd:    now.Add(2 * time.Hour),
 					Scope:         entity.MaintenanceScopeResources,
 				},
-				Resources: []*entity.Resource{
-					{ID: conflictedMaint1.Resources[0].ID, Type: entity.ResourceTypeService},
-				},
+				Resources: []uuid.UUID{conflictedMaint1.Resources[0]},
 			},
 			{
 				Conflict: &entity.Conflict{
@@ -128,18 +126,18 @@ func TestGetSnapshots(t *testing.T) {
 		// Create maintenance
 		maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource1.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource1.ID),
 		)
 
 		// Create conflicted maintenances
 		conflictedMaint1 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource2.ID, Type: entity.ResourceTypeService}),
+			testdbutils.WithResources(resource2.ID),
 		)
 
 		conflictedMaint2 := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore, entity.NewPeriod(now.Add(3*time.Hour), now.Add(4*time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-			testdbutils.WithResources(&entity.Resource{ID: resource3.ID, Type: entity.ResourceTypeDatabase}),
+			testdbutils.WithResources(resource3.ID),
 		)
 
 		// First save
@@ -152,9 +150,7 @@ func TestGetSnapshots(t *testing.T) {
 					OverlapEnd:    now.Add(2 * time.Hour),
 					Scope:         entity.MaintenanceScopeResources,
 				},
-				Resources: []*entity.Resource{
-					{ID: conflictedMaint1.Resources[0].ID, Type: entity.ResourceTypeService},
-				},
+				Resources: []uuid.UUID{conflictedMaint1.Resources[0]},
 			},
 		}
 
@@ -171,9 +167,7 @@ func TestGetSnapshots(t *testing.T) {
 					OverlapEnd:    now.Add(4 * time.Hour),
 					Scope:         entity.MaintenanceScopeResources,
 				},
-				Resources: []*entity.Resource{
-					{ID: conflictedMaint2.Resources[0].ID, Type: entity.ResourceTypeDatabase},
-				},
+				Resources: []uuid.UUID{conflictedMaint2.Resources[0]},
 			},
 		}
 

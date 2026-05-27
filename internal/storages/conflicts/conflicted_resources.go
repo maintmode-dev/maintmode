@@ -12,12 +12,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]*entity.Resource, error) {
+func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]uuid.UUID, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Conflicts.ConflictedResources")
 	defer span.End()
 
 	if len(cmd.MaintResourceIDs) == 0 || len(cmd.ConflictedMaintIDs) == 0 {
-		return make(map[uuid.UUID][]*entity.Resource), nil
+		return make(map[uuid.UUID][]uuid.UUID), nil
 	}
 
 	// SELECT
@@ -45,13 +45,11 @@ func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictRes
 		return nil, err
 	}
 
-	conflictedResources := make(map[uuid.UUID][]*entity.Resource)
+	conflictedResources := make(map[uuid.UUID][]uuid.UUID)
 	for _, resource := range resources {
 		conflictedResources[resource.MaintenanceID] = append(conflictedResources[resource.MaintenanceID],
-			&entity.Resource{
-				ID:   resource.ResourceID,
-				Type: entity.ResourceType(resource.ResourceType),
-			})
+			resource.ResourceID,
+		)
 	}
 	return conflictedResources, nil
 }

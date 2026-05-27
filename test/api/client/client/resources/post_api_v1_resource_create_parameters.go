@@ -67,7 +67,7 @@ type PostAPIV1ResourceCreateParams struct {
 
 	   Resource details
 	*/
-	Request *models.ApismodelsCreateResourceRequest
+	Request *models.ApimodelsCreateResourceRequest
 
 	timeout    time.Duration
 	Context    context.Context
@@ -123,13 +123,13 @@ func (o *PostAPIV1ResourceCreateParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithRequest adds the request to the post API v1 resource create params
-func (o *PostAPIV1ResourceCreateParams) WithRequest(request *models.ApismodelsCreateResourceRequest) *PostAPIV1ResourceCreateParams {
+func (o *PostAPIV1ResourceCreateParams) WithRequest(request *models.ApimodelsCreateResourceRequest) *PostAPIV1ResourceCreateParams {
 	o.SetRequest(request)
 	return o
 }
 
 // SetRequest adds the request to the post API v1 resource create params
-func (o *PostAPIV1ResourceCreateParams) SetRequest(request *models.ApismodelsCreateResourceRequest) {
+func (o *PostAPIV1ResourceCreateParams) SetRequest(request *models.ApimodelsCreateResourceRequest) {
 	o.Request = request
 }
 

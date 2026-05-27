@@ -8,9 +8,8 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
-	"github.com/ruko1202/maintmode/internal/entity"
-
 	"github.com/ruko1202/maintmode/internal/calendardto"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto.Maintenance, error) {
@@ -76,39 +75,15 @@ func (s *Service) getMaintResources(ctx context.Context, maintIDs []uuid.UUID) (
 		return nil, err
 	}
 
-	resourcesDetails, err := s.getResourcesDetails(ctx, lo.Map(
-		lo.Flatten(lo.Values(maintsResources)), func(item *entity.Resource, _ int) uuid.UUID {
-			return item.ID
-		}),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	maintResourcesM := make(map[uuid.UUID][]*calendardto.MaintenanceResource)
+	maintResourcesM := make(map[uuid.UUID][]*calendardto.MaintenanceResource, len(maintsResources))
 	for maintID, resources := range maintsResources {
-		eventResources := lo.Map(resources, func(item *entity.Resource, _ int) *calendardto.MaintenanceResource {
-			details := lo.ValueOr(resourcesDetails, item.ID, &entity.ResourceDetails{Name: "unknown resource"})
+		maintResourcesM[maintID] = lo.Map(resources, func(r *entity.ResourceDetails, _ int) *calendardto.MaintenanceResource {
 			return &calendardto.MaintenanceResource{
-				ID:   item.ID,
-				Name: details.Name,
-				Type: item.Type,
+				ID:   r.ID,
+				Name: r.Name,
 			}
 		})
-
-		maintResourcesM[maintID] = append(maintResourcesM[maintID], eventResources...)
 	}
 
 	return maintResourcesM, nil
-}
-
-func (s *Service) getResourcesDetails(ctx context.Context, resources []uuid.UUID) (map[uuid.UUID]*entity.ResourceDetails, error) {
-	resourcesDetails, err := s.resourcesStore.GetResources(ctx, resources)
-	if err != nil {
-		return nil, err
-	}
-
-	return lo.SliceToMap(resourcesDetails, func(item *entity.ResourceDetails) (uuid.UUID, *entity.ResourceDetails) {
-		return item.ID, item
-	}), nil
 }

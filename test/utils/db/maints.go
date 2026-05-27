@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -24,9 +25,9 @@ func WithScope(scope entity.MaintenanceScope) MaintChanger {
 	}
 }
 
-func WithResources(r ...*entity.Resource) MaintChanger {
+func WithResources(ids ...uuid.UUID) MaintChanger {
 	return func(m *entity.Maintenance) {
-		m.Resources = r
+		m.Resources = ids
 	}
 }
 
@@ -42,7 +43,7 @@ func WithSteps(step []*entity.MaintenanceStep) MaintChanger {
 	}
 }
 
-func MakeResource(ctx context.Context, t *testing.T, store *resources.Store, resourceType entity.ResourceType) *entity.Resource {
+func MakeResource(ctx context.Context, t *testing.T, store *resources.Store) *entity.ResourceDetails {
 	t.Helper()
 
 	resource, err := store.Create(ctx, &entity.ResourceDetails{
@@ -51,18 +52,15 @@ func MakeResource(ctx context.Context, t *testing.T, store *resources.Store, res
 	})
 	require.NoError(t, err)
 
-	return &entity.Resource{
-		ID:   resource.ID,
-		Type: resourceType,
-	}
+	return resource
 }
 
-func MakeResources(ctx context.Context, t *testing.T, store *resources.Store, resourceTypes ...entity.ResourceType) []*entity.Resource {
+func MakeResources(ctx context.Context, t *testing.T, store *resources.Store, count int) []uuid.UUID {
 	t.Helper()
 
-	result := make([]*entity.Resource, 0, len(resourceTypes))
-	for _, resourceType := range resourceTypes {
-		result = append(result, MakeResource(ctx, t, store, resourceType))
+	result := make([]uuid.UUID, 0, count)
+	for i := 0; i < count; i++ {
+		result = append(result, MakeResource(ctx, t, store).ID)
 	}
 
 	return result
@@ -87,10 +85,7 @@ func MakeMaint(
 		Status:        entity.MaintenanceStatusDraft,
 		Impact:        entity.MaintenanceImpactFull,
 		CreatedAt:     xtime.UTCNow(),
-		Resources: MakeResources(ctx, t, resourceStore,
-			entity.ResourceTypeService,
-			entity.ResourceTypeDatabase,
-		),
+		Resources:     MakeResources(ctx, t, resourceStore, 2),
 		Steps: []*entity.MaintenanceStep{{
 			Order:               1,
 			Description:         "Step 1" + t.Name(),

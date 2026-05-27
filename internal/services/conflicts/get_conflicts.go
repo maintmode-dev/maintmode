@@ -35,7 +35,7 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *entity.ConflictQueryCmd
 	return lo.Map(conflicts, func(item *entity.Conflict, _ int) *entity.ConflictWithResources {
 		return &entity.ConflictWithResources{
 			Conflict:  item,
-			Resources: lo.ValueOr(conflictedResources, item.MaintenanceID, []*entity.Resource{}),
+			Resources: lo.ValueOr(conflictedResources, item.MaintenanceID, []uuid.UUID{}),
 		}
 	}), nil
 }

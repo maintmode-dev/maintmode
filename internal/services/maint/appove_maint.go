@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
-	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -62,9 +60,7 @@ func (s *Service) checkConflicts(ctx context.Context, cmd *entity.ApproveMainten
 		MaintID:       maint.ID,
 		PlannedPeriod: maint.PlannedPeriod,
 		Scope:         maint.Scope,
-		ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-			return item.ID
-		}),
+		ResourceIDs:   maint.Resources,
 	})
 	if err != nil {
 		return err

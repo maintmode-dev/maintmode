@@ -13,6 +13,5 @@ import (
 
 type MaintenanceResources struct {
 	MaintenanceID uuid.UUID `sql:"primary_key" db:"maintenance_resources.maintenance_id"`
-	ResourceType  string    `sql:"primary_key" db:"maintenance_resources.resource_type"`
 	ResourceID    uuid.UUID `sql:"primary_key" db:"maintenance_resources.resource_id"`
 }

@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -20,24 +19,37 @@ import (
 // swagger:model apimodels.Resource
 type ApimodelsResource struct {
 
-	// id
-	// Example: 550e8400-e29b-41d4-a716-446655440000
-	// Format: uuid
-	ID strfmt.UUID `json:"id,omitempty"`
+	// created at
+	// Format: date-time
+	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
 
-	// type
-	Type ApimodelsResourceType `json:"type,omitempty"`
+	// description
+	Description string `json:"description,omitempty"`
+
+	// external id
+	ExternalID string `json:"external_id,omitempty"`
+
+	// id
+	// Example: 550e8400-e29b-41d4-a716-4466554400000
+	ID string `json:"id,omitempty"`
+
+	// name
+	Name string `json:"name,omitempty"`
+
+	// updated at
+	// Format: date-time
+	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty"`
 }
 
 // Validate validates this apimodels resource
 func (m *ApimodelsResource) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateID(formats); err != nil {
+	if err := m.validateCreatedAt(formats); err != nil {
 		res = append(res, err)
 	}
 
-	if err := m.validateType(formats); err != nil {
+	if err := m.validateUpdatedAt(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -47,72 +59,32 @@ func (m *ApimodelsResource) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *ApimodelsResource) validateID(formats strfmt.Registry) error {
-	if swag.IsZero(m.ID) { // not required
+func (m *ApimodelsResource) validateCreatedAt(formats strfmt.Registry) error {
+	if swag.IsZero(m.CreatedAt) { // not required
 		return nil
 	}
 
-	if err := validate.FormatOf("id", "body", "uuid", m.ID.String(), formats); err != nil {
+	if err := validate.FormatOf("created_at", "body", "date-time", m.CreatedAt.String(), formats); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *ApimodelsResource) validateType(formats strfmt.Registry) error {
-	if swag.IsZero(m.Type) { // not required
+func (m *ApimodelsResource) validateUpdatedAt(formats strfmt.Registry) error {
+	if swag.IsZero(m.UpdatedAt) { // not required
 		return nil
 	}
 
-	if err := m.Type.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
-			return ve.ValidateName("type")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
-			return ce.ValidateName("type")
-		}
-
+	if err := validate.FormatOf("updated_at", "body", "date-time", m.UpdatedAt.String(), formats); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// ContextValidate validate this apimodels resource based on the context it is used
+// ContextValidate validates this apimodels resource based on context it is used
 func (m *ApimodelsResource) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.contextValidateType(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *ApimodelsResource) contextValidateType(ctx context.Context, formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Type) { // not required
-		return nil
-	}
-
-	if err := m.Type.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
-			return ve.ValidateName("type")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
-			return ce.ValidateName("type")
-		}
-
-		return err
-	}
-
 	return nil
 }
 

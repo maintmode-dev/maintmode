@@ -23,7 +23,7 @@ type Conflict struct {
 
 type ConflictWithResources struct {
 	*Conflict
-	Resources []*Resource
+	Resources []uuid.UUID
 }
 
 type ConflictsSnapshot struct {
@@ -87,23 +87,16 @@ func ConflictFingerprint(conflicts []*ConflictWithResources) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func conflictResourcesFingerprint(resources []*Resource) []byte {
-	buf := make([]byte, 0, len(resources)*50)
-	for _, r := range resources {
+func conflictResourcesFingerprint(resources []uuid.UUID) []byte {
+	buf := make([]byte, 0, len(resources)*20)
+	for _, id := range resources {
 		buf = append(buf, "id="...)
-		buf = append(buf, r.ID[:]...)
-		buf = append(buf, "type="...)
-		buf = append(buf, r.Type...)
+		buf = append(buf, id[:]...)
 	}
 
 	return buf
 }
 
-func SortResources(resources []*Resource) {
-	slices.SortFunc(resources, func(r1, r2 *Resource) int {
-		if r1.ID != r2.ID {
-			return xuuid.Compare(r1.ID, r2.ID)
-		}
-		return strings.Compare(string(r1.Type), string(r2.Type))
-	})
+func SortResources(resources []uuid.UUID) {
+	slices.SortFunc(resources, xuuid.Compare)
 }

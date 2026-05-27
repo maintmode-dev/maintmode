@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -25,13 +24,13 @@ func TestConflictedResources(t *testing.T) {
 
 	t.Run("has overlap", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeDatabase)
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
 		for _, tc := range []struct {
 			name                        string
 			maint                       *entity.Maintenance
 			conflictedMaint             *entity.Maintenance
-			expectedConflictedResources func(conflictedMaint *entity.Maintenance) map[uuid.UUID][]*entity.Resource
+			expectedConflictedResources func(conflictedMaint *entity.Maintenance) map[uuid.UUID][]uuid.UUID
 		}{
 			{
 				name: "conflicted maint has global scope",
@@ -43,8 +42,8 @@ func TestConflictedResources(t *testing.T) {
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 				),
-				expectedConflictedResources: func(_ *entity.Maintenance) map[uuid.UUID][]*entity.Resource {
-					return map[uuid.UUID][]*entity.Resource{}
+				expectedConflictedResources: func(_ *entity.Maintenance) map[uuid.UUID][]uuid.UUID {
+					return map[uuid.UUID][]uuid.UUID{}
 				},
 			}, {
 				name: "maint has global scope",
@@ -56,8 +55,8 @@ func TestConflictedResources(t *testing.T) {
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 				),
-				expectedConflictedResources: func(_ *entity.Maintenance) map[uuid.UUID][]*entity.Resource {
-					return map[uuid.UUID][]*entity.Resource{}
+				expectedConflictedResources: func(_ *entity.Maintenance) map[uuid.UUID][]uuid.UUID {
+					return map[uuid.UUID][]uuid.UUID{}
 				},
 			}, {
 				name: "has conflicted resources",
@@ -65,23 +64,21 @@ func TestConflictedResources(t *testing.T) {
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 					testdbutils.WithResources(
-						sharedResource,
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+						sharedResource.ID,
+						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 					),
 				),
 				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 					testdbutils.WithResources(
-						sharedResource,
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+						sharedResource.ID,
+						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 					),
 				),
-				expectedConflictedResources: func(conflictedMaint *entity.Maintenance) map[uuid.UUID][]*entity.Resource {
-					return map[uuid.UUID][]*entity.Resource{
-						conflictedMaint.ID: {
-							sharedResource,
-						},
+				expectedConflictedResources: func(conflictedMaint *entity.Maintenance) map[uuid.UUID][]uuid.UUID {
+					return map[uuid.UUID][]uuid.UUID{
+						conflictedMaint.ID: {sharedResource.ID},
 					}
 				},
 			},
@@ -90,9 +87,7 @@ func TestConflictedResources(t *testing.T) {
 				t.Parallel()
 
 				actualConflictedResources, err := store.ConflictedResources(ctx, &entity.ConflictResourcesQueryCmd{
-					MaintResourceIDs: lo.Map(tc.maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-						return item.ID
-					}),
+					MaintResourceIDs:   tc.maint.Resources,
 					ConflictedMaintIDs: []uuid.UUID{tc.conflictedMaint.ID},
 				})
 				require.NoError(t, err)
@@ -100,9 +95,9 @@ func TestConflictedResources(t *testing.T) {
 				expectedConflictedResources := tc.expectedConflictedResources(tc.conflictedMaint)
 				require.Equal(t, len(expectedConflictedResources), len(actualConflictedResources))
 
-				for conflictedMaindID, expectedResources := range expectedConflictedResources {
-					actualResources, ok := actualConflictedResources[conflictedMaindID]
-					require.Truef(t, ok, "not found conflict with id %s", conflictedMaindID)
+				for conflictedMaintID, expectedResources := range expectedConflictedResources {
+					actualResources, ok := actualConflictedResources[conflictedMaintID]
+					require.Truef(t, ok, "not found conflict with id %s", conflictedMaintID)
 					require.Equal(t, expectedResources, actualResources)
 				}
 			})
@@ -115,18 +110,16 @@ func TestConflictedResources(t *testing.T) {
 		maint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
-			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
+			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
 		)
 		notConflictedMaint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
-			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
+			testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
 		)
 
 		actualConflictedResources, err := store.ConflictedResources(ctx, &entity.ConflictResourcesQueryCmd{
-			MaintResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			MaintResourceIDs:   maint.Resources,
 			ConflictedMaintIDs: []uuid.UUID{notConflictedMaint.ID},
 		})
 		require.NoError(t, err)

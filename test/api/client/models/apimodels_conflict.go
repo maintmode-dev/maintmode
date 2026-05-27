@@ -34,7 +34,7 @@ type ApimodelsConflict struct {
 	OverlapStart strfmt.DateTime `json:"overlap_start,omitempty"`
 
 	// resources
-	Resources []*ApimodelsResource `json:"resources"`
+	Resources []*ApimodelsResourceRef `json:"resources"`
 
 	// scope
 	Scope ApimodelsMaintenanceScope `json:"scope,omitempty"`

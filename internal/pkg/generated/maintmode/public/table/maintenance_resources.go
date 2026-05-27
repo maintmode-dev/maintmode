@@ -18,7 +18,6 @@ type maintenanceResourcesTable struct {
 
 	// Columns
 	MaintenanceID postgres.ColumnString
-	ResourceType  postgres.ColumnString
 	ResourceID    postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
@@ -62,9 +61,8 @@ func newMaintenanceResourcesTable(schemaName, tableName, alias string) *Maintena
 func newMaintenanceResourcesTableImpl(schemaName, tableName, alias string) maintenanceResourcesTable {
 	var (
 		MaintenanceIDColumn = postgres.StringColumn("maintenance_id")
-		ResourceTypeColumn  = postgres.StringColumn("resource_type")
 		ResourceIDColumn    = postgres.StringColumn("resource_id")
-		allColumns          = postgres.ColumnList{MaintenanceIDColumn, ResourceTypeColumn, ResourceIDColumn}
+		allColumns          = postgres.ColumnList{MaintenanceIDColumn, ResourceIDColumn}
 		mutableColumns      = postgres.ColumnList{}
 		defaultColumns      = postgres.ColumnList{}
 	)
@@ -74,7 +72,6 @@ func newMaintenanceResourcesTableImpl(schemaName, tableName, alias string) maint
 
 		//Columns
 		MaintenanceID: MaintenanceIDColumn,
-		ResourceType:  ResourceTypeColumn,
 		ResourceID:    ResourceIDColumn,
 
 		AllColumns:     allColumns,

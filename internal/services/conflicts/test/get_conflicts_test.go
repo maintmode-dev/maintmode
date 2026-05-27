@@ -26,14 +26,14 @@ func TestGetConflicts(t *testing.T) {
 
 	t.Run("has conflicts", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 			testdbutils.WithResources(
-				sharedResource,
-				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+				sharedResource.ID,
+				testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 			),
 		)
 
@@ -44,18 +44,8 @@ func TestGetConflicts(t *testing.T) {
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeResources),
 				testdbutils.WithResources(
-					sharedResource,
-					testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
-				),
-			),
-			// resource with the other resource type
-			testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
-				entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
-				testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
-				testdbutils.WithScope(entity.MaintenanceScopeResources),
-				testdbutils.WithResources(
-					sharedResource,
-					&entity.Resource{ID: sharedResource.ID, Type: entity.ResourceTypeDatabase},
+					sharedResource.ID,
+					testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 				),
 			),
 			// global scope
@@ -70,12 +60,10 @@ func TestGetConflicts(t *testing.T) {
 			MaintID:       maint.ID,
 			PlannedPeriod: maint.PlannedPeriod,
 			Scope:         maint.Scope,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			ResourceIDs:   maint.Resources,
 		})
 		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(actualConflicts), 3)
+		require.GreaterOrEqual(t, len(actualConflicts), 2)
 
 		actualConflictsM := lo.SliceToMap(actualConflicts, func(item *entity.ConflictWithResources) (uuid.UUID, *entity.ConflictWithResources) {
 			return item.MaintenanceID, item
@@ -90,8 +78,8 @@ func TestGetConflicts(t *testing.T) {
 					OverlapEnd:    testtimeutils.OverlapEnd(maint.PlannedPeriod, item.PlannedPeriod),
 					Scope:         item.Scope,
 				},
-				Resources: lo.Filter(item.Resources, func(item *entity.Resource, _ int) bool {
-					return item.ID == sharedResource.ID
+				Resources: lo.Filter(item.Resources, func(id uuid.UUID, _ int) bool {
+					return id == sharedResource.ID
 				}),
 			}
 		})

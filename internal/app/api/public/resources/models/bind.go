@@ -1,4 +1,4 @@
-package apismodels
+package apimodels
 
 import (
 	"github.com/samber/lo"
@@ -20,13 +20,5 @@ func ToAPIResource(r *entity.ResourceDetails) *Resource {
 func ToAPIResources(resources []*entity.ResourceDetails) []*Resource {
 	return lo.Map(resources, func(r *entity.ResourceDetails, _ int) *Resource {
 		return ToAPIResource(r)
-	})
-}
-
-func ToAPIResourceTypes(types []entity.ResourceType) []*ResourceType {
-	return lo.Map(types, func(item entity.ResourceType, _ int) *ResourceType {
-		return &ResourceType{
-			Type: item,
-		}
 	})
 }

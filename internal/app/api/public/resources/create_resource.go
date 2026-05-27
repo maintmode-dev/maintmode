@@ -10,7 +10,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
-	apismodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
+	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -20,8 +20,8 @@ import (
 // @Tags Resources
 // @Accept json
 // @Produce json
-// @Param request body apismodels.CreateResourceRequest true "Resource details"
-// @Success 200 {object} apismodels.Resource
+// @Param request body apimodels.CreateResourceRequest true "Resource details"
+// @Success 200 {object} apimodels.Resource
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
@@ -35,7 +35,7 @@ func (i *Implementation) CreateResource(c *echo.Context) error {
 	defer span.End()
 	op := "create resource"
 
-	req := new(apismodels.CreateResourceRequest)
+	req := new(apimodels.CreateResourceRequest)
 	if err := c.Bind(req); err != nil {
 		xlog.Error(ctx, "bind request failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
@@ -56,10 +56,10 @@ func (i *Implementation) CreateResource(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apismodels.ToAPIResource(resource))
+	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource))
 }
 
-func validateCreateResourceRequest(ctx context.Context, req *apismodels.CreateResourceRequest) error {
+func validateCreateResourceRequest(ctx context.Context, req *apimodels.CreateResourceRequest) error {
 	return validation.ValidateStructWithContext(ctx, req,
 		validation.Field(&req.Name, validation.Required),
 		validation.Field(&req.Description, validation.Required),

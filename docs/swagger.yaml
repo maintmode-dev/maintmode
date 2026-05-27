@@ -130,7 +130,7 @@ definitions:
         type: string
       resources:
         items:
-          $ref: '#/definitions/apimodels.Resource'
+          $ref: '#/definitions/apimodels.ResourceRef'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
@@ -147,7 +147,7 @@ definitions:
         type: string
       resources:
         items:
-          $ref: '#/definitions/apimodels.Resource'
+          $ref: '#/definitions/apimodels.ResourceRef'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
@@ -175,7 +175,7 @@ definitions:
         $ref: '#/definitions/apimodels.Period'
       resources:
         items:
-          $ref: '#/definitions/apimodels.Resource'
+          $ref: '#/definitions/apimodels.ResourceRef'
         type: array
       scope:
         type: string
@@ -186,6 +186,15 @@ definitions:
           $ref: '#/definitions/apimodels.MaintenanceStep'
         type: array
       title:
+        type: string
+    type: object
+  apimodels.CreateResourceRequest:
+    properties:
+      description:
+        type: string
+      external_id:
+        type: string
+      name:
         type: string
     type: object
   apimodels.ListRolesResponse:
@@ -217,7 +226,7 @@ definitions:
         $ref: '#/definitions/apimodels.Period'
       resources:
         items:
-          $ref: '#/definitions/apimodels.Resource'
+          $ref: '#/definitions/apimodels.ResourceRef'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
@@ -319,23 +328,29 @@ definitions:
     type: object
   apimodels.Resource:
     properties:
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      external_id:
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-4466554400000
+        type: string
+      name:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+    type: object
+  apimodels.ResourceRef:
+    properties:
       id:
         example: 550e8400-e29b-41d4-a716-446655440000
         format: uuid
         type: string
-      type:
-        $ref: '#/definitions/apimodels.ResourceType'
     type: object
-  apimodels.ResourceType:
-    enum:
-    - service
-    - database
-    - cluster
-    type: string
-    x-enum-varnames:
-    - ResourceTypeService
-    - ResourceTypeDatabase
-    - ResourceTypeCluster
   apimodels.RevokeRoleRequest:
     properties:
       role:
@@ -355,6 +370,13 @@ definitions:
     - RoleEditor
     - RoleReviewer
     - RoleAdmin
+  apimodels.SearchResourcesResponse:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+    type: object
   apimodels.UpdateDraftMaintRequest:
     properties:
       description:
@@ -367,7 +389,7 @@ definitions:
         type: string
       resources:
         items:
-          $ref: '#/definitions/apimodels.Resource'
+          $ref: '#/definitions/apimodels.ResourceRef'
         type: array
       scope:
         $ref: '#/definitions/apimodels.MaintenanceScope'
@@ -378,52 +400,6 @@ definitions:
       title:
         example: DB migration
         type: string
-    type: object
-  apismodels.CreateResourceRequest:
-    properties:
-      description:
-        type: string
-      external_id:
-        type: string
-      name:
-        type: string
-    type: object
-  apismodels.GetResourceTypesResponse:
-    properties:
-      types:
-        items:
-          $ref: '#/definitions/apismodels.ResourceType'
-        type: array
-    type: object
-  apismodels.Resource:
-    properties:
-      created_at:
-        format: date-time
-        type: string
-      description:
-        type: string
-      external_id:
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-4466554400000
-        type: string
-      name:
-        type: string
-      updated_at:
-        format: date-time
-        type: string
-    type: object
-  apismodels.ResourceType:
-    properties:
-      type:
-        $ref: '#/definitions/entity.ResourceType'
-    type: object
-  apismodels.SearchResourcesResponse:
-    properties:
-      resources:
-        items:
-          $ref: '#/definitions/apismodels.Resource'
-        type: array
     type: object
   auth.refreshTokenJSONRequest:
     properties:
@@ -463,16 +439,6 @@ definitions:
       "y":
         type: string
     type: object
-  entity.ResourceType:
-    enum:
-    - service
-    - database
-    - cluster
-    type: string
-    x-enum-varnames:
-    - ResourceTypeService
-    - ResourceTypeDatabase
-    - ResourceTypeCluster
   httperrors.ErrorResponse:
     properties:
       code:
@@ -639,8 +605,6 @@ definitions:
         format: uuid
         type: string
       name:
-        type: string
-      type:
         type: string
     type: object
   uimodels.MaintenanceViewResponse:
@@ -1566,52 +1530,6 @@ paths:
       summary: Refresh token pair
       tags:
       - Auth
-  /api/v1/resource/{id}/types:
-    get:
-      description: Returns available resource types for a specific resource
-      parameters:
-      - description: Resource ID
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/apismodels.GetResourceTypesResponse'
-        "400":
-          description: Invalid request
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-        "404":
-          description: Resource not found
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-        "500":
-          description: Internal error
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-        "503":
-          description: Auth service unavailable
-          schema:
-            $ref: '#/definitions/httperrors.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get available resource types
-      tags:
-      - Resources
   /api/v1/resource/create:
     post:
       consumes:
@@ -1623,14 +1541,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/apismodels.CreateResourceRequest'
+          $ref: '#/definitions/apimodels.CreateResourceRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/apismodels.Resource'
+            $ref: '#/definitions/apimodels.Resource'
         "400":
           description: Invalid request
           schema:
@@ -1675,7 +1593,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/apismodels.SearchResourcesResponse'
+            $ref: '#/definitions/apimodels.SearchResourcesResponse'
         "400":
           description: Invalid request
           schema:

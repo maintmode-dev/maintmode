@@ -21,7 +21,7 @@ type CreateMaintenanceCmd struct {
 	PlannedPeriod Period
 	Scope         MaintenanceScope
 	Impact        MaintenanceImpact
-	Resources     []*Resource
+	Resources     []uuid.UUID
 	Steps         []*MaintenanceStepInput
 }
 
@@ -32,7 +32,7 @@ type UpdateMaintenanceCmd struct {
 	PlannedStart *time.Time
 	Scope        *MaintenanceScope
 	Impact       *MaintenanceImpact
-	Resources    []*Resource
+	Resources    []uuid.UUID
 	Steps        []*MaintenanceStepInput
 }
 type StartMaintenanceCmd struct {

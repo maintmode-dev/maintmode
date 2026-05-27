@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -20,9 +21,9 @@ func TestAddResources(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 		maint := makeMaint(ctx, t, store, entity.NewPeriod(now, now.Add(time.Minute)))
-		resource := makeResource(ctx, t, entity.ResourceTypeService)
+		resourceID := makeResource(ctx, t)
 
-		err := store.AddResources(ctx, maint.ID, []*entity.Resource{resource})
+		err := store.AddResources(ctx, maint.ID, []uuid.UUID{resourceID})
 		require.NoError(t, err)
 	})
 
@@ -30,7 +31,7 @@ func TestAddResources(t *testing.T) {
 		t.Parallel()
 		maint := makeMaint(ctx, t, store, entity.NewPeriod(now, now.Add(time.Minute)))
 
-		err := store.AddResources(ctx, maint.ID, []*entity.Resource{})
+		err := store.AddResources(ctx, maint.ID, []uuid.UUID{})
 		require.NoError(t, err)
 	})
 }

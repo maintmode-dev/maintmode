@@ -31,11 +31,8 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 		Impact:       models.ApimodelsMaintenanceImpactNone,
 		Scope:        models.ApimodelsMaintenanceScopeResource,
 		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResource{
-			{
-				ID:   resourceID,
-				Type: models.ApimodelsResourceTypeService,
-			},
+		Resources: []*models.ApimodelsResourceRef{
+			{ID: resourceID},
 		},
 		Steps: testMaintenanceSteps(),
 	}

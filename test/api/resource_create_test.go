@@ -20,17 +20,17 @@ func TestReroucesAPI_Create(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		req  *models.ApismodelsCreateResourceRequest
+		req  *models.ApimodelsCreateResourceRequest
 	}{
 		{
 			name: "empty external id",
-			req: &models.ApismodelsCreateResourceRequest{
+			req: &models.ApimodelsCreateResourceRequest{
 				Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
 				Description: "This is a test resource created via API tests",
 			},
 		}, {
 			name: "with external id",
-			req: &models.ApismodelsCreateResourceRequest{
+			req: &models.ApimodelsCreateResourceRequest{
 				Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
 				Description: "This is a test resource created via API tests",
 				ExternalID:  xuuid.NewString(),
@@ -67,7 +67,7 @@ func TestReroucesAPI_Create_IdempotentCaseInsensitive(t *testing.T) {
 
 	first := resources.NewPostAPIV1ResourceCreateParams().
 		WithContext(ctx).
-		WithRequest(&models.ApismodelsCreateResourceRequest{
+		WithRequest(&models.ApimodelsCreateResourceRequest{
 			Name:        name,
 			Description: "first create",
 		})
@@ -77,7 +77,7 @@ func TestReroucesAPI_Create_IdempotentCaseInsensitive(t *testing.T) {
 
 	second := resources.NewPostAPIV1ResourceCreateParams().
 		WithContext(ctx).
-		WithRequest(&models.ApismodelsCreateResourceRequest{
+		WithRequest(&models.ApimodelsCreateResourceRequest{
 			Name:        strings.ToUpper(name),
 			Description: "second create with different case",
 		})

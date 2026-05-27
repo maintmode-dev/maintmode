@@ -116,9 +116,6 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	// resource API group
 	{
 		resourceAPI := gr.Group("/resource")
-		resourceAPI.Add(http.MethodGet, "/:id/types", s.handlers.Resources.GetResourceTypes,
-			s.scenarioMW(entity.AuthzScenarioResourceRead))
-
 		resourceAPI.Add(http.MethodPost, "/create", s.handlers.Resources.CreateResource,
 			s.scenarioMW(entity.AuthzScenarioResourceCreate))
 	}

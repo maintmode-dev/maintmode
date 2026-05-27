@@ -33,7 +33,7 @@ type ApimodelsCreateDraftMaintRequest struct {
 	PlannedStart strfmt.DateTime `json:"planned_start,omitempty"`
 
 	// resources
-	Resources []*ApimodelsResource `json:"resources"`
+	Resources []*ApimodelsResourceRef `json:"resources"`
 
 	// scope
 	Scope ApimodelsMaintenanceScope `json:"scope,omitempty"`

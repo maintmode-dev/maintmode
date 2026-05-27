@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -8,8 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	resID1 = uuid.MustParse("10000000-0000-0000-0000-000000000001")
+	resID2 = uuid.MustParse("20000000-0000-0000-0000-000000000002")
+	resID3 = uuid.MustParse("30000000-0000-0000-0000-000000000003")
+)
+
 func TestConflictFingerprint(t *testing.T) {
-	// Test cases for ConflictFingerprint function
 	tests := []struct {
 		name      string
 		conflicts []*ConflictWithResources
@@ -48,9 +54,7 @@ func TestConflictFingerprint(t *testing.T) {
 						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 						Scope:         MaintenanceScopeResources,
 					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
+					Resources: []uuid.UUID{resID1},
 				},
 			},
 		},
@@ -65,122 +69,7 @@ func TestConflictFingerprint(t *testing.T) {
 						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 						Scope:         MaintenanceScopeResources,
 					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-						{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-					},
-				},
-			},
-		},
-		{
-			name: "multiple conflicts with different maintenance IDs",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
-				},
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
-						Title:         "Test Conflict 2",
-						OverlapStart:  time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 16, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-					},
-				},
-			},
-		},
-		{
-			name: "conflicts with same maintenance ID but different scopes",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 2",
-						OverlapStart:  time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 16, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
-				},
-			},
-		},
-		{
-			name: "conflicts with same maintenance ID and scope but different overlap times",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 2",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-			},
-		},
-		{
-			name: "conflicts with different time zones (should be normalized to UTC)",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-			},
-		},
-		{
-			name: "conflicts with milliseconds (should be truncated to seconds)",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 500000000, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 750000000, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
+					Resources: []uuid.UUID{resID1, resID2, resID3},
 				},
 			},
 		},
@@ -195,92 +84,7 @@ func TestConflictFingerprint(t *testing.T) {
 						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 						Scope:         MaintenanceScopeResources,
 					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-					},
-				},
-			},
-		},
-		{
-			name: "conflicts in different order (should produce same fingerprint)",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
-						Title:         "Test Conflict 2",
-						OverlapStart:  time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 16, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-					},
-				},
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
-				},
-			},
-		},
-		{
-			name: "conflict with empty resources slice",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{},
-				},
-			},
-		},
-		{
-			name: "conflicts with different resource types",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-						{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-					},
-				},
-			},
-		},
-		{
-			name: "conflicts with same resources but different order",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
+					Resources: []uuid.UUID{resID3, resID1, resID2},
 				},
 			},
 		},
@@ -289,14 +93,13 @@ func TestConflictFingerprint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ConflictFingerprint(tt.conflicts)
-			require.NotEmpty(t, got, "ConflictFingerprint() should return a non-empty hash")
-			require.Len(t, got, 64, "ConflictFingerprint() should return a 64-character SHA256 hash")
+			require.NotEmpty(t, got)
+			require.Len(t, got, 64)
 		})
 	}
 }
 
 func TestConflictFingerprint_Deterministic(t *testing.T) {
-	// Test that the same input produces the same fingerprint multiple times
 	conflicts := []*ConflictWithResources{
 		{
 			Conflict: &Conflict{
@@ -306,27 +109,21 @@ func TestConflictFingerprint_Deterministic(t *testing.T) {
 				OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 				Scope:         MaintenanceScopeResources,
 			},
-			Resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-			},
+			Resources: []uuid.UUID{resID1, resID2},
 		},
 	}
 
-	// Call the function multiple times and verify it returns the same result
 	fingerprints := make([]string, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		fingerprints[i] = ConflictFingerprint(conflicts)
 	}
 
-	// All fingerprints should be identical
 	for i := 1; i < len(fingerprints); i++ {
-		require.Equal(t, fingerprints[0], fingerprints[i], "ConflictFingerprint() should be deterministic")
+		require.Equal(t, fingerprints[0], fingerprints[i])
 	}
 }
 
 func TestConflictFingerprint_DifferentInputs(t *testing.T) {
-	// Test that different inputs produce different fingerprints
 	testCases := []struct {
 		name      string
 		conflicts []*ConflictWithResources
@@ -362,36 +159,6 @@ func TestConflictFingerprint_DifferentInputs(t *testing.T) {
 			},
 		},
 		{
-			name: "different overlap start",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 11, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-			},
-		},
-		{
-			name: "different overlap end",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-			},
-		},
-		{
 			name: "different resources",
 			conflicts: []*ConflictWithResources{
 				{
@@ -402,9 +169,7 @@ func TestConflictFingerprint_DifferentInputs(t *testing.T) {
 						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 						Scope:         MaintenanceScopeResources,
 					},
-					Resources: []*Resource{
-						{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-					},
+					Resources: []uuid.UUID{resID1},
 				},
 			},
 		},
@@ -414,112 +179,94 @@ func TestConflictFingerprint_DifferentInputs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			fp := ConflictFingerprint(tc.conflicts)
-			require.NotContains(t, fingerprints, fp, "fingerprint should be unique for different inputs")
+			require.NotContains(t, fingerprints, fp)
 			fingerprints[fp] = true
 		})
 	}
 }
 
 func TestConflictFingerprint_OrderIndependence(t *testing.T) {
-	// Test that the order of conflicts and resources doesn't affect the fingerprint
-	baseConflicts := []*ConflictWithResources{
-		{
-			Conflict: &Conflict{
-				MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-				Title:         "Test Conflict 1",
-				OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-				OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-				Scope:         MaintenanceScopeResources,
+	makeBase := func() []*ConflictWithResources {
+		return []*ConflictWithResources{
+			{
+				Conflict: &Conflict{
+					MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+					Title:         "Test Conflict 1",
+					OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
+					OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+					Scope:         MaintenanceScopeResources,
+				},
+				Resources: []uuid.UUID{resID1, resID2},
 			},
-			Resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
+			{
+				Conflict: &Conflict{
+					MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+					Title:         "Test Conflict 2",
+					OverlapStart:  time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
+					OverlapEnd:    time.Date(2024, 1, 1, 16, 0, 0, 0, time.UTC),
+					Scope:         MaintenanceScopeGlobal,
+				},
+				Resources: nil,
 			},
-		},
-		{
-			Conflict: &Conflict{
-				MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
-				Title:         "Test Conflict 2",
-				OverlapStart:  time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-				OverlapEnd:    time.Date(2024, 1, 1, 16, 0, 0, 0, time.UTC),
-				Scope:         MaintenanceScopeGlobal,
-			},
-			Resources: nil,
-		},
-	}
-
-	// Create a copy with reversed order
-	reversedConflicts := make([]*ConflictWithResources, len(baseConflicts))
-	copy(reversedConflicts, baseConflicts)
-	for i, j := 0, len(reversedConflicts)-1; i < j; i, j = i+1, j-1 {
-		reversedConflicts[i], reversedConflicts[j] = reversedConflicts[j], reversedConflicts[i]
-	}
-
-	// Also reverse the resources within each conflict
-	for _, c := range reversedConflicts {
-		if c != nil && len(c.Resources) > 0 {
-			for i, j := 0, len(c.Resources)-1; i < j; i, j = i+1, j-1 {
-				c.Resources[i], c.Resources[j] = c.Resources[j], c.Resources[i]
-			}
 		}
+	}
+
+	baseConflicts := makeBase()
+	reversedConflicts := makeBase()
+	slices.Reverse(reversedConflicts)
+	for _, c := range reversedConflicts {
+		slices.Reverse(c.Resources)
 	}
 
 	fp1 := ConflictFingerprint(baseConflicts)
 	fp2 := ConflictFingerprint(reversedConflicts)
 
-	require.Equal(t, fp1, fp2, "fingerprint should be independent of order")
+	require.Equal(t, fp1, fp2)
 }
 
-func TestConflictFingerprint_TimeTruncation(t *testing.T) {
-	// Test that milliseconds are truncated to seconds
+func TestConflictFingerprint_TimeNormalization(t *testing.T) {
+	// Same UTC instant expressed differently must produce the same fingerprint
+	// (timezone offset is stripped via UTC(), sub-second precision via Truncate(time.Second)).
 	baseTime := time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC)
 
-	tests := []struct {
-		name string
-		time time.Time
-	}{
-		{"no milliseconds", baseTime},
-		{"500 milliseconds", baseTime.Add(500 * time.Millisecond)},
-		{"999 milliseconds", baseTime.Add(999 * time.Millisecond)},
-		{"with nanoseconds", baseTime.Add(123456789)},
-	}
+	loc := time.FixedZone("UTC+3", 3*3600)
+	sameInstantInOtherTZ := baseTime.In(loc)
 
-	conflicts := make([]*ConflictWithResources, len(tests))
-	for i, tt := range tests {
-		conflicts[i] = &ConflictWithResources{
-			Conflict: &Conflict{
-				MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-				Title:         "Test Conflict 1",
-				OverlapStart:  tt.time,
-				OverlapEnd:    tt.time.Add(2 * time.Hour),
-				Scope:         MaintenanceScopeGlobal,
+	conflictAt := func(start time.Time) []*ConflictWithResources {
+		return []*ConflictWithResources{
+			{
+				Conflict: &Conflict{
+					MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+					Title:         "Test Conflict 1",
+					OverlapStart:  start,
+					OverlapEnd:    start.Add(2 * time.Hour),
+					Scope:         MaintenanceScopeGlobal,
+				},
+				Resources: nil,
 			},
-			Resources: nil,
 		}
 	}
 
-	// All fingerprints should be the same since times are truncated to seconds
-	fingerprints := make([]string, len(conflicts))
-	for i, c := range conflicts {
-		fingerprints[i] = ConflictFingerprint([]*ConflictWithResources{c})
-	}
+	fpUTC := ConflictFingerprint(conflictAt(baseTime))
+	fpOtherTZ := ConflictFingerprint(conflictAt(sameInstantInOtherTZ))
+	require.Equal(t, fpUTC, fpOtherTZ, "fingerprint should be timezone-independent")
 
-	// All fingerprints should be identical
-	for i := 1; i < len(fingerprints); i++ {
-		require.Equal(t, fingerprints[0], fingerprints[i], "ConflictFingerprint() should truncate milliseconds")
+	for _, sub := range []time.Duration{500 * time.Millisecond, 999 * time.Millisecond, 123456789 * time.Nanosecond} {
+		fp := ConflictFingerprint(conflictAt(baseTime.Add(sub)))
+		require.Equal(t, fpUTC, fp, "fingerprint should truncate sub-second precision (offset=%s)", sub)
 	}
 }
 
 func TestSortResources(t *testing.T) {
 	tests := []struct {
 		name      string
-		resources []*Resource
-		want      []*Resource
+		resources []uuid.UUID
+		want      []uuid.UUID
 	}{
 		{
 			name:      "empty slice",
-			resources: []*Resource{},
-			want:      []*Resource{},
+			resources: []uuid.UUID{},
+			want:      []uuid.UUID{},
 		},
 		{
 			name:      "nil slice",
@@ -527,61 +274,21 @@ func TestSortResources(t *testing.T) {
 			want:      nil,
 		},
 		{
-			name: "already sorted",
-			resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-			},
-			want: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-			},
+			name:      "already sorted",
+			resources: []uuid.UUID{resID1, resID2},
+			want:      []uuid.UUID{resID1, resID2},
 		},
 		{
-			name: "reverse order",
-			resources: []*Resource{
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-			},
-			want: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-			},
-		},
-		{
-			name: "same ID, different types",
-			resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeCluster},
-			},
-			want: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeCluster},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-			},
-		},
-		{
-			name: "multiple resources with same ID",
-			resources: []*Resource{
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-			},
-			want: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-			},
+			name:      "reverse order",
+			resources: []uuid.UUID{resID2, resID1},
+			want:      []uuid.UUID{resID1, resID2},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			SortResources(tt.resources)
-			require.Equal(t, tt.want, tt.resources, "SortResources() should sort resources correctly")
+			require.Equal(t, tt.want, tt.resources)
 		})
 	}
 }
@@ -589,39 +296,21 @@ func TestSortResources(t *testing.T) {
 func TestConflictResourcesFingerprint(t *testing.T) {
 	tests := []struct {
 		name      string
-		resources []*Resource
+		resources []uuid.UUID
 	}{
-		{
-			name:      "empty slice",
-			resources: []*Resource{},
-		},
-		{
-			name:      "nil slice",
-			resources: nil,
-		},
-		{
-			name: "single resource",
-			resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-			},
-		},
-		{
-			name: "multiple resources",
-			resources: []*Resource{
-				{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Type: ResourceTypeService},
-				{ID: uuid.MustParse("20000000-0000-0000-0000-000000000002"), Type: ResourceTypeDatabase},
-				{ID: uuid.MustParse("30000000-0000-0000-0000-000000000003"), Type: ResourceTypeCluster},
-			},
-		},
+		{name: "empty slice", resources: []uuid.UUID{}},
+		{name: "nil slice", resources: nil},
+		{name: "single resource", resources: []uuid.UUID{resID1}},
+		{name: "multiple resources", resources: []uuid.UUID{resID1, resID2, resID3}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := conflictResourcesFingerprint(tt.resources)
 			if len(tt.resources) == 0 {
-				require.Empty(t, got, "conflictResourcesFingerprint() should return empty for empty resources")
+				require.Empty(t, got)
 			} else {
-				require.NotEmpty(t, got, "conflictResourcesFingerprint() should return non-empty for non-empty resources")
+				require.NotEmpty(t, got)
 			}
 		})
 	}

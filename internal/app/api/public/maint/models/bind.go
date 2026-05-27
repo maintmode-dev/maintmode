@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -33,19 +34,6 @@ func FromAPIImpact(s MaintenanceImpact) (entity.MaintenanceImpact, error) {
 	}
 }
 
-func FromAPIResourceType(s ResourceType) (entity.ResourceType, error) {
-	switch s {
-	case ResourceTypeDatabase:
-		return entity.ResourceTypeDatabase, nil
-	case ResourceTypeService:
-		return entity.ResourceTypeService, nil
-	case ResourceTypeCluster:
-		return entity.ResourceTypeCluster, nil
-	default:
-		return "", fmt.Errorf("unsupported resource type: %s", s)
-	}
-}
-
 func FromAPIMaintenanceCancelReason(s MaintenanceCancelReason) (entity.MaintenanceCancelReason, error) {
 	switch s {
 	case MaintenanceCancelReasonConflict:
@@ -63,27 +51,15 @@ func FromAPIMaintenanceCancelReason(s MaintenanceCancelReason) (entity.Maintenan
 	}
 }
 
-func FromAPIResources(resources []*Resource) ([]*entity.Resource, error) {
-	res := make([]*entity.Resource, 0, len(resources))
-	for _, resource := range resources {
-		rt, err := FromAPIResourceType(resource.Type)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, &entity.Resource{
-			ID:   resource.ID,
-			Type: rt,
-		})
-	}
-	return res, nil
+func FromAPIResources(resources []*ResourceRef) []uuid.UUID {
+	return lo.Map(resources, func(item *ResourceRef, _ int) uuid.UUID {
+		return item.ID
+	})
 }
 
-func ToAPIResources(resources []*entity.Resource) []*Resource {
-	return lo.Map(resources, func(item *entity.Resource, _ int) *Resource {
-		return &Resource{
-			ID:   item.ID,
-			Type: ResourceType(item.Type),
-		}
+func ToAPIResources(resourceIDs []uuid.UUID) []*ResourceRef {
+	return lo.Map(resourceIDs, func(id uuid.UUID, _ int) *ResourceRef {
+		return &ResourceRef{ID: id}
 	})
 }
 

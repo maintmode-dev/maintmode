@@ -27,35 +27,50 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQue
 		return nil, err
 	}
 
-	conflictResourcesM := lo.SliceToMap(conflicts, func(item *entity.ConflictWithResources) (uuid.UUID, []*entity.Resource) {
+	conflictResourcesM := lo.SliceToMap(conflicts, func(item *entity.ConflictWithResources) (uuid.UUID, []uuid.UUID) {
 		return item.MaintenanceID, item.Resources
 	})
 
-	resourcesDetails, err := s.getResourcesDetails(ctx, lo.Map(
-		lo.Flatten(lo.Values(conflictResourcesM)), func(item *entity.Resource, _ int) uuid.UUID {
-			return item.ID
-		}),
-	)
+	resourcesDetails, err := s.resolveResourceNames(ctx, lo.Flatten(lo.Values(conflictResourcesM)))
 	if err != nil {
 		xlog.Error(ctx, "failed to get resources details", xfield.Error(err))
 		return nil, err
 	}
 
 	return lo.Map(conflicts, func(item *entity.ConflictWithResources, _ int) *calendardto.Conflict {
-		resources := lo.ValueOr(conflictResourcesM, item.MaintenanceID, []*entity.Resource{})
+		resources := lo.ValueOr(conflictResourcesM, item.MaintenanceID, []uuid.UUID{})
 		return &calendardto.Conflict{
 			MaintenanceID: item.MaintenanceID,
 			Title:         item.Title,
 			OverlapStart:  item.OverlapStart,
 			OverlapEnd:    item.OverlapEnd,
 			Scope:         item.Scope,
-			Resources: lo.Map(resources, func(item *entity.Resource, _ int) *calendardto.MaintenanceResource {
+			Resources: lo.Map(resources, func(id uuid.UUID, _ int) *calendardto.MaintenanceResource {
+				// fallback to "unknown resource" if the resource is not found
+				resDetails := lo.ValueOr(resourcesDetails, id, &entity.ResourceDetails{Name: "unknown resource"})
 				return &calendardto.MaintenanceResource{
-					ID:   item.ID,
-					Name: lo.ValueOr(resourcesDetails, item.ID, &entity.ResourceDetails{Name: "unknown resource"}).Name,
-					Type: item.Type,
+					ID:   id,
+					Name: resDetails.Name,
 				}
 			}),
 		}
+	}), nil
+}
+
+// resolveResourceNames returns a map of resource ID → name for the given IDs.
+// Used for projections (e.g., conflict-resources from a fingerprint snapshot)
+// where only IDs are known and a name is needed for display.
+func (s *Service) resolveResourceNames(ctx context.Context, resourceIDs []uuid.UUID) (map[uuid.UUID]*entity.ResourceDetails, error) {
+	if len(resourceIDs) == 0 {
+		return map[uuid.UUID]*entity.ResourceDetails{}, nil
+	}
+
+	details, err := s.resourcesStore.GetResources(ctx, resourceIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return lo.SliceToMap(details, func(item *entity.ResourceDetails) (uuid.UUID, *entity.ResourceDetails) {
+		return item.ID, item
 	}), nil
 }

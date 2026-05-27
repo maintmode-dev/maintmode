@@ -63,7 +63,7 @@ type Maintenance struct {
 	Description         string                  `json:"description"`
 	PlannedPeriod       Period                  `json:"planned_period"`
 	ActualPeriod        *Period                 `json:"actual_period"`
-	Resources           []*Resource             `json:"resources"`
+	Resources           []*ResourceRef          `json:"resources"`
 	Scope               MaintenanceScope        `json:"scope"`
 	Impact              MaintenanceImpact       `json:"impact"`
 	Status              string                  `json:"status"`
@@ -80,7 +80,7 @@ type CreateDraftMaintRequest struct {
 	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
 	Scope        MaintenanceScope        `json:"scope"`
 	Impact       MaintenanceImpact       `json:"impact"`
-	Resources    []*Resource             `json:"resources"`
+	Resources    []*ResourceRef          `json:"resources"`
 	Steps        []*MaintenanceStepInput `json:"steps"`
 }
 
@@ -89,7 +89,7 @@ type CreateDraftMaintResponse struct {
 	Title         string             `json:"title"`
 	Description   string             `json:"description"`
 	PlannedPeriod Period             `json:"planned_period"`
-	Resources     []*Resource        `json:"resources"`
+	Resources     []*ResourceRef     `json:"resources"`
 	Scope         string             `json:"scope"`
 	Impact        string             `json:"impact"`
 	Status        string             `json:"status"`
@@ -103,7 +103,7 @@ type UpdateDraftMaintRequest struct {
 	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
 	Scope        MaintenanceScope        `json:"scope"`
 	Impact       MaintenanceImpact       `json:"impact"`
-	Resources    []*Resource             `json:"resources"`
+	Resources    []*ResourceRef          `json:"resources"`
 	Steps        []*MaintenanceStepInput `json:"steps"`
 }
 
@@ -117,7 +117,7 @@ type Conflict struct {
 	OverlapStart  time.Time        `json:"overlap_start" format:"date-time"`
 	OverlapEnd    time.Time        `json:"overlap_end" format:"date-time"`
 	Scope         MaintenanceScope `json:"scope"`
-	Resources     []*Resource      `json:"resources"`
+	Resources     []*ResourceRef   `json:"resources"`
 }
 
 type ApproveDraftMaintRequest struct {

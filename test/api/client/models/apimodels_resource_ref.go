@@ -14,21 +14,19 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// UimodelsMaintenanceViewResource uimodels maintenance view resource
+// ApimodelsResourceRef apimodels resource ref
 //
-// swagger:model uimodels.MaintenanceViewResource
-type UimodelsMaintenanceViewResource struct {
+// swagger:model apimodels.ResourceRef
+type ApimodelsResourceRef struct {
 
 	// id
+	// Example: 550e8400-e29b-41d4-a716-446655440000
 	// Format: uuid
 	ID strfmt.UUID `json:"id,omitempty"`
-
-	// name
-	Name string `json:"name,omitempty"`
 }
 
-// Validate validates this uimodels maintenance view resource
-func (m *UimodelsMaintenanceViewResource) Validate(formats strfmt.Registry) error {
+// Validate validates this apimodels resource ref
+func (m *ApimodelsResourceRef) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateID(formats); err != nil {
@@ -41,7 +39,7 @@ func (m *UimodelsMaintenanceViewResource) Validate(formats strfmt.Registry) erro
 	return nil
 }
 
-func (m *UimodelsMaintenanceViewResource) validateID(formats strfmt.Registry) error {
+func (m *ApimodelsResourceRef) validateID(formats strfmt.Registry) error {
 	if swag.IsZero(m.ID) { // not required
 		return nil
 	}
@@ -53,13 +51,13 @@ func (m *UimodelsMaintenanceViewResource) validateID(formats strfmt.Registry) er
 	return nil
 }
 
-// ContextValidate validates this uimodels maintenance view resource based on context it is used
-func (m *UimodelsMaintenanceViewResource) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+// ContextValidate validates this apimodels resource ref based on context it is used
+func (m *ApimodelsResourceRef) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
 // MarshalBinary interface implementation
-func (m *UimodelsMaintenanceViewResource) MarshalBinary() ([]byte, error) {
+func (m *ApimodelsResourceRef) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -67,8 +65,8 @@ func (m *UimodelsMaintenanceViewResource) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *UimodelsMaintenanceViewResource) UnmarshalBinary(b []byte) error {
-	var res UimodelsMaintenanceViewResource
+func (m *ApimodelsResourceRef) UnmarshalBinary(b []byte) error {
+	var res ApimodelsResourceRef
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

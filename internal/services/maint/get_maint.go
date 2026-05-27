@@ -33,7 +33,9 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 		return nil, err
 	}
 
-	maint.Resources = lo.ValueOr(resources, maint.ID, []*entity.Resource{})
+	maint.Resources = lo.Map(resources[maint.ID], func(r *entity.ResourceDetails, _ int) uuid.UUID {
+		return r.ID
+	})
 
 	steps, err := s.maintStore.GetMaintSteps(ctx, maintID)
 	if err != nil {

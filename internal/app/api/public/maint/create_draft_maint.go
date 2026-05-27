@@ -88,11 +88,7 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
-	resources, err := apimodels.FromAPIResources(req.Resources)
-	if err != nil {
-		xlog.Error(ctx, "unsupported resource type", xfield.Error(err))
-		return nil, fmt.Errorf("unsupported resource type")
-	}
+	resources := apimodels.FromAPIResources(req.Resources)
 
 	steps, err := apimodels.FromAPISteps(req.Steps)
 	if err != nil {
@@ -141,11 +137,11 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 }
 
 func validateResource(ctx context.Context, value any) error {
-	var resource *apimodels.Resource
+	var resource *apimodels.ResourceRef
 	switch v := value.(type) {
-	case *apimodels.Resource:
+	case *apimodels.ResourceRef:
 		resource = v
-	case apimodels.Resource:
+	case apimodels.ResourceRef:
 		resource = &v
 	default:
 		return fmt.Errorf("unsupported resource type: %T", v)
@@ -153,7 +149,6 @@ func validateResource(ctx context.Context, value any) error {
 
 	return validation.ValidateStructWithContext(ctx, resource,
 		validation.Field(&resource.ID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
-		validation.Field(&resource.Type, validation.Required),
 	)
 }
 

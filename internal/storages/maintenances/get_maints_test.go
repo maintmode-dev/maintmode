@@ -120,7 +120,7 @@ func TestList(t *testing.T) {
 		maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
 			PeriodFrom:  start,
 			PeriodTo:    end,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID { return item.ID }),
+			ResourceIDs: maint.Resources,
 		}, 1)
 		require.NoError(t, err)
 		require.False(t, truncated)

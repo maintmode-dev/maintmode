@@ -10,7 +10,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func (s *Service) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]*entity.Resource, error) {
+func (s *Service) ConflictedResources(ctx context.Context, cmd *entity.ConflictResourcesQueryCmd) (map[uuid.UUID][]uuid.UUID, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Conflicts.ConflictedResources")
 	defer span.End()
 

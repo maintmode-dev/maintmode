@@ -83,9 +83,7 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []*entity.Resource{
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeCluster),
-					},
+					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
 					require.Equal(t, cmd.Resources, newMaint.Resources)
@@ -93,10 +91,8 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources[scope global]",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []*entity.Resource{
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeCluster),
-					},
-					Scope: lo.ToPtr(entity.MaintenanceScopeGlobal),
+					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+					Scope:     lo.ToPtr(entity.MaintenanceScopeGlobal),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
 					require.Len(t, newMaint.Resources, 0)
@@ -189,12 +185,9 @@ func TestUpdateDraft(t *testing.T) {
 				}, {
 					name: "invalid Resources",
 					cmd: &entity.UpdateMaintenanceCmd{
-						Resources: []*entity.Resource{{
-							ID:   uuid.Nil,
-							Type: entity.ResourceTypeCluster,
-						}},
+						Resources: []uuid.UUID{uuid.Nil},
 					},
-					expectedErr: "Resources: (0: (ID: cannot be blank.).).",
+					expectedErr: "Resources: (0: cannot be blank.).",
 				}, {
 					name: "invalid steps",
 					cmd: &entity.UpdateMaintenanceCmd{

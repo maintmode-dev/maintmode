@@ -17,7 +17,7 @@ import (
 // @Tags Resources
 // @Produce json
 // @Param name query string true "Resource name to search for"
-// @Success 200 {object} apismodels.SearchResourcesResponse
+// @Success 200 {object} apimodels.SearchResourcesResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 403 {object} httperrors.ErrorResponse "Forbidden"

@@ -1,11 +1,9 @@
-package apismodels
+package apimodels
 
 import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 type Resource struct {
@@ -21,14 +19,6 @@ type CreateResourceRequest struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	ExternalID  *string `json:"external_id,omitempty"`
-}
-
-type ResourceType struct {
-	Type entity.ResourceType `json:"type"`
-}
-
-type GetResourceTypesResponse struct {
-	Types []*ResourceType `json:"types"`
 }
 
 type SearchResourcesRequest struct {

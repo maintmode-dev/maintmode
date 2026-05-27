@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -23,7 +21,7 @@ func TestApprove(t *testing.T) {
 	s := services.Maint
 
 	t.Run("ok", func(t *testing.T) {
-		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
 		conflictedMaints := []*entity.Maintenance{
 			// using sharedResource
@@ -32,8 +30,8 @@ func TestApprove(t *testing.T) {
 				testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 				testdbutils.WithScope(entity.MaintenanceScopeResources),
 				testdbutils.WithResources(
-					sharedResource,
-					testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+					sharedResource.ID,
+					testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 				),
 			),
 			// global scope
@@ -52,8 +50,8 @@ func TestApprove(t *testing.T) {
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
 			testdbutils.WithResources(
-				sharedResource,
-				testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+				sharedResource.ID,
+				testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 			),
 		)
 
@@ -61,9 +59,7 @@ func TestApprove(t *testing.T) {
 			MaintID:       maint.ID,
 			PlannedPeriod: maint.PlannedPeriod,
 			Scope:         maint.Scope,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			ResourceIDs:   maint.Resources,
 		})
 		require.NoError(t, err)
 
@@ -92,9 +88,7 @@ func TestApprove(t *testing.T) {
 			MaintID:       maint.ID,
 			PlannedPeriod: maint.PlannedPeriod,
 			Scope:         maint.Scope,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			ResourceIDs:   maint.Resources,
 		})
 		require.NoError(t, err)
 
@@ -118,9 +112,7 @@ func TestApprove(t *testing.T) {
 			MaintID:       maint.ID,
 			PlannedPeriod: maint.PlannedPeriod,
 			Scope:         maint.Scope,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			ResourceIDs:   maint.Resources,
 		})
 		require.NoError(t, err)
 
@@ -149,9 +141,7 @@ func TestApprove(t *testing.T) {
 			MaintID:       maint.ID,
 			PlannedPeriod: maint.PlannedPeriod,
 			Scope:         maint.Scope,
-			ResourceIDs: lo.Map(maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-				return item.ID
-			}),
+			ResourceIDs:   maint.Resources,
 		})
 		require.NoError(t, err)
 

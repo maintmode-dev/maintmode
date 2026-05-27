@@ -26,7 +26,7 @@ func TestListConflict(t *testing.T) {
 
 	t.Run("has overlap", func(t *testing.T) {
 		t.Parallel()
-		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeDatabase)
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
 		for _, tc := range []struct {
 			name            string
@@ -61,8 +61,8 @@ func TestListConflict(t *testing.T) {
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 					testdbutils.WithResources(
-						sharedResource,
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+						sharedResource.ID,
+						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 					),
 				),
 
@@ -71,8 +71,8 @@ func TestListConflict(t *testing.T) {
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
 					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 					testdbutils.WithResources(
-						sharedResource,
-						testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService),
+						sharedResource.ID,
+						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
 					),
 				),
 			},
@@ -84,9 +84,7 @@ func TestListConflict(t *testing.T) {
 					MaintID:       tc.maint.ID,
 					Scope:         tc.maint.Scope,
 					PlannedPeriod: tc.maint.PlannedPeriod,
-					ResourceIDs: lo.Map(tc.maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-						return item.ID
-					}),
+					ResourceIDs:   tc.maint.Resources,
 				})
 				require.NoError(t, err)
 				require.NotEmpty(t, actualConflictedMaints)
@@ -131,12 +129,12 @@ func TestListConflict(t *testing.T) {
 				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
+					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
 				),
 				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
 					entity.NewPeriod(start, end),
 					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore, entity.ResourceTypeService)),
+					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
 				),
 			},
 		} {
@@ -147,9 +145,7 @@ func TestListConflict(t *testing.T) {
 					MaintID:       tc.maint.ID,
 					Scope:         tc.maint.Scope,
 					PlannedPeriod: tc.maint.PlannedPeriod,
-					ResourceIDs: lo.Map(tc.maint.Resources, func(item *entity.Resource, _ int) uuid.UUID {
-						return item.ID
-					}),
+					ResourceIDs:   tc.maint.Resources,
 				})
 				require.NoError(t, err)
 				require.NotEmpty(t, actualConflictedMaints)

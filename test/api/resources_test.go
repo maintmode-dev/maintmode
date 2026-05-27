@@ -17,7 +17,7 @@ func TestReroucesAPI_List(t *testing.T) {
 	ctx := context.Background()
 	apiClient := setupMaintmodeTestClient()
 
-	createdResources := lo.RepeatBy(150, func(_ int) *models.ApismodelsResource {
+	createdResources := lo.RepeatBy(150, func(_ int) *models.ApimodelsResource {
 		return creatResource(ctx, t, apiClient)
 	})
 	resource := lo.LastOrEmpty(createdResources)
@@ -26,18 +26,18 @@ func TestReroucesAPI_List(t *testing.T) {
 		name              string
 		searchName        string
 		expectedCount     int
-		expectedResources []*models.ApismodelsResource
+		expectedResources []*models.ApimodelsResource
 	}{
 		{
 			name:              "search by name",
 			searchName:        resource.Name,
 			expectedCount:     1,
-			expectedResources: []*models.ApismodelsResource{resource},
+			expectedResources: []*models.ApimodelsResource{resource},
 		}, {
 			name:              "search all",
 			searchName:        "",
 			expectedCount:     100,
-			expectedResources: []*models.ApismodelsResource{},
+			expectedResources: []*models.ApimodelsResource{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestReroucesAPI_List(t *testing.T) {
 			payload := resp.Payload
 			require.NotNil(t, payload)
 
-			actualResourceM := lo.SliceToMap(payload.Resources, func(item *models.ApismodelsResource) (strfmt.UUID, *models.ApismodelsResource) {
+			actualResourceM := lo.SliceToMap(payload.Resources, func(item *models.ApimodelsResource) (strfmt.UUID, *models.ApimodelsResource) {
 				return strfmt.UUID(item.ID), item
 			})
 			require.GreaterOrEqual(t, len(actualResourceM), tc.expectedCount)

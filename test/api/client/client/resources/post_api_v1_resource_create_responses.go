@@ -83,7 +83,7 @@ PostAPIV1ResourceCreateOK describes a response with status code 200, with defaul
 OK
 */
 type PostAPIV1ResourceCreateOK struct {
-	Payload *models.ApismodelsResource
+	Payload *models.ApimodelsResource
 }
 
 // IsSuccess returns true when this post Api v1 resource create o k response has a 2xx status code
@@ -126,13 +126,13 @@ func (o *PostAPIV1ResourceCreateOK) String() string {
 	return fmt.Sprintf("[POST /api/v1/resource/create][%d] postApiV1ResourceCreateOK %s", 200, payload)
 }
 
-func (o *PostAPIV1ResourceCreateOK) GetPayload() *models.ApismodelsResource {
+func (o *PostAPIV1ResourceCreateOK) GetPayload() *models.ApimodelsResource {
 	return o.Payload
 }
 
 func (o *PostAPIV1ResourceCreateOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.ApismodelsResource)
+	o.Payload = new(models.ApimodelsResource)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
