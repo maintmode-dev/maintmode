@@ -107,9 +107,14 @@ services:
     build:
       context: .
       dockerfile: deployment/maintmode/.build/Dockerfile
-    container_name: maintmode
+    # No container_name: this service is horizontally scalable via
+    # `docker compose up --scale maintmode=N`. Docker assigns
+    # <project>-maintmode-<N> and DNS `maintmode` resolves to all replicas.
     profiles: ["app"]
     restart: unless-stopped
+    # Discovered by Prometheus via docker_sd_configs filter on this label.
+    labels:
+      prometheus.service: "maintmode"
     environment:
       MAINTMODE_CONFIG_DIR: /app
       MAINTMODE_AUTHZ_DIR: /app/authz
@@ -137,9 +142,14 @@ services:
     build:
       context: .
       dockerfile: deployment/auth/.build/Dockerfile
-    container_name: auth
+    # No container_name: this service is horizontally scalable via
+    # `docker compose up --scale auth=N`. Docker assigns
+    # <project>-auth-<N> and DNS `auth` resolves to all replicas.
     profiles: ["app"]
     restart: unless-stopped
+    # Discovered by Prometheus via docker_sd_configs filter on this label.
+    labels:
+      prometheus.service: "auth"
     environment:
       AUTH_CONFIG_DIR: /app
       AUTH_AUTHZ_DIR: /app/authz
@@ -204,6 +214,9 @@ services:
     volumes:
       - victoria-metrics:/victoria-metrics-data
       - ./monitoring/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Docker SD reads container list from the daemon socket so every
+      # replica of the maintmode/auth services is discovered.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
       - "--promscrape.config=/etc/prometheus/prometheus.yml"
       - "--storageDataPath=/victoria-metrics-data"

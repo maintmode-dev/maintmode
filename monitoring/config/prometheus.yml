@@ -5,14 +5,53 @@ global:
     environment: 'development'
 
 scrape_configs:
-  # MaintMode Application
+  # maintmode + auth: discovered via the Docker socket so every replica
+  # is scraped (docker compose up --scale maintmode=N --scale auth=N).
+  # Containers opt in via the `prometheus.service` Docker label set in
+  # compose.yaml. `port: 8001` makes docker_sd_configs emit
+  # `<ip>:8001` as __address__; the network filter keeps us out of
+  # unrelated stacks that might share the docker daemon.
   - job_name: 'maintmode'
     metrics_path: /metrics
-    static_configs:
-      - targets: ['maintmode:8001']
-        labels:
-          service_name: 'maintmode'
-          component: 'application'
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        port: 8001
+        filters:
+          - name: label
+            values: ["prometheus.service=maintmode"]
+    relabel_configs:
+      - source_labels: [__meta_docker_network_name]
+        regex: theapp
+        action: keep
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: instance
+      - target_label: service_name
+        replacement: 'maintmode'
+      - target_label: component
+        replacement: 'application'
+
+  - job_name: 'auth'
+    metrics_path: /metrics
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        port: 8001
+        filters:
+          - name: label
+            values: ["prometheus.service=auth"]
+    relabel_configs:
+      - source_labels: [__meta_docker_network_name]
+        regex: theapp
+        action: keep
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: instance
+      - target_label: service_name
+        replacement: 'auth'
+      - target_label: component
+        replacement: 'application'
 
   # pg_doorman Connection Pooler
   - job_name: 'pg_doorman'

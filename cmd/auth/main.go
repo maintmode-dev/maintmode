@@ -88,6 +88,7 @@ func main() {
 			audit.New(services.Audit),
 			services.Token,
 			services.RBAC,
+			redisClient,
 			server.WithLogger(logger),
 		)
 		s.BindRouters(cfg.Environment, meta)

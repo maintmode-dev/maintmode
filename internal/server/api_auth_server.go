@@ -2,12 +2,13 @@ package server
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/auth"
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
@@ -28,6 +29,7 @@ type APIAuthServer struct {
 
 	tokenVerifier middlewares.TokenVerifier
 	authorizer    middlewares.Authorizer
+	redis         *redis.Client
 }
 
 func NewAPIAuthServer(
@@ -38,6 +40,7 @@ func NewAPIAuthServer(
 	auditImpl *audit.Implementation,
 	tokenVerifier middlewares.TokenVerifier,
 	authorizer middlewares.Authorizer,
+	rdb *redis.Client,
 	opts ...Option,
 ) *APIAuthServer {
 	return &APIAuthServer{
@@ -49,6 +52,7 @@ func NewAPIAuthServer(
 
 		tokenVerifier: tokenVerifier,
 		authorizer:    authorizer,
+		redis:         rdb,
 	}
 }
 
@@ -58,20 +62,16 @@ func (s *APIAuthServer) BindRouters(env config.Environment, meta *buildmeta.AppB
 	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	v1Gr := rootGr.Group("/api/v1")
-	s.authV1Group(v1Gr, env)
+	s.authV1Group(v1Gr, env, meta)
 	s.s2sV1Group(v1Gr.Group("/s2s"))
 }
 
 // auth V1 API group
-func (s *APIAuthServer) authV1Group(gr *echo.Group, env config.Environment) {
+func (s *APIAuthServer) authV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.authImpl.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
-		middleware.RateLimiter(middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
-			Rate:      0.5, // 30 RPM
-			Burst:     30,
-			ExpiresIn: 3 * time.Minute,
-		})),
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
 	)
 
 	loginOAuthGr.Add(http.MethodGet, "/google", s.authImpl.GoogleOAuthLogin)

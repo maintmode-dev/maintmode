@@ -63,6 +63,24 @@ groups:
           description: "redis-exporter reports redis_up == 0. Cache misses will fall through to Postgres; rate limiting and session storage are degraded."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#redisdown"
 
+      - alert: RateLimiterRedisFallback
+        # The rate limiter increments this counter when a Redis call
+        # fails and it falls back to the per-replica in-memory limiter.
+        # The fallback is by design tolerant of brief blips, so we only
+        # alert on a *sustained* stream (> 1/s for 5m), not single
+        # timeouts — those are expected noise.
+        #
+        # sum() across replicas so we get one alert per cluster, not
+        # one per replica.
+        expr: sum(rate(ratelimit_redis_failures_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiter sustained Redis fallback"
+          description: "The rate limiter has been falling back to its in-memory store at > 1/s for 5m. The shared limit is degraded across replicas; check Redis health and network."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#ratelimiterredisfallback"
+
       - alert: PgDoormanPoolSaturated
         # pg_doorman exports pgdoorman_databases_pool_clients_active and pool_size per pool.
         # Adjust label selector when pool is renamed.

@@ -365,12 +365,22 @@ docker-ps: ## Show status of database containers
 # Starts PostgreSQL, Redis, pg_doorman, apply-migrations, and maintmode
 # Creates containers, networks, and volumes if they don't exist
 # Safe to run multiple times (idempotent)
+#
+# Replica count for the two scalable services defaults to 1 (current
+# behaviour). Override for multi-pod runs:
+#   make app-up MAINTMODE_REPLICAS=3 AUTH_REPLICAS=3
+# Restart caddy after changing the count so it re-resolves DNS.
+MAINTMODE_REPLICAS ?= 1
+AUTH_REPLICAS ?= 1
 .PHONY: app-up
 app-up: app-down
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
-	$(info $(M) starting all services with maintmode...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} up -d ${args}
+	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS) auth=$(AUTH_REPLICAS)...)
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} up -d \
+		--scale maintmode=$(MAINTMODE_REPLICAS) \
+		--scale auth=$(AUTH_REPLICAS) \
+		${args}
 	make app-ps
 
 # app-down - Stop and remove all containers

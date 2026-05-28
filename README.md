@@ -124,6 +124,42 @@ runbooks, and the production smoke-test checklist, see the
 backend repo holds the compose files and Caddy configuration; the
 docs repo is the canonical source for operator procedures.
 
+### Scaling
+
+`maintmode` and `auth` are stateless and can run as N replicas on the
+same VM. `make app-up` accepts replica counts (default 1/1):
+
+```bash
+make app-up MAINTMODE_REPLICAS=3 AUTH_REPLICAS=3
+# or directly:
+docker compose --profile storages --profile app --profile monitoring \
+  up -d --scale maintmode=3 --scale auth=3
+```
+
+How it works:
+
+- Docker assigns each replica a unique name (`*-maintmode-1`,
+  `*-maintmode-2`, ...). The service-name DNS (`maintmode`, `auth`)
+  resolves to all replica IPs.
+- Caddy load-balances across replicas (`lb_policy round_robin`) with
+  passive health checks and request retries on a peer.
+- The Goque task queue uses `FOR UPDATE SKIP LOCKED`, so the same task
+  is never picked up by two replicas.
+- OAuth login rate-limiting is shared via Redis with a per-replica
+  in-memory fallback if Redis is unreachable (alert
+  `RateLimiterRedisFallback`).
+- Prometheus discovers every replica via Docker SD; Loki/Promtail
+  labels logs by `container_name` so replica logs are easy to filter.
+
+Known limitations on a single VM:
+
+- Postgres, Redis, and Caddy stay single-instance — true HA needs
+  external infra.
+- `docker compose up -d` restarts all replicas at once; there is no
+  rolling update. Swarm or Kubernetes is needed for that.
+- After changing the replica count, restart Caddy
+  (`docker compose restart caddy`) so it re-resolves DNS.
+
 ### Quick Start
 
 ```bash

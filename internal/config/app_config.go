@@ -18,14 +18,22 @@ import (
 
 // HTTPServer represents HTTP server configuration with host and port settings.
 type HTTPServer struct {
-	Name string
-	Host string
-	Port int
+	Name        string            `mapstructure:"name"`
+	Host        string            `mapstructure:"host"`
+	Port        int               `mapstructure:"port"`
+	RateLimiter RateLimiterConfig `mapstructure:"rate_limiter"`
 }
 
 // BuildHostPort returns the server address in host:port format.
 func (a *HTTPServer) BuildHostPort() string {
 	return fmt.Sprintf("%s:%d", a.Host, a.Port)
+}
+
+type RateLimiterConfig struct {
+	RequestsPerMinute int           `mapstructure:"requests_per_minute"`
+	Burst             int           `mapstructure:"burst"`
+	ExpiresIn         time.Duration `mapstructure:"expires_in"`
+	Timeout           time.Duration `mapstructure:"timeout"`
 }
 
 // DB represents database connection configuration including pool settings.
@@ -286,7 +294,7 @@ func readConfig(filePath string) (*AppConfig, error) {
 
 	cfg := new(AppConfig)
 	if err := reader.Unmarshal(cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config file %s", filePath)
+		return nil, fmt.Errorf("failed to unmarshal config file %s: %w", filePath, err)
 	}
 
 	return cfg, nil

@@ -16,6 +16,12 @@ api_server:
   name: api
   host: 0.0.0.0
   port: 8000
+  rate_limiter:
+    requests_per_minute: 30
+    burst: 30
+    expires_in: 3m
+    timeout: 200ms
+
 
 infra_server:
   name: status
