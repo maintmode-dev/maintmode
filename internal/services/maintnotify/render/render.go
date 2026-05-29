@@ -19,17 +19,17 @@ type templateData struct {
 	MaintURL string
 }
 
-func (r *Service) Render(ctx context.Context, evt entity.NotifyEvent) (entity.Message, error) {
+func (r *Service) Render(ctx context.Context, evt entity.NotifyEvent) (entity.NotifyMessage, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Render.Render")
 	defer span.End()
 
 	body, err := r.render(evt)
 	if err != nil {
 		xlog.Error(ctx, "failed to render event", xfield.Error(err))
-		return entity.Message{}, fmt.Errorf("render event: %w", err)
+		return entity.NotifyMessage{}, fmt.Errorf("render event: %w", err)
 	}
 
-	return entity.Message{
+	return entity.NotifyMessage{
 		Subject: evt.Kind.Subject(),
 		Body:    strings.TrimSpace(body),
 	}, nil

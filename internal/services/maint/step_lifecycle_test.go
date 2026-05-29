@@ -21,12 +21,10 @@ func TestStepLifeCycle(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 
-	s := services.Maint
-
 	t.Run("StartStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{
@@ -37,13 +35,13 @@ func TestStepLifeCycle(t *testing.T) {
 			}}),
 		)
 
-		err := s.StartStep(ctx, &entity.StartMaintenanceStepCmd{
+		err := service.StartStep(ctx, &entity.StartMaintenanceStepCmd{
 			MaintID: maint.ID,
 			StepID:  maint.Steps[0].ID,
 		})
 		require.NoError(t, err)
 
-		maint, err = s.GetMaint(ctx, maint.ID)
+		maint, err = service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStepStatusStarted, maint.Steps[0].Status)
 		for _, step := range maint.Steps[1:] {
@@ -54,7 +52,7 @@ func TestStepLifeCycle(t *testing.T) {
 	t.Run("CompleteStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{
@@ -65,13 +63,13 @@ func TestStepLifeCycle(t *testing.T) {
 			}}),
 		)
 
-		err := s.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{
+		err := service.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{
 			MaintID: maint.ID,
 			StepID:  maint.Steps[0].ID,
 		})
 		require.NoError(t, err)
 
-		maint, err = s.GetMaint(ctx, maint.ID)
+		maint, err = service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStepStatusCompleted, maint.Steps[0].Status)
 		for _, step := range maint.Steps[1:] {
@@ -82,7 +80,7 @@ func TestStepLifeCycle(t *testing.T) {
 	t.Run("CancelStep", func(t *testing.T) {
 		t.Parallel()
 
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore,
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore,
 			entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusInProgress),
 			testdbutils.WithSteps([]*entity.MaintenanceStep{{
@@ -93,13 +91,13 @@ func TestStepLifeCycle(t *testing.T) {
 			}}),
 		)
 
-		err := s.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{
+		err := service.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{
 			MaintID: maint.ID,
 			StepID:  maint.Steps[0].ID,
 		})
 		require.NoError(t, err)
 
-		maint, err = s.GetMaint(ctx, maint.ID)
+		maint, err = service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStepStatusCanceled, maint.Steps[0].Status)
 		for _, step := range maint.Steps[1:] {

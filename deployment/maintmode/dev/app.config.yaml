@@ -57,8 +57,13 @@ external_services:
 
 s2s:
 
-messengers:
-  use_stub: false
+notify_transport:
+  # use_stub=true routes every delivery to the in-memory stub
+  # transport (deliveries logged, never sent) and surfaces the
+  # channels below in the catalog. Dev has no real Slack/Telegram
+  # credentials, so this is what lets maintenances be created with
+  # the now-required notify targets.
+  use_stub: true
   slack:
     enabled: false
     bot_token: <secret:messengers/slack/bot_token>
@@ -67,6 +72,9 @@ messengers:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
+    channels:
+      - { id: "stub-team",  name: "Stub team chat", description: "Dev: deliveries logged via stub, never sent" }
+      - { id: "stub-alerts", name: "Stub alerts",   description: "Dev: second channel for testing fan-out" }
   telegram:
     enabled: false
     bot_token: <secret:messengers/telegram/bot_token>
@@ -75,17 +83,11 @@ messengers:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
+    channels:
+      - { id: "stub-team",  name: "Stub team chat", description: "Dev: deliveries logged via stub, never sent" }
+      - { id: "stub-alerts", name: "Stub alerts",   description: "Dev: second channel for testing fan-out" }
 
 task_processor:
   messaging:
     workers: 10
     max_attempts: 5
-
-maint_notify:
-  routes:
-    - { event: maint.started,   transport: slack, target: "#maint-test" }
-    - { event: maint.completed, transport: slack, target: "#maint-test" }
-    - { event: maint.cancelled, transport: slack, target: "#maint-test" }
-    - { event: step.started,    transport: slack, target: "#maint-test" }
-    - { event: step.completed,  transport: slack, target: "#maint-test" }
-    - { event: step.cancelled,  transport: slack, target: "#maint-test" }

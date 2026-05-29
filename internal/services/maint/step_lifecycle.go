@@ -3,7 +3,6 @@ package maint
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -118,10 +117,10 @@ func (s *Service) updateStepWithApply(
 		return err
 	}
 
-	notifyErrs := lo.Map(currSteps, func(item *entity.MaintenanceStep, _ int) error {
-		return s.dispatchStepLifecycle(ctx, currMaint, item)
+	lo.ForEach(currSteps, func(item *entity.MaintenanceStep, _ int) {
+		s.dispatchStepLifecycle(ctx, currMaint, item)
 	})
-	return errors.Join(notifyErrs...)
+	return nil
 }
 
 func canChangeStepStatusTo(steps []*entity.MaintenanceStep, stepID uuid.UUID, newStatus entity.MaintenanceStepStatus) (*entity.MaintenanceStep, error) {
@@ -152,7 +151,7 @@ func canChangeStepStatusTo(steps []*entity.MaintenanceStep, stepID uuid.UUID, ne
 	return step, nil
 }
 
-func (s *Service) dispatchStepLifecycle(ctx context.Context, maint *entity.Maintenance, step *entity.MaintenanceStep) error {
+func (s *Service) dispatchStepLifecycle(ctx context.Context, maint *entity.Maintenance, step *entity.MaintenanceStep) {
 	var eventType entity.NotifyEventKind
 	switch {
 	case maint.Status == entity.MaintenanceStatusInProgress && step.Status == entity.MaintenanceStepStatusStarted:
@@ -162,8 +161,8 @@ func (s *Service) dispatchStepLifecycle(ctx context.Context, maint *entity.Maint
 	case maint.Status == entity.MaintenanceStatusInProgress && step.Status == entity.MaintenanceStepStatusCanceled:
 		eventType = entity.NotifyEventStepCancelled
 	default:
-		return nil
+		return
 	}
 
-	return s.notifier.NotifyStepLifecycle(ctx, eventType, maint, step)
+	s.notifier.NotifyStepLifecycle(ctx, eventType, maint, step)
 }

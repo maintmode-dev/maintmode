@@ -35,6 +35,9 @@ type ApimodelsCreateDraftMaintResponse struct {
 	// impact
 	Impact string `json:"impact,omitempty"`
 
+	// notify targets
+	NotifyTargets *ApimodelsNotifyTargets `json:"notify_targets,omitempty"`
+
 	// planned period
 	PlannedPeriod *ApimodelsPeriod `json:"planned_period,omitempty"`
 
@@ -63,6 +66,10 @@ func (m *ApimodelsCreateDraftMaintResponse) Validate(formats strfmt.Registry) er
 	}
 
 	if err := m.validateID(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNotifyTargets(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -103,6 +110,29 @@ func (m *ApimodelsCreateDraftMaintResponse) validateID(formats strfmt.Registry) 
 
 	if err := validate.FormatOf("id", "body", "uuid", m.ID.String(), formats); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsCreateDraftMaintResponse) validateNotifyTargets(formats strfmt.Registry) error {
+	if swag.IsZero(m.NotifyTargets) { // not required
+		return nil
+	}
+
+	if m.NotifyTargets != nil {
+		if err := m.NotifyTargets.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
 	}
 
 	return nil
@@ -195,6 +225,10 @@ func (m *ApimodelsCreateDraftMaintResponse) validateSteps(formats strfmt.Registr
 func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateNotifyTargets(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidatePlannedPeriod(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -210,6 +244,31 @@ func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context,
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ApimodelsCreateDraftMaintResponse) contextValidateNotifyTargets(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NotifyTargets != nil {
+
+		if swag.IsZero(m.NotifyTargets) { // not required
+			return nil
+		}
+
+		if err := m.NotifyTargets.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
+	}
+
 	return nil
 }
 

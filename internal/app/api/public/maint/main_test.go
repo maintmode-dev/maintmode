@@ -15,12 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
+
 	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
+	notificationsmodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	resourcemodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
-	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -47,14 +49,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	stores, err := bootstrap.NewStores(db)
-	require.NoError(t, err)
-
-	gateways, err := bootstrap.NewGateways(cfg)
-	require.NoError(t, err)
-
-	services, err := bootstrap.NewServices(context.Background(), cfg, stores, gateways)
-	require.NoError(t, err)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
 	return New(services.Maint)
 }
@@ -62,6 +57,7 @@ func initImpl(t *testing.T) *Implementation {
 func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementation) *apimodels.CreateDraftMaintResponse {
 	t.Helper()
 
+	notifyChan := makeNotifyChannel(ctx, t)
 	resource := createResource(ctx, t)
 	plannedStart := time.Now().
 		AddDate(100, 0, 0).
@@ -82,6 +78,9 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 				RollbackDescription: "Rollback step 1",
 				Duration:            "30m",
 			},
+		},
+		NotifyTargets: &apimodels.NotifyTargets{
+			ChannelIDs: []string{notifyChan.ID},
 		},
 	}
 
@@ -204,4 +203,23 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	return &apimodels.ResourceRef{
 		ID: resource.ID,
 	}
+}
+
+func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
+	t.Helper()
+
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
+
+	impl := apinotifications.New(services.NotifyTargets)
+
+	c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+	c.SetRequest(c.Request().WithContext(ctx))
+
+	err := impl.GetChannels(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	channels := testjsonudils.JSONToAny[notificationsmodels.ChannelsResponse](t, rec.Body)
+
+	return channels.Channels[0]
 }

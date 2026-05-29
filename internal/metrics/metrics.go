@@ -12,6 +12,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 )
@@ -31,6 +32,39 @@ var rateLimiterFallback = mustInt64Counter(
 // RateLimiterFallback records one rate-limiter Redis fallback event.
 func RateLimiterFallback(ctx context.Context) {
 	rateLimiterFallback.Add(ctx, 1)
+}
+
+// maintNotifyDispatchErrors counts maintenance-notification dispatch
+// failures. The dispatch path swallows these so a business operation
+// that already committed still reports success; each increment is a
+// lifecycle notification that was silently dropped. Alert on rate>0.
+// The "reason" label distinguishes the failure stage (see
+// MaintNotifyDispatchError* helpers).
+var maintNotifyDispatchErrors = mustInt64Counter(
+	"maint_notify_dispatch_errors_total",
+	"Maintenance notification dispatch failures (notification dropped), labeled by reason.",
+)
+
+const (
+	dispatchReasonResolve = "resolve"
+	dispatchReasonRender  = "render"
+)
+
+// MaintNotifyDispatchResolveError records a dispatch drop caused by
+// failing to resolve a maintenance's notify targets (targets DB
+// unreachable).
+func MaintNotifyDispatchResolveError(ctx context.Context) {
+	maintNotifyDispatchErrors.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", dispatchReasonResolve),
+	))
+}
+
+// MaintNotifyDispatchRenderError records a dispatch drop caused by a
+// template render failure.
+func MaintNotifyDispatchRenderError(ctx context.Context) {
+	maintNotifyDispatchErrors.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", dispatchReasonRender),
+	))
 }
 
 // mustInt64Counter registers a counter or returns a no-op one. The

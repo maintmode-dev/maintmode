@@ -12,9 +12,10 @@ import (
 )
 
 func InitStores(
+	cfg *config.AppConfig,
 	db *sqlx.DB,
 ) *bootstrap.Stores {
-	stores, err := bootstrap.NewStores(db)
+	stores, err := bootstrap.NewStores(cfg, db)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +42,7 @@ func InitServices(
 	services, err := bootstrap.NewServices(
 		ctx,
 		cfg,
-		InitStores(db),
+		InitStores(cfg, db),
 		InitGateways(cfg),
 	)
 	if err != nil {

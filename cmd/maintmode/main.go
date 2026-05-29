@@ -12,6 +12,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
+	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
@@ -54,7 +55,7 @@ func main() {
 	closer.Add(db.Close)
 
 	// Bootstrap application layers
-	stores, err := bootstrap.NewStores(db)
+	stores, err := bootstrap.NewStores(cfg, db)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
@@ -83,9 +84,10 @@ func main() {
 		s := server.NewAPIServer(
 			cfg.APIServer,
 			server.APIServerHandlers{
-				Maint:     apimaint.New(services.Maint),
-				Resources: resourcesapi.New(services.Resources),
-				Calendar:  uicalendar.New(services.Calendar, services.RBAC),
+				Maint:         apimaint.New(services.Maint),
+				Resources:     resourcesapi.New(services.Resources),
+				Calendar:      uicalendar.New(services.Calendar, services.RBAC),
+				Notifications: apinotifications.New(services.NotifyTargets),
 			},
 			server.APIServerSecurity{
 				TokenVerifier: services.JWTVerifier,

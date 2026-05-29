@@ -97,6 +97,7 @@ type Maintenance struct {
 	CreatedAt           time.Time
 	UpdatedAt           *time.Time
 	Steps               []*MaintenanceStep
+	NotifyTargets       []*NotifyTarget
 }
 
 // Normalize enforces the Scope ↔ Resources invariant: a global-scoped

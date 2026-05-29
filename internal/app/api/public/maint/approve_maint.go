@@ -80,14 +80,9 @@ func validateApproveDraftMaintRequest(ctx context.Context, req *apimodels.Approv
 }
 
 func validateConflicts(ctx context.Context, value any) error {
-	var conflict *apimodels.Conflict
-	switch v := value.(type) {
-	case *apimodels.Conflict:
-		conflict = v
-	case apimodels.Conflict:
-		conflict = &v
-	default:
-		return fmt.Errorf("unsupported resource type: %T", v)
+	conflict, err := xvalidation.Parse[apimodels.Conflict](value)
+	if err != nil {
+		return err
 	}
 
 	return validation.ValidateStructWithContext(ctx, conflict,

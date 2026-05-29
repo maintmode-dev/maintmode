@@ -1,4 +1,4 @@
-package sender
+package messagesender
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 // SendDelayed is SendAsync with NextAttemptAt set to now+delay
 func (s *Service) SendDelayed(
 	ctx context.Context,
-	trName entity.MessengerID,
+	trName entity.NotifyTransport,
 	target string,
-	msg entity.Message,
+	msg entity.NotifyMessage,
 	delay time.Duration,
 	opts ...EnqueueOption,
 ) error {

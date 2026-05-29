@@ -27,6 +27,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	"github.com/ruko1202/maintmode/test/api/client/client"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
+	"github.com/ruko1202/maintmode/test/api/client/client/notifications"
 	"github.com/ruko1202/maintmode/test/api/client/client/resources"
 	"github.com/ruko1202/maintmode/test/api/client/models"
 )
@@ -214,7 +215,8 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.
 		Resources: []*models.ApimodelsResourceRef{
 			{ID: strfmt.UUID(resource.ID)},
 		},
-		Steps: testMaintenanceSteps(),
+		Steps:         testMaintenanceSteps(),
+		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
@@ -245,7 +247,8 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 		Resources: []*models.ApimodelsResourceRef{
 			{ID: resourceUUID},
 		},
-		Steps: testMaintenanceSteps(),
+		Steps:         testMaintenanceSteps(),
+		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
@@ -360,4 +363,22 @@ func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmod
 	require.NotNil(t, resp)
 
 	return resp.Payload
+}
+
+// testNotifyTargets returns a NotifyTargets payload referencing the
+// first channel from the live catalog. Notify targets are required on
+// maintenance creation, so every create helper attaches this.
+func testNotifyTargets(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApimodelsNotifyTargets {
+	t.Helper()
+
+	params := notifications.NewGetAPIV1NotificationsChannelsParams().WithContext(ctx)
+
+	resp, err := apiClient.Notifications.GetAPIV1NotificationsChannels(params, nil)
+	require.NoError(t, err, "Failed to fetch notification channels")
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.Payload.Channels, "catalog must expose at least one channel for API tests")
+
+	return &models.ApimodelsNotifyTargets{
+		ChannelIds: []string{resp.Payload.Channels[0].ID},
+	}
 }

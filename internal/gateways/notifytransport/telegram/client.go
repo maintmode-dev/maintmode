@@ -1,4 +1,3 @@
-// Package telegram implements the messengers.Messenger for Telegram Bot API.
 package telegram
 
 import (
@@ -41,6 +40,6 @@ func New(cfg config.TelegramConfig) (*Client, error) {
 	return &Client{bot: b}, nil
 }
 
-func (*Client) MessengerID() entity.MessengerID {
-	return entity.MessengerTelegram
+func (*Client) TransportID() entity.NotifyTransport {
+	return entity.NotifyTransportTelegram
 }

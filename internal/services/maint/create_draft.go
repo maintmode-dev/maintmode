@@ -2,7 +2,6 @@ package maint
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -16,7 +15,14 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-const mixStepDurationsMin = 5
+const (
+	mixStepDurationsMin = 5
+
+	// maxNotifyTargets caps how many notify targets a maintenance may
+	// have. Enforced here (domain invariant), not only at the HTTP
+	// boundary, so non-HTTP callers can't exceed it.
+	maxNotifyTargets = 100
+)
 
 func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenanceCmd) (*entity.Maintenance, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.CreateDraft")
@@ -52,23 +58,19 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 			}
 		}
 
-		steps, err := s.maintStore.AddSteps(ctx,
-			maint.ID,
-			lo.Map(cmd.Steps, func(item *entity.MaintenanceStepInput, _ int) *entity.MaintenanceStep {
-				return &entity.MaintenanceStep{
-					Order:               item.Order,
-					Description:         item.Description,
-					RollbackDescription: item.RollbackDescription,
-					DurationMinutes:     item.DurationMinutes,
-					Status:              entity.MaintenanceStepStatusPlanned,
-				}
-			}),
-		)
+		steps, err := s.maintStore.AddSteps(ctx, maint.ID, stepsFromCmd(cmd.Steps, entity.MaintenanceStepStatusPlanned))
 		if err != nil {
 			xlog.Error(ctx, "create maint steps failed", xfield.Error(err))
 			return err
 		}
 		maint.Steps = steps
+
+		notifyTargets, err := s.notifyTargets.Create(ctx, maint.ID, cmd.NotifyTargets)
+		if err != nil {
+			xlog.Error(ctx, "create notify targets failed", xfield.Error(err))
+			return err
+		}
+		maint.NotifyTargets = notifyTargets
 
 		return nil
 	})
@@ -105,22 +107,22 @@ func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error
 		validation.Field(&cmd.Impact, validation.Required),
 		validation.Field(&cmd.Scope, validation.Required),
 		validation.Field(&cmd.Steps, validation.Required,
-			validation.Each(validation.WithContext(validateStepInput)),
+			validation.Each(validation.WithContext(validateStepInput))),
+		validation.Field(&cmd.NotifyTargets, validation.Required,
+			validation.Length(1, maxNotifyTargets),
+			validation.Each(validation.WithContext(validateNotifyTargetsInput)),
 		),
 	)
 }
 
 func validatePlanedPeriod(_ context.Context, value any) error {
-	var start, end time.Time
-
-	switch v := value.(type) {
-	case *entity.Period:
-		start, end = v.Start, lo.FromPtr(v.End)
-	case entity.Period:
-		start, end = v.Start, lo.FromPtr(v.End)
-	default:
-		return fmt.Errorf("invalid period type: %T", v)
+	period, err := xvalidation.Parse[entity.Period](value)
+	if err != nil {
+		return err
 	}
+
+	start := period.Start
+	end := lo.FromPtr(period.End)
 
 	if start.IsZero() || end.IsZero() {
 		return apperr.ErrInvalidPeriodEmptyStartOrEnd
@@ -133,15 +135,9 @@ func validatePlanedPeriod(_ context.Context, value any) error {
 }
 
 func validateStepInput(ctx context.Context, value any) error {
-	var step *entity.MaintenanceStepInput
-
-	switch v := value.(type) {
-	case *entity.MaintenanceStepInput:
-		step = v
-	case entity.MaintenanceStepInput:
-		step = &v
-	default:
-		return fmt.Errorf("invalid type: %T", v)
+	step, err := xvalidation.Parse[entity.MaintenanceStepInput](value)
+	if err != nil {
+		return err
 	}
 
 	return validation.ValidateStructWithContext(ctx, step,
@@ -149,5 +145,16 @@ func validateStepInput(ctx context.Context, value any) error {
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
 		validation.Field(&step.DurationMinutes, validation.Required, validation.Min(mixStepDurationsMin)),
+	)
+}
+
+func validateNotifyTargetsInput(ctx context.Context, value any) error {
+	targets, err := xvalidation.Parse[entity.NotifyTargetInput](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, targets,
+		validation.Field(&targets.ChannelID, validation.Required),
 	)
 }

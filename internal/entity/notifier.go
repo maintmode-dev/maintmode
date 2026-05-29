@@ -77,3 +77,17 @@ type NotifyEvent struct {
 	CancelReason        MaintenanceCancelReason
 	CancelReasonComment string
 }
+
+type NotifyTarget struct {
+	ID        uuid.UUID
+	MaintID   uuid.UUID
+	Transport NotifyTransport
+	ChannelID string
+	CreatedAt time.Time
+}
+
+// NotifyMessage is a rendered notification ready for delivery.
+type NotifyMessage struct {
+	Subject string
+	Body    string
+}

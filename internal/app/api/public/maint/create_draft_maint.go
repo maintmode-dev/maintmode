@@ -72,6 +72,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		Status:        string(maint.Status),
 		CreatedAt:     maint.CreatedAt,
 		Steps:         apimodels.ToAPISteps(maint.Steps),
+		NotifyTargets: apimodels.ToAPINotifyTargets(maint.NotifyTargets),
 	})
 }
 
@@ -88,8 +89,6 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
-	resources := apimodels.FromAPIResources(req.Resources)
-
 	steps, err := apimodels.FromAPISteps(req.Steps)
 	if err != nil {
 		xlog.Error(ctx, "unsupported step", xfield.Error(err))
@@ -102,8 +101,9 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		PlannedPeriod: recalculatePlannedPeriod(req.PlannedStart, steps),
 		Scope:         scope,
 		Impact:        impact,
-		Resources:     resources,
+		Resources:     apimodels.FromAPIResources(req.Resources),
 		Steps:         steps,
+		NotifyTargets: apimodels.FromAPINotifyTargets(req.NotifyTargets),
 	}, nil
 }
 
@@ -118,6 +118,12 @@ func recalculatePlannedPeriod(plannedPeriodStart time.Time, steps []*entity.Main
 	return entity.NewPeriod(plannedPeriodStart, plannedPeriodStart.Add(totalDuration))
 }
 
+// Create and update draft validation are intentionally kept as two
+// separate functions even though they currently share the same field
+// set: they validate distinct operations and their rules are expected
+// to diverge (e.g. partial updates making some fields optional).
+//
+//nolint:dupl // see comment above — create vs update are separate by design
 func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDraftMaintRequest) error {
 	return validation.ValidateStructWithContext(ctx, r,
 		validation.Field(&r.Title, validation.Required),
@@ -133,18 +139,14 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 			validation.Length(1, 100),
 			validation.Each(validation.WithContext(validateStep)),
 		),
+		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
 	)
 }
 
 func validateResource(ctx context.Context, value any) error {
-	var resource *apimodels.ResourceRef
-	switch v := value.(type) {
-	case *apimodels.ResourceRef:
-		resource = v
-	case apimodels.ResourceRef:
-		resource = &v
-	default:
-		return fmt.Errorf("unsupported resource type: %T", v)
+	resource, err := xvalidation.Parse[apimodels.ResourceRef](value)
+	if err != nil {
+		return err
 	}
 
 	return validation.ValidateStructWithContext(ctx, resource,
@@ -153,20 +155,28 @@ func validateResource(ctx context.Context, value any) error {
 }
 
 func validateStep(ctx context.Context, value any) error {
-	var step *apimodels.MaintenanceStepInput
-
-	switch v := value.(type) {
-	case *apimodels.MaintenanceStepInput:
-		step = v
-	case apimodels.MaintenanceStepInput:
-		step = &v
-	default:
-		return fmt.Errorf("unsupported step type: %T", v)
+	step, err := xvalidation.Parse[apimodels.MaintenanceStepInput](value)
+	if err != nil {
+		return err
 	}
 
 	return validation.ValidateStructWithContext(ctx, step,
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
 		validation.Field(&step.Duration, validation.Required, validation.WithContext(xvalidation.IsDuration)),
+	)
+}
+
+func validateNotifyTargets(ctx context.Context, value any) error {
+	targets, err := xvalidation.Parse[apimodels.NotifyTargets](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, targets,
+		validation.Field(&targets.ChannelIDs, validation.Required,
+			validation.Length(1, 100),
+			validation.Each(validation.Required),
+		),
 	)
 }

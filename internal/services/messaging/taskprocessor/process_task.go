@@ -20,12 +20,12 @@ func (p *processor) ProcessTask(ctx context.Context, task *goque.TypedTask[entit
 
 	payload := task.Payload
 
-	messenger, err := p.messengersRegistry.Get(ctx, payload.TransportName)
+	transport, err := p.notifyTransportRegistry.Get(ctx, payload.TransportName)
 	if err != nil {
 		return fmt.Errorf("messaging processor: no transport %q: %w", payload.TransportName, err)
 	}
 
-	err = messenger.Send(ctx, payload.Target, entity.Message{
+	err = transport.Send(ctx, payload.Target, entity.NotifyMessage{
 		Subject: payload.Subject,
 		Body:    payload.Body,
 	})

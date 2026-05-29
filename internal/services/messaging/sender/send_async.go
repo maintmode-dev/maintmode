@@ -1,4 +1,4 @@
-package sender
+package messagesender
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 // dbtx.WithTx, the enqueue participates in that tx (outbox)
 func (s *Service) SendAsync(
 	ctx context.Context,
-	trName entity.MessengerID,
+	trName entity.NotifyTransport,
 	target string,
-	msg entity.Message,
+	msg entity.NotifyMessage,
 	opts ...EnqueueOption,
 ) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.SendAsync",

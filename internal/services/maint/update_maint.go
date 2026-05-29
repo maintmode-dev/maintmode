@@ -23,11 +23,17 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 		return err
 	}
 
+	notifyTargets, err := s.notifyTargets.ResolveNotifyTarget(ctx, cmd.MaintID, cmd.NotifyTargets)
+	if err != nil {
+		xlog.Error(ctx, "failed to resolve notify targets", xfield.Error(err))
+		return err
+	}
+
 	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if maint.Status != entity.MaintenanceStatusDraft {
 			return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusDraft)
 		}
-		applyValuesFromUpdateCmd(maint, cmd)
+		applyValuesFromUpdateCmd(maint, notifyTargets, cmd)
 
 		if len(cmd.Steps) > 0 {
 			if err := s.replaceSteps(ctx, maint); err != nil {
@@ -43,11 +49,26 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 			}
 		}
 
+		// A maintenance must always keep >=1 notify target (enforced by
+		// validateUpdate's Required-equivalent on create and the cap
+		// here): an empty NotifyTargets means "not changing targets",
+		// not "clear them". So we only replace when targets are given.
+		if len(cmd.NotifyTargets) > 0 {
+			if err := s.notifyTargets.Replace(ctx, maint); err != nil {
+				xlog.Error(ctx, "replace notify target failed", xfield.Error(err))
+				return err
+			}
+		}
+
 		return nil
 	})
 }
 
-func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd) {
+func applyValuesFromUpdateCmd(
+	maint *entity.Maintenance,
+	notifyTargets []*entity.NotifyTarget,
+	cmd *entity.UpdateMaintenanceCmd,
+) {
 	if cmd.Title != nil {
 		maint.Title = lo.FromPtr(cmd.Title)
 	}
@@ -56,19 +77,8 @@ func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 		maint.Description = lo.FromPtr(cmd.Description)
 	}
 
-	if len(cmd.Steps) != 0 {
-		maint.Steps = lo.Map(cmd.Steps, func(item *entity.MaintenanceStepInput, _ int) *entity.MaintenanceStep {
-			return &entity.MaintenanceStep{
-				Order:               item.Order,
-				Description:         item.Description,
-				RollbackDescription: item.RollbackDescription,
-				DurationMinutes:     item.DurationMinutes,
-				Status:              entity.MaintenanceStepStatusPlanned,
-			}
-		})
-	}
-
 	if len(cmd.Steps) > 0 {
+		maint.Steps = stepsFromCmd(cmd.Steps, entity.MaintenanceStepStatusPlanned)
 		maint.PlannedPeriod = recalculatePlannedPeriod(maint.PlannedPeriod.Start, maint.Steps)
 	}
 
@@ -91,6 +101,10 @@ func applyValuesFromUpdateCmd(maint *entity.Maintenance, cmd *entity.UpdateMaint
 
 	if len(cmd.Resources) > 0 {
 		maint.Resources = cmd.Resources
+	}
+
+	if len(notifyTargets) > 0 {
+		maint.NotifyTargets = notifyTargets
 	}
 
 	maint.Normalize()
@@ -134,6 +148,10 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 		// validate only if changed
 		validation.Field(&cmd.Resources, validation.Each(validation.By(xvalidation.UUIDNotNil))),
 		validation.Field(&cmd.Steps, validation.Each(validation.WithContext(validateStepInput))),
+		validation.Field(&cmd.NotifyTargets,
+			validation.Length(0, maxNotifyTargets),
+			validation.Each(validation.WithContext(validateNotifyTargetsInput)),
+		),
 	)
 }
 
@@ -173,10 +191,11 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 		return err
 	}
 
-	return s.dispatchMaintLifecycle(ctx, prev, current)
+	s.dispatchMaintLifecycle(ctx, prev, current)
+	return nil
 }
 
-func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *entity.Maintenance) error {
+func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *entity.Maintenance) {
 	var eventType entity.NotifyEventKind
 	switch {
 	case prev.Status == entity.MaintenanceStatusPlanned && current.Status == entity.MaintenanceStatusInProgress:
@@ -186,8 +205,8 @@ func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *ent
 	case prev.Status == entity.MaintenanceStatusInProgress && current.Status == entity.MaintenanceStatusCompleted:
 		eventType = entity.NotifyEventMaintCompleted
 	default:
-		return nil
+		return
 	}
 
-	return s.notifier.NotifyMaintLifecycle(ctx, eventType, current)
+	s.notifier.NotifyMaintLifecycle(ctx, eventType, current)
 }

@@ -19,6 +19,7 @@ func TestUpdateDraftMaint(t *testing.T) {
 	ctx := context.Background()
 
 	impl := initImpl(t)
+	notifyChan := makeNotifyChannel(ctx, t)
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
@@ -38,6 +39,9 @@ func TestUpdateDraftMaint(t *testing.T) {
 					RollbackDescription: "Updated rollback",
 					Duration:            "45m",
 				},
+			},
+			NotifyTargets: &apimodels.NotifyTargets{
+				ChannelIDs: []string{notifyChan.ID},
 			},
 		}
 

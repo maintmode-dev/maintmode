@@ -9,9 +9,10 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
+
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/maintnotify/router"
-	"github.com/ruko1202/maintmode/internal/services/messaging/sender"
+	"github.com/ruko1202/maintmode/internal/metrics"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
@@ -24,49 +25,54 @@ import (
 // The "no blocking network call inside a DB tx" invariant is enforced
 // one layer below in sender.Send — it refuses to run when ctx carries
 // a tx. dispatchSync inherits that guard transitively.
-func (n *Service) dispatchSync(ctx context.Context, evt entity.NotifyEvent) error {
-	return n.dispatch(ctx, evt, func(ctx context.Context, msg entity.Message, route router.Route) error {
-		return n.sender.Send(ctx, route.Transport, route.Target, msg)
+func (n *Service) dispatchSync(ctx context.Context, event entity.NotifyEvent) error {
+	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
+		return n.sender.Send(ctx, target.Transport, target.ChannelID, msg)
 	})
 }
 
-func (n *Service) dispatchAsync(ctx context.Context, evt entity.NotifyEvent) error {
-	return n.dispatch(ctx, evt, func(ctx context.Context, msg entity.Message, route router.Route) error {
-		return n.sender.SendAsync(ctx, route.Transport, route.Target, msg,
-			sender.WithIdempotencyKey(idempotencyKey(evt, route)),
+func (n *Service) dispatchAsync(ctx context.Context, event entity.NotifyEvent) error {
+	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
+		return n.sender.SendAsync(ctx, target.Transport, target.ChannelID, msg,
+			messagesender.WithIdempotencyKey(idempotencyKey(event, target)),
 		)
 	})
 }
 
 // dispatch renders the message once and fans it out to all routes.
-// Failures of individual routes are logged and swallowed; the caller
-// always sees nil unless rendering itself broke.
 func (n *Service) dispatch(
 	ctx context.Context,
-	evt entity.NotifyEvent,
-	senderF func(ctx context.Context, msg entity.Message, route router.Route) error,
+	event entity.NotifyEvent,
+	senderF func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error,
 ) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.MaintNotify.dispatch")
 	defer span.End()
 
-	routes := n.router.Resolve(evt.Kind)
-	if len(routes) == 0 {
+	notifyTargets, err := n.notifyTargets.ListByMaint(ctx, event.MaintID)
+	if err != nil {
+		// Swallowed upstream (lifecycle already committed), so this
+		// drop is otherwise invisible — count it for alerting.
+		metrics.MaintNotifyDispatchResolveError(ctx)
+		return fmt.Errorf("failed to list notify targets: %w", err)
+	}
+	if len(notifyTargets) == 0 {
+		// No recipients — nothing to render or send.
 		return nil
 	}
 
-	evt = n.fillEvent(evt)
+	event = n.fillEvent(event)
 
-	msg, err := n.renderer.Render(ctx, evt)
+	msg, err := n.renderer.Render(ctx, event)
 	if err != nil {
-		return fmt.Errorf("render %s: %w", evt.Kind, err)
+		metrics.MaintNotifyDispatchRenderError(ctx)
+		return fmt.Errorf("render %s: %w", event.Kind, err)
 	}
 
-	for _, route := range routes {
-		if err := senderF(ctx, msg, route); err != nil {
+	for _, notifyTarget := range notifyTargets {
+		if err := senderF(ctx, msg, notifyTarget); err != nil {
 			xlog.Error(ctx, "notification delivery failed",
-				xfield.String("event", string(evt.Kind)),
-				xfield.String("transport", string(route.Transport)),
-				xfield.String("target", route.Target),
+				xfield.String("transport", string(notifyTarget.Transport)),
+				xfield.String("channel", notifyTarget.ChannelID),
 				xfield.Error(err))
 		}
 	}
@@ -90,12 +96,12 @@ func (n *Service) fillEvent(evt entity.NotifyEvent) entity.NotifyEvent {
 
 // idempotencyKey makes goque's unique (type, external_id) index collapse
 // retries of the same (event, maint, step, route) tuple.
-func idempotencyKey(evt entity.NotifyEvent, route router.Route) string {
+func idempotencyKey(evt entity.NotifyEvent, targets *entity.NotifyTarget) string {
 	h := sha256.New()
 
 	_, _ = fmt.Fprintf(h,
 		"maint|%s|%s|%s|%s|%s",
-		evt.Kind, evt.MaintID, evt.StepID, route.Transport, route.Target,
+		evt.Kind, evt.MaintID, evt.StepID, targets.Transport, targets.ChannelID,
 	)
 
 	return hex.EncodeToString(h.Sum(nil))

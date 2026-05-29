@@ -44,5 +44,12 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 	}
 	maint.Steps = steps
 
+	targets, err := s.notifyTargets.ListByMaint(ctx, maintID)
+	if err != nil {
+		xlog.Error(ctx, "failed to get notify targets", xfield.Error(err))
+		return nil, err
+	}
+	maint.NotifyTargets = targets
+
 	return maint, nil
 }

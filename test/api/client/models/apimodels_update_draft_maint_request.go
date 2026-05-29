@@ -28,6 +28,9 @@ type ApimodelsUpdateDraftMaintRequest struct {
 	// impact
 	Impact ApimodelsMaintenanceImpact `json:"impact,omitempty"`
 
+	// notify targets
+	NotifyTargets *ApimodelsNotifyTargets `json:"notify_targets,omitempty"`
+
 	// planned start
 	// Format: date-time
 	PlannedStart strfmt.DateTime `json:"planned_start,omitempty"`
@@ -51,6 +54,10 @@ func (m *ApimodelsUpdateDraftMaintRequest) Validate(formats strfmt.Registry) err
 	var res []error
 
 	if err := m.validateImpact(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNotifyTargets(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -92,6 +99,29 @@ func (m *ApimodelsUpdateDraftMaintRequest) validateImpact(formats strfmt.Registr
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsUpdateDraftMaintRequest) validateNotifyTargets(formats strfmt.Registry) error {
+	if swag.IsZero(m.NotifyTargets) { // not required
+		return nil
+	}
+
+	if m.NotifyTargets != nil {
+		if err := m.NotifyTargets.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
 	}
 
 	return nil
@@ -198,6 +228,10 @@ func (m *ApimodelsUpdateDraftMaintRequest) ContextValidate(ctx context.Context, 
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateNotifyTargets(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateResources(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -233,6 +267,31 @@ func (m *ApimodelsUpdateDraftMaintRequest) contextValidateImpact(ctx context.Con
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsUpdateDraftMaintRequest) contextValidateNotifyTargets(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NotifyTargets != nil {
+
+		if swag.IsZero(m.NotifyTargets) { // not required
+			return nil
+		}
+
+		if err := m.NotifyTargets.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
 	}
 
 	return nil

@@ -44,6 +44,9 @@ type ApimodelsMaintenance struct {
 	// impact
 	Impact ApimodelsMaintenanceImpact `json:"impact,omitempty"`
 
+	// notify targets
+	NotifyTargets *ApimodelsNotifyTargets `json:"notify_targets,omitempty"`
+
 	// planned period
 	PlannedPeriod *ApimodelsPeriod `json:"planned_period,omitempty"`
 
@@ -88,6 +91,10 @@ func (m *ApimodelsMaintenance) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateImpact(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNotifyTargets(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -201,6 +208,29 @@ func (m *ApimodelsMaintenance) validateImpact(formats strfmt.Registry) error {
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsMaintenance) validateNotifyTargets(formats strfmt.Registry) error {
+	if swag.IsZero(m.NotifyTargets) { // not required
+		return nil
+	}
+
+	if m.NotifyTargets != nil {
+		if err := m.NotifyTargets.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
 	}
 
 	return nil
@@ -338,6 +368,10 @@ func (m *ApimodelsMaintenance) ContextValidate(ctx context.Context, formats strf
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateNotifyTargets(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidatePlannedPeriod(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -424,6 +458,31 @@ func (m *ApimodelsMaintenance) contextValidateImpact(ctx context.Context, format
 		}
 
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsMaintenance) contextValidateNotifyTargets(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NotifyTargets != nil {
+
+		if swag.IsZero(m.NotifyTargets) { // not required
+			return nil
+		}
+
+		if err := m.NotifyTargets.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("notify_targets")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("notify_targets")
+			}
+
+			return err
+		}
 	}
 
 	return nil

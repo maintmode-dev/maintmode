@@ -1241,6 +1241,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/notifications/channels": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the full channel catalog across enabled\ntransports. Used by the admin UI to populate the channel\npicker when creating or editing a maintenance.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "List notification channels",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apimodels.ChannelsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/refresh": {
             "post": {
                 "description": "Rotates refresh token and issues a new access token pair.",
@@ -2059,6 +2111,37 @@ const docTemplate = `{
                 }
             }
         },
+        "apimodels.Channel": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "transport": {
+                    "type": "string"
+                },
+                "transport_channel_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "apimodels.ChannelsResponse": {
+            "type": "object",
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.Channel"
+                    }
+                }
+            }
+        },
         "apimodels.Conflict": {
             "type": "object",
             "properties": {
@@ -2094,6 +2177,9 @@ const docTemplate = `{
                 },
                 "impact": {
                     "$ref": "#/definitions/apimodels.MaintenanceImpact"
+                },
+                "notify_targets": {
+                    "$ref": "#/definitions/apimodels.NotifyTargets"
                 },
                 "planned_start": {
                     "type": "string",
@@ -2136,6 +2222,9 @@ const docTemplate = `{
                 },
                 "impact": {
                     "type": "string"
+                },
+                "notify_targets": {
+                    "$ref": "#/definitions/apimodels.NotifyTargets"
                 },
                 "planned_period": {
                     "$ref": "#/definitions/apimodels.Period"
@@ -2213,6 +2302,9 @@ const docTemplate = `{
                 },
                 "impact": {
                     "$ref": "#/definitions/apimodels.MaintenanceImpact"
+                },
+                "notify_targets": {
+                    "$ref": "#/definitions/apimodels.NotifyTargets"
                 },
                 "planned_period": {
                     "$ref": "#/definitions/apimodels.Period"
@@ -2343,6 +2435,21 @@ const docTemplate = `{
                 "MaintenanceStepStatusCanceled"
             ]
         },
+        "apimodels.NotifyTargets": {
+            "type": "object",
+            "properties": {
+                "channel_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[slack:C0123456",
+                        " tg:-10013123]"
+                    ]
+                }
+            }
+        },
         "apimodels.Period": {
             "type": "object",
             "properties": {
@@ -2440,6 +2547,9 @@ const docTemplate = `{
                 },
                 "impact": {
                     "$ref": "#/definitions/apimodels.MaintenanceImpact"
+                },
+                "notify_targets": {
+                    "$ref": "#/definitions/apimodels.NotifyTargets"
                 },
                 "planned_start": {
                     "type": "string",

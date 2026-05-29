@@ -18,7 +18,6 @@ func TestCancel(t *testing.T) {
 
 	ctx := context.Background()
 	now := xtime.UTCNow()
-	s := services.Maint
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
@@ -31,16 +30,16 @@ func TestCancel(t *testing.T) {
 			t.Run(string(status), func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 					testdbutils.WithStatus(status),
 				)
 
-				err := s.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
+				err := service.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
 					MaintID: maint.ID,
 				})
 				require.NoError(t, err)
 
-				actualMaint, err := s.GetMaint(ctx, maint.ID)
+				actualMaint, err := service.GetMaint(ctx, maint.ID)
 				require.NoError(t, err)
 				require.Equal(t, entity.MaintenanceStatusCancelled, actualMaint.Status)
 			})
@@ -49,16 +48,16 @@ func TestCancel(t *testing.T) {
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
 		t.Parallel()
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusCompleted),
 		)
 
-		err := s.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
+		err := service.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
 			MaintID: maint.ID,
 		})
 		require.ErrorIs(t, err, apperr.ErrForbiddenMaintStatusTransition)
 
-		actualMaint, err := s.GetMaint(ctx, maint.ID)
+		actualMaint, err := service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStatusCompleted, actualMaint.Status)
 	})

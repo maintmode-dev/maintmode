@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/test/api/client/client/audit"
 	"github.com/ruko1202/maintmode/test/api/client/client/auth"
 	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
+	"github.com/ruko1202/maintmode/test/api/client/client/notifications"
 	"github.com/ruko1202/maintmode/test/api/client/client/resources"
 	"github.com/ruko1202/maintmode/test/api/client/client/roles"
 	"github.com/ruko1202/maintmode/test/api/client/client/ui"
@@ -63,6 +64,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Maintmode 
 	cli.Audit = audit.New(transport, formats)
 	cli.Auth = auth.New(transport, formats)
 	cli.Maintenances = maintenances.New(transport, formats)
+	cli.Notifications = notifications.New(transport, formats)
 	cli.Resources = resources.New(transport, formats)
 	cli.Roles = roles.New(transport, formats)
 	cli.UI = ui.New(transport, formats)
@@ -116,6 +118,8 @@ type Maintmode struct {
 
 	Maintenances maintenances.ClientService
 
+	Notifications notifications.ClientService
+
 	Resources resources.ClientService
 
 	Roles roles.ClientService
@@ -131,6 +135,7 @@ func (c *Maintmode) SetTransport(transport runtime.ClientTransport) {
 	c.Audit.SetTransport(transport)
 	c.Auth.SetTransport(transport)
 	c.Maintenances.SetTransport(transport)
+	c.Notifications.SetTransport(transport)
 	c.Resources.SetTransport(transport)
 	c.Roles.SetTransport(transport)
 	c.UI.SetTransport(transport)

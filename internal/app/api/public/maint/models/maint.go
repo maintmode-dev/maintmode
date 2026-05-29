@@ -57,6 +57,10 @@ const (
 	MaintenanceCancelReasonMistake          MaintenanceCancelReason = "mistake"
 )
 
+type NotifyTargets struct {
+	ChannelIDs []string `json:"channel_ids" example:"[slack:C0123456, tg:-10013123]"`
+}
+
 type Maintenance struct {
 	ID                  uuid.UUID               `json:"id" format:"uuid"`
 	Title               string                  `json:"title"`
@@ -72,16 +76,18 @@ type Maintenance struct {
 	CreatedAt           time.Time               `json:"created_at" format:"date-time"`
 	UpdatedAt           *time.Time              `json:"updated_at" format:"date-time"`
 	Steps               []*MaintenanceStep      `json:"steps"`
+	NotifyTargets       *NotifyTargets          `json:"notify_targets"`
 }
 
 type CreateDraftMaintRequest struct {
-	Title        string                  `json:"title" example:"DB migration"`
-	Description  string                  `json:"description" example:"PostgreSQL major upgrade"`
-	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
-	Scope        MaintenanceScope        `json:"scope"`
-	Impact       MaintenanceImpact       `json:"impact"`
-	Resources    []*ResourceRef          `json:"resources"`
-	Steps        []*MaintenanceStepInput `json:"steps"`
+	Title         string                  `json:"title" example:"DB migration"`
+	Description   string                  `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedStart  time.Time               `json:"planned_start" format:"date-time"`
+	Scope         MaintenanceScope        `json:"scope"`
+	Impact        MaintenanceImpact       `json:"impact"`
+	Resources     []*ResourceRef          `json:"resources"`
+	Steps         []*MaintenanceStepInput `json:"steps"`
+	NotifyTargets *NotifyTargets          `json:"notify_targets"`
 }
 
 type CreateDraftMaintResponse struct {
@@ -95,16 +101,18 @@ type CreateDraftMaintResponse struct {
 	Status        string             `json:"status"`
 	CreatedAt     time.Time          `json:"created_at" format:"date-time"`
 	Steps         []*MaintenanceStep `json:"steps"`
+	NotifyTargets *NotifyTargets     `json:"notify_targets"`
 }
 
 type UpdateDraftMaintRequest struct {
-	Title        string                  `json:"title" example:"DB migration"`
-	Description  string                  `json:"description" example:"PostgreSQL major upgrade"`
-	PlannedStart time.Time               `json:"planned_start" format:"date-time"`
-	Scope        MaintenanceScope        `json:"scope"`
-	Impact       MaintenanceImpact       `json:"impact"`
-	Resources    []*ResourceRef          `json:"resources"`
-	Steps        []*MaintenanceStepInput `json:"steps"`
+	Title         string                  `json:"title" example:"DB migration"`
+	Description   string                  `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedStart  time.Time               `json:"planned_start" format:"date-time"`
+	Scope         MaintenanceScope        `json:"scope"`
+	Impact        MaintenanceImpact       `json:"impact"`
+	Resources     []*ResourceRef          `json:"resources"`
+	Steps         []*MaintenanceStepInput `json:"steps"`
+	NotifyTargets *NotifyTargets          `json:"notify_targets"`
 }
 
 type CancelMaintRequest struct {

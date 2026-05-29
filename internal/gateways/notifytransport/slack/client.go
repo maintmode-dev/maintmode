@@ -1,4 +1,3 @@
-// Package slack implements the messengers.Messenger for Slack via chat.postMessage.
 package slack
 
 import (
@@ -31,6 +30,6 @@ func New(cfg config.SlackConfig) *Client {
 	return &Client{api: slackgo.New(cfg.BotToken, opts...)}
 }
 
-func (*Client) MessengerID() entity.MessengerID {
-	return entity.MessengerSlack
+func (*Client) TransportID() entity.NotifyTransport {
+	return entity.NotifyTransportSlack
 }

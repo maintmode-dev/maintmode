@@ -1,16 +1,24 @@
 package maint
 
 import (
+	"context"
 	"os"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/goque"
+	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/gateways/messengers"
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/services/notifytargets"
+	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
+	notifytargetsstore "github.com/ruko1202/maintmode/internal/storages/notifytargets"
+
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
-	"github.com/ruko1202/maintmode/internal/services/messaging/sender"
+	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	conflictsStore "github.com/ruko1202/maintmode/internal/storages/conflicts"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
@@ -22,57 +30,69 @@ import (
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
-// testServices is the maint-package equivalent of bootstrap.Services.
-// We can't reuse bootstrap.Services here because that would create an
-// import cycle (bootstrap → maint, and maint tests would import bootstrap).
-type testServices struct {
-	Maint *Service
-}
-
 var (
-	db             *sqlx.DB
-	resourcesStore *resources.Store
-	services       *testServices
+	resourcesStore     *resources.Store
+	notifyChannelStore *notifychannel.Store
+	service            *Service
 )
 
 func TestMain(m *testing.M) {
 	cfg := testconfigutils.LoadMaintConfig()
-	db = testdbconnutils.NewDB(cfg)
+	db := testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
 	resourcesStore = resources.NewStore(db)
+	notifyChannelStore = notifychannel.New(cfg)
+	txManager := dbtx.NewTxManager(db)
+	notifyTargetsStore := notifytargetsstore.NewStore(db)
 
-	// Wire the full notifier stack so lifecycle tests that emit
-	// notifications (e.g. step.cancelled) don't nil-panic. The
-	// MessengerRegistry routes everything to the stub messenger when
-	// cfg.Environment.IsDev() && cfg.Messengers.UseStub — both are true
-	// in the local test config.
 	taskStorage, err := goque.NewStorage(db)
 	if err != nil {
 		panic(err)
 	}
-	queue := goque.NewTaskQueueManager(taskStorage)
-	messengerRegistry := messengers.NewMessengerRegistry(cfg)
-	senderSvc := sender.NewMessengerService(messengerRegistry, queue)
-
-	notifier, err := maintnotify.NewNotifier(cfg, senderSvc)
+	notifier, err := maintnotify.NewNotifier(
+		cfg,
+		messagesender.NewService(
+			notifytransport.NewRegistry(cfg),
+			goque.NewTaskQueueManager(taskStorage),
+		),
+		notifyTargetsStore,
+	)
 	if err != nil {
 		panic(err)
 	}
 
-	services = &testServices{
-		Maint: NewService(
-			dbtx.NewTxManager(db),
-			maintenances.NewStore(db),
-			resourcesStore,
-			conflicts.NewService(
-				conflictsStore.NewStore(db),
-				conflictsnapshots.NewStore(db),
-			),
-			notifier,
+	service = NewService(
+		txManager,
+		maintenances.NewStore(db),
+		resourcesStore,
+		notifytargets.NewService(txManager, notifyChannelStore, notifyTargetsStore),
+		conflicts.NewService(
+			conflictsStore.NewStore(db),
+			conflictsnapshots.NewStore(db),
 		),
-	}
+		notifier,
+	)
 
 	code := m.Run()
 	os.Exit(code)
+}
+
+func makeNotifyChannel(ctx context.Context, t *testing.T) *entity.NotifyChannel {
+	t.Helper()
+
+	notifyChannels, err := service.notifyTargets.AvailableChannels(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, notifyChannels)
+
+	channel, err := notifyChannelStore.Add(ctx, &entity.NotifyChannel{
+		Transport:          entity.NotifyTransportTelegram,
+		TransportChannelID: t.Name() + xuuid.NewString(),
+		Name:               t.Name(),
+		Description:        t.Name(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+
+	return channel
 }

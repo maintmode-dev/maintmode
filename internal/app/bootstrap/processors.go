@@ -19,7 +19,7 @@ func NewTaskProcessors(
 	goq := goque.NewGoque(stores.taskStorage)
 	goq.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
-		taskprocessor.NewMessagingTaskProcessor(gateways.Messengers),
+		taskprocessor.NewMessagingTaskProcessor(gateways.NotifyTransportRegistry),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)

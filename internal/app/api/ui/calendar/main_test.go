@@ -4,14 +4,16 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
+
+	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
+	notificationsmodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
@@ -26,11 +28,10 @@ import (
 )
 
 var (
-	db                   *sqlx.DB
-	cfg                  *config.AppConfig
-	services             *bootstrap.Services
-	maintImpl            *maintapi.Implementation
-	testMaintenanceIndex atomic.Int64
+	db        *sqlx.DB
+	cfg       *config.AppConfig
+	services  *bootstrap.Services
+	maintImpl *maintapi.Implementation
 )
 
 func TestMain(m *testing.M) {
@@ -79,13 +80,11 @@ func initImpl(t *testing.T) *Implementation {
 func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintResponse {
 	t.Helper()
 
-	plannedStart := time.Now().
-		AddDate(100, 0, 0).
-		Add(time.Duration(testMaintenanceIndex.Add(1)) * 2 * time.Hour)
+	notifyChan := makeNotifyChannel(ctx, t)
 	req := &maintmodels.CreateDraftMaintRequest{
 		Title:        "Test maint for calendar view " + uuid.New().String()[:8],
 		Description:  "Test description",
-		PlannedStart: plannedStart,
+		PlannedStart: xtime.UTCNow(),
 		Scope:        maintmodels.MaintenanceScopeGlobal,
 		Impact:       maintmodels.MaintenanceImpactNone,
 		Steps: []*maintmodels.MaintenanceStepInput{{
@@ -94,6 +93,9 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 			RollbackDescription: "Rollback 1",
 			Duration:            "30m",
 		}},
+		NotifyTargets: &maintmodels.NotifyTargets{
+			ChannelIDs: []string{notifyChan.ID},
+		},
 	}
 
 	c, rec := echotest.ContextConfig{
@@ -107,4 +109,21 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 
 	resp := testjsonudils.JSONToAny[maintmodels.CreateDraftMaintResponse](t, rec.Body)
 	return &resp
+}
+
+func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
+	t.Helper()
+
+	impl := apinotifications.New(services.NotifyTargets)
+
+	c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+	c.SetRequest(c.Request().WithContext(ctx))
+
+	err := impl.GetChannels(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	channels := testjsonudils.JSONToAny[notificationsmodels.ChannelsResponse](t, rec.Body)
+
+	return channels.Channels[0]
 }

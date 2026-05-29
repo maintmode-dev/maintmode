@@ -1,4 +1,4 @@
-package stubmessenger
+package stubtransport
 
 import (
 	"context"
@@ -15,11 +15,11 @@ func New() *Client {
 	return &Client{}
 }
 
-func (c *Client) MessengerID() entity.MessengerID {
-	return entity.MessengerStub
+func (c *Client) TransportID() entity.NotifyTransport {
+	return entity.NotifyTransportStub
 }
 
-func (c *Client) Send(ctx context.Context, target string, msg entity.Message) error {
+func (c *Client) Send(ctx context.Context, target string, msg entity.NotifyMessage) error {
 	_, span := xlog.WithOperationSpan(ctx, "service.Messagins.Stub.Send")
 	defer span.End()
 

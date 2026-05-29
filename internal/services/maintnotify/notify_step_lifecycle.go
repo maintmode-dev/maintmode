@@ -15,7 +15,7 @@ func (n *Service) NotifyStepLifecycle(
 	kind entity.NotifyEventKind,
 	maint *entity.Maintenance,
 	step *entity.MaintenanceStep,
-) error {
+) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.MaintNotify.NotifyStepLifecycle",
 		xfield.String("event", string(kind)),
 		xfield.String("maintID", maint.ID.String()),
@@ -23,11 +23,7 @@ func (n *Service) NotifyStepLifecycle(
 	)
 	defer span.End()
 
-	if !kind.IsStep() {
-		return fmt.Errorf("%s is not a step event", kind)
-	}
-
-	return n.dispatchSync(ctx, entity.NotifyEvent{
+	n.notifyStepLifecycle(ctx, n.dispatchSync, entity.NotifyEvent{
 		Kind:            kind,
 		MaintID:         maint.ID,
 		MaintTitle:      maint.Title,
@@ -42,18 +38,14 @@ func (n *Service) NotifyAsyncStepLifecycle(
 	kind entity.NotifyEventKind,
 	maint *entity.Maintenance,
 	step *entity.MaintenanceStep,
-) error {
+) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.MaintNotify.NotifyAsyncStepLifecycle",
 		xfield.String("event", string(kind)),
 		xfield.String("maintID", maint.ID.String()),
 	)
 	defer span.End()
 
-	if !kind.IsStep() {
-		return fmt.Errorf("%s is not a step event", kind)
-	}
-
-	return n.dispatchAsync(ctx, entity.NotifyEvent{
+	n.notifyStepLifecycle(ctx, n.dispatchAsync, entity.NotifyEvent{
 		Kind:            kind,
 		MaintID:         maint.ID,
 		MaintTitle:      maint.Title,
@@ -61,4 +53,21 @@ func (n *Service) NotifyAsyncStepLifecycle(
 		StepOrder:       step.Order,
 		StepDescription: step.Description,
 	})
+}
+
+func (n *Service) notifyStepLifecycle(ctx context.Context,
+	notifyFunc func(ctx context.Context, evt entity.NotifyEvent) error,
+	event entity.NotifyEvent,
+) {
+	if !event.Kind.IsStep() {
+		xlog.Error(ctx, "invalid event",
+			xfield.Error(fmt.Errorf("%s is not a step event", event.Kind)),
+		)
+		return
+	}
+
+	err := notifyFunc(ctx, event)
+	if err != nil {
+		xlog.Error(ctx, "notify failed", xfield.Error(err))
+	}
 }

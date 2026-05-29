@@ -12,7 +12,7 @@ import (
 )
 
 // Send delivers msg to target (numeric chat_id or @channelname).
-func (c *Client) Send(ctx context.Context, target string, msg entity.Message) error {
+func (c *Client) Send(ctx context.Context, target string, msg entity.NotifyMessage) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "telegram.Send")
 	defer span.End()
 
@@ -27,7 +27,7 @@ func (c *Client) Send(ctx context.Context, target string, msg entity.Message) er
 	return nil
 }
 
-func formatBody(msg entity.Message) string {
+func formatBody(msg entity.NotifyMessage) string {
 	if msg.Subject == "" {
 		return msg.Body
 	}

@@ -116,6 +116,22 @@ func ToAPISteps(steps []*entity.MaintenanceStep) []*MaintenanceStep {
 	})
 }
 
+func FromAPINotifyTargets(notification *NotifyTargets) []*entity.NotifyTargetInput {
+	return lo.Map(notification.ChannelIDs, func(item string, _ int) *entity.NotifyTargetInput {
+		return &entity.NotifyTargetInput{
+			ChannelID: item,
+		}
+	})
+}
+
+func ToAPINotifyTargets(targets []*entity.NotifyTarget) *NotifyTargets {
+	return &NotifyTargets{
+		ChannelIDs: lo.Map(targets, func(item *entity.NotifyTarget, _ int) string {
+			return item.ID.String()
+		}),
+	}
+}
+
 func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
 	maint := &Maintenance{
 		ID:                  m.ID,
@@ -132,6 +148,7 @@ func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
 		Steps:               ToAPISteps(m.Steps),
+		NotifyTargets:       ToAPINotifyTargets(m.NotifyTargets),
 	}
 
 	if m.ActualPeriod != nil {

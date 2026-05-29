@@ -20,10 +20,11 @@ func TestCreate(t *testing.T) {
 
 	ctx := context.Background()
 	now := xtime.UTCNow().Round(time.Microsecond)
-	s := services.Maint
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
+
+		notifyChannel := makeNotifyChannel(ctx, t)
 
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
@@ -46,9 +47,12 @@ func TestCreate(t *testing.T) {
 					DurationMinutes:     mixStepDurationsMin,
 				},
 			},
+			NotifyTargets: []*entity.NotifyTargetInput{{
+				ChannelID: notifyChannel.ID,
+			}},
 		}
 
-		maint, err := s.CreateDraft(ctx, cmd)
+		maint, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
 		require.NotNil(t, maint)
 		require.NotEmpty(t, maint.ID)
@@ -63,6 +67,8 @@ func TestCreate(t *testing.T) {
 	t.Run("maints with overlaps", func(t *testing.T) {
 		t.Parallel()
 
+		notifyChannel := makeNotifyChannel(ctx, t)
+
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
@@ -76,8 +82,11 @@ func TestCreate(t *testing.T) {
 				RollbackDescription: "RollbackStep1" + t.Name(),
 				DurationMinutes:     mixStepDurationsMin,
 			}},
+			NotifyTargets: []*entity.NotifyTargetInput{{
+				ChannelID: notifyChannel.ID,
+			}},
 		}
-		maint1, err := s.CreateDraft(ctx, cmd)
+		maint1, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
 		require.NotNil(t, maint1)
 		require.NotEmpty(t, maint1.ID)
@@ -91,7 +100,7 @@ func TestCreate(t *testing.T) {
 			DurationMinutes:     mixStepDurationsMin,
 		})
 
-		maint2, err := s.CreateDraft(ctx, cmd)
+		maint2, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
 		require.NotNil(t, maint2)
 		require.NotEmpty(t, maint2.ID)
@@ -103,6 +112,8 @@ func TestCreate(t *testing.T) {
 
 	t.Run("duplicate resources", func(t *testing.T) {
 		t.Parallel()
+
+		notifyChannel := makeNotifyChannel(ctx, t)
 
 		resourceID := testdbutils.MakeResource(ctx, t, resourcesStore).ID
 		cmd := &entity.CreateMaintenanceCmd{
@@ -118,9 +129,12 @@ func TestCreate(t *testing.T) {
 				RollbackDescription: "RollbackStep1" + t.Name(),
 				DurationMinutes:     mixStepDurationsMin,
 			}},
+			NotifyTargets: []*entity.NotifyTargetInput{{
+				ChannelID: notifyChannel.ID,
+			}},
 		}
 
-		maint, err := s.CreateDraft(ctx, cmd)
+		maint, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
 		require.NotNil(t, maint)
 		require.NotEmpty(t, maint.ID)
@@ -129,6 +143,7 @@ func TestCreate(t *testing.T) {
 	t.Run("global scope does not save resources", func(t *testing.T) {
 		t.Parallel()
 
+		notifyChannel := makeNotifyChannel(ctx, t)
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
@@ -142,14 +157,17 @@ func TestCreate(t *testing.T) {
 				RollbackDescription: "RollbackStep1" + t.Name(),
 				DurationMinutes:     mixStepDurationsMin,
 			}},
+			NotifyTargets: []*entity.NotifyTargetInput{{
+				ChannelID: notifyChannel.ID,
+			}},
 		}
 
-		maint, err := s.CreateDraft(ctx, cmd)
+		maint, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
 		require.NotNil(t, maint)
 		require.Empty(t, maint.Resources)
 
-		persistedMaint, err := s.GetMaint(ctx, maint.ID)
+		persistedMaint, err := service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Empty(t, persistedMaint.Resources)
 	})

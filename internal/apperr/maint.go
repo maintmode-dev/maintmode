@@ -45,3 +45,10 @@ var (
 func ForbiddenStepStatusTransition(currentStatus, newStatus any) error {
 	return fmt.Errorf("%w: from %v to %v", ErrForbiddenStepStatusTransition, currentStatus, newStatus)
 }
+
+// ###############################################
+// ########## notify targets #####################
+// ###############################################
+var (
+	ErrNotifyTargetsAlreadyExists = errors.New("notify targets already exists")
+)

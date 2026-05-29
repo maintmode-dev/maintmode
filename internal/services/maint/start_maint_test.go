@@ -18,36 +18,35 @@ func TestStart(t *testing.T) {
 
 	ctx := context.Background()
 	now := xtime.UTCNow()
-	s := services.Maint
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 		)
 
-		err := s.StartMaint(ctx, &entity.StartMaintenanceCmd{
+		err := service.StartMaint(ctx, &entity.StartMaintenanceCmd{
 			MaintID: maint.ID,
 		})
 		require.NoError(t, err)
 
-		actualMaint, err := s.GetMaint(ctx, maint.ID)
+		actualMaint, err := service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStatusInProgress, actualMaint.Status)
 	})
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
 		t.Parallel()
-		maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusDraft),
 		)
 
-		err := s.StartMaint(ctx, &entity.StartMaintenanceCmd{
+		err := service.StartMaint(ctx, &entity.StartMaintenanceCmd{
 			MaintID: maint.ID,
 		})
 		require.ErrorIs(t, err, apperr.ErrForbiddenMaintStatusTransition)
 
-		actualMaint, err := s.GetMaint(ctx, maint.ID)
+		actualMaint, err := service.GetMaint(ctx, maint.ID)
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStatusDraft, actualMaint.Status)
 	})

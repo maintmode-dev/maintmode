@@ -5,15 +5,15 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	authgateway "github.com/ruko1202/maintmode/internal/gateways/auth"
-	gwmsg "github.com/ruko1202/maintmode/internal/gateways/messengers"
-	"github.com/ruko1202/maintmode/internal/gateways/messengers/slack"
-	"github.com/ruko1202/maintmode/internal/gateways/messengers/telegram"
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport/slack"
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport/telegram"
 )
 
 // Gateways contains all external gateways layer dependencies
 type Gateways struct {
-	Auth       *authgateway.Gateway
-	Messengers *gwmsg.MessengerRegistry
+	Auth                    *authgateway.Gateway
+	NotifyTransportRegistry *notifytransport.Registry
 }
 
 func NewGateways(cfg *config.AppConfig) (*Gateways, error) {
@@ -22,20 +22,20 @@ func NewGateways(cfg *config.AppConfig) (*Gateways, error) {
 		return nil, fmt.Errorf("auth external service config is missing")
 	}
 
-	messengers, err := newMessengers(cfg)
+	registry, err := notifyTransportRegistry(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init messengers: %w", err)
+		return nil, fmt.Errorf("failed to init registry: %w", err)
 	}
 
 	return &Gateways{
-		Auth:       authgateway.New(autCfg),
-		Messengers: messengers,
+		Auth:                    authgateway.New(autCfg),
+		NotifyTransportRegistry: registry,
 	}, nil
 }
 
-func newMessengers(cfg *config.AppConfig) (*gwmsg.MessengerRegistry, error) {
-	transports := make([]gwmsg.Messenger, 0)
-	msgCfg := cfg.Messengers
+func notifyTransportRegistry(cfg *config.AppConfig) (*notifytransport.Registry, error) {
+	transports := make([]notifytransport.Transport, 0)
+	msgCfg := cfg.NotifyTransport
 
 	if slackCfg := msgCfg.Slack; slackCfg.Enabled {
 		cl := slack.New(slackCfg)
@@ -50,5 +50,5 @@ func newMessengers(cfg *config.AppConfig) (*gwmsg.MessengerRegistry, error) {
 		transports = append(transports, cl)
 	}
 
-	return gwmsg.NewMessengerRegistry(cfg, transports...), nil
+	return notifytransport.NewRegistry(cfg, transports...), nil
 }

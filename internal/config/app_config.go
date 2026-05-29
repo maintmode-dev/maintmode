@@ -110,6 +110,12 @@ type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
 }
 
+type TransportChannel struct {
+	ID          string `mapstructure:"id"`
+	Name        string `mapstructure:"name"`
+	Description string `mapstructure:"description"`
+}
+
 type SlackConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	BotToken string `mapstructure:"bot_token"`
@@ -117,8 +123,9 @@ type SlackConfig struct {
 	// production; set for integration tests against an httptest mock,
 	// for egress through a corporate proxy, or for a self-hosted Slack
 	// API endpoint.
-	APIURL  string        `mapstructure:"api_url"`
-	Timeout time.Duration `mapstructure:"timeout"`
+	APIURL   string             `mapstructure:"api_url"`
+	Timeout  time.Duration      `mapstructure:"timeout"`
+	Channels []TransportChannel `mapstructure:"channels"`
 }
 
 type TelegramConfig struct {
@@ -127,11 +134,12 @@ type TelegramConfig struct {
 	// APIURL overrides the default Telegram Bot API base URL. Leave
 	// empty in production; set for integration tests, corporate
 	// proxies, or a self-hosted telegram-bot-api server.
-	APIURL  string        `mapstructure:"api_url"`
-	Timeout time.Duration `mapstructure:"timeout"`
+	APIURL   string             `mapstructure:"api_url"`
+	Timeout  time.Duration      `mapstructure:"timeout"`
+	Channels []TransportChannel `mapstructure:"channels"`
 }
 
-type MessengersConfig struct {
+type NotifyTransportConfig struct {
 	UseStub  bool           `mapstructure:"use_stub"`
 	Slack    SlackConfig    `mapstructure:"slack"`
 	Telegram TelegramConfig `mapstructure:"telegram"`
@@ -144,16 +152,6 @@ type TaskProcessorConfig struct {
 type TaskProcessorMessagingConfig struct {
 	Workers     int   `mapstructure:"workers"`
 	MaxAttempts int32 `mapstructure:"max_attempts"`
-}
-
-type MaintNotifyRoute struct {
-	Event     string `mapstructure:"event"`
-	Transport string `mapstructure:"transport"`
-	Target    string `mapstructure:"target"`
-}
-
-type MaintNotifyConfig struct {
-	Routes []MaintNotifyRoute `mapstructure:"routes"`
 }
 
 type JWTVerifierConfig struct {
@@ -229,8 +227,7 @@ type AppConfig struct {
 	JWT              JWT                        `mapstructure:"jwt"`
 	S2SConfig        S2SConfig                  `mapstructure:"s2s"`
 	ExternalServices map[string]ExternalService `mapstructure:"external_services"`
-	Messengers       MessengersConfig           `mapstructure:"messengers"`
-	MaintNotify      MaintNotifyConfig          `mapstructure:"maint_notify"`
+	NotifyTransport  NotifyTransportConfig      `mapstructure:"notify_transport"`
 	TaskProcessor    TaskProcessorConfig        `mapstructure:"taskprocessor"`
 }
 

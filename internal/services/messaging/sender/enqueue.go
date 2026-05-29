@@ -1,4 +1,4 @@
-package sender
+package messagesender
 
 import (
 	"context"
@@ -18,9 +18,9 @@ import (
 
 func (s *Service) enqueue(
 	ctx context.Context,
-	tn entity.MessengerID,
+	tn entity.NotifyTransport,
 	target string,
-	msg entity.Message,
+	msg entity.NotifyMessage,
 	enqOpts ...EnqueueOption,
 ) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.enqueue",

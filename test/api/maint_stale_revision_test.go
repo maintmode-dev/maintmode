@@ -42,7 +42,8 @@ func TestMaintenancesAPI_ApproveRejectsStaleRevision(t *testing.T) {
 		Resources: []*models.ApimodelsResourceRef{
 			{ID: strfmt.UUID(resource.ID)},
 		},
-		Steps: testMaintenanceSteps(),
+		Steps:         testMaintenanceSteps(),
+		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
 	updateParams := maintenances.NewPostAPIV1MaintenancesIDEditParams().

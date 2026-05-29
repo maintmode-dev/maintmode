@@ -15,6 +15,10 @@ type MaintenanceStepInput struct {
 	DurationMinutes     int64
 }
 
+type NotifyTargetInput struct {
+	ChannelID string
+}
+
 type CreateMaintenanceCmd struct {
 	Title         string
 	Description   string
@@ -23,17 +27,19 @@ type CreateMaintenanceCmd struct {
 	Impact        MaintenanceImpact
 	Resources     []uuid.UUID
 	Steps         []*MaintenanceStepInput
+	NotifyTargets []*NotifyTargetInput
 }
 
 type UpdateMaintenanceCmd struct {
-	MaintID      uuid.UUID
-	Title        *string
-	Description  *string
-	PlannedStart *time.Time
-	Scope        *MaintenanceScope
-	Impact       *MaintenanceImpact
-	Resources    []uuid.UUID
-	Steps        []*MaintenanceStepInput
+	MaintID       uuid.UUID
+	Title         *string
+	Description   *string
+	PlannedStart  *time.Time
+	Scope         *MaintenanceScope
+	Impact        *MaintenanceImpact
+	Resources     []uuid.UUID
+	Steps         []*MaintenanceStepInput
+	NotifyTargets []*NotifyTargetInput // nil = unchanged
 }
 type StartMaintenanceCmd struct {
 	MaintID uuid.UUID

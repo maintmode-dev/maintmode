@@ -1,4 +1,4 @@
-package sender
+package messagesender
 
 import (
 	"time"

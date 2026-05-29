@@ -13,18 +13,20 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/jwtverifier"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
-	"github.com/ruko1202/maintmode/internal/services/messaging/sender"
+	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
+	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
 )
 
 // Services contains all service layer dependencies
 type Services struct {
-	Maint       *maintSrv.Service
-	Conflicts   *conflictsSvr.Service
-	Calendar    *calendar.Service
-	Resources   *resourcesSrv.Service
-	RBAC        *authz.CasbinAuthorizer
-	JWTVerifier *jwtverifier.Service
+	Maint         *maintSrv.Service
+	Conflicts     *conflictsSvr.Service
+	Calendar      *calendar.Service
+	Resources     *resourcesSrv.Service
+	RBAC          *authz.CasbinAuthorizer
+	JWTVerifier   *jwtverifier.Service
+	NotifyTargets *notifytargets.Service
 }
 
 func NewServices(ctx context.Context,
@@ -47,10 +49,19 @@ func NewServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
 	}
 
-	notifier, err := maintnotify.NewNotifier(cfg, sender.NewMessengerService(
-		gateways.Messengers,
-		goque.NewTaskQueueManager(stores.taskStorage),
-	))
+	notifyTargets := notifytargets.NewService(
+		stores.TxManager,
+		stores.ChannelCatalog,
+		stores.NotifyTargets,
+	)
+
+	notifier, err := maintnotify.NewNotifier(cfg,
+		messagesender.NewService(
+			gateways.NotifyTransportRegistry,
+			goque.NewTaskQueueManager(stores.taskStorage),
+		),
+		stores.NotifyTargets,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init maintnotify: %w", err)
 	}
@@ -60,6 +71,7 @@ func NewServices(ctx context.Context,
 			stores.TxManager,
 			stores.Maintenances,
 			stores.Resources,
+			notifyTargets,
 			conflictsService,
 			notifier,
 		),
@@ -73,7 +85,8 @@ func NewServices(ctx context.Context,
 			stores.TxManager,
 			stores.Resources,
 		),
-		RBAC:        authorizer,
-		JWTVerifier: jwtVerifier,
+		RBAC:          authorizer,
+		JWTVerifier:   jwtVerifier,
+		NotifyTargets: notifyTargets,
 	}, nil
 }

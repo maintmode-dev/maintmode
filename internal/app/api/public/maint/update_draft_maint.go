@@ -82,26 +82,28 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		return nil, fmt.Errorf("unsupported impact")
 	}
 
-	resources := apimodels.FromAPIResources(req.Resources)
-
 	steps, err := apimodels.FromAPISteps(req.Steps)
 	if err != nil {
 		xlog.Error(ctx, "unsupported step", xfield.Error(err))
 		return nil, fmt.Errorf("unsupported step")
 	}
 
-	return &entity.UpdateMaintenanceCmd{
-		MaintID:      maintID,
-		Title:        lo.ToPtr(req.Title),
-		Description:  lo.ToPtr(req.Description),
-		PlannedStart: lo.ToPtr(req.PlannedStart),
-		Scope:        lo.ToPtr(scope),
-		Impact:       lo.ToPtr(impact),
-		Resources:    resources,
-		Steps:        steps,
-	}, nil
+	cmd := &entity.UpdateMaintenanceCmd{
+		MaintID:       maintID,
+		Title:         lo.ToPtr(req.Title),
+		Description:   lo.ToPtr(req.Description),
+		PlannedStart:  lo.ToPtr(req.PlannedStart),
+		Scope:         lo.ToPtr(scope),
+		Impact:        lo.ToPtr(impact),
+		Resources:     apimodels.FromAPIResources(req.Resources),
+		Steps:         steps,
+		NotifyTargets: apimodels.FromAPINotifyTargets(req.NotifyTargets),
+	}
+
+	return cmd, nil
 }
 
+//nolint:dupl // create vs update are separate by design; see validateCreateMaintDraftRequest
 func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMaintRequest) error {
 	return validation.ValidateStructWithContext(ctx, r,
 		validation.Field(&r.Title, validation.Required),
@@ -117,5 +119,6 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 			validation.Length(1, 100),
 			validation.Each(validation.WithContext(validateStep)),
 		),
+		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
 	)
 }

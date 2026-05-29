@@ -1,23 +1,32 @@
-package sender
+package messagesender
 
 import (
+	"context"
+
 	"github.com/ruko1202/goque"
 
-	gwmsg "github.com/ruko1202/maintmode/internal/gateways/messengers"
+	"github.com/ruko1202/maintmode/internal/entity"
+
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 )
+
+type Sender interface {
+	Send(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage) error
+	SendAsync(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, opts ...EnqueueOption) error
+}
 
 // Service is the messaging facade.
 type Service struct {
-	messengersRegistry *gwmsg.MessengerRegistry
-	queue              goque.TaskQueueManager
+	notifyTransportRegistry *notifytransport.Registry
+	queue                   goque.TaskQueueManager
 }
 
-func NewMessengerService(
-	messengersRegistry *gwmsg.MessengerRegistry,
+func NewService(
+	notifyTransportRegistry *notifytransport.Registry,
 	queue goque.TaskQueueManager,
 ) *Service {
 	return &Service{
-		messengersRegistry: messengersRegistry,
-		queue:              queue,
+		notifyTransportRegistry: notifyTransportRegistry,
+		queue:                   queue,
 	}
 }

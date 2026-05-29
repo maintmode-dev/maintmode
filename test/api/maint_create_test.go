@@ -34,7 +34,8 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 		Resources: []*models.ApimodelsResourceRef{
 			{ID: resourceID},
 		},
-		Steps: testMaintenanceSteps(),
+		Steps:         testMaintenanceSteps(),
+		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesCreateParams().

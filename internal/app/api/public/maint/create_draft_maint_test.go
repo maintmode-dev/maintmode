@@ -19,6 +19,7 @@ func TestCreateDraftMaint(t *testing.T) {
 	ctx := context.Background()
 
 	impl := initImpl(t)
+	notifyChan := makeNotifyChannel(ctx, t)
 
 	t.Run("ok global scope", func(t *testing.T) {
 		t.Parallel()
@@ -36,6 +37,9 @@ func TestCreateDraftMaint(t *testing.T) {
 					RollbackDescription: "Rollback migration",
 					Duration:            "30m",
 				},
+			},
+			NotifyTargets: &apimodels.NotifyTargets{
+				ChannelIDs: []string{notifyChan.ID},
 			},
 		}
 
@@ -101,6 +105,9 @@ func TestCreateDraftMaint(t *testing.T) {
 					Duration:            "15m",
 				},
 			},
+			NotifyTargets: &apimodels.NotifyTargets{
+				ChannelIDs: []string{notifyChan.ID},
+			},
 		}
 
 		c, rec := echotest.ContextConfig{
@@ -158,6 +165,16 @@ func TestCreateDraftMaint(t *testing.T) {
 				reqMutator: func(req *apimodels.CreateDraftMaintRequest) {
 					req.Resources = []*apimodels.ResourceRef{}
 				},
+			}, {
+				name: "missing notify targets",
+				reqMutator: func(req *apimodels.CreateDraftMaintRequest) {
+					req.NotifyTargets = nil
+				},
+			}, {
+				name: "missing notify targets channel ids",
+				reqMutator: func(req *apimodels.CreateDraftMaintRequest) {
+					req.NotifyTargets = &apimodels.NotifyTargets{}
+				},
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -180,6 +197,9 @@ func TestCreateDraftMaint(t *testing.T) {
 							RollbackDescription: "Rollback deploy",
 							Duration:            "15m",
 						},
+					},
+					NotifyTargets: &apimodels.NotifyTargets{
+						ChannelIDs: []string{t.Name()},
 					},
 				}
 				tc.reqMutator(req)

@@ -36,7 +36,8 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 		Resources: []*models.ApimodelsResourceRef{
 			{ID: strfmt.UUID(resource.ID)},
 		},
-		Steps: testMaintenanceSteps(),
+		Steps:         testMaintenanceSteps(),
+		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
 	params := maintenances.NewPostAPIV1MaintenancesIDEditParams().

@@ -16,17 +16,16 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-//nolint:thelper
 func TestUpdateDraft(t *testing.T) {
 	t.Parallel()
 	now := xtime.UTCNow().Round(time.Microsecond)
 
 	ctx := context.Background()
-	s := services.Maint
 	defaultPeriod := entity.NewPeriod(now, now.Add(time.Hour))
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
+		notifyChannel := makeNotifyChannel(ctx, t)
 
 		for _, tc := range []struct {
 			name           string
@@ -43,6 +42,7 @@ func TestUpdateDraft(t *testing.T) {
 					Title: lo.ToPtr("new Title" + t.Name()),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Equal(t, lo.FromPtr(cmd.Title), newMaint.Title)
 				},
 			}, {
@@ -51,6 +51,7 @@ func TestUpdateDraft(t *testing.T) {
 					Description: lo.ToPtr("new Description" + t.Name()),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Equal(t, lo.FromPtr(cmd.Description), newMaint.Description)
 				},
 			}, {
@@ -59,6 +60,7 @@ func TestUpdateDraft(t *testing.T) {
 					PlannedStart: lo.ToPtr(now.Add(123 * time.Hour)),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					newStart := lo.FromPtr(cmd.PlannedStart)
 					newPlanned := entity.NewPeriod(newStart, newStart.Add(defaultPeriod.Duration()))
 
@@ -70,6 +72,7 @@ func TestUpdateDraft(t *testing.T) {
 					Scope: lo.ToPtr(entity.MaintenanceScopeResources),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Equal(t, lo.FromPtr(cmd.Scope), newMaint.Scope)
 				},
 			}, {
@@ -78,6 +81,7 @@ func TestUpdateDraft(t *testing.T) {
 					Impact: lo.ToPtr(entity.MaintenanceImpactNone),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Equal(t, lo.FromPtr(cmd.Impact), newMaint.Impact)
 				},
 			}, {
@@ -86,6 +90,7 @@ func TestUpdateDraft(t *testing.T) {
 					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Equal(t, cmd.Resources, newMaint.Resources)
 				},
 			}, {
@@ -95,6 +100,7 @@ func TestUpdateDraft(t *testing.T) {
 					Scope:     lo.ToPtr(entity.MaintenanceScopeGlobal),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					require.Len(t, newMaint.Resources, 0)
 				},
 			}, {
@@ -108,6 +114,7 @@ func TestUpdateDraft(t *testing.T) {
 					}},
 				},
 				assertNewMaint: func(t *testing.T, maint *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
 					expSteps := lo.Map(cmd.Steps, func(item *entity.MaintenanceStepInput, i int) *entity.MaintenanceStep {
 						return &entity.MaintenanceStep{
 							ID:                  newMaint.Steps[i].ID,
@@ -124,18 +131,32 @@ func TestUpdateDraft(t *testing.T) {
 					expPlannedPeriod := recalculatePlannedPeriod(maint.PlannedPeriod.Start, newMaint.Steps)
 					require.Equal(t, expPlannedPeriod, newMaint.PlannedPeriod)
 				},
+			}, {
+				name: "NotifyTargets",
+				cmd: &entity.UpdateMaintenanceCmd{
+					NotifyTargets: []*entity.NotifyTargetInput{{
+						ChannelID: notifyChannel.ID,
+					}},
+				},
+				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
+					t.Helper()
+					require.Len(t, newMaint.NotifyTargets, 1)
+					targets := newMaint.NotifyTargets[0]
+					require.Equal(t, notifyChannel.Transport, targets.Transport)
+					require.Equal(t, notifyChannel.TransportChannelID, targets.ChannelID)
+				},
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, defaultPeriod)
+				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, defaultPeriod)
 				tc.cmd.MaintID = maint.ID
 
-				err := s.UpdateMaint(ctx, tc.cmd)
+				err := service.UpdateMaint(ctx, tc.cmd)
 				require.NoError(t, err)
 
-				newMaint, err := s.GetMaint(ctx, maint.ID)
+				newMaint, err := service.GetMaint(ctx, maint.ID)
 				require.NoError(t, err)
 				tc.assertNewMaint(t, maint, tc.cmd, newMaint)
 
@@ -204,10 +225,10 @@ func TestUpdateDraft(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 
-					maint := testdbutils.MakeMaint(ctx, t, s.maintStore, resourcesStore, defaultPeriod)
+					maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, defaultPeriod)
 					tc.cmd.MaintID = maint.ID
 
-					err := s.UpdateMaint(ctx, tc.cmd)
+					err := service.UpdateMaint(ctx, tc.cmd)
 					require.EqualError(t, err, tc.expectedErr)
 				})
 			}

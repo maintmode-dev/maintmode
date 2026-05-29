@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/ruko1202/maintmode/docs" // swagger docs
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
+	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/config"
@@ -20,9 +21,10 @@ import (
 // by the API server. Adding a new domain means adding a field here, not a new
 // constructor argument.
 type APIServerHandlers struct {
-	Maint     *apimaint.Implementation
-	Resources *resourcesapi.Implementation
-	Calendar  *uicalendar.Implementation
+	Maint         *apimaint.Implementation
+	Resources     *resourcesapi.Implementation
+	Calendar      *uicalendar.Implementation
+	Notifications *apinotifications.Implementation
 }
 
 // APIServerSecurity holds the security primitives wired into middleware
@@ -118,6 +120,15 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		resourceAPI := gr.Group("/resource")
 		resourceAPI.Add(http.MethodPost, "/create", s.handlers.Resources.CreateResource,
 			s.scenarioMW(entity.AuthzScenarioResourceCreate))
+	}
+
+	// notifications API group — channel catalog powering the admin
+	// picker. Read-scoped on the maintenance scenario since the picker
+	// is part of the maintenance edit flow.
+	{
+		notifAPI := gr.Group("/notifications")
+		notifAPI.Add(http.MethodGet, "/channels", s.handlers.Notifications.GetChannels,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	}
 }
 
