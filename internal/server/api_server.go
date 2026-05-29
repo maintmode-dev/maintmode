@@ -124,6 +124,12 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioResourceCreate))
 		resourceAPI.Add(http.MethodPost, "/:id/archive", s.handlers.Resources.ArchiveResource,
 			s.scenarioMW(entity.AuthzScenarioResourceArchive))
+		resourceAPI.Add(http.MethodPost, "/:id/unarchive", s.handlers.Resources.UnarchiveResource,
+			s.scenarioMW(entity.AuthzScenarioResourceUnarchive))
+		resourceAPI.Add(http.MethodGet, "/:id", s.handlers.Resources.GetResource,
+			s.scenarioMW(entity.AuthzScenarioResourceRead))
+		resourceAPI.Add(http.MethodPatch, "/:id", s.handlers.Resources.UpdateResource,
+			s.scenarioMW(entity.AuthzScenarioResourceEdit))
 	}
 
 	// notifications API group — channel catalog powering the admin

@@ -458,6 +458,15 @@ definitions:
         example: DB migration
         type: string
     type: object
+  apimodels.UpdateResourceRequest:
+    properties:
+      description:
+        type: string
+      external_id:
+        type: string
+      name:
+        type: string
+    type: object
   auth.refreshTokenJSONRequest:
     properties:
       refresh_token:
@@ -1623,6 +1632,112 @@ paths:
       summary: Refresh token pair
       tags:
       - Auth
+  /api/v1/resource/{id}:
+    get:
+      description: Returns a single resource by its unique identifier.
+      parameters:
+      - description: Resource ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.Resource'
+        "400":
+          description: Invalid resource id
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "404":
+          description: Resource not found
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a resource by ID
+      tags:
+      - Resources
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Partially updates a resource. All body fields are optional; an
+        omitted field is left unchanged. external_id may be set to an
+        empty string to clear it.
+      parameters:
+      - description: Resource ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apimodels.UpdateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.Resource'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "404":
+          description: Resource not found
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "409":
+          description: Resource name already exists
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a resource
+      tags:
+      - Resources
   /api/v1/resource/{id}/archive:
     post:
       description: 'Marks a resource as archived. Idempotent: archiving an already-archived
@@ -1662,6 +1777,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Archive a resource
+      tags:
+      - Resources
+  /api/v1/resource/{id}/unarchive:
+    post:
+      description: 'Restores a resource to active. Idempotent: unarchiving an already-active
+        or unknown resource succeeds.'
+      parameters:
+      - description: Resource ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Resource unarchived
+        "400":
+          description: Invalid resource id
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Unarchive a resource
       tags:
       - Resources
   /api/v1/resource/create:

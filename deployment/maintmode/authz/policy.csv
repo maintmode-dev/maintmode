@@ -15,6 +15,8 @@ p, editor, maintenance.step.start, execute
 p, editor, maintenance.step.complete, execute
 p, editor, maintenance.step.cancel, execute
 p, editor, resource.create, execute
+p, editor, resource.edit, execute
 p, editor, resource.archive, execute
+p, editor, resource.unarchive, execute
 
 p, reviewer, maintenance.approve, execute

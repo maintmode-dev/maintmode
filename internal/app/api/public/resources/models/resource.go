@@ -22,6 +22,15 @@ type CreateResourceRequest struct {
 	ExternalID  *string `json:"external_id,omitempty"`
 }
 
+// UpdateResourceRequest is the body of PATCH /api/v1/resource/{id}. Every field
+// is optional: a nil field leaves the value unchanged. external_id may be set
+// to an empty string to clear it.
+type UpdateResourceRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	ExternalID  *string `json:"external_id,omitempty"`
+}
+
 type SearchResourcesRequest struct {
 	Name string `query:"name" validate:"required"`
 }

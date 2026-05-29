@@ -105,6 +105,16 @@ type CreateResourceCmd struct {
 	ExternalID  *string
 }
 
+// UpdateResourceCmd describes a partial update of a resource. Each optional
+// field, when non-nil, replaces the corresponding value; a nil field leaves it
+// unchanged. ExternalID may be set to an empty string to clear it.
+type UpdateResourceCmd struct {
+	ID          uuid.UUID
+	Name        *string
+	Description *string
+	ExternalID  *string
+}
+
 // ListResourcesCmd describes a paginated resource listing request.
 //
 // Name, when non-empty, filters resources by a case-insensitive partial match
