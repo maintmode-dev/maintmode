@@ -12,6 +12,7 @@ func ToAPIResource(r *entity.ResourceDetails) *Resource {
 		Name:        r.Name,
 		Description: r.Description,
 		ExternalID:  r.ExternalID,
+		Status:      string(r.Status),
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 	}

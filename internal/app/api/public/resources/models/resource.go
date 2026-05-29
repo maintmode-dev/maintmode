@@ -11,6 +11,7 @@ type Resource struct {
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	ExternalID  *string    `json:"external_id,omitempty"`
+	Status      string     `json:"status" example:"active"`
 	CreatedAt   time.Time  `json:"created_at" format:"date-time"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" format:"date-time"`
 }
@@ -27,4 +28,11 @@ type SearchResourcesRequest struct {
 
 type SearchResourcesResponse struct {
 	Items []*Resource `json:"resources"`
+}
+
+type ListResourcesResponse struct {
+	Resources []*Resource `json:"resources"`
+	Total     int64       `json:"total" example:"123"`
+	Limit     int64       `json:"limit" example:"50"`
+	Offset    int64       `json:"offset" example:"0"`
 }

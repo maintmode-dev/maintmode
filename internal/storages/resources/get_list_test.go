@@ -61,11 +61,13 @@ func TestStore_GetResourcesLikeName(t *testing.T) {
 				Name:        baseName + "-one",
 				Description: "Description one",
 				ExternalID:  nil,
+				Status:      entity.ResourceStatusActive,
 			},
 			{
 				Name:        baseName + "-two",
 				Description: "Description two",
 				ExternalID:  nil,
+				Status:      entity.ResourceStatusActive,
 			},
 		}
 
@@ -77,5 +79,22 @@ func TestStore_GetResourcesLikeName(t *testing.T) {
 		results, err := store.GetResourcesLikeName(ctx, baseName)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(results), 2)
+	})
+
+	t.Run("excludes archived resources", func(t *testing.T) {
+		t.Parallel()
+		resource := makeResource(ctx, t, store)
+
+		// before archiving, search finds it
+		before, err := store.GetResourcesLikeName(ctx, resource.Name)
+		require.NoError(t, err)
+		require.Len(t, before, 1)
+
+		require.NoError(t, store.Archive(ctx, resource.ID))
+
+		// after archiving, the picker search must not surface it
+		after, err := store.GetResourcesLikeName(ctx, resource.Name)
+		require.NoError(t, err)
+		require.Empty(t, after)
 	})
 }

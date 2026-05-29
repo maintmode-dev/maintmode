@@ -25,8 +25,9 @@ const (
 
 // resource scenarios
 const (
-	AuthzScenarioResourceRead   AuthzScenario = "resource.read"
-	AuthzScenarioResourceCreate AuthzScenario = "resource.create"
+	AuthzScenarioResourceRead    AuthzScenario = "resource.read"
+	AuthzScenarioResourceCreate  AuthzScenario = "resource.create"
+	AuthzScenarioResourceArchive AuthzScenario = "resource.archive"
 )
 
 // auth scenarios

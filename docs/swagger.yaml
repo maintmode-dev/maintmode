@@ -221,6 +221,22 @@ definitions:
       name:
         type: string
     type: object
+  apimodels.ListResourcesResponse:
+    properties:
+      limit:
+        example: 50
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      resources:
+        items:
+          $ref: '#/definitions/apimodels.Resource'
+        type: array
+      total:
+        example: 123
+        type: integer
+    type: object
   apimodels.ListRolesResponse:
     properties:
       roles:
@@ -375,6 +391,9 @@ definitions:
         example: 550e8400-e29b-41d4-a716-4466554400000
         type: string
       name:
+        type: string
+      status:
+        example: active
         type: string
       updated_at:
         format: date-time
@@ -1604,6 +1623,47 @@ paths:
       summary: Refresh token pair
       tags:
       - Auth
+  /api/v1/resource/{id}/archive:
+    post:
+      description: 'Marks a resource as archived. Idempotent: archiving an already-archived
+        or unknown resource succeeds.'
+      parameters:
+      - description: Resource ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Resource archived
+        "400":
+          description: Invalid resource id
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a resource
+      tags:
+      - Resources
   /api/v1/resource/create:
     post:
       consumes:
@@ -1691,6 +1751,61 @@ paths:
       security:
       - BearerAuth: []
       summary: Search resources by name
+      tags:
+      - Resources
+  /api/v1/resources/list:
+    get:
+      description: |-
+        Returns a paginated list of resources ordered by created_at DESC (newest first).
+        By default only active resources are returned; pass archived=true to include archived ones as well.
+        Malformed pagination/filter params are coerced to defaults rather than rejected.
+      parameters:
+      - description: Case-insensitive partial name match (search box)
+        in: query
+        name: name
+        type: string
+      - default: 50
+        description: Page size (max 200)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      - default: false
+        description: 'Include archived resources (false: active only; true: active
+          + archived)'
+        in: query
+        name: archived
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/apimodels.ListResourcesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+        "503":
+          description: Auth service unavailable
+          schema:
+            $ref: '#/definitions/httperrors.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List resources
       tags:
       - Resources
   /api/v1/roles:

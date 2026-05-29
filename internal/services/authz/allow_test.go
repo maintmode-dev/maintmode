@@ -29,6 +29,7 @@ p, editor, maintenance.step.start, execute
 p, editor, maintenance.step.complete, execute
 p, editor, maintenance.step.cancel, execute
 p, editor, resource.create, execute
+p, editor, resource.archive, execute
 
 p, reviewer, maintenance.approve, execute
 `
@@ -85,6 +86,16 @@ func TestCasbinAuthorizer(t *testing.T) {
 				roles:    []entity.Role{entity.RoleEditor},
 				scenario: entity.AuthzScenarioResourceCreate,
 				allowed:  true,
+			}, {
+				name:     "editor can archive resource",
+				roles:    []entity.Role{entity.RoleEditor},
+				scenario: entity.AuthzScenarioResourceArchive,
+				allowed:  true,
+			}, {
+				name:     "guest cannot archive resource",
+				roles:    []entity.Role{entity.RoleGuest},
+				scenario: entity.AuthzScenarioResourceArchive,
+				allowed:  false,
 			}, {
 				name:     "editor cannot approve",
 				roles:    []entity.Role{entity.RoleEditor},

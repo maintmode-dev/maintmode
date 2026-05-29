@@ -27,6 +27,7 @@ func TestCreate(t *testing.T) {
 			Name:        "Name" + t.Name() + "-" + xuuid.NewString(),
 			Description: "Description" + t.Name(),
 			ExternalID:  lo.ToPtr(xuuid.NewString()),
+			Status:      entity.ResourceStatusActive,
 		}
 
 		created, err := store.Create(ctx, resource)

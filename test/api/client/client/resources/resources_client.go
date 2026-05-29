@@ -58,7 +58,11 @@ type ClientOption func(*runtime.ClientOperation)
 type ClientService interface {
 	GetAPIV1Resources(params *GetAPIV1ResourcesParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesOK, error)
 
+	GetAPIV1ResourcesList(params *GetAPIV1ResourcesListParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesListOK, error)
+
 	PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceCreateOK, error)
+
+	PostAPIV1ResourceIDArchive(params *PostAPIV1ResourceIDArchiveParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceIDArchiveNoContent, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -110,6 +114,55 @@ func (a *Client) GetAPIV1Resources(params *GetAPIV1ResourcesParams, authInfo run
 }
 
 /*
+	GetAPIV1ResourcesList lists resources
+
+	Returns a paginated list of resources ordered by created_at DESC (newest first).
+
+By default only active resources are returned; pass archived=true to include archived ones as well.
+Malformed pagination/filter params are coerced to defaults rather than rejected.
+*/
+func (a *Client) GetAPIV1ResourcesList(params *GetAPIV1ResourcesListParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetAPIV1ResourcesListOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewGetAPIV1ResourcesListParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetAPIV1ResourcesList",
+		Method:             "GET",
+		PathPattern:        "/api/v1/resources/list",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetAPIV1ResourcesListReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*GetAPIV1ResourcesListOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetAPIV1ResourcesList: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
 PostAPIV1ResourceCreate creates a new resource
 
 Creates a new resource with the provided details
@@ -152,6 +205,52 @@ func (a *Client) PostAPIV1ResourceCreate(params *PostAPIV1ResourceCreateParams, 
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PostAPIV1ResourceCreate: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+PostAPIV1ResourceIDArchive archives a resource
+
+Marks a resource as archived. Idempotent: archiving an already-archived or unknown resource succeeds.
+*/
+func (a *Client) PostAPIV1ResourceIDArchive(params *PostAPIV1ResourceIDArchiveParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*PostAPIV1ResourceIDArchiveNoContent, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewPostAPIV1ResourceIDArchiveParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostAPIV1ResourceIDArchive",
+		Method:             "POST",
+		PathPattern:        "/api/v1/resource/{id}/archive",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PostAPIV1ResourceIDArchiveReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*PostAPIV1ResourceIDArchiveNoContent)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostAPIV1ResourceIDArchive: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

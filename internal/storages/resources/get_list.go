@@ -48,8 +48,11 @@ func (s *Store) GetResourcesLikeName(ctx context.Context, name string) ([]*entit
 	stmt := table.Resources.
 		SELECT(table.Resources.AllColumns).
 		WHERE(
-			postgres.LOWER(table.Resources.Name).LIKE(
-				postgres.LOWER(postgres.String("%" + name + "%"))),
+			postgres.AND(
+				table.Resources.Status.EQ(postgres.String(string(entity.ResourceStatusActive))),
+				postgres.LOWER(table.Resources.Name).LIKE(
+					postgres.LOWER(postgres.String("%"+name+"%"))),
+			),
 		).
 		LIMIT(resourceListLimit).
 		ORDER_BY(table.Resources.Name.ASC())

@@ -23,6 +23,7 @@ type resourcesTable struct {
 	ExternalID  postgres.ColumnString
 	CreatedAt   postgres.ColumnTimestampz
 	UpdatedAt   postgres.ColumnTimestampz
+	Status      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,8 +71,9 @@ func newResourcesTableImpl(schemaName, tableName, alias string) resourcesTable {
 		ExternalIDColumn  = postgres.StringColumn("external_id")
 		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn   = postgres.TimestampzColumn("updated_at")
-		allColumns        = postgres.ColumnList{IDColumn, NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns    = postgres.ColumnList{NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn}
+		StatusColumn      = postgres.StringColumn("status")
+		allColumns        = postgres.ColumnList{IDColumn, NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn}
+		mutableColumns    = postgres.ColumnList{NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn}
 		defaultColumns    = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -85,6 +87,7 @@ func newResourcesTableImpl(schemaName, tableName, alias string) resourcesTable {
 		ExternalID:  ExternalIDColumn,
 		CreatedAt:   CreatedAtColumn,
 		UpdatedAt:   UpdatedAtColumn,
+		Status:      StatusColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

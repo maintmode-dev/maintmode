@@ -36,6 +36,7 @@ func makeResource(ctx context.Context, t *testing.T, store *Store) *entity.Resou
 		Name:        "Name" + t.Name() + xuuid.NewString(),
 		Description: "Description" + t.Name(),
 		ExternalID:  lo.ToPtr(xuuid.NewString()),
+		Status:      entity.ResourceStatusActive,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resource)

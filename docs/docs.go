@@ -1425,6 +1425,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/resource/{id}/archive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Marks a resource as archived. Idempotent: archiving an already-archived or unknown resource succeeds.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "Archive a resource",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Resource ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Resource archived"
+                    },
+                    "400": {
+                        "description": "Invalid resource id",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/resources": {
             "get": {
                 "security": [
@@ -1460,6 +1522,84 @@ const docTemplate = `{
                         "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Auth service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httperrors.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/resources/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a paginated list of resources ordered by created_at DESC (newest first).\nBy default only active resources are returned; pass archived=true to include archived ones as well.\nMalformed pagination/filter params are coerced to defaults rather than rejected.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "List resources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive partial name match (search box)",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size (max 200)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Include archived resources (false: active only; true: active + archived)",
+                        "name": "archived",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/apimodels.ListResourcesResponse"
                         }
                     },
                     "401": {
@@ -2266,6 +2406,29 @@ const docTemplate = `{
                 }
             }
         },
+        "apimodels.ListResourcesResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "example": 50
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.Resource"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 123
+                }
+            }
+        },
         "apimodels.ListRolesResponse": {
             "type": "object",
             "properties": {
@@ -2484,6 +2647,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
                 },
                 "updated_at": {
                     "type": "string",

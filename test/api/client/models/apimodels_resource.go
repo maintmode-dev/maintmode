@@ -36,6 +36,10 @@ type ApimodelsResource struct {
 	// name
 	Name string `json:"name,omitempty"`
 
+	// status
+	// Example: active
+	Status string `json:"status,omitempty"`
+
 	// updated at
 	// Format: date-time
 	UpdatedAt strfmt.DateTime `json:"updated_at,omitempty"`

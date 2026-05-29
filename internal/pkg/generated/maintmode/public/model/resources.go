@@ -19,4 +19,5 @@ type Resources struct {
 	ExternalID  *string    `db:"resources.external_id"`
 	CreatedAt   time.Time  `db:"resources.created_at"`
 	UpdatedAt   *time.Time `db:"resources.updated_at"`
+	Status      string     `db:"resources.status"`
 }

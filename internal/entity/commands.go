@@ -105,6 +105,21 @@ type CreateResourceCmd struct {
 	ExternalID  *string
 }
 
+// ListResourcesCmd describes a paginated resource listing request.
+//
+// Name, when non-empty, filters resources by a case-insensitive partial match
+// on the name (LIKE %name%).
+//
+// IncludeArchived controls which statuses are returned:
+//   - false: only active resources;
+//   - true: both active and archived resources.
+type ListResourcesCmd struct {
+	Name            string
+	Limit           int64
+	Offset          int64
+	IncludeArchived bool
+}
+
 // --- Authorization commands ---
 
 type GetAuthCodeURLCmd struct {

@@ -58,5 +58,6 @@ func (s *Service) getOrCreate(ctx context.Context, cmd *entity.CreateResourceCmd
 		Name:        cmd.Name,
 		Description: cmd.Description,
 		ExternalID:  cmd.ExternalID,
+		Status:      entity.ResourceStatusActive,
 	})
 }

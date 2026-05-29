@@ -15,6 +15,7 @@ func toDBResource(r *entity.ResourceDetails) *model.Resources {
 		Name:        r.Name,
 		Description: r.Description,
 		ExternalID:  r.ExternalID,
+		Status:      string(r.Status),
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 	}
@@ -26,6 +27,7 @@ func fromDBResource(r *model.Resources) *entity.ResourceDetails {
 		Name:        r.Name,
 		Description: r.Description,
 		ExternalID:  r.ExternalID,
+		Status:      entity.ResourceStatus(r.Status),
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 	}

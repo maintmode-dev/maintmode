@@ -113,6 +113,8 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		resourcesAPI := gr.Group("/resources")
 		resourcesAPI.Add(http.MethodGet, "", s.handlers.Resources.SearchResources,
 			s.scenarioMW(entity.AuthzScenarioResourceRead))
+		resourcesAPI.Add(http.MethodGet, "/list", s.handlers.Resources.ListResources,
+			s.scenarioMW(entity.AuthzScenarioResourceRead))
 	}
 
 	// resource API group
@@ -120,6 +122,8 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		resourceAPI := gr.Group("/resource")
 		resourceAPI.Add(http.MethodPost, "/create", s.handlers.Resources.CreateResource,
 			s.scenarioMW(entity.AuthzScenarioResourceCreate))
+		resourceAPI.Add(http.MethodPost, "/:id/archive", s.handlers.Resources.ArchiveResource,
+			s.scenarioMW(entity.AuthzScenarioResourceArchive))
 	}
 
 	// notifications API group — channel catalog powering the admin
