@@ -28,6 +28,7 @@ env:
   COMPOSE_PROFILES_FLAGS: --profile storages --profile app
   MAINTMODE_IMAGE_TAG: ${{ github.sha }}
   AUTH_IMAGE_TAG: ${{ github.sha }}
+  CADDY_IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   lint:
@@ -251,6 +252,21 @@ jobs:
           path: tmp/images
       - run: docker load -i tmp/images/maintmode.tar
       - run: docker load -i tmp/images/auth.tar
+      - uses: docker/setup-buildx-action@v3
+      - name: Build custom Caddy image (xcaddy + ratelimit)
+        # Prebuild with a persistent GHA layer cache so the slow xcaddy
+        # compile runs only when deployment/caddy/Dockerfile changes. The
+        # tag matches compose.app.ci.yaml so `make app-up` reuses it instead
+        # of rebuilding Caddy from scratch on every run.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/caddy/Dockerfile
+          load: true
+          push: false
+          tags: maintmode-ci-caddy:${{ github.sha }}
+          cache-from: type=gha,scope=caddy
+          cache-to: type=gha,mode=max,scope=caddy
       - name: Install docker-compose shim
         run: |
           sudo tee /usr/local/bin/docker-compose >/dev/null <<'EOF'

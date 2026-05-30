@@ -13,6 +13,31 @@
 # eject a bad replica for 30s after 3 consecutive failures, and retry
 # a failed request on a peer. Restart Caddy after changing replica count
 # so it re-resolves DNS.
+#
+# Perimeter rate limit (RUK-146): a coarse, per-client-IP anti-flood cap
+# on the external /auth/* surface, provided by the caddy-ratelimit module
+# (baked into our custom image — see deployment/caddy/Dockerfile). This is
+# defense-in-depth IN FRONT of, not a replacement for, the app-level
+# Redis-backed business limiter on /login/oauth (30 RPM/IP, RUK-145):
+#   - app limiter  : precise business limit, replica-shared via Redis
+#   - this limiter : coarse anti-flood before traffic reaches the app,
+#                    Caddy in-memory (single Caddy per VM → consistent)
+# S2S traffic (maintmode → auth:8000 over docker DNS) bypasses Caddy and
+# is intentionally NOT limited here.
+#
+# Client IP: keyed on {http.request.remote.host}. In prod Caddy is the
+# internet edge (see Caddyfile.prod), so that is the real client IP. We
+# deliberately do NOT key on X-Forwarded-For / X-Real-IP and set no
+# `trusted_proxies` — those headers are client-spoofable and would let an
+# attacker forge a new IP per request to bypass the limit. If a trusted L7
+# proxy is ever placed in front, configure `trusted_proxies` and switch the
+# key to {http.request.client_ip}. (Locally every request arrives via the
+# docker port-mapping, so all traffic shares one source IP — fine for dev.)
+{
+	# The rate_limit handler ships in a non-standard module, so it has no
+	# default directive order — place it early, before reverse_proxy runs.
+	order rate_limit before reverse_proxy
+}
 
 (app_lb) {
 	lb_policy round_robin
@@ -22,10 +47,28 @@
 	max_fails 3
 }
 
+# Coarse anti-flood ceiling for the external auth surface: 100 requests per
+# 10s per client IP across all of /auth/*. Sized as anti-DDoS, not business
+# logic — well above any legitimate single-user burst (/me + /refresh fan
+# out to a handful of calls, not hundreds) yet low enough to blunt a flood.
+# /login/oauth is rare; one ceiling covers them all and the precise per-IP
+# login limit stays in the app (Redis, 30 RPM). Over the limit → HTTP 429
+# (the module sets Retry-After automatically).
+(auth_ratelimit) {
+	rate_limit {
+		zone auth_perimeter {
+			key {http.request.remote.host}
+			events 100
+			window 10s
+		}
+	}
+}
+
 :3000 {
 	encode gzip
 
 	handle_path /auth/* {
+		import auth_ratelimit
 		reverse_proxy auth:8000 {
 			import app_lb
 		}

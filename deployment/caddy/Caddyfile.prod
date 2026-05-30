@@ -11,9 +11,31 @@
 # balances across replicas when running with --scale; passive health
 # ejects a bad replica for 30s, lb_retries retries on a peer. Restart
 # Caddy after changing replica count so it re-resolves DNS.
-
+#
+# Perimeter rate limit (RUK-146): coarse, per-client-IP anti-flood cap on
+# the external /auth/* surface via the caddy-ratelimit module (custom image,
+# deployment/caddy/Dockerfile). Defense-in-depth IN FRONT of the app-level
+# Redis business limiter on /login/oauth (RUK-145), not a replacement.
+#
+# Client IP: this Caddy terminates TLS on :443 and IS the internet edge —
+# DNS for $DOMAIN points straight at this VM, no LB/Cloudflare/proxy in
+# front (confirm before adding one). So {http.request.remote.host} is the
+# real client IP. We do NOT trust X-Forwarded-For / X-Real-IP and set no
+# `trusted_proxies`: those headers are client-spoofable and would let an
+# attacker forge a fresh IP per request and bypass the limit entirely. If a
+# trusted L7 proxy is ever placed in front of Caddy, add `trusted_proxies`
+# for its CIDRs and switch the key to {http.request.client_ip}.
+#
+# Scope: the limit guards the auth APP. The :80 -> :443 redirect Caddy adds
+# automatically is served before any reverse_proxy and never reaches auth,
+# so it is intentionally left unlimited — flooding a cheap 308 redirect does
+# not load the backend we are protecting.
 {
 	email {$ACME_EMAIL}
+
+	# rate_limit ships in a non-standard module — no default order, so
+	# place it before reverse_proxy explicitly.
+	order rate_limit before reverse_proxy
 }
 
 (app_lb) {
@@ -22,6 +44,23 @@
 	lb_retries 2
 	fail_duration 30s
 	max_fails 3
+}
+
+# Coarse anti-flood ceiling for the external auth surface: 100 requests per
+# 10s per client IP across all of /auth/*. Sized as anti-DDoS, not business
+# logic — well above any legitimate single-user burst (page loads fan out to
+# a few /me + /refresh calls, not hundreds) yet low enough to blunt a flood.
+# The precise per-IP business limit stays in the app (Redis, 30 RPM on
+# /login/oauth, RUK-145); this only stops a client hammering the surface.
+# Over the limit → HTTP 429 (the module sets Retry-After automatically).
+(auth_ratelimit) {
+	rate_limit {
+		zone auth_perimeter {
+			key {http.request.remote.host}
+			events 100
+			window 10s
+		}
+	}
 }
 
 {$DOMAIN} {
@@ -34,6 +73,7 @@
 	}
 
 	handle_path /auth/* {
+		import auth_ratelimit
 		reverse_proxy auth:8000 {
 			import app_lb
 		}

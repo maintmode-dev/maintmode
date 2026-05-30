@@ -176,7 +176,12 @@ services:
       - theapp
 
   caddy:
-    image: caddy:2-alpine
+    # Custom image: stock caddy:2-alpine lacks the caddy-ratelimit module
+    # used by the perimeter rate limit in the Caddyfile. Built via xcaddy
+    # with pinned versions — see deployment/caddy/Dockerfile.
+    build:
+      context: .
+      dockerfile: deployment/caddy/Dockerfile
     container_name: caddy
     profiles: ["app"]
     restart: unless-stopped

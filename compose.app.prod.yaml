@@ -38,6 +38,8 @@ services:
       - ./deployment/auth/prod/app.secrets.yaml:/app/app.secrets.yaml:ro
 
   caddy:
+    # Inherits `build:` from compose.yaml — the custom Caddy image (with the
+    # caddy-ratelimit module) is built on the VM. No prebuilt registry image.
     ports: !override
       - "80:80"
       - "443:443"
