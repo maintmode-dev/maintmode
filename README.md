@@ -151,12 +151,17 @@ How it works:
 - Prometheus discovers every replica via Docker SD; Loki/Promtail
   labels logs by `container_name` so replica logs are easy to filter.
 
+Deploys are rolling and zero-downtime: `make prod-deploy` rolls the new
+image through one replica at a time, leaning on the in-app drain (Readiness
+→ 503 on SIGTERM) and Caddy's active `/readiness` health check so the pool
+never drops below its healthy count. See
+[rolling-deploy.md](../maintmode-docs/ops/rolling-deploy.md).
+
 Known limitations on a single VM:
 
 - Postgres, Redis, and Caddy stay single-instance — true HA needs
-  external infra.
-- `docker compose up -d` restarts all replicas at once; there is no
-  rolling update. Swarm or Kubernetes is needed for that.
+  external infra (multi-node HA is the P2 Kubernetes milestone, not this
+  target).
 - After changing the replica count, restart Caddy
   (`docker compose restart caddy`) so it re-resolves DNS.
 

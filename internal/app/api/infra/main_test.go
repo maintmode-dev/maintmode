@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/lifecycle"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
@@ -27,5 +28,5 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	return New(db)
+	return New(db, lifecycle.NewDrainer())
 }

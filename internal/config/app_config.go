@@ -36,6 +36,28 @@ type RateLimiterConfig struct {
 	Timeout           time.Duration `mapstructure:"timeout"`
 }
 
+// Shutdown controls graceful-shutdown behavior. On SIGTERM the process
+// first marks itself not-ready (Readiness → 503) and waits DrainTimeout
+// before closing the HTTP server, giving the reverse proxy time to eject
+// this replica from its load-balancing pool. This is the in-process half
+// of zero-downtime rolling deploys (the deploy script is the other half).
+type Shutdown struct {
+	DrainTimeout time.Duration `mapstructure:"drain_timeout"`
+}
+
+// DrainTimeoutOrDefault returns the configured drain delay, falling back to
+// a safe default when unset so existing config files keep working.
+func (s Shutdown) DrainTimeoutOrDefault() time.Duration {
+	if s.DrainTimeout <= 0 {
+		return defaultDrainTimeout
+	}
+	return s.DrainTimeout
+}
+
+// defaultDrainTimeout must comfortably exceed the proxy's active health-check
+// interval so the replica is ejected from the pool before the server stops.
+const defaultDrainTimeout = 6 * time.Second
+
 // DB represents database connection configuration including pool settings.
 type DB struct {
 	DSN             string        `mapstructure:"dsn"`
@@ -219,6 +241,7 @@ type AppConfig struct {
 	RBAC             RbacConfig                 `mapstructure:"rbac"`
 	InfraServer      HTTPServer                 `mapstructure:"infra_server"`
 	APIServer        HTTPServer                 `mapstructure:"api_server"`
+	Shutdown         Shutdown                   `mapstructure:"shutdown"`
 	Tracer           Tracer                     `mapstructure:"tracer"`
 	Logger           LoggerConfig               `mapstructure:"logger"`
 	DB               DB                         `mapstructure:"db"`

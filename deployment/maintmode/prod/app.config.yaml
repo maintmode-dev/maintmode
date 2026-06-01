@@ -30,6 +30,14 @@ infra_server:
   host: 0.0.0.0
   port: 8001
 
+# Graceful-shutdown drain delay. On SIGTERM the process reports
+# Readiness=503 and waits this long before closing the HTTP server, so
+# Caddy ejects the replica from its pool before connections stop. Must
+# exceed Caddy's active health_interval (see Caddyfile.prod). Basis for
+# zero-downtime rolling deploys (RUK-147).
+shutdown:
+  drain_timeout: 6s
+
 db:
   dsn: <secret:db/dsn>
   driver: postgres

@@ -8,9 +8,21 @@
 #   ACME_EMAIL   — operator email for Let's Encrypt notifications
 #
 # Upstreams use docker service DNS (auth, maintmode). The lb_* block
-# balances across replicas when running with --scale; passive health
-# ejects a bad replica for 30s, lb_retries retries on a peer. Restart
-# Caddy after changing replica count so it re-resolves DNS.
+# balances across replicas when running with --scale.
+#
+# Two health layers back the zero-downtime rolling deploy (RUK-147):
+#   - Active: Caddy polls /readiness on the infra port (8001) every 2s and
+#     drops a replica the moment it reports not-200. On SIGTERM a replica
+#     flips /readiness to 503 and keeps serving for `shutdown.drain_timeout`
+#     (6s), so Caddy stops routing new requests to it ~2s before it dies —
+#     no in-flight gap.
+#   - Passive: fail_duration / max_fails eject a replica that errors on a
+#     real request, and lb_retries replays that request on a healthy peer,
+#     so even a request in-flight at the instant a replica drops is retried
+#     rather than surfaced as a 5xx.
+# health_port targets 8001 (infra server) while traffic still proxies to
+# 8000 (public api). Restart Caddy after changing replica count so it
+# re-resolves DNS.
 #
 # Perimeter rate limit (RUK-146): coarse, per-client-IP anti-flood cap on
 # the external /auth/* surface via the caddy-ratelimit module (custom image,
@@ -44,6 +56,12 @@
 	lb_retries 2
 	fail_duration 30s
 	max_fails 3
+
+	health_uri /readiness
+	health_port 8001
+	health_interval 2s
+	health_timeout 2s
+	health_status 2xx
 }
 
 # Coarse anti-flood ceiling for the external auth surface: 100 requests per

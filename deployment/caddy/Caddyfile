@@ -9,10 +9,15 @@
 #
 # Upstreams use docker service DNS (auth, maintmode). With
 # `docker compose up --scale auth=N --scale maintmode=N`, the names
-# resolve to all replica IPs; the lb_* directives spread requests,
-# eject a bad replica for 30s after 3 consecutive failures, and retry
-# a failed request on a peer. Restart Caddy after changing replica count
-# so it re-resolves DNS.
+# resolve to all replica IPs; the lb_* directives spread requests across
+# them. Mirrors Caddyfile.prod so dev exercises the same health logic.
+#
+# Active health polls /readiness on the infra port (8001) every 2s and
+# drops a replica that reports not-200 — including one that flipped to 503
+# during graceful drain (RUK-147). Passive health (fail_duration /
+# max_fails) plus lb_retries replay a request that errors mid-flight on a
+# healthy peer. Restart Caddy after changing replica count so it
+# re-resolves DNS.
 #
 # Perimeter rate limit (RUK-146): a coarse, per-client-IP anti-flood cap
 # on the external /auth/* surface, provided by the caddy-ratelimit module
@@ -45,6 +50,12 @@
 	lb_retries 2
 	fail_duration 30s
 	max_fails 3
+
+	health_uri /readiness
+	health_port 8001
+	health_interval 2s
+	health_timeout 2s
+	health_status 2xx
 }
 
 # Coarse anti-flood ceiling for the external auth surface: 100 requests per
