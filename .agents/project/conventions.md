@@ -7,6 +7,12 @@
 - Keep domain logic out of HTTP handlers and storage mappers.
 - Keep unrelated refactors out of feature and bug-fix changes.
 - Add comments only for non-obvious decisions.
+- Choose the minimal data model: reuse existing tables before adding new ones,
+  and store only what cannot be derived at read time (see workflow.md).
+- Before adding a new abstraction, option type, or helper, grep
+  `internal/utils` and sibling services for an existing one (`xhash`, `xtime`,
+  `xuuid`, dbtx options, the `Option func(*options)` pattern).
+- Do not leave dead code "for later" (unused options, unwired branches).
 
 ## Go Style
 
@@ -91,6 +97,43 @@ if err := s.store.UpdateStep(ctx, maintID, step); err != nil {
 - Keep read/modify/write state transitions inside one transaction.
 - Lock rows explicitly when concurrent updates can race.
 - Keep transaction callbacks focused; do not hide unrelated I/O inside them.
+
+## Async Tasks, Queue, and Outbox
+
+The async task queue is goque. Tasks are registered by type in
+`internal/app/bootstrap/processors.go` and handled by typed processors under
+`internal/services/messaging/`.
+
+- **Enqueue a task in the same transaction as the state change that triggers
+  it.** Never commit the business write and then enqueue afterwards: a crash
+  between them loses or orphans the task. Enqueue inside the transaction and let
+  an enqueue failure roll the whole operation back.
+- **Use the transactional outbox bridge** so the enqueue joins the caller's tx:
+
+  ```go
+  if tx, ok := dbtx.TxFromContext(ctx); ok {
+      ctx = goque.WithTx(ctx, tx)
+  }
+  ```
+
+  This lives in `internal/services/messaging/scheduler`; schedule through it
+  rather than calling goque directly.
+- **One domain task per unit of work; the payload carries identifiers, not
+  rendered content** (e.g. `{maint_id, deferred_id}`). The processor loads the
+  entity and resolves recipients / renders text at fire time. Do not fan out into
+  N tasks with pre-rendered payloads, and do not snapshot data that can be read
+  when the task runs.
+- **Idempotency comes from the goque `external_id`**, derived from a stable key
+  via `internal/utils/xhash`.`HashSha256` (e.g.
+  `maint|reminder|<maintID>|<deferredID>`). Do not hand-roll sha256/hex.
+- **Keep delivery and scheduling separate.** `messaging/sender` delivers an
+  already-rendered message; `messaging/scheduler` enqueues a delayed domain task
+  whose processor resolves content. Do not widen `sender` into a generic
+  scheduler.
+- **Processors must re-check domain state before side effects.** A scheduled
+  task can fire after the entity changed or was canceled; load it, return `nil`
+  (skip, no retry) when the action is no longer meaningful for the current
+  status, and treat not-found as a skip rather than a retry.
 
 ## Testing
 

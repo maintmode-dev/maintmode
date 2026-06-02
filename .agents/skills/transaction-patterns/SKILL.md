@@ -259,8 +259,28 @@ Comprehensive test strategies for transactional code:
 2. **Long-Running Transactions** - Avoid business logic that takes significant time
 3. **Nested WithinTx Calls** - Don't nest `WithinTx` calls (not currently supported)
 4. **Swallowing Errors** - Always propagate errors to trigger rollback
-5. **External State Changes** - Don't send emails, publish events, etc. before commit succeeds
+5. **External State Changes** - Don't perform un-undoable side effects (emails,
+   sync network sends) inside or before a commit. For queue work, use the
+   transactional outbox instead (below) so the enqueue is part of the tx.
 6. **Passing Transactions** - Never pass `*sqlx.Tx` directly, always use context
+7. **Commit-then-enqueue** - Don't commit the DB write and then enqueue a task: a
+   crash in between loses or orphans it. Enqueue inside the tx via the outbox.
+
+## Transactional Outbox (queue writes)
+
+When a transaction both changes state and must enqueue a goque task, the enqueue
+joins the same tx so the two commit atomically. The bridge:
+
+```go
+if tx, ok := dbtx.TxFromContext(ctx); ok {
+    ctx = goque.WithTx(ctx, tx) // the goque insert/cancel runs in the caller's tx
+}
+```
+
+Go through `internal/services/messaging/scheduler` (which applies this bridge),
+not goque directly. Enqueue inside the `WithinTx` callback and return any enqueue
+error so the whole operation rolls back. See the `goque-async-patterns` skill for
+payload, idempotency, and processor rules.
 
 ## Integration with Jet ORM
 

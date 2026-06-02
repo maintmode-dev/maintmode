@@ -58,6 +58,23 @@ Backend tests are split into deterministic gates:
 API e2e tests must use the `api` build tag. Internal backend tests must not use
 an additional build tag.
 
+## Design Gates
+
+Run these before writing code, not after review finds the gap:
+
+1. **Minimal schema.** What is the smallest set of tables/columns? Can an
+   existing table be reused instead of a new child table? Store only what cannot
+   be derived at read time; resolve the rest (recipients, rendered text) when the
+   data is read or the task fires.
+2. **Atomicity.** Does the operation touch both the database and a queue/external
+   side effect? If so it must be one transaction via the outbox (see the queue
+   rules in conventions.md). No "commit then enqueue".
+3. **Reuse.** Before a new abstraction/utility/option type, grep `internal/utils`
+   and sibling services; a new abstraction needs a reason why the existing one
+   does not fit.
+4. **Product semantics.** For every trigger/notification, list the statuses in
+   which it is meaningful and guard for them at execution time.
+
 ## Feature Work
 
 - Start from the domain model and service boundary.
@@ -97,7 +114,11 @@ Before asking for review or handing work back:
 - `make tloc` passes unless blocked by environment.
 - Code is formatted.
 - Error paths preserve useful context.
-- Transactions cover all related writes.
+- Transactions cover all related writes, and queue enqueues use the outbox.
 - Public API docs/specs match handlers and models.
 - Generated files are updated only when their source changed.
 - Unrelated dirty worktree changes are left untouched.
+- No dead code (unused options, unwired branches) is left behind.
+- Self-review the diff before handing back: run the `code-reviewer` and
+  `code-skeptic` skills on your own change and resolve their findings, so human
+  review starts from a clean baseline rather than catching basics.
