@@ -29,7 +29,7 @@ import (
 // @Produce json
 // @Param from query string true "Start date" Format(date)
 // @Param to query string true "End date" Format(date)
-// @Param statuses query []uimodels.MaintenanceStatus false "Maintenance statuses" collectionFormat(multi)
+// @Param statuses query []string false "Maintenance statuses" collectionFormat(multi) Enums(draft,planned,in_progress,canceled,completed)
 // @Param resource_ids query []string false "Resource IDs(uuid)" collectionFormat(multi)
 // @Success 200 {object} uimodels.CalendarViewResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid request"

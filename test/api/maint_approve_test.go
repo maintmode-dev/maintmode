@@ -4,14 +4,14 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
-	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
@@ -21,37 +21,26 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get maintenance before approve")
-	require.NotNil(t, getResp, "Get response should not be nil")
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
 
-	revision := time.Time(getResp.Payload.CreatedAt).UnixMicro()
+	revision := lo.FromPtr(getResp.JSON200.CreatedAt).UnixMicro()
 
-	approveReq := &models.ApimodelsApproveDraftMaintRequest{
-		ObservedMaintRevision: revision,
-		ConflictsSnapshot:     []*models.ApimodelsConflict{},
+	approveReq := maintmodeclient.PostApiV1MaintenancesIdApproveJSONRequestBody{
+		ObservedMaintRevision: lo.ToPtr(int(revision)),
+		ConflictsSnapshot:     lo.ToPtr([]maintmodeclient.ApimodelsConflict{}),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesIDApproveParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithRequest(approveReq)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
 	require.NoError(t, err, "Failed to approve maintenance draft")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 
-	getParamsAfter := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getRespAfter, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParamsAfter, nil)
+	getRespAfter, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get approved maintenance")
-	require.NotNil(t, getRespAfter, "Get response should not be nil")
+	require.Equal(t, http.StatusOK, getRespAfter.StatusCode(), "unexpected status: %s", getRespAfter.Body)
+	require.NotNil(t, getRespAfter.JSON200)
 
-	require.Equal(t, string(models.UimodelsMaintenanceStatusPlanned), getRespAfter.Payload.Status)
+	require.Equal(t, string(maintmodeclient.MaintenanceStatusPlanned), lo.FromPtr(getRespAfter.JSON200.Status))
 }

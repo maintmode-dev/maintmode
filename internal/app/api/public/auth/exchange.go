@@ -26,7 +26,7 @@ import (
 // @Failure 403 {object} httperrors.ErrorResponse "DOMAIN_NOT_ALLOWED"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
-// @Router /api/v1//login/oauth/exchange/google [post]
+// @Router /api/v1/login/oauth/exchange/google [post]
 // Exchange verifies a Google ID token and issues a backend token pair.
 func (i *Implementation) ExchangeGoogleToken(c *echo.Context) error {
 	return i.exchange(c, entity.OAuthProviderGoogle)

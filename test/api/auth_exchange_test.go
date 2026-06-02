@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/auth"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 // TestAuthAPI_AuthExchange_InvalidIDToken hits the BFF-owned exchange endpoint
@@ -26,15 +26,12 @@ func TestAuthAPI_AuthExchange_InvalidIDToken(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	params := auth.NewPostAPIV1LoginOauthExchangeGoogleParams().
-		WithContext(ctx).
-		WithRequest(&models.ApiauthmodelsExchangeIDTokenRequest{
-			IDToken: "this-is-not-a-valid-jwt",
+	resp, err := apiClient.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
+			IdToken: lo.ToPtr("this-is-not-a-valid-jwt"),
 		})
-
-	_, err := apiClient.Auth.PostAPIV1LoginOauthExchangeGoogle(params)
-	require.Error(t, err)
-	require.Equal(t, http.StatusUnauthorized, extractErrorCode(t, err))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }
 
 // TestAuthAPI_AuthExchange_MissingIDToken verifies the handler rejects an
@@ -44,13 +41,10 @@ func TestAuthAPI_AuthExchange_MissingIDToken(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	params := auth.NewPostAPIV1LoginOauthExchangeGoogleParams().
-		WithContext(ctx).
-		WithRequest(&models.ApiauthmodelsExchangeIDTokenRequest{
-			IDToken: "",
+	resp, err := apiClient.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
+			IdToken: lo.ToPtr(""),
 		})
-
-	_, err := apiClient.Auth.PostAPIV1LoginOauthExchangeGoogle(params)
-	require.Error(t, err)
-	require.Equal(t, http.StatusBadRequest, extractErrorCode(t, err))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/auth"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 func TestAuthAPI_OAuthCallback_InvalidState(t *testing.T) {
@@ -20,16 +20,14 @@ func TestAuthAPI_OAuthCallback_InvalidState(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	params := auth.NewGetAPIV1LoginOauthGoogleCallbackParams().
-		WithContext(ctx).
-		WithState("invalid").
-		WithCode("abc")
+	params := &authclient.GetApiV1LoginOauthGoogleCallbackParams{
+		Code:  "abc",
+		State: "invalid",
+	}
 
-	_, err := apiClient.Auth.GetAPIV1LoginOauthGoogleCallback(params)
-	require.Error(t, err)
-
-	code := extractErrorCode(t, err)
-	require.Equal(t, http.StatusBadRequest, code)
+	resp, err := apiClient.GetApiV1LoginOauthGoogleCallbackWithResponse(ctx, params)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }
 
 // TestAuthAPI_OAuthCallback_JSONMode_InvalidState verifies the JSON-mode

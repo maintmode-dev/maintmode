@@ -41,10 +41,10 @@ type MaintenanceStep struct {
 }
 
 type MaintenanceStepInput struct {
-	Order               int32  `json:"order"`
+	Order               int32  `json:"order" example:"1"`
 	Description         string `json:"description"`
 	RollbackDescription string `json:"rollback_description"`
-	Duration            string `json:"duration"`
+	Duration            string `json:"duration" example:"1h30m"`
 }
 
 type MaintenanceCancelReason string
@@ -58,7 +58,7 @@ const (
 )
 
 type NotifyTargets struct {
-	ChannelIDs []string `json:"channel_ids" example:"[slack:C0123456, tg:-10013123]"`
+	ChannelIDs []string `json:"channel_ids" example:"slack:stub-alerts"`
 }
 
 // DeferredNotification is one entry of the deferred_notifications array: a

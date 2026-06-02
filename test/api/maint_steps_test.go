@@ -4,13 +4,14 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestMaintenancesAPI_StepLifecycle(t *testing.T) {
@@ -19,38 +20,29 @@ func TestMaintenancesAPI_StepLifecycle(t *testing.T) {
 	apiClient := setupMaintmodeTestClient()
 	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err)
-	require.NotNil(t, getResp)
-	require.NotEmpty(t, getResp.Payload.Steps)
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
+	require.NotEmpty(t, lo.FromPtr(getResp.JSON200.Steps))
 
-	stepID := getResp.Payload.Steps[0].ID
+	stepID := lo.FromPtr(lo.FromPtr(getResp.JSON200.Steps)[0].Id)
 
-	startParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDStartParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithStepID(stepID)
-
-	_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDStart(startParams, nil)
+	startResp, err := apiClient.PostApiV1MaintenancesIdStepsStepIdStartWithResponse(ctx, uuid.MustParse(maintenanceID), stepID)
 	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, startResp.StatusCode(), "unexpected status: %s", startResp.Body)
 
-	getResp, err = apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err = apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err)
-	require.Equal(t, models.ApimodelsMaintenanceStepStatusStarted, getResp.Payload.Steps[0].Status)
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.Equal(t, maintmodeclient.MaintenanceStepStatusStarted, lo.FromPtr(lo.FromPtr(getResp.JSON200.Steps)[0].Status))
 
-	cancelParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDCancelParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithStepID(stepID)
-
-	_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDCancel(cancelParams, nil)
+	cancelResp, err := apiClient.PostApiV1MaintenancesIdStepsStepIdCancelWithResponse(ctx, uuid.MustParse(maintenanceID), stepID)
 	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, cancelResp.StatusCode(), "unexpected status: %s", cancelResp.Body)
 
-	getResp, err = apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err = apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err)
-	require.Equal(t, models.ApimodelsMaintenanceStepStatusCanceled, getResp.Payload.Steps[0].Status)
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.Equal(t, maintmodeclient.MaintenanceStepStatusCanceled, lo.FromPtr(lo.FromPtr(getResp.JSON200.Steps)[0].Status))
 }

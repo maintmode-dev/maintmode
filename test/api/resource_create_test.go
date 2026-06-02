@@ -3,14 +3,15 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	"github.com/ruko1202/maintmode/test/api/client/client/resources"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestReroucesAPI_Create(t *testing.T) {
@@ -20,40 +21,37 @@ func TestReroucesAPI_Create(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		req  *models.ApimodelsCreateResourceRequest
+		req  maintmodeclient.PostApiV1ResourceCreateJSONRequestBody
 	}{
 		{
 			name: "empty external id",
-			req: &models.ApimodelsCreateResourceRequest{
-				Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
-				Description: "This is a test resource created via API tests",
+			req: maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
+				Name:        lo.ToPtr(fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString())),
+				Description: lo.ToPtr("This is a test resource created via API tests"),
 			},
 		}, {
 			name: "with external id",
-			req: &models.ApimodelsCreateResourceRequest{
-				Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
-				Description: "This is a test resource created via API tests",
-				ExternalID:  xuuid.NewString(),
+			req: maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
+				Name:        lo.ToPtr(fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString())),
+				Description: lo.ToPtr("This is a test resource created via API tests"),
+				ExternalId:  lo.ToPtr(xuuid.NewString()),
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			params := resources.NewPostAPIV1ResourceCreateParams().
-				WithContext(ctx).
-				WithRequest(tc.req)
-
-			resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params, nil)
+			resp, err := apiClient.PostApiV1ResourceCreateWithResponse(ctx, tc.req)
 			require.NoError(t, err)
-			require.NotNil(t, resp)
+			require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+			require.NotNil(t, resp.JSON200)
 
-			payload := resp.Payload
-			require.NotEmpty(t, payload.ID)
-			require.Equal(t, tc.req.Name, payload.Name)
-			require.Equal(t, tc.req.Description, payload.Description)
-			require.Equal(t, tc.req.ExternalID, payload.ExternalID)
-			require.False(t, payload.CreatedAt.IsZero())
+			payload := resp.JSON200
+			require.NotEmpty(t, lo.FromPtr(payload.Id))
+			require.Equal(t, lo.FromPtr(tc.req.Name), lo.FromPtr(payload.Name))
+			require.Equal(t, lo.FromPtr(tc.req.Description), lo.FromPtr(payload.Description))
+			require.Equal(t, lo.FromPtr(tc.req.ExternalId), lo.FromPtr(payload.ExternalId))
+			require.False(t, lo.FromPtr(payload.CreatedAt).IsZero())
 		})
 	}
 }
@@ -65,24 +63,22 @@ func TestReroucesAPI_Create_IdempotentCaseInsensitive(t *testing.T) {
 
 	name := fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString())
 
-	first := resources.NewPostAPIV1ResourceCreateParams().
-		WithContext(ctx).
-		WithRequest(&models.ApimodelsCreateResourceRequest{
-			Name:        name,
-			Description: "first create",
-		})
-	firstResp, err := apiClient.Resources.PostAPIV1ResourceCreate(first, nil)
+	firstResp, err := apiClient.PostApiV1ResourceCreateWithResponse(ctx, maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
+		Name:        lo.ToPtr(name),
+		Description: lo.ToPtr("first create"),
+	})
 	require.NoError(t, err)
-	require.NotEmpty(t, firstResp.Payload.ID)
+	require.Equal(t, http.StatusOK, firstResp.StatusCode(), "unexpected status: %s", firstResp.Body)
+	require.NotNil(t, firstResp.JSON200)
+	require.NotEmpty(t, lo.FromPtr(firstResp.JSON200.Id))
 
-	second := resources.NewPostAPIV1ResourceCreateParams().
-		WithContext(ctx).
-		WithRequest(&models.ApimodelsCreateResourceRequest{
-			Name:        strings.ToUpper(name),
-			Description: "second create with different case",
-		})
-	secondResp, err := apiClient.Resources.PostAPIV1ResourceCreate(second, nil)
+	secondResp, err := apiClient.PostApiV1ResourceCreateWithResponse(ctx, maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
+		Name:        lo.ToPtr(strings.ToUpper(name)),
+		Description: lo.ToPtr("second create with different case"),
+	})
 	require.NoError(t, err)
-	require.Equal(t, firstResp.Payload.ID, secondResp.Payload.ID,
+	require.Equal(t, http.StatusOK, secondResp.StatusCode(), "unexpected status: %s", secondResp.Body)
+	require.NotNil(t, secondResp.JSON200)
+	require.Equal(t, lo.FromPtr(firstResp.JSON200.Id), lo.FromPtr(secondResp.JSON200.Id),
 		"creating resource with a name differing only by case must return the existing resource")
 }

@@ -2,14 +2,13 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/resources"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestReroucesAPI_List(t *testing.T) {
@@ -17,7 +16,7 @@ func TestReroucesAPI_List(t *testing.T) {
 	ctx := context.Background()
 	apiClient := setupMaintmodeTestClient()
 
-	createdResources := lo.RepeatBy(150, func(_ int) *models.ApimodelsResource {
+	createdResources := lo.RepeatBy(150, func(_ int) maintmodeclient.ApimodelsResource {
 		return creatResource(ctx, t, apiClient)
 	})
 	resource := lo.LastOrEmpty(createdResources)
@@ -26,41 +25,39 @@ func TestReroucesAPI_List(t *testing.T) {
 		name              string
 		searchName        string
 		expectedCount     int
-		expectedResources []*models.ApimodelsResource
+		expectedResources []maintmodeclient.ApimodelsResource
 	}{
 		{
 			name:              "search by name",
-			searchName:        resource.Name,
+			searchName:        lo.FromPtr(resource.Name),
 			expectedCount:     1,
-			expectedResources: []*models.ApimodelsResource{resource},
+			expectedResources: []maintmodeclient.ApimodelsResource{resource},
 		}, {
 			name:              "search all",
 			searchName:        "",
 			expectedCount:     100,
-			expectedResources: []*models.ApimodelsResource{},
+			expectedResources: []maintmodeclient.ApimodelsResource{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			params := resources.NewGetAPIV1ResourcesParams().
-				WithContext(ctx).
-				WithName(tc.searchName)
-
-			resp, err := apiClient.Resources.GetAPIV1Resources(params, nil)
+			resp, err := apiClient.GetApiV1ResourcesWithResponse(ctx, &maintmodeclient.GetApiV1ResourcesParams{
+				Name: tc.searchName,
+			})
 			require.NoError(t, err)
-			require.NotNil(t, resp)
+			require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+			require.NotNil(t, resp.JSON200)
 
-			payload := resp.Payload
-			require.NotNil(t, payload)
+			payload := resp.JSON200
 
-			actualResourceM := lo.SliceToMap(payload.Resources, func(item *models.ApimodelsResource) (strfmt.UUID, *models.ApimodelsResource) {
-				return strfmt.UUID(item.ID), item
+			actualResourceM := lo.SliceToMap(lo.FromPtr(payload.Resources), func(item maintmodeclient.ApimodelsResource) (string, maintmodeclient.ApimodelsResource) {
+				return lo.FromPtr(item.Id), item
 			})
 			require.GreaterOrEqual(t, len(actualResourceM), tc.expectedCount)
 
 			for _, expected := range tc.expectedResources {
-				actual, ok := actualResourceM[strfmt.UUID(expected.ID)]
+				actual, ok := actualResourceM[lo.FromPtr(expected.Id)]
 				require.True(t, ok)
 				require.Equal(t, expected, actual)
 			}

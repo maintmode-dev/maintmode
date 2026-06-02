@@ -1,0 +1,821 @@
+components:
+    schemas:
+        apiauthmodels.AuditLog:
+            properties:
+                action:
+                    $ref: '#/components/schemas/entity.AuditAction'
+                actor:
+                    type: string
+                created_at:
+                    type: string
+                details:
+                    type: string
+                entity_id:
+                    type: string
+                entity_type:
+                    type: string
+                id:
+                    type: string
+                target_id:
+                    type: string
+                target_type:
+                    type: string
+            type: object
+        apiauthmodels.AuditLogResponse:
+            properties:
+                logs:
+                    items:
+                        $ref: '#/components/schemas/apiauthmodels.AuditLog'
+                    type: array
+                    uniqueItems: false
+            type: object
+        apiauthmodels.ExchangeIDTokenRequest:
+            properties:
+                id_token:
+                    description: IDToken is the upstream provider's signed JWT.
+                    type: string
+            type: object
+        apiauthmodels.IntrospectRequest:
+            properties:
+                access_token:
+                    type: string
+            type: object
+        apiauthmodels.IntrospectResponse:
+            properties:
+                active:
+                    type: boolean
+                email:
+                    type: string
+                exp:
+                    type: integer
+                jti:
+                    type: string
+                roles:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+                sub:
+                    type: string
+            type: object
+        apiauthmodels.JWKSResponse:
+            properties:
+                keys:
+                    items:
+                        $ref: '#/components/schemas/entity.JWK'
+                    type: array
+                    uniqueItems: false
+            type: object
+        apiauthmodels.MeResponse:
+            properties:
+                display_name:
+                    type: string
+                email:
+                    type: string
+                id:
+                    type: string
+                oauth_provider:
+                    type: string
+                roles:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+            type: object
+        apiauthmodels.OAuthCallbackJSONResponse:
+            properties:
+                original_uri:
+                    type: string
+                token:
+                    $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+            type: object
+        apiauthmodels.TokenPairResponse:
+            properties:
+                access_token:
+                    type: string
+                expires_in:
+                    type: integer
+                refresh_token:
+                    type: string
+            type: object
+        apimodels.AssignRoleRequest:
+            properties:
+                role:
+                    $ref: '#/components/schemas/apimodels.Role'
+                user_id:
+                    type: string
+            type: object
+        apimodels.ListRolesResponse:
+            properties:
+                roles:
+                    items:
+                        $ref: '#/components/schemas/apimodels.Role'
+                    type: array
+                    uniqueItems: false
+            type: object
+        apimodels.RevokeRoleRequest:
+            properties:
+                role:
+                    $ref: '#/components/schemas/apimodels.Role'
+                user_id:
+                    type: string
+            type: object
+        apimodels.Role:
+            enum:
+                - guest
+                - editor
+                - reviewer
+                - admin
+            type: string
+            x-enum-varnames:
+                - RoleGuest
+                - RoleEditor
+                - RoleReviewer
+                - RoleAdmin
+        auth.refreshTokenJSONRequest:
+            properties:
+                refresh_token:
+                    type: string
+            type: object
+        entity.AuditAction:
+            enum:
+                - login_success
+                - login_failed
+                - logout_success
+                - assigned
+                - revoked
+                - replaced
+            type: string
+            x-enum-varnames:
+                - AuditActionLoginSuccess
+                - AuditActionLoginFailed
+                - AuditActionLogoutSuccess
+                - AuditActionRoleAssigned
+                - AuditActionRoleRevoked
+                - AuditActionRolesReplaced
+        entity.JWK:
+            properties:
+                alg:
+                    type: string
+                crv:
+                    type: string
+                kid:
+                    type: string
+                kty:
+                    type: string
+                use:
+                    type: string
+                x:
+                    type: string
+                "y":
+                    type: string
+            type: object
+        httperrors.ErrorResponse:
+            properties:
+                code:
+                    example: error code
+                    type: string
+                message:
+                    example: error message
+                    type: string
+            type: object
+    securitySchemes:
+        BearerAuth:
+            in: header
+            name: Authorization
+            type: apiKey
+externalDocs:
+    description: ""
+    url: ""
+info:
+    contact:
+        email: platform@example.com
+        name: Platform Team
+    description: Authentication, authorization and audit API.
+    license:
+        name: Proprietary
+    termsOfService: https://example.com/terms
+    title: Auth API
+    version: 1.0.0
+openapi: 3.1.0
+servers:
+    - description: Dev (service in container)
+      url: http://{domain}:9000/auth
+      variables:
+        domain:
+            default: localhost
+            description: Hostname of the dev environment
+    - description: Local (service run on host)
+      url: http://localhost:8000
+paths:
+    /api/v1/.well-known/jwks.json:
+        get:
+            description: Returns JSON Web Key Set used to verify access tokens.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.JWKSResponse'
+                    description: OK
+            summary: Get JWKS
+            tags:
+                - Auth
+    /api/v1/audit/log:
+        get:
+            description: |-
+                Returns audit log entries ordered by created_at DESC.
+                Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
+            parameters:
+                - description: Number of entries to return (max 100)
+                  in: query
+                  name: limit
+                  schema:
+                    default: 100
+                    type: integer
+                - description: Pagination offset
+                  in: query
+                  name: offset
+                  schema:
+                    default: 0
+                    type: integer
+                - description: Filter by audit action (e.g. assigned, revoked, login_success)
+                  in: query
+                  name: action
+                  schema:
+                    type: string
+                - description: Filter by actor (exact match)
+                  in: query
+                  name: actor
+                  schema:
+                    type: string
+                - description: Filter by created_at >= this RFC3339 timestamp
+                  in: query
+                  name: created_from
+                  schema:
+                    type: string
+                - description: Filter by created_at <= this RFC3339 timestamp
+                  in: query
+                  name: created_to
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.AuditLogResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid query parameters
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Get audit log
+            tags:
+                - Audit
+    /api/v1/login/oauth/exchange/google:
+        post:
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.ExchangeIDTokenRequest'
+                description: Google ID token
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: DOMAIN_NOT_ALLOWED
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Exchange a Google ID token for a backend token pair
+            tags:
+                - Auth
+    /api/v1/login/oauth/google:
+        get:
+            deprecated: true
+            description: |-
+                **Deprecated for production.** Production clients should use
+                the BFF-owned flow: complete OAuth at the frontend BFF and
+                exchange the resulting Google ID token via
+                `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+                local prototype / HTML-mode testing.
+
+                Redirects the user to the OAuth provider consent page.
+
+                The handler issues a short-lived nonce cookie and a signed state
+                that carries `original_uri` and the desired callback response
+                shape (`oauth_callback_type`). Both values are echoed back by
+                the provider to `/login/oauth/google/callback`.
+
+                Query parameters:
+                - `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).
+                - `oauth_callback_type` — selects the callback response shape:
+                - `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).
+                - `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.
+            parameters:
+                - description: Original frontend path to redirect after login
+                  in: query
+                  name: original_uri
+                  schema:
+                    type: string
+                - description: 'Callback response shape: `json` (default, server-side BFF) or `html` (legacy handoff for local testing)'
+                  in: query
+                  name: oauth_callback_type
+                  schema:
+                    enum:
+                        - json
+                        - html
+                    type: string
+            responses:
+                "307":
+                    description: Temporary redirect to OAuth provider
+                "500":
+                    content:
+                        text/plain:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Start OAuth login (deprecated for production)
+            tags:
+                - Auth
+    /api/v1/login/oauth/google/callback:
+        get:
+            deprecated: true
+            description: |-
+                **Deprecated for production.** Production clients should use
+                the BFF-owned flow: the frontend BFF completes OAuth with
+                Google directly and posts the resulting ID token to
+                `POST /api/v1/auth/exchange/google`. This endpoint is kept only for
+                local prototype / HTML-mode testing.
+
+                Handles the redirect from Google after the user grants consent.
+                Validates the signed `state` and the nonce cookie, exchanges the
+                authorization `code` for tokens, and returns the result.
+
+                **Default response — JSON**
+                Returns `OAuthCallbackJSONResponse` with the access token, refresh
+                token, and `original_uri` in the response body. The refresh token
+                is **not** set as a cookie — the caller (typically a server-side
+                BFF) persists it in its own session storage. This is the contract
+                used by production server-side integrations (NextAuth, BFFs) that
+                must never expose tokens to the browser.
+
+                JSON mode is selected when **any** of the following holds:
+                - `Accept: application/json` request header
+                - `Content-Type: application/json` request header
+                - the signed state was issued with `oauth_callback_type=json`
+                (see `/login/oauth/google?oauth_callback_type=json`, which is
+                also the default if the parameter is omitted)
+
+                **HTML mode (legacy / local testing)** — opt-in via the login
+                handler with `?oauth_callback_type=html`. In this mode the
+                handler sets an HttpOnly, Secure, SameSite=Strict refresh-token
+                cookie on the backend domain and returns an HTML handoff page
+                that stashes the access token in `sessionStorage` and redirects
+                to `frontendURL + original_uri`. Kept for the prototype frontend
+                and local debugging only — production clients should not use it.
+
+                Both modes clear the nonce cookie on success.
+            parameters:
+                - description: 'Optional override: `application/json` forces JSON mode regardless of the state flag (JSON is already the default).'
+                  in: header
+                  name: Accept
+                  schema:
+                    type: string
+                - description: OAuth authorization code returned by the provider
+                  in: query
+                  name: code
+                  required: true
+                  schema:
+                    type: string
+                - description: Signed opaque state (HMAC + expiry) issued by /login/oauth/google; carries the HTML/JSON mode flag set at login time
+                  in: query
+                  name: state
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        text/html:
+                            schema:
+                                oneOf:
+                                    - $ref: '#/components/schemas/apiauthmodels.OAuthCallbackJSONResponse'
+                                    - type: string
+                    description: 'Opt-in HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set'
+                    headers:
+                        Set-Cookie:
+                            description: Refresh token cookie (HTML mode only; not set in JSON mode)
+                            schema:
+                                type: string
+                "400":
+                    content:
+                        text/html:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Missing/invalid/expired/tampered state or nonce mismatch
+                "500":
+                    content:
+                        text/html:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: OAuth callback (JSON by default, HTML opt-in) (deprecated for production)
+            tags:
+                - Auth
+    /api/v1/logout:
+        post:
+            description: Revokes current refresh token, blacklists access token, and clears refresh cookie.
+            parameters:
+                - description: Bearer access token
+                  in: header
+                  name: Authorization
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/auth.refreshTokenJSONRequest'
+                description: Fallback refresh token body when cookie is absent
+            responses:
+                "204":
+                    description: Logged out
+                    headers:
+                        Set-Cookie:
+                            description: Cleared refresh token cookie
+                            schema:
+                                type: string
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid token
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Logout current session
+            tags:
+                - Auth
+    /api/v1/logout/all:
+        post:
+            description: Revokes all refresh tokens for current user and clears refresh cookie.
+            parameters:
+                - description: Bearer access token
+                  in: header
+                  name: Authorization
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "204":
+                    description: Logged out from all sessions
+                    headers:
+                        Set-Cookie:
+                            description: Cleared refresh token cookie
+                            schema:
+                                type: string
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid token
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Logout from all sessions
+            tags:
+                - Auth
+    /api/v1/me:
+        get:
+            description: Returns the profile of the user identified by the Bearer access token.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.MeResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Get current authenticated user
+            tags:
+                - Auth
+    /api/v1/refresh:
+        post:
+            description: Rotates refresh token and issues a new access token pair.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/auth.refreshTokenJSONRequest'
+                description: Fallback refresh token body when cookie is absent
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                    headers:
+                        Set-Cookie:
+                            description: Rotated refresh token cookie (if issued)
+                            schema:
+                                type: string
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid refresh token
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Refresh lock busy or token reuse
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Refresh token pair
+            tags:
+                - Auth
+    /api/v1/roles:
+        get:
+            description: Returns all roles available in the system.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.ListRolesResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+            security:
+                - BearerAuth: []
+            summary: List available roles
+            tags:
+                - Roles
+    /api/v1/roles/assign:
+        post:
+            description: Assigns a role to a user. Requires admin privileges.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.AssignRoleRequest'
+                description: Assign role request
+                required: true
+            responses:
+                "204":
+                    description: Role assigned
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid request or validation error
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Assign role to user
+            tags:
+                - Roles
+    /api/v1/roles/revoke:
+        post:
+            description: Revokes a role from a user. Requires admin privileges.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.RevokeRoleRequest'
+                description: Revoke role request
+                required: true
+            responses:
+                "204":
+                    description: Role revoked
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid request or validation error
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Revoke role from user
+            tags:
+                - Roles
+    /api/v1/s2s/introspect:
+        post:
+            description: Validates access token and returns its activity and claims (S2S endpoint).
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.IntrospectRequest'
+                description: Introspect request
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.IntrospectResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid request
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid service token
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Introspect access token
+            tags:
+                - Auth
+    /api/v1/user/{id}/roles:
+        get:
+            description: Returns all roles assigned to a user by their ID.
+            parameters:
+                - description: User ID (UUID)
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.ListRolesResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid UUID
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: List user roles
+            tags:
+                - Roles

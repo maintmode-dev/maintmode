@@ -6,7 +6,8 @@ import (
 	"github.com/labstack/echo-contrib/v5/pprof"
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	echoSwagger "github.com/swaggo/echo-swagger/v2"
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
+	"github.com/ruko1202/swaggerui"
 
 	"github.com/ruko1202/maintmode/docs"
 
@@ -47,11 +48,28 @@ func (s *InfraServer) BindRouters(env config.Environment, appName string) {
 
 	if env.IsDev() {
 		gr.Add(http.MethodGet, "/", s.apiImpl.MainPage)
-		if !env.IsLocal() {
-			docs.SwaggerInfo.Host = "localhost:9000"
-			docs.SwaggerInfo.BasePath = "/" + appName
+
+		// Serve Swagger UI with both service specs selectable from a dropdown.
+		// The handler has its own internal mux rooted at "/", so it is mounted
+		// under /swagger with the prefix stripped; open it at /swagger/ (the
+		// trailing slash matters — the UI assets use relative paths).
+		var specsHandler http.Handler
+		switch appName {
+		case buildmeta.MaintModeAppName:
+			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
+				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec}},
+			)
+		case buildmeta.AuthAppName:
+			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
+				{Name: buildmeta.AuthAppName, Content: docs.AuthSpec},
+			})
+		default:
+			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
+				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
+				{Name: buildmeta.AuthAppName, Content: docs.AuthSpec},
+			}, swaggerui.WithPrimaryName(buildmeta.MaintModeAppName))
 		}
 
-		gr.Add(http.MethodGet, "/swagger/*", echoSwagger.WrapHandler)
+		gr.Add(http.MethodGet, "/swagger/*", echo.WrapHandler(http.StripPrefix("/swagger", specsHandler)))
 	}
 }

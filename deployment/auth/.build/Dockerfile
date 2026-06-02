@@ -20,7 +20,6 @@ WORKDIR /app
 
 COPY deployment/auth/.build/.goreleaser.yaml ./
 
-COPY docs.go ./
 COPY web/ web/
 COPY cmd/ cmd/
 COPY internal/ internal/

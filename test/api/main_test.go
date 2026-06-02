@@ -9,27 +9,22 @@ import (
 	"testing"
 	"time"
 
-	httptransport "github.com/go-openapi/runtime/client"
-	"github.com/go-openapi/strfmt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
-
-	"github.com/ruko1202/xlog"
-
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	"github.com/ruko1202/maintmode/test/api/client/client"
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/client/notifications"
-	"github.com/ruko1202/maintmode/test/api/client/client/resources"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 const (
@@ -120,42 +115,69 @@ func waitForAPIHealth(ctx context.Context) error {
 	}
 }
 
-func setupMaintmodeTestClient() *client.Maintmode {
+// baseURL builds the proxy base URL for a service prefix (e.g. /maintmode, /auth).
+func baseURL(servicePrefix string) string {
+	return fmt.Sprintf("http://%s:%s/%s",
+		viper.GetString(envAPIHost), viper.GetString(envAPIPort), servicePrefix)
+}
+
+// bearerEditor returns a RequestEditorFn that attaches the Bearer token to every
+// request, or a no-op editor when the token is empty (unauthenticated client).
+func bearerEditor(token string) maintmodeclient.RequestEditorFn {
+	return func(_ context.Context, req *http.Request) error {
+		if token != "" {
+			xhttp.SetBearerToken(req, token)
+		}
+		return nil
+	}
+}
+
+// --- maintmode service client ---------------------------------------------
+
+func setupMaintmodeTestClient() *maintmodeclient.ClientWithResponses {
 	return setupMaintmodeTestClientWithRoles(entity.RoleAdmin)
 }
 
-func setupMaintmodeTestClientWithoutAuth() *client.Maintmode {
+func setupMaintmodeTestClientWithoutAuth() *maintmodeclient.ClientWithResponses {
 	return newMaintmodeTestClient("")
 }
 
-func setupMaintmodeTestClientWithRoles(roles ...entity.Role) *client.Maintmode {
+func setupMaintmodeTestClientWithRoles(roles ...entity.Role) *maintmodeclient.ClientWithResponses {
 	return newMaintmodeTestClient(mustTestAccessToken(roles...))
 }
 
-func setupMaintmodeTestClientWithToken(token string) *client.Maintmode {
+func setupMaintmodeTestClientWithToken(token string) *maintmodeclient.ClientWithResponses {
 	return newMaintmodeTestClient(token)
 }
 
-func newMaintmodeTestClient(token string) *client.Maintmode {
-	transport := httptransport.New(
-		fmt.Sprintf("%s:%s", viper.GetString(envAPIHost), viper.GetString(envAPIPort)),
-		"/maintmode",
-		[]string{"http"},
+func newMaintmodeTestClient(token string) *maintmodeclient.ClientWithResponses {
+	c, err := maintmodeclient.NewClientWithResponses(
+		baseURL("maintmode"),
+		maintmodeclient.WithHTTPClient(xhttp.NewClient()),
+		maintmodeclient.WithRequestEditorFn(bearerEditor(token)),
 	)
-	if token != "" {
-		transport.DefaultAuthentication = httptransport.BearerToken(token)
+	if err != nil {
+		panic(fmt.Sprintf("build maintmode test client: %v", err))
 	}
-	return client.New(transport, strfmt.Default)
+	return c
 }
 
-func setupAuthTestClientWithRoles(roles ...entity.Role) *client.Maintmode {
-	transport := httptransport.New(
-		fmt.Sprintf("%s:%s", viper.GetString(envAPIHost), viper.GetString(envAPIPort)),
-		"/auth",
-		[]string{"http"},
+// --- auth service client ---------------------------------------------------
+
+func setupAuthTestClientWithRoles(roles ...entity.Role) *authclient.ClientWithResponses {
+	return newAuthTestClient(mustTestAccessToken(roles...))
+}
+
+func newAuthTestClient(token string) *authclient.ClientWithResponses {
+	c, err := authclient.NewClientWithResponses(
+		baseURL("auth"),
+		authclient.WithHTTPClient(xhttp.NewClient()),
+		authclient.WithRequestEditorFn(authclient.RequestEditorFn(bearerEditor(token))),
 	)
-	transport.DefaultAuthentication = httptransport.BearerToken(mustTestAccessToken(roles...))
-	return client.New(transport, strfmt.Default)
+	if err != nil {
+		panic(fmt.Sprintf("build auth test client: %v", err))
+	}
+	return c
 }
 
 func mustTestAccessToken(roles ...entity.Role) string {
@@ -187,198 +209,168 @@ func mustTestAccessToken(roles ...entity.Role) string {
 	return signed
 }
 
-func testMaintenanceSteps() []*models.ApimodelsMaintenanceStepInput {
-	return []*models.ApimodelsMaintenanceStepInput{
+func testMaintenanceSteps() []maintmodeclient.ApimodelsMaintenanceStepInput {
+	return []maintmodeclient.ApimodelsMaintenanceStepInput{
 		{
-			Order:               1,
-			Description:         "Run maintenance task",
-			RollbackDescription: "Rollback maintenance task",
-			Duration:            testMaintenanceDuration.String(),
+			Order:               lo.ToPtr(1),
+			Description:         lo.ToPtr("Run maintenance task"),
+			RollbackDescription: lo.ToPtr("Rollback maintenance task"),
+			Duration:            lo.ToPtr(testMaintenanceDuration.String()),
 		},
 	}
 }
 
-func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode) string {
+func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
 	t.Helper()
 
 	resource := creatResource(ctx, t, apiClient)
 
-	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(testMaintenanceStartOffset))
+	plannedStart := xtime.UTCNow().Add(testMaintenanceStartOffset)
 
-	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:        "Test Maintenance",
-		Description:  "Test maintenance for API testing",
-		Impact:       models.ApimodelsMaintenanceImpactNone,
-		Scope:        models.ApimodelsMaintenanceScopeResource,
-		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResourceRef{
-			{ID: strfmt.UUID(resource.ID)},
-		},
-		Steps:         testMaintenanceSteps(),
+	req := maintmodeclient.PostApiV1MaintenancesCreateJSONRequestBody{
+		Title:        lo.ToPtr("Test Maintenance"),
+		Description:  lo.ToPtr("Test maintenance for API testing"),
+		Impact:       lo.ToPtr(maintmodeclient.MaintenanceImpactNone),
+		Scope:        lo.ToPtr(maintmodeclient.MaintenanceScopeResources),
+		PlannedStart: lo.ToPtr(plannedStart),
+		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
+			{Id: lo.ToPtr(uuid.MustParse(lo.FromPtr(resource.Id)))},
+		}),
+		Steps:         lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
-		WithContext(ctx).
-		WithRequest(req)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
 	require.NoError(t, err, "Failed to create test maintenance")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	return resp.Payload.ID.String()
+	return lo.FromPtr(resp.JSON200.Id).String()
 }
 
-func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode, resourceID string) string {
+func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses, resourceID string) string {
 	t.Helper()
 
-	resourceUUID := strfmt.UUID(resourceID)
+	resourceUUID := uuid.MustParse(resourceID)
+	plannedStart := xtime.UTCNow().Add(testMaintenanceStartOffset)
 
-	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(testMaintenanceStartOffset))
-
-	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:        "Test Maintenance with Resource",
-		Description:  "Maintenance for testing resource-based operations",
-		Impact:       models.ApimodelsMaintenanceImpactNone,
-		Scope:        models.ApimodelsMaintenanceScopeResource,
-		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResourceRef{
-			{ID: resourceUUID},
-		},
-		Steps:         testMaintenanceSteps(),
+	req := maintmodeclient.PostApiV1MaintenancesCreateJSONRequestBody{
+		Title:        lo.ToPtr("Test Maintenance with Resource"),
+		Description:  lo.ToPtr("Maintenance for testing resource-based operations"),
+		Impact:       lo.ToPtr(maintmodeclient.MaintenanceImpactNone),
+		Scope:        lo.ToPtr(maintmodeclient.MaintenanceScopeResources),
+		PlannedStart: lo.ToPtr(plannedStart),
+		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
+			{Id: lo.ToPtr(resourceUUID)},
+		}),
+		Steps:         lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
-		WithContext(ctx).
-		WithRequest(req)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
 	require.NoError(t, err, "Failed to create maintenance with resource")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	return resp.Payload.ID.String()
+	return lo.FromPtr(resp.JSON200.Id).String()
 }
 
-func approveMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode, maintenanceID string) {
+func approveMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses, maintenanceID string) {
 	t.Helper()
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get maintenance before approve")
-	require.NotNil(t, getResp, "Get response should not be nil")
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
 
-	revision := time.Time(getResp.Payload.CreatedAt).UnixMicro()
-	if !time.Time(getResp.Payload.UpdatedAt).IsZero() {
-		revision = time.Time(getResp.Payload.UpdatedAt).UnixMicro()
+	revision := int(lo.FromPtr(getResp.JSON200.CreatedAt).UnixMicro())
+	if updated := lo.FromPtr(getResp.JSON200.UpdatedAt); !updated.IsZero() {
+		revision = int(updated.UnixMicro())
 	}
 
-	approveReq := &models.ApimodelsApproveDraftMaintRequest{
-		ObservedMaintRevision: revision,
-		ConflictsSnapshot:     []*models.ApimodelsConflict{},
+	approveReq := maintmodeclient.PostApiV1MaintenancesIdApproveJSONRequestBody{
+		ObservedMaintRevision: lo.ToPtr(revision),
+		ConflictsSnapshot:     lo.ToPtr([]maintmodeclient.ApimodelsConflict{}),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesIDApproveParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithRequest(approveReq)
-
-	_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDApprove(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
 	require.NoError(t, err, "Failed to approve maintenance")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }
 
-func createAndApproveMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode) string {
+func createAndApproveMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
 	t.Helper()
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 	approveMaintenance(ctx, t, apiClient, maintenanceID)
 	return maintenanceID
 }
 
-func createAndStartMaintenance(ctx context.Context, t *testing.T, apiClient *client.Maintmode) string {
+func createAndStartMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
 	t.Helper()
 
 	maintenanceID := createAndApproveMaintenance(ctx, t, apiClient)
 
-	params := maintenances.NewPostAPIV1MaintenancesIDStartParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	_, err := apiClient.Maintenances.PostAPIV1MaintenancesIDStart(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesIdStartWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to start maintenance")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 
 	return maintenanceID
 }
 
-func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *client.Maintmode, maintenanceID string) {
+func completeMaintenanceSteps(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses, maintenanceID string) {
 	t.Helper()
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get maintenance steps")
-	require.NotNil(t, getResp, "Get response should not be nil")
-	require.NotEmpty(t, getResp.Payload.Steps, "Maintenance should have steps")
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
+	require.NotEmpty(t, lo.FromPtr(getResp.JSON200.Steps), "Maintenance should have steps")
 
-	for _, step := range getResp.Payload.Steps {
-		startParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDStartParams().
-			WithContext(ctx).
-			WithID(strfmt.UUID(maintenanceID)).
-			WithStepID(step.ID)
+	for _, step := range lo.FromPtr(getResp.JSON200.Steps) {
+		stepID := lo.FromPtr(step.Id)
 
-		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDStart(startParams, nil)
+		startResp, err := apiClient.PostApiV1MaintenancesIdStepsStepIdStartWithResponse(ctx, uuid.MustParse(maintenanceID), stepID)
 		require.NoError(t, err, "Failed to start maintenance step")
+		require.Equal(t, http.StatusNoContent, startResp.StatusCode(), "unexpected status: %s", startResp.Body)
 
-		completeParams := maintenances.NewPostAPIV1MaintenancesIDStepsStepIDCompleteParams().
-			WithContext(ctx).
-			WithID(strfmt.UUID(maintenanceID)).
-			WithStepID(step.ID)
-
-		_, err = apiClient.Maintenances.PostAPIV1MaintenancesIDStepsStepIDComplete(completeParams, nil)
+		completeResp, err := apiClient.PostApiV1MaintenancesIdStepsStepIdCompleteWithResponse(ctx, uuid.MustParse(maintenanceID), stepID)
 		require.NoError(t, err, "Failed to complete maintenance step")
+		require.Equal(t, http.StatusNoContent, completeResp.StatusCode(), "unexpected status: %s", completeResp.Body)
 	}
 }
 
-func creatResource(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApimodelsResource {
+func creatResource(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) maintmodeclient.ApimodelsResource {
 	t.Helper()
 
-	req := &models.ApimodelsCreateResourceRequest{
-		Name:        fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString()),
-		Description: "This is a test resource created via API tests",
-		ExternalID:  xuuid.NewString(),
+	req := maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
+		Name:        lo.ToPtr(fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString())),
+		Description: lo.ToPtr("This is a test resource created via API tests"),
+		ExternalId:  lo.ToPtr(xuuid.NewString()),
 	}
 
-	params := resources.NewPostAPIV1ResourceCreateParams().
-		WithContext(ctx).
-		WithRequest(req)
-
-	resp, err := apiClient.Resources.PostAPIV1ResourceCreate(params, nil)
+	resp, err := apiClient.PostApiV1ResourceCreateWithResponse(ctx, req)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	return resp.Payload
+	return *resp.JSON200
 }
 
 // testNotifyTargets returns a NotifyTargets payload referencing the
 // first channel from the live catalog. Notify targets are required on
 // maintenance creation, so every create helper attaches this.
-func testNotifyTargets(ctx context.Context, t *testing.T, apiClient *client.Maintmode) *models.ApimodelsNotifyTargets {
+func testNotifyTargets(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) *maintmodeclient.ApimodelsNotifyTargets {
 	t.Helper()
 
-	params := notifications.NewGetAPIV1NotificationsChannelsParams().WithContext(ctx)
-
-	resp, err := apiClient.Notifications.GetAPIV1NotificationsChannels(params, nil)
+	resp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx)
 	require.NoError(t, err, "Failed to fetch notification channels")
-	require.NotNil(t, resp)
-	require.NotEmpty(t, resp.Payload.Channels, "catalog must expose at least one channel for API tests")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	return &models.ApimodelsNotifyTargets{
-		ChannelIds: []string{resp.Payload.Channels[0].ID},
+	channels := lo.FromPtr(resp.JSON200.Channels)
+	require.NotEmpty(t, channels, "catalog must expose at least one channel for API tests")
+
+	return &maintmodeclient.ApimodelsNotifyTargets{
+		ChannelIds: lo.ToPtr([]string{lo.FromPtr(channels[0].Id)}),
 	}
 }

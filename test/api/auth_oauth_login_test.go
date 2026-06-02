@@ -8,32 +8,35 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
-
-	"github.com/ruko1202/maintmode/test/api/client/client/auth"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 func TestAuthAPI_OAuthLogin(t *testing.T) {
 	ctx := context.Background()
 
-	apiClient := setupAuthTestClient()
-
-	originalURI := "/"
+	// The login endpoint issues a 307 redirect to the provider. The shared test
+	// client follows redirects, so build a dedicated client backed by a
+	// no-redirect HTTP client to observe the redirect status directly.
 	noRedirectClient := xhttp.NewClient(
 		xhttp.WithTimeout(5*time.Second),
 		xhttp.WithoutRedirect(),
 	)
 
-	params := auth.NewGetAPIV1LoginOauthGoogleParams().
-		WithContext(ctx).
-		WithHTTPClient(noRedirectClient).
-		WithOriginalURI(&originalURI)
+	apiClient, err := authclient.NewClientWithResponses(
+		baseURL("auth"),
+		authclient.WithHTTPClient(noRedirectClient),
+	)
+	require.NoError(t, err)
 
-	err := apiClient.Auth.GetAPIV1LoginOauthGoogle(params)
-	require.Error(t, err)
+	params := &authclient.GetApiV1LoginOauthGoogleParams{
+		OriginalUri: lo.ToPtr("/"),
+	}
 
-	code := extractErrorCode(t, err)
-	require.Equal(t, http.StatusTemporaryRedirect, code)
+	resp, err := apiClient.GetApiV1LoginOauthGoogleWithResponse(ctx, params)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }

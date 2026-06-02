@@ -7,7 +7,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
-	_ "github.com/ruko1202/maintmode/docs" // swagger docs
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"

@@ -9,12 +9,13 @@ import (
 	"crypto/elliptic"
 	"encoding/base64"
 	"math/big"
+	"net/http"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/auth"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 func TestAuthAPI_JWKS(t *testing.T) {
@@ -22,31 +23,32 @@ func TestAuthAPI_JWKS(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	params := auth.NewGetAPIV1WellKnownJwksJSONParams().WithContext(ctx)
-
-	resp, err := apiClient.Auth.GetAPIV1WellKnownJwksJSON(params)
+	resp, err := apiClient.GetApiV1WellKnownJwksJsonWithResponse(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, resp.Payload)
-	require.NotEmpty(t, resp.Payload.Keys, "JWKS must contain at least one key")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	for _, jwk := range resp.Payload.Keys {
+	keys := lo.FromPtr(resp.JSON200.Keys)
+	require.NotEmpty(t, keys, "JWKS must contain at least one key")
+
+	for _, jwk := range keys {
 		pubKey := buildECPublicKey(t, jwk)
-		require.NotNil(t, pubKey, "should build a valid EC public key from JWK kid=%s", jwk.Kid)
+		require.NotNil(t, pubKey, "should build a valid EC public key from JWK kid=%s", lo.FromPtr(jwk.Kid))
 	}
 }
 
-func buildECPublicKey(t *testing.T, jwk *models.EntityJWK) *ecdsa.PublicKey {
+func buildECPublicKey(t *testing.T, jwk authclient.EntityJWK) *ecdsa.PublicKey {
 	t.Helper()
 
-	require.Equal(t, "EC", jwk.Kty, "expected EC key type, got %s", jwk.Kty)
-	require.NotEmpty(t, jwk.X, "JWK X coordinate must not be empty")
-	require.NotEmpty(t, jwk.Y, "JWK Y coordinate must not be empty")
-	require.NotEmpty(t, jwk.Crv, "JWK curve must not be empty")
+	require.Equal(t, "EC", lo.FromPtr(jwk.Kty), "expected EC key type, got %s", lo.FromPtr(jwk.Kty))
+	require.NotEmpty(t, lo.FromPtr(jwk.X), "JWK X coordinate must not be empty")
+	require.NotEmpty(t, lo.FromPtr(jwk.Y), "JWK Y coordinate must not be empty")
+	require.NotEmpty(t, lo.FromPtr(jwk.Crv), "JWK curve must not be empty")
 
-	xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
+	xBytes, err := base64.RawURLEncoding.DecodeString(lo.FromPtr(jwk.X))
 	require.NoError(t, err, "failed to decode X coordinate")
 
-	yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
+	yBytes, err := base64.RawURLEncoding.DecodeString(lo.FromPtr(jwk.Y))
 	require.NoError(t, err, "failed to decode Y coordinate")
 
 	var (
@@ -54,7 +56,7 @@ func buildECPublicKey(t *testing.T, jwk *models.EntityJWK) *ecdsa.PublicKey {
 		curve     elliptic.Curve
 	)
 
-	switch jwk.Crv {
+	switch lo.FromPtr(jwk.Crv) {
 	case "P-256":
 		ecdhCurve = ecdh.P256()
 		curve = elliptic.P256()
@@ -65,7 +67,7 @@ func buildECPublicKey(t *testing.T, jwk *models.EntityJWK) *ecdsa.PublicKey {
 		ecdhCurve = ecdh.P521()
 		curve = elliptic.P521()
 	default:
-		t.Fatalf("unsupported curve: %s", jwk.Crv)
+		t.Fatalf("unsupported curve: %s", lo.FromPtr(jwk.Crv))
 	}
 
 	encodedPoint := make([]byte, 1, 1+len(xBytes)+len(yBytes))
@@ -73,7 +75,7 @@ func buildECPublicKey(t *testing.T, jwk *models.EntityJWK) *ecdsa.PublicKey {
 	encodedPoint = append(encodedPoint, xBytes...)
 	encodedPoint = append(encodedPoint, yBytes...)
 	_, err = ecdhCurve.NewPublicKey(encodedPoint)
-	require.NoError(t, err, "point (X, Y) must be on curve %s", jwk.Crv)
+	require.NoError(t, err, "point (X, Y) must be on curve %s", lo.FromPtr(jwk.Crv))
 
 	x := new(big.Int).SetBytes(xBytes)
 	y := new(big.Int).SetBytes(yBytes)

@@ -4,14 +4,14 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
-	"github.com/go-openapi/strfmt"
-
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestMaintenancesAPI_CancelMaintenance(t *testing.T) {
@@ -21,29 +21,21 @@ func TestMaintenancesAPI_CancelMaintenance(t *testing.T) {
 
 	maintenanceID := createAndApproveMaintenance(ctx, t, apiClient)
 
-	cancelReq := &models.ApimodelsCancelMaintRequest{
-		Reason:  models.ApimodelsMaintenanceCancelReasonIncident,
-		Comment: "Critical incident requires immediate attention",
+	cancelReq := maintmodeclient.PostApiV1MaintenancesIdCancelJSONRequestBody{
+		Reason:  lo.ToPtr(maintmodeclient.MaintenanceCancelReasonIncident),
+		Comment: lo.ToPtr("Critical incident requires immediate attention"),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesIDCancelParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithRequest(cancelReq)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDCancel(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesIdCancelWithResponse(ctx, uuid.MustParse(maintenanceID), cancelReq)
 	require.NoError(t, err, "Failed to cancel maintenance")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get canceled maintenance")
-	require.NotNil(t, getResp, "Get response should not be nil")
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
 
-	require.Equal(t, string(models.UimodelsMaintenanceStatusCanceled), getResp.Payload.Status)
-	require.Equal(t, models.ApimodelsMaintenanceCancelReasonIncident, getResp.Payload.CancelReason)
-	require.Equal(t, "Critical incident requires immediate attention", getResp.Payload.CancelReasonComment)
+	require.Equal(t, string(maintmodeclient.MaintenanceStatusCancelled), lo.FromPtr(getResp.JSON200.Status))
+	require.Equal(t, maintmodeclient.MaintenanceCancelReasonIncident, lo.FromPtr(getResp.JSON200.CancelReason))
+	require.Equal(t, "Critical incident requires immediate attention", lo.FromPtr(getResp.JSON200.CancelReasonComment))
 }

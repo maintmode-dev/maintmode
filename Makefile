@@ -74,15 +74,16 @@ bin-deps-build:
 #   - goose: database migration tool
 #   - golangci-lint: comprehensive Go linter
 #   - mockgen: mock code generator for testing
+#   - swag (v2), oapi-codegen: OpenAPI spec + client generators
 .PHONY: bin-deps
 bin-deps: bin-deps-build
 	GOBIN=$(GOBIN) go install github.com/pressly/goose/v3/cmd/goose@v3.26.0 && \
 	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 && \
 	GOBIN=$(GOBIN) go install go.uber.org/mock/mockgen@v0.6.0 && \
-	GOBIN=$(GOBIN) go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
 	GOBIN=$(GOBIN) go install github.com/go-delve/delve/cmd/dlv@v1.26.0 && \
 	GOBIN=$(GOBIN) go install github.com/air-verse/air@v1.64.3 && \
-	GOBIN=$(GOBIN) go install github.com/go-swagger/go-swagger/cmd/swagger@v0.33.1
+	GOBIN=$(GOBIN) go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5 && \
+	GOBIN=$(GOBIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0
 
 # -------------------------------------
 # Build binary or run app
@@ -223,23 +224,42 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go
 
-# test-client - Generate API client from Swagger specification
-# Uses go-swagger to generate type-safe REST client
-# Generated files are placed in test/api/client/ directory
-# Run this after updating docs/swagger.yaml
-.PHONY: test-client
-test-client: ## Generate API test client from Swagger spec
-	$(info $(M) generating API test client from Swagger spec...)
-	@$(GOBIN)/swagger generate client -f ./docs/swagger.yaml -t ./test/api/client -A maintmode
-	@echo "API client generated successfully in test/api/client/"
-
+# swag - Generate OpenAPI 3.1 specs from annotations, split by @Tags into the
+# maintmode and auth services (yaml/json only, no docs.go). inject_servers adds
+# the `servers:` block: local API on :8000 (run on host), dev API on :9000
+# (container behind Caddy; {domain} filled in Swagger UI).
 .PHONY: swag
 swag:
+	$(info $(M) generating OpenAPI specs (swag/v2)...)
 	$(GOBIN)/swag init \
-		-g ./docs.go \
-      	--parseInternal \
-      	--parseDependency
+		-g ./doc_maintmode.go --parseInternal --parseDependency \
+		--tags Maintenances,Resources,Notifications,UI \
+		--v3.1 --outputTypes yaml,json -o ./docs/maintmode
+	$(GOBIN)/swag init \
+		-g ./doc_auth.go --parseInternal --parseDependency \
+		--tags Auth,Roles,Audit \
+		--v3.1 --outputTypes yaml,json -o ./docs/auth
+	go run ./scripts/swaggerspec/inject_servers.go --spec ./docs/maintmode/swagger.yaml \
+		--domain-default 'localhost' \
+		--server 'http://{domain}:9000/maintmode|Dev (service in container)' \
+		--server 'http://localhost:8000|Local (service run on host)'
+	go run ./scripts/swaggerspec/inject_servers.go --spec ./docs/auth/swagger.yaml \
+		--domain-default 'localhost' \
+		--server 'http://{domain}:9000/auth|Dev (service in container)' \
+		--server 'http://localhost:8000|Local (service run on host)'
 	@make test-client
+
+# test-client - Generate typed API test clients from the OpenAPI specs.
+# Uses oapi-codegen; one client package per service under test/api/client/.
+# Run this after `make swag` (or just run `make swag`, which chains it).
+.PHONY: test-client
+test-client: ## Generate API test clients from OpenAPI specs
+	$(info $(M) generating API test clients (oapi-codegen)...)
+	$(GOBIN)/oapi-codegen \
+		-config ./test/api/client/maintmode/oapi-codegen.yaml ./docs/maintmode/swagger.yaml
+	$(GOBIN)/oapi-codegen \
+		-config ./test/api/client/auth/oapi-codegen.yaml ./docs/auth/swagger.yaml
+	@echo "API clients generated in test/api/client/{maintmode,auth}/"
 
 # -------------------------------------
 # Database - Universal Commands (use DB_DRIVER)

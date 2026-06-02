@@ -14,7 +14,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
-	_ "github.com/ruko1202/maintmode/docs" // swagger docs
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/server/middlewares"

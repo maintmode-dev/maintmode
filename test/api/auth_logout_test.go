@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/test/api/client/client/auth"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 func TestAuthAPI_Logout_InvalidToken(t *testing.T) {
@@ -18,18 +18,14 @@ func TestAuthAPI_Logout_InvalidToken(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	authorization := "Bearer invalid"
+	params := &authclient.PostApiV1LogoutParams{
+		Authorization: lo.ToPtr("Bearer invalid"),
+	}
 
-	params := auth.NewPostAPIV1LogoutParams().
-		WithContext(ctx).
-		WithAuthorization(&authorization).
-		WithRequest(&models.AuthRefreshTokenJSONRequest{RefreshToken: "invalid"})
-
-	_, err := apiClient.Auth.PostAPIV1Logout(params)
-	require.Error(t, err)
-
-	code := extractErrorCode(t, err)
-	require.Equal(t, http.StatusUnauthorized, code)
+	resp, err := apiClient.PostApiV1LogoutWithResponse(ctx, params,
+		authclient.PostApiV1LogoutJSONRequestBody{RefreshToken: lo.ToPtr("invalid")})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }
 
 // TestAuthAPI_Logout_BodyFallback_NoCookie verifies the body-fallback path: BFFs
@@ -41,18 +37,16 @@ func TestAuthAPI_Logout_BodyFallback_NoCookie(t *testing.T) {
 
 	apiClient := setupAuthTestClient()
 
-	authorization := "Bearer invalid-but-shaped-like-a-token"
+	params := &authclient.PostApiV1LogoutParams{
+		Authorization: lo.ToPtr("Bearer invalid-but-shaped-like-a-token"),
+	}
 
-	params := auth.NewPostAPIV1LogoutParams().
-		WithContext(ctx).
-		WithAuthorization(&authorization).
-		WithRequest(&models.AuthRefreshTokenJSONRequest{RefreshToken: "body-only-refresh"})
-
-	// No cookies are attached — go-openapi default transport sends none unless told otherwise.
-	_, err := apiClient.Auth.PostAPIV1Logout(params)
-	require.Error(t, err)
+	// No cookies are attached — the oapi-codegen client sends none unless told otherwise.
+	resp, err := apiClient.PostApiV1LogoutWithResponse(ctx, params,
+		authclient.PostApiV1LogoutJSONRequestBody{RefreshToken: lo.ToPtr("body-only-refresh")})
+	require.NoError(t, err)
 
 	// Token is invalid → 401. The key assertion is that we did NOT get a 400 about
 	// missing refresh token (which would mean the body fallback was not consulted).
-	require.Equal(t, http.StatusUnauthorized, extractErrorCode(t, err))
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }

@@ -4,15 +4,16 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestMaintenancesAPI_CreateDraft(t *testing.T) {
@@ -20,39 +21,35 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 	apiClient := setupMaintmodeTestClient()
 
 	resource := creatResource(ctx, t, apiClient)
-	resourceID := strfmt.UUID(resource.ID)
+	resourceID := uuid.MustParse(lo.FromPtr(resource.Id))
 
-	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(24 * time.Hour).Truncate(time.Second))
+	plannedStart := xtime.UTCNow().Add(24 * time.Hour).Truncate(time.Second)
 
-	req := &models.ApimodelsCreateDraftMaintRequest{
-		Title:        "Test Maintenance",
-		Description:  "This is a test maintenance created via API tests",
-		Impact:       models.ApimodelsMaintenanceImpactNone,
-		Scope:        models.ApimodelsMaintenanceScopeResource,
-		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResourceRef{
-			{ID: resourceID},
-		},
-		Steps:         testMaintenanceSteps(),
+	req := maintmodeclient.PostApiV1MaintenancesCreateJSONRequestBody{
+		Title:        lo.ToPtr("Test Maintenance"),
+		Description:  lo.ToPtr("This is a test maintenance created via API tests"),
+		Impact:       lo.ToPtr(maintmodeclient.MaintenanceImpactNone),
+		Scope:        lo.ToPtr(maintmodeclient.MaintenanceScopeResources),
+		PlannedStart: lo.ToPtr(plannedStart),
+		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
+			{Id: lo.ToPtr(resourceID)},
+		}),
+		Steps:         lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesCreateParams().
-		WithContext(ctx).
-		WithRequest(req)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesCreate(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
 	require.NoError(t, err, "Failed to create maintenance draft")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
 
-	payload := resp.Payload
-	require.NotEmpty(t, payload.ID, "Maintenance ID should not be empty")
-	require.Equal(t, "Test Maintenance", payload.Title)
-	require.Equal(t, "This is a test maintenance created via API tests", payload.Description)
-	require.Equal(t, string(models.UimodelsMaintenanceStatusDraft), payload.Status)
-	require.False(t, payload.CreatedAt.IsZero())
+	payload := resp.JSON200
+	require.NotEmpty(t, lo.FromPtr(payload.Id), "Maintenance ID should not be empty")
+	require.Equal(t, "Test Maintenance", lo.FromPtr(payload.Title))
+	require.Equal(t, "This is a test maintenance created via API tests", lo.FromPtr(payload.Description))
+	require.Equal(t, string(maintmodeclient.MaintenanceStatusDraft), lo.FromPtr(payload.Status))
+	require.False(t, lo.FromPtr(payload.CreatedAt).IsZero())
 	require.NotNil(t, payload.PlannedPeriod)
-	require.Equal(t, plannedStart, payload.PlannedPeriod.Start)
-	require.Equal(t, strfmt.DateTime(time.Time(plannedStart).Add(testMaintenanceDuration)), payload.PlannedPeriod.End)
+	require.Equal(t, plannedStart, lo.FromPtr(payload.PlannedPeriod.Start))
+	require.Equal(t, plannedStart.Add(testMaintenanceDuration), lo.FromPtr(payload.PlannedPeriod.End))
 }

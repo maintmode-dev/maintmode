@@ -4,15 +4,16 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/go-openapi/strfmt"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/test/api/client/client/maintenances"
-	"github.com/ruko1202/maintmode/test/api/client/models"
+	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
@@ -23,43 +24,35 @@ func TestMaintenancesAPI_UpdateDraft(t *testing.T) {
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)
 
 	now := xtime.UTCNow()
-	plannedStart := strfmt.DateTime(now.Add(48 * time.Hour).Truncate(time.Second))
+	plannedStart := now.Add(48 * time.Hour).Truncate(time.Second)
 
 	resource := creatResource(ctx, t, apiClient)
 
-	updateReq := &models.ApimodelsUpdateDraftMaintRequest{
-		Title:        "Updated Maintenance Title",
-		Description:  "Updated description for the maintenance",
-		Impact:       models.ApimodelsMaintenanceImpactPartialOutage,
-		Scope:        models.ApimodelsMaintenanceScopeResource,
-		PlannedStart: plannedStart,
-		Resources: []*models.ApimodelsResourceRef{
-			{ID: strfmt.UUID(resource.ID)},
-		},
-		Steps:         testMaintenanceSteps(),
+	updateReq := maintmodeclient.PostApiV1MaintenancesIdEditJSONRequestBody{
+		Title:        lo.ToPtr("Updated Maintenance Title"),
+		Description:  lo.ToPtr("Updated description for the maintenance"),
+		Impact:       lo.ToPtr(maintmodeclient.MaintenanceImpactPartial),
+		Scope:        lo.ToPtr(maintmodeclient.MaintenanceScopeResources),
+		PlannedStart: lo.ToPtr(plannedStart),
+		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
+			{Id: lo.ToPtr(uuid.MustParse(lo.FromPtr(resource.Id)))},
+		}),
+		Steps:         lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
 	}
 
-	params := maintenances.NewPostAPIV1MaintenancesIDEditParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID)).
-		WithRequest(updateReq)
-
-	resp, err := apiClient.Maintenances.PostAPIV1MaintenancesIDEdit(params, nil)
+	resp, err := apiClient.PostApiV1MaintenancesIdEditWithResponse(ctx, uuid.MustParse(maintenanceID), updateReq)
 	require.NoError(t, err, "Failed to update maintenance draft")
-	require.NotNil(t, resp, "Response should not be nil")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 
-	getParams := maintenances.NewGetAPIV1MaintenancesIDParams().
-		WithContext(ctx).
-		WithID(strfmt.UUID(maintenanceID))
-
-	getResp, err := apiClient.Maintenances.GetAPIV1MaintenancesID(getParams, nil)
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
 	require.NoError(t, err, "Failed to get updated maintenance")
-	require.NotNil(t, getResp, "Get response should not be nil")
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	require.NotNil(t, getResp.JSON200)
 
-	require.Equal(t, "Updated Maintenance Title", getResp.Payload.Title)
-	require.Equal(t, "Updated description for the maintenance", getResp.Payload.Description)
-	require.NotNil(t, getResp.Payload.PlannedPeriod)
-	require.Equal(t, plannedStart, getResp.Payload.PlannedPeriod.Start)
-	require.Equal(t, strfmt.DateTime(time.Time(plannedStart).Add(testMaintenanceDuration)), getResp.Payload.PlannedPeriod.End)
+	require.Equal(t, "Updated Maintenance Title", lo.FromPtr(getResp.JSON200.Title))
+	require.Equal(t, "Updated description for the maintenance", lo.FromPtr(getResp.JSON200.Description))
+	require.NotNil(t, getResp.JSON200.PlannedPeriod)
+	require.Equal(t, plannedStart, lo.FromPtr(getResp.JSON200.PlannedPeriod.Start))
+	require.Equal(t, plannedStart.Add(testMaintenanceDuration), lo.FromPtr(getResp.JSON200.PlannedPeriod.End))
 }
