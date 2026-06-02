@@ -2,6 +2,7 @@ package maint
 
 import (
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
+	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
@@ -17,6 +18,7 @@ type Service struct {
 	notifyTargets *notifytargets.Service
 	conflictsSrv  *conflicts.Service
 	notifier      *maintnotify.Service
+	deferred      *deferrednotifications.Service
 }
 
 func NewService(
@@ -26,6 +28,7 @@ func NewService(
 	notifyTargets *notifytargets.Service,
 	conflictsSrv *conflicts.Service,
 	notifier *maintnotify.Service,
+	deferred *deferrednotifications.Service,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
@@ -34,5 +37,6 @@ func NewService(
 		notifyTargets:  notifyTargets,
 		conflictsSrv:   conflictsSrv,
 		notifier:       notifier,
+		deferred:       deferred,
 	}
 }

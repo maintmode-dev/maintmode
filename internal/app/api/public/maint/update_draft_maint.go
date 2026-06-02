@@ -89,15 +89,16 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 	}
 
 	cmd := &entity.UpdateMaintenanceCmd{
-		MaintID:       maintID,
-		Title:         lo.ToPtr(req.Title),
-		Description:   lo.ToPtr(req.Description),
-		PlannedStart:  lo.ToPtr(req.PlannedStart),
-		Scope:         lo.ToPtr(scope),
-		Impact:        lo.ToPtr(impact),
-		Resources:     apimodels.FromAPIResources(req.Resources),
-		Steps:         steps,
-		NotifyTargets: apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		MaintID:               maintID,
+		Title:                 lo.ToPtr(req.Title),
+		Description:           lo.ToPtr(req.Description),
+		PlannedStart:          lo.ToPtr(req.PlannedStart),
+		Scope:                 lo.ToPtr(scope),
+		Impact:                lo.ToPtr(impact),
+		Resources:             apimodels.FromAPIResources(req.Resources),
+		Steps:                 steps,
+		NotifyTargets:         apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
 	}
 
 	return cmd, nil
@@ -115,10 +116,8 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 			When(r.Scope == apimodels.MaintenanceScopeResources),
 			validation.Each(validation.WithContext(validateResource)),
 		),
-		validation.Field(&r.Steps, validation.Required,
-			validation.Length(1, 100),
-			validation.Each(validation.WithContext(validateStep)),
-		),
+		validation.Field(&r.Steps, validation.Required, validation.Each(validation.WithContext(validateStep))),
 		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
+		validation.Field(&r.DeferredNotifications, validation.Each(validation.WithContext(validateDeferredNotification))),
 	)
 }

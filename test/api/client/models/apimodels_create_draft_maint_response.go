@@ -25,6 +25,9 @@ type ApimodelsCreateDraftMaintResponse struct {
 	// Format: date-time
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
 
+	// deferred notifications
+	DeferredNotifications []*ApimodelsDeferredNotification `json:"deferred_notifications"`
+
 	// description
 	Description string `json:"description,omitempty"`
 
@@ -65,6 +68,10 @@ func (m *ApimodelsCreateDraftMaintResponse) Validate(formats strfmt.Registry) er
 		res = append(res, err)
 	}
 
+	if err := m.validateDeferredNotifications(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateID(formats); err != nil {
 		res = append(res, err)
 	}
@@ -98,6 +105,36 @@ func (m *ApimodelsCreateDraftMaintResponse) validateCreatedAt(formats strfmt.Reg
 
 	if err := validate.FormatOf("created_at", "body", "date-time", m.CreatedAt.String(), formats); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (m *ApimodelsCreateDraftMaintResponse) validateDeferredNotifications(formats strfmt.Registry) error {
+	if swag.IsZero(m.DeferredNotifications) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.DeferredNotifications); i++ {
+		if swag.IsZero(m.DeferredNotifications[i]) { // not required
+			continue
+		}
+
+		if m.DeferredNotifications[i] != nil {
+			if err := m.DeferredNotifications[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
 	}
 
 	return nil
@@ -225,6 +262,10 @@ func (m *ApimodelsCreateDraftMaintResponse) validateSteps(formats strfmt.Registr
 func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateDeferredNotifications(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateNotifyTargets(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -244,6 +285,35 @@ func (m *ApimodelsCreateDraftMaintResponse) ContextValidate(ctx context.Context,
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ApimodelsCreateDraftMaintResponse) contextValidateDeferredNotifications(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.DeferredNotifications); i++ {
+
+		if m.DeferredNotifications[i] != nil {
+
+			if swag.IsZero(m.DeferredNotifications[i]) { // not required
+				return nil
+			}
+
+			if err := m.DeferredNotifications[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 

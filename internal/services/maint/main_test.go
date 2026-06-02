@@ -17,10 +17,13 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
+	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
+	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	conflictsStore "github.com/ruko1202/maintmode/internal/storages/conflicts"
+	deferrednotificationsstore "github.com/ruko1202/maintmode/internal/storages/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
@@ -50,17 +53,18 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	notifier, err := maintnotify.NewNotifier(
-		cfg,
-		messagesender.NewService(
-			notifytransport.NewRegistry(cfg),
-			goque.NewTaskQueueManager(taskStorage),
-		),
-		notifyTargetsStore,
-	)
+	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(taskStorage))
+	sender := messagesender.NewService(notifytransport.NewRegistry(cfg), taskScheduler)
+	notifier, err := maintnotify.NewNotifier(cfg, sender, notifyTargetsStore)
 	if err != nil {
 		panic(err)
 	}
+
+	deferred := deferrednotifications.NewService(
+		txManager,
+		deferrednotificationsstore.NewStore(db),
+		taskScheduler,
+	)
 
 	service = NewService(
 		txManager,
@@ -72,6 +76,7 @@ func TestMain(m *testing.M) {
 			conflictsnapshots.NewStore(db),
 		),
 		notifier,
+		deferred,
 	)
 
 	code := m.Run()

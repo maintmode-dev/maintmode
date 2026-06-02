@@ -43,6 +43,16 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 		}
 
 		maint.Status = entity.MaintenanceStatusPlanned
+
+		// Schedule the deferred reminders in the same tx as the transition to
+		// "planned": the scheduler joins this tx via the outbox, so the queued
+		// tasks and the status change commit atomically — no crash window where
+		// a scheduled maintenance has un-enqueued reminders.
+		if err := s.deferred.Schedule(ctx, cmd.MaintID); err != nil {
+			xlog.Error(ctx, "failed to enqueue deferred reminders", xfield.Error(err))
+			return fmt.Errorf("enqueue deferred reminders: %w", err)
+		}
+
 		return nil
 	})
 }

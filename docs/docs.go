@@ -2531,6 +2531,12 @@ const docTemplate = `{
         "apimodels.CreateDraftMaintRequest": {
             "type": "object",
             "properties": {
+                "deferred_notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.DeferredNotification"
+                    }
+                },
                 "description": {
                     "type": "string",
                     "example": "PostgreSQL major upgrade"
@@ -2572,6 +2578,12 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "deferred_notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.DeferredNotification"
+                    }
                 },
                 "description": {
                     "type": "string"
@@ -2626,6 +2638,15 @@ const docTemplate = `{
                 }
             }
         },
+        "apimodels.DeferredNotification": {
+            "type": "object",
+            "properties": {
+                "fire_at": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            }
+        },
         "apimodels.ListResourcesResponse": {
             "type": "object",
             "properties": {
@@ -2675,6 +2696,12 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "deferred_notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.DeferredNotification"
+                    }
                 },
                 "description": {
                     "type": "string"
@@ -2928,6 +2955,12 @@ const docTemplate = `{
         "apimodels.UpdateDraftMaintRequest": {
             "type": "object",
             "properties": {
+                "deferred_notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apimodels.DeferredNotification"
+                    }
+                },
                 "description": {
                     "type": "string",
                     "example": "PostgreSQL major upgrade"

@@ -14,6 +14,7 @@ const (
 	NotifyEventMaintStarted   NotifyEventKind = "maint.started"
 	NotifyEventMaintCompleted NotifyEventKind = "maint.completed"
 	NotifyEventMaintCancelled NotifyEventKind = "maint.cancelled"
+	NotifyEventMaintReminder  NotifyEventKind = "maint.reminder"
 	NotifyEventStepStarted    NotifyEventKind = "step.started"
 	NotifyEventStepCompleted  NotifyEventKind = "step.completed"
 	NotifyEventStepCancelled  NotifyEventKind = "step.cancelled"
@@ -23,6 +24,7 @@ var eventNames = map[NotifyEventKind]string{
 	NotifyEventMaintStarted:   "Maintenance started",
 	NotifyEventMaintCompleted: "Maintenance completed",
 	NotifyEventMaintCancelled: "Maintenance canceled",
+	NotifyEventMaintReminder:  "Maintenance reminder",
 	NotifyEventStepStarted:    "Step started",
 	NotifyEventStepCompleted:  "Step completed",
 	NotifyEventStepCancelled:  "Step canceled",
@@ -42,6 +44,7 @@ func (k NotifyEventKind) IsValid() bool {
 	case NotifyEventMaintStarted,
 		NotifyEventMaintCompleted,
 		NotifyEventMaintCancelled,
+		NotifyEventMaintReminder,
 		NotifyEventStepStarted,
 		NotifyEventStepCompleted,
 		NotifyEventStepCancelled:
@@ -67,8 +70,9 @@ type NotifyEvent struct {
 	OccurredAt  time.Time
 	FrontendURL string
 
-	MaintID    uuid.UUID
-	MaintTitle string
+	MaintID      uuid.UUID
+	MaintTitle   string
+	PlannedStart time.Time
 
 	StepID          uuid.UUID
 	StepOrder       int32

@@ -157,6 +157,10 @@ definitions:
     type: object
   apimodels.CreateDraftMaintRequest:
     properties:
+      deferred_notifications:
+        items:
+          $ref: '#/definitions/apimodels.DeferredNotification'
+        type: array
       description:
         example: PostgreSQL major upgrade
         type: string
@@ -186,6 +190,10 @@ definitions:
       created_at:
         format: date-time
         type: string
+      deferred_notifications:
+        items:
+          $ref: '#/definitions/apimodels.DeferredNotification'
+        type: array
       description:
         type: string
       id:
@@ -219,6 +227,12 @@ definitions:
       external_id:
         type: string
       name:
+        type: string
+    type: object
+  apimodels.DeferredNotification:
+    properties:
+      fire_at:
+        format: date-time
         type: string
     type: object
   apimodels.ListResourcesResponse:
@@ -255,6 +269,10 @@ definitions:
       created_at:
         format: date-time
         type: string
+      deferred_notifications:
+        items:
+          $ref: '#/definitions/apimodels.DeferredNotification'
+        type: array
       description:
         type: string
       id:
@@ -434,6 +452,10 @@ definitions:
     type: object
   apimodels.UpdateDraftMaintRequest:
     properties:
+      deferred_notifications:
+        items:
+          $ref: '#/definitions/apimodels.DeferredNotification'
+        type: array
       description:
         example: PostgreSQL major upgrade
         type: string

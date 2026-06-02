@@ -2,17 +2,14 @@ package maintnotify
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/metrics"
+	"github.com/ruko1202/maintmode/internal/utils/xhash"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
@@ -34,7 +31,7 @@ func (n *Service) dispatchSync(ctx context.Context, event entity.NotifyEvent) er
 func (n *Service) dispatchAsync(ctx context.Context, event entity.NotifyEvent) error {
 	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
 		return n.sender.SendAsync(ctx, target.Transport, target.ChannelID, msg,
-			messagesender.WithIdempotencyKey(idempotencyKey(event, target)),
+			idempotencyKey(event, target),
 		)
 	})
 }
@@ -97,12 +94,8 @@ func (n *Service) fillEvent(evt entity.NotifyEvent) entity.NotifyEvent {
 // idempotencyKey makes goque's unique (type, external_id) index collapse
 // retries of the same (event, maint, step, route) tuple.
 func idempotencyKey(evt entity.NotifyEvent, targets *entity.NotifyTarget) string {
-	h := sha256.New()
-
-	_, _ = fmt.Fprintf(h,
+	return xhash.HashSha256(fmt.Appendf(nil,
 		"maint|%s|%s|%s|%s|%s",
 		evt.Kind, evt.MaintID, evt.StepID, targets.Transport, targets.ChannelID,
-	)
-
-	return hex.EncodeToString(h.Sum(nil))
+	))
 }

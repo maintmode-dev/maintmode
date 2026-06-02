@@ -10,9 +10,11 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
+	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/jwtverifier"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
+	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
@@ -27,6 +29,7 @@ type Services struct {
 	RBAC          *authz.CasbinAuthorizer
 	JWTVerifier   *jwtverifier.Service
 	NotifyTargets *notifytargets.Service
+	Notifier      *maintnotify.Service
 }
 
 func NewServices(ctx context.Context,
@@ -55,16 +58,22 @@ func NewServices(ctx context.Context,
 		stores.NotifyTargets,
 	)
 
-	notifier, err := maintnotify.NewNotifier(cfg,
-		messagesender.NewService(
-			gateways.NotifyTransportRegistry,
-			goque.NewTaskQueueManager(stores.taskStorage),
-		),
-		stores.NotifyTargets,
-	)
+	// scheduler owns all goque enqueue/cancel plumbing. The message sender
+	// (delivery) and deferred reminders both schedule through it.
+	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(stores.taskStorage))
+
+	messageSender := messagesender.NewService(gateways.NotifyTransportRegistry, taskScheduler)
+
+	notifier, err := maintnotify.NewNotifier(cfg, messageSender, stores.NotifyTargets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init maintnotify: %w", err)
 	}
+
+	deferred := deferrednotifications.NewService(
+		stores.TxManager,
+		stores.DeferredNotifications,
+		taskScheduler,
+	)
 
 	return &Services{
 		Maint: maintSrv.NewService(
@@ -74,6 +83,7 @@ func NewServices(ctx context.Context,
 			notifyTargets,
 			conflictsService,
 			notifier,
+			deferred,
 		),
 		Conflicts: conflictsService,
 		Calendar: calendar.NewService(
@@ -88,5 +98,6 @@ func NewServices(ctx context.Context,
 		RBAC:          authorizer,
 		JWTVerifier:   jwtVerifier,
 		NotifyTargets: notifyTargets,
+		Notifier:      notifier,
 	}, nil
 }

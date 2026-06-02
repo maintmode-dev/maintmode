@@ -218,6 +218,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/oauthprovider/provider.go -source ./internal/services/oauthprovider/provider.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/messagesender/service.go -source ./internal/services/messaging/sender/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maintnotify/service.go -source ./internal/services/maintnotify/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/deferrednotifications/service.go -source ./internal/services/deferrednotifications/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go

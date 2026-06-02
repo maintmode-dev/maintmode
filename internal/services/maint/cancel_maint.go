@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -16,7 +17,7 @@ func (s *Service) CancelMaint(ctx context.Context, cmd *entity.CancelMaintenance
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Cancel")
 	defer span.End()
 
-	return s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
+	err := s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
 		if maint.Status == entity.MaintenanceStatusCancelled {
 			return nil
 		}
@@ -33,4 +34,14 @@ func (s *Service) CancelMaint(ctx context.Context, cmd *entity.CancelMaintenance
 		maint.CancelReasonComment = cmd.ReasonComment
 		return nil
 	})
+	if err != nil {
+		xlog.Error(ctx, "failed to cancel maint", xfield.Error(err))
+		return err
+	}
+
+	// Canceled maintenance must not blast its reminders — best-effort cancel
+	// any pending deferred tasks. Done post-commit; failures are logged inside.
+	_ = s.deferred.Cancel(ctx, cmd.MaintID)
+
+	return nil
 }

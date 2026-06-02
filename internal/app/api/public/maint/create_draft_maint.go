@@ -62,17 +62,18 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.CreateDraftMaintResponse{
-		ID:            maint.ID,
-		Title:         maint.Title,
-		Description:   maint.Description,
-		PlannedPeriod: apimodels.ToAPIPeriod(maint.PlannedPeriod),
-		Resources:     apimodels.ToAPIResources(maint.Resources),
-		Scope:         string(maint.Scope),
-		Impact:        string(maint.Impact),
-		Status:        string(maint.Status),
-		CreatedAt:     maint.CreatedAt,
-		Steps:         apimodels.ToAPISteps(maint.Steps),
-		NotifyTargets: apimodels.ToAPINotifyTargets(maint.NotifyTargets),
+		ID:                    maint.ID,
+		Title:                 maint.Title,
+		Description:           maint.Description,
+		PlannedPeriod:         apimodels.ToAPIPeriod(maint.PlannedPeriod),
+		Resources:             apimodels.ToAPIResources(maint.Resources),
+		Scope:                 string(maint.Scope),
+		Impact:                string(maint.Impact),
+		Status:                string(maint.Status),
+		CreatedAt:             maint.CreatedAt,
+		Steps:                 apimodels.ToAPISteps(maint.Steps),
+		NotifyTargets:         apimodels.ToAPINotifyTargets(maint.NotifyTargets),
+		DeferredNotifications: apimodels.ToAPIDeferredNotifications(maint.DeferredNotifications),
 	})
 }
 
@@ -96,14 +97,15 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 	}
 
 	return &entity.CreateMaintenanceCmd{
-		Title:         req.Title,
-		Description:   req.Description,
-		PlannedPeriod: recalculatePlannedPeriod(req.PlannedStart, steps),
-		Scope:         scope,
-		Impact:        impact,
-		Resources:     apimodels.FromAPIResources(req.Resources),
-		Steps:         steps,
-		NotifyTargets: apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		Title:                 req.Title,
+		Description:           req.Description,
+		PlannedPeriod:         recalculatePlannedPeriod(req.PlannedStart, steps),
+		Scope:                 scope,
+		Impact:                impact,
+		Resources:             apimodels.FromAPIResources(req.Resources),
+		Steps:                 steps,
+		NotifyTargets:         apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
 	}, nil
 }
 
@@ -135,11 +137,9 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 			When(r.Scope == apimodels.MaintenanceScopeResources),
 			validation.Each(validation.WithContext(validateResource)),
 		),
-		validation.Field(&r.Steps, validation.Required,
-			validation.Length(1, 100),
-			validation.Each(validation.WithContext(validateStep)),
-		),
+		validation.Field(&r.Steps, validation.Required, validation.Each(validation.WithContext(validateStep))),
 		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
+		validation.Field(&r.DeferredNotifications, validation.Each(validation.WithContext(validateDeferredNotification))),
 	)
 }
 
@@ -178,5 +178,16 @@ func validateNotifyTargets(ctx context.Context, value any) error {
 			validation.Length(1, 100),
 			validation.Each(validation.Required),
 		),
+	)
+}
+
+func validateDeferredNotification(ctx context.Context, value any) error {
+	notification, err := xvalidation.Parse[apimodels.DeferredNotification](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, notification,
+		validation.Field(&notification.FireAt, validation.Required),
 	)
 }

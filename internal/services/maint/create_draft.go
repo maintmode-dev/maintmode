@@ -16,12 +16,19 @@ import (
 )
 
 const (
-	mixStepDurationsMin = 5
+	// maxSteps and minSteps caps how many notify steps a maintenance may have.
+	maxSteps = 100
+	minSteps = 1
+	// minStepDurationsMinutes is minimum step duration
+	minStepDurationsMinutes = 5
 
-	// maxNotifyTargets caps how many notify targets a maintenance may
-	// have. Enforced here (domain invariant), not only at the HTTP
-	// boundary, so non-HTTP callers can't exceed it.
-	maxNotifyTargets = 100
+	// minNotifyTargets and maxNotifyTargets caps how many notify targets a maintenance may have.
+	minNotifyTargets = 1
+	maxNotifyTargets = 10
+
+	// maxDeferredNotifications and minDeferredNotifications caps how many deferred reminders a maintenance may carry
+	minDeferredNotifications = 0
+	maxDeferredNotifications = 10
 )
 
 func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenanceCmd) (*entity.Maintenance, error) {
@@ -72,6 +79,13 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		}
 		maint.NotifyTargets = notifyTargets
 
+		deferred, err := s.deferred.Create(ctx, maint.ID, deferredNotificationsFromCmd(maint.ID, cmd.DeferredNotifications))
+		if err != nil {
+			xlog.Error(ctx, "create deferred notifications failed", xfield.Error(err))
+			return err
+		}
+		maint.DeferredNotifications = deferred
+
 		return nil
 	})
 	if err != nil {
@@ -107,11 +121,28 @@ func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error
 		validation.Field(&cmd.Impact, validation.Required),
 		validation.Field(&cmd.Scope, validation.Required),
 		validation.Field(&cmd.Steps, validation.Required,
+			validation.Length(minSteps, maxSteps),
 			validation.Each(validation.WithContext(validateStepInput))),
 		validation.Field(&cmd.NotifyTargets, validation.Required,
-			validation.Length(1, maxNotifyTargets),
+			validation.Length(minNotifyTargets, maxNotifyTargets),
 			validation.Each(validation.WithContext(validateNotifyTargetsInput)),
 		),
+		// Deferred notifications are optional; validate each when present.
+		validation.Field(&cmd.DeferredNotifications,
+			validation.Length(minDeferredNotifications, maxDeferredNotifications),
+			validation.Each(validation.WithContext(validateDeferredNotificationInput)),
+		),
+	)
+}
+
+func validateDeferredNotificationInput(ctx context.Context, value any) error {
+	notification, err := xvalidation.Parse[entity.DeferredNotificationInput](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, notification,
+		validation.Field(&notification.FireAt, validation.Required),
 	)
 }
 
@@ -144,7 +175,7 @@ func validateStepInput(ctx context.Context, value any) error {
 		validation.Field(&step.Order, validation.Required, validation.Min(1)),
 		validation.Field(&step.Description, validation.Required),
 		validation.Field(&step.RollbackDescription, validation.Required),
-		validation.Field(&step.DurationMinutes, validation.Required, validation.Min(mixStepDurationsMin)),
+		validation.Field(&step.DurationMinutes, validation.Required, validation.Min(minStepDurationsMinutes)),
 	)
 }
 

@@ -16,7 +16,7 @@ func (s *Service) SendAsync(
 	trName entity.NotifyTransport,
 	target string,
 	msg entity.NotifyMessage,
-	opts ...EnqueueOption,
+	idempotencyKey string,
 ) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.SendAsync",
 		xfield.String("transport", string(trName)),
@@ -24,5 +24,20 @@ func (s *Service) SendAsync(
 	)
 	defer span.End()
 
-	return s.enqueue(ctx, trName, target, msg, opts...)
+	_, err := s.scheduler.ScheduleDelayed(ctx,
+		entity.ProcessorTaskMessagingSend,
+		entity.ProcessorTaskPayloadEventNotify{
+			TransportName: trName,
+			Target:        target,
+			Subject:       msg.Subject,
+			Body:          msg.Body,
+		},
+		0,
+		idempotencyKey,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

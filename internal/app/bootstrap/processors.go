@@ -5,7 +5,8 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/messaging/taskprocessor"
+	"github.com/ruko1202/maintmode/internal/services/messaging/goque_processors/asyncsenderprocessor"
+	"github.com/ruko1202/maintmode/internal/services/messaging/goque_processors/reminderprocessor"
 )
 
 func NewTaskProcessors(
@@ -14,12 +15,20 @@ func NewTaskProcessors(
 	services *Services,
 	gateways *Gateways,
 ) *goque.Goque {
-	_ = services
-
 	goq := goque.NewGoque(stores.taskStorage)
 	goq.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
-		taskprocessor.NewMessagingTaskProcessor(gateways.NotifyTransportRegistry),
+		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
+		goque.WithWorkersCount(cfg.Messaging.Workers),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	// maint.reminder tasks resolve the maintenance's current notify targets and
+	// render the reminder at fire time, so they share the maint store + notifier
+	// rather than carrying a pre-rendered payload.
+	goq.RegisterProcessor(
+		entity.ProcessorTaskMaintReminder,
+		reminderprocessor.NewTaskProcessor(stores.Maintenances, services.Notifier),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)

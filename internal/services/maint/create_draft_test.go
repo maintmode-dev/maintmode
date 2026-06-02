@@ -38,13 +38,13 @@ func TestCreate(t *testing.T) {
 					Order:               1,
 					Description:         "Step1" + t.Name(),
 					RollbackDescription: "RollbackStep1" + t.Name(),
-					DurationMinutes:     mixStepDurationsMin,
+					DurationMinutes:     minStepDurationsMinutes,
 				},
 				{
 					Order:               2,
 					Description:         "Step2" + t.Name(),
 					RollbackDescription: "RollbackStep2" + t.Name(),
-					DurationMinutes:     mixStepDurationsMin,
+					DurationMinutes:     minStepDurationsMinutes,
 				},
 			},
 			NotifyTargets: []*entity.NotifyTargetInput{{
@@ -80,7 +80,7 @@ func TestCreate(t *testing.T) {
 				Order:               1,
 				Description:         "Step1" + t.Name(),
 				RollbackDescription: "RollbackStep1" + t.Name(),
-				DurationMinutes:     mixStepDurationsMin,
+				DurationMinutes:     minStepDurationsMinutes,
 			}},
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
@@ -97,7 +97,7 @@ func TestCreate(t *testing.T) {
 			Order:               2,
 			Description:         "Step1" + t.Name(),
 			RollbackDescription: "RollbackStep1" + t.Name(),
-			DurationMinutes:     mixStepDurationsMin,
+			DurationMinutes:     minStepDurationsMinutes,
 		})
 
 		maint2, err := service.CreateDraft(ctx, cmd)
@@ -127,7 +127,7 @@ func TestCreate(t *testing.T) {
 				Order:               1,
 				Description:         "Step1" + t.Name(),
 				RollbackDescription: "RollbackStep1" + t.Name(),
-				DurationMinutes:     mixStepDurationsMin,
+				DurationMinutes:     minStepDurationsMinutes,
 			}},
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
@@ -155,7 +155,7 @@ func TestCreate(t *testing.T) {
 				Order:               1,
 				Description:         "Step1" + t.Name(),
 				RollbackDescription: "RollbackStep1" + t.Name(),
-				DurationMinutes:     mixStepDurationsMin,
+				DurationMinutes:     minStepDurationsMinutes,
 			}},
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,

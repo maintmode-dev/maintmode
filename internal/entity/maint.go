@@ -83,21 +83,22 @@ const (
 // appears (e.g., explicitly read-only maintenance must run in parallel with a
 // deploy), introduce a dedicated flag — do not overload Impact for that.
 type Maintenance struct {
-	ID                  uuid.UUID
-	Title               string
-	Description         string
-	PlannedPeriod       Period
-	ActualPeriod        *Period
-	Resources           []uuid.UUID
-	Scope               MaintenanceScope
-	Impact              MaintenanceImpact
-	Status              MaintenanceStatus
-	CancelReason        MaintenanceCancelReason
-	CancelReasonComment string
-	CreatedAt           time.Time
-	UpdatedAt           *time.Time
-	Steps               []*MaintenanceStep
-	NotifyTargets       []*NotifyTarget
+	ID                    uuid.UUID
+	Title                 string
+	Description           string
+	PlannedPeriod         Period
+	ActualPeriod          *Period
+	Resources             []uuid.UUID
+	Scope                 MaintenanceScope
+	Impact                MaintenanceImpact
+	Status                MaintenanceStatus
+	CancelReason          MaintenanceCancelReason
+	CancelReasonComment   string
+	CreatedAt             time.Time
+	UpdatedAt             *time.Time
+	Steps                 []*MaintenanceStep
+	NotifyTargets         []*NotifyTarget
+	DeferredNotifications []*DeferredNotification
 }
 
 // Normalize enforces the Scope ↔ Resources invariant: a global-scoped

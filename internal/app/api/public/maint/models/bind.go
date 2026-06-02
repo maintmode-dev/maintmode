@@ -132,23 +132,45 @@ func ToAPINotifyTargets(targets []*entity.NotifyTarget) *NotifyTargets {
 	}
 }
 
+// FromAPIDeferredNotifications maps the contract's deferred_notifications to
+// domain inputs. nil/empty stays nil so callers treat it as "unchanged / none"
+// (same convention as notify_targets). A side effect of this convention: on
+// update an empty array cannot clear existing reminders — only a non-empty array
+// replaces them. Clearing is not currently a supported operation.
+func FromAPIDeferredNotifications(notifications []*DeferredNotification) []*entity.DeferredNotificationInput {
+	return lo.Map(notifications, func(item *DeferredNotification, _ int) *entity.DeferredNotificationInput {
+		return &entity.DeferredNotificationInput{
+			FireAt: item.FireAt,
+		}
+	})
+}
+
+func ToAPIDeferredNotifications(notifications []*entity.DeferredNotification) []*DeferredNotification {
+	return lo.Map(notifications, func(item *entity.DeferredNotification, _ int) *DeferredNotification {
+		return &DeferredNotification{
+			FireAt: item.FireAt,
+		}
+	})
+}
+
 func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
 	maint := &Maintenance{
-		ID:                  m.ID,
-		Title:               m.Title,
-		Description:         m.Description,
-		PlannedPeriod:       ToAPIPeriod(m.PlannedPeriod),
-		ActualPeriod:        nil,
-		Resources:           ToAPIResources(m.Resources),
-		Scope:               MaintenanceScope(m.Scope),
-		Impact:              MaintenanceImpact(m.Impact),
-		Status:              string(m.Status),
-		CancelReason:        MaintenanceCancelReason(m.CancelReason),
-		CancelReasonComment: m.CancelReasonComment,
-		CreatedAt:           m.CreatedAt,
-		UpdatedAt:           m.UpdatedAt,
-		Steps:               ToAPISteps(m.Steps),
-		NotifyTargets:       ToAPINotifyTargets(m.NotifyTargets),
+		ID:                    m.ID,
+		Title:                 m.Title,
+		Description:           m.Description,
+		PlannedPeriod:         ToAPIPeriod(m.PlannedPeriod),
+		ActualPeriod:          nil,
+		Resources:             ToAPIResources(m.Resources),
+		Scope:                 MaintenanceScope(m.Scope),
+		Impact:                MaintenanceImpact(m.Impact),
+		Status:                string(m.Status),
+		CancelReason:          MaintenanceCancelReason(m.CancelReason),
+		CancelReasonComment:   m.CancelReasonComment,
+		CreatedAt:             m.CreatedAt,
+		UpdatedAt:             m.UpdatedAt,
+		Steps:                 ToAPISteps(m.Steps),
+		NotifyTargets:         ToAPINotifyTargets(m.NotifyTargets),
+		DeferredNotifications: ToAPIDeferredNotifications(m.DeferredNotifications),
 	}
 
 	if m.ActualPeriod != nil {

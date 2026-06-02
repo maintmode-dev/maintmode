@@ -12,6 +12,7 @@ var kindToTemplate = map[entity.NotifyEventKind]string{
 	entity.NotifyEventMaintStarted:   "maint_started.tmpl",
 	entity.NotifyEventMaintCompleted: "maint_completed.tmpl",
 	entity.NotifyEventMaintCancelled: "maint_cancelled.tmpl",
+	entity.NotifyEventMaintReminder:  "maint_reminder.tmpl",
 	entity.NotifyEventStepStarted:    "step_started.tmpl",
 	entity.NotifyEventStepCompleted:  "step_completed.tmpl",
 	entity.NotifyEventStepCancelled:  "step_cancelled.tmpl",

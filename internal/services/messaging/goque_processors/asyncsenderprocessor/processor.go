@@ -1,4 +1,4 @@
-package taskprocessor
+package asyncsenderprocessor
 
 import (
 	"github.com/ruko1202/goque"
@@ -7,22 +7,22 @@ import (
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 )
 
-// NewMessagingTaskProcessor returns the goque TaskProcessor that delivers async/delayed messages
-func NewMessagingTaskProcessor(
+// NewTaskProcessor returns the goque TaskProcessor that delivers async/delayed messages
+func NewTaskProcessor(
 	notifyTransportRegistry *notifytransport.Registry,
 ) goque.TaskProcessor {
 	return goque.NewTypedTaskProcessor[entity.ProcessorTaskPayloadEventNotify](
-		newProcessor(notifyTransportRegistry),
+		newQueueProcessorProcessor(notifyTransportRegistry),
 		goque.WithCancelTaskWhenPayloadDecodeError[entity.ProcessorTaskPayloadEventNotify](),
 	)
 }
 
-type processor struct {
+type queueProcessor struct {
 	notifyTransportRegistry *notifytransport.Registry
 }
 
-func newProcessor(notifyTransportRegistry *notifytransport.Registry) *processor {
-	return &processor{
+func newQueueProcessorProcessor(notifyTransportRegistry *notifytransport.Registry) *queueProcessor {
+	return &queueProcessor{
 		notifyTransportRegistry: notifyTransportRegistry,
 	}
 }

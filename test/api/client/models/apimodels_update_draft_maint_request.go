@@ -21,6 +21,9 @@ import (
 // swagger:model apimodels.UpdateDraftMaintRequest
 type ApimodelsUpdateDraftMaintRequest struct {
 
+	// deferred notifications
+	DeferredNotifications []*ApimodelsDeferredNotification `json:"deferred_notifications"`
+
 	// description
 	// Example: PostgreSQL major upgrade
 	Description string `json:"description,omitempty"`
@@ -53,6 +56,10 @@ type ApimodelsUpdateDraftMaintRequest struct {
 func (m *ApimodelsUpdateDraftMaintRequest) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateDeferredNotifications(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateImpact(formats); err != nil {
 		res = append(res, err)
 	}
@@ -80,6 +87,36 @@ func (m *ApimodelsUpdateDraftMaintRequest) Validate(formats strfmt.Registry) err
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ApimodelsUpdateDraftMaintRequest) validateDeferredNotifications(formats strfmt.Registry) error {
+	if swag.IsZero(m.DeferredNotifications) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.DeferredNotifications); i++ {
+		if swag.IsZero(m.DeferredNotifications[i]) { // not required
+			continue
+		}
+
+		if m.DeferredNotifications[i] != nil {
+			if err := m.DeferredNotifications[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -224,6 +261,10 @@ func (m *ApimodelsUpdateDraftMaintRequest) validateSteps(formats strfmt.Registry
 func (m *ApimodelsUpdateDraftMaintRequest) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateDeferredNotifications(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateImpact(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -247,6 +288,35 @@ func (m *ApimodelsUpdateDraftMaintRequest) ContextValidate(ctx context.Context, 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ApimodelsUpdateDraftMaintRequest) contextValidateDeferredNotifications(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.DeferredNotifications); i++ {
+
+		if m.DeferredNotifications[i] != nil {
+
+			if swag.IsZero(m.DeferredNotifications[i]) { // not required
+				return nil
+			}
+
+			if err := m.DeferredNotifications[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("deferred_notifications" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 

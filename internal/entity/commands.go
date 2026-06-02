@@ -19,27 +19,37 @@ type NotifyTargetInput struct {
 	ChannelID string
 }
 
+// DeferredNotificationInput is one entry of the create/update contract's
+// deferred_notifications array: a reminder to fire at FireAt. Recipients and
+// text are not part of the input — reminders go to the maintenance's notify
+// targets and are rendered from the maint.reminder template at send time.
+type DeferredNotificationInput struct {
+	FireAt time.Time
+}
+
 type CreateMaintenanceCmd struct {
-	Title         string
-	Description   string
-	PlannedPeriod Period
-	Scope         MaintenanceScope
-	Impact        MaintenanceImpact
-	Resources     []uuid.UUID
-	Steps         []*MaintenanceStepInput
-	NotifyTargets []*NotifyTargetInput
+	Title                 string
+	Description           string
+	PlannedPeriod         Period
+	Scope                 MaintenanceScope
+	Impact                MaintenanceImpact
+	Resources             []uuid.UUID
+	Steps                 []*MaintenanceStepInput
+	NotifyTargets         []*NotifyTargetInput
+	DeferredNotifications []*DeferredNotificationInput
 }
 
 type UpdateMaintenanceCmd struct {
-	MaintID       uuid.UUID
-	Title         *string
-	Description   *string
-	PlannedStart  *time.Time
-	Scope         *MaintenanceScope
-	Impact        *MaintenanceImpact
-	Resources     []uuid.UUID
-	Steps         []*MaintenanceStepInput
-	NotifyTargets []*NotifyTargetInput // nil = unchanged
+	MaintID               uuid.UUID
+	Title                 *string
+	Description           *string
+	PlannedStart          *time.Time
+	Scope                 *MaintenanceScope
+	Impact                *MaintenanceImpact
+	Resources             []uuid.UUID
+	Steps                 []*MaintenanceStepInput
+	NotifyTargets         []*NotifyTargetInput         // empty = unchanged
+	DeferredNotifications []*DeferredNotificationInput // empty = unchanged
 }
 type StartMaintenanceCmd struct {
 	MaintID uuid.UUID

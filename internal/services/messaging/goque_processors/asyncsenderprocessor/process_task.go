@@ -1,4 +1,4 @@
-package taskprocessor
+package asyncsenderprocessor
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func (p *processor) ProcessTask(ctx context.Context, task *goque.TypedTask[entity.ProcessorTaskPayloadEventNotify]) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.Processor.ProcessTask",
+func (p *queueProcessor) ProcessTask(ctx context.Context, task *goque.TypedTask[entity.ProcessorTaskPayloadEventNotify]) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.QueueProcessor.ProcessTask",
 		xfield.String("transport", string(task.Payload.TransportName)),
 		xfield.String("target", task.Payload.Target),
 	)

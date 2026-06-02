@@ -30,38 +30,63 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 	}
 
 	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
-		if maint.Status != entity.MaintenanceStatusDraft {
-			return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusDraft)
-		}
-		applyValuesFromUpdateCmd(maint, notifyTargets, cmd)
-
-		if len(cmd.Steps) > 0 {
-			if err := s.replaceSteps(ctx, maint); err != nil {
-				xlog.Error(ctx, "replace steps failed", xfield.Error(err))
-				return err
-			}
-		}
-
-		if len(cmd.Resources) > 0 || lo.FromPtr(cmd.Scope) == entity.MaintenanceScopeGlobal {
-			if err := s.replaceResources(ctx, maint); err != nil {
-				xlog.Error(ctx, "replace resources failed", xfield.Error(err))
-				return err
-			}
-		}
-
-		// A maintenance must always keep >=1 notify target (enforced by
-		// validateUpdate's Required-equivalent on create and the cap
-		// here): an empty NotifyTargets means "not changing targets",
-		// not "clear them". So we only replace when targets are given.
-		if len(cmd.NotifyTargets) > 0 {
-			if err := s.notifyTargets.Replace(ctx, maint); err != nil {
-				xlog.Error(ctx, "replace notify target failed", xfield.Error(err))
-				return err
-			}
-		}
-
-		return nil
+		return s.applyUpdate(ctx, maint, notifyTargets, cmd)
 	})
+}
+
+// applyUpdate mutates and re-persists a draft maintenance's child collections
+// from the update command. Each collection is replaced only when the command
+// carries it; see the per-block comments for the "unchanged vs clear" rules.
+func (s *Service) applyUpdate(
+	ctx context.Context,
+	maint *entity.Maintenance,
+	notifyTargets []*entity.NotifyTarget,
+	cmd *entity.UpdateMaintenanceCmd,
+) error {
+	if maint.Status != entity.MaintenanceStatusDraft {
+		return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusDraft)
+	}
+
+	applyValuesFromUpdateCmd(maint, notifyTargets, cmd)
+
+	if len(cmd.Steps) > 0 {
+		if err := s.replaceSteps(ctx, maint); err != nil {
+			xlog.Error(ctx, "replace steps failed", xfield.Error(err))
+			return err
+		}
+	}
+
+	if len(cmd.Resources) > 0 || lo.FromPtr(cmd.Scope) == entity.MaintenanceScopeGlobal {
+		if err := s.replaceResources(ctx, maint); err != nil {
+			xlog.Error(ctx, "replace resources failed", xfield.Error(err))
+			return err
+		}
+	}
+
+	// A maintenance must always keep >=1 notify target (enforced by
+	// validateUpdate's Required-equivalent on create and the cap
+	// here): an empty NotifyTargets means "not changing targets",
+	// not "clear them". So we only replace when targets are given.
+	if len(cmd.NotifyTargets) > 0 {
+		if err := s.notifyTargets.Replace(ctx, maint); err != nil {
+			xlog.Error(ctx, "replace notify target failed", xfield.Error(err))
+			return err
+		}
+	}
+
+	// Empty/nil means "not changing reminders" (same convention as
+	// NotifyTargets above), so we only replace when reminders are given.
+	// Edits are only allowed while a maintenance is a draft, so no goque
+	// tasks exist yet — they're enqueued on approve. Persisting here is
+	// enough; no re-enqueue needed (see deferrednotifications.Replace).
+	if len(cmd.DeferredNotifications) > 0 {
+		if err := s.deferred.Replace(ctx, maint.ID, maint.DeferredNotifications); err != nil {
+			xlog.Error(ctx, "replace deferred notifications failed", xfield.Error(err))
+			return err
+		}
+	}
+
+	return nil
 }
 
 func applyValuesFromUpdateCmd(
@@ -105,6 +130,10 @@ func applyValuesFromUpdateCmd(
 
 	if len(notifyTargets) > 0 {
 		maint.NotifyTargets = notifyTargets
+	}
+
+	if len(cmd.DeferredNotifications) > 0 {
+		maint.DeferredNotifications = deferredNotificationsFromCmd(cmd.MaintID, cmd.DeferredNotifications)
 	}
 
 	maint.Normalize()
@@ -151,6 +180,10 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 		validation.Field(&cmd.NotifyTargets,
 			validation.Length(0, maxNotifyTargets),
 			validation.Each(validation.WithContext(validateNotifyTargetsInput)),
+		),
+		validation.Field(&cmd.DeferredNotifications,
+			validation.Length(0, maxDeferredNotifications),
+			validation.Each(validation.WithContext(validateDeferredNotificationInput)),
 		),
 	)
 }

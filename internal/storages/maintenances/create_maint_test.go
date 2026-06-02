@@ -83,7 +83,9 @@ func TestCreate_PlannedPeriod(t *testing.T) {
 				}
 
 				created, err := store.CreateMaint(ctx, maint)
-				require.EqualError(t, err, tc.expectedErr)
+				// ErrorContains, not EqualError: pq now appends the SQLSTATE
+				// code (e.g. " (23514)") to the message, so match the prefix.
+				require.ErrorContains(t, err, tc.expectedErr)
 				require.Nil(t, created)
 
 				dbMaint, err := store.GetMaint(ctx, maint.ID)
@@ -176,7 +178,9 @@ func TestCreate_ActualPeriod(t *testing.T) {
 				}
 
 				created, err := store.CreateMaint(ctx, maint)
-				require.EqualError(t, err, tc.expectedErr)
+				// ErrorContains, not EqualError: pq now appends the SQLSTATE
+				// code (e.g. " (23514)") to the message, so match the prefix.
+				require.ErrorContains(t, err, tc.expectedErr)
 				require.Nil(t, created)
 
 				dbMaint, err := store.GetMaint(ctx, maint.ID)
