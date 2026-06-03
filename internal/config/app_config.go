@@ -132,12 +132,6 @@ type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
 }
 
-type TransportChannel struct {
-	ID          string `mapstructure:"id"`
-	Name        string `mapstructure:"name"`
-	Description string `mapstructure:"description"`
-}
-
 type SlackConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	BotToken string `mapstructure:"bot_token"`
@@ -145,9 +139,8 @@ type SlackConfig struct {
 	// production; set for integration tests against an httptest mock,
 	// for egress through a corporate proxy, or for a self-hosted Slack
 	// API endpoint.
-	APIURL   string             `mapstructure:"api_url"`
-	Timeout  time.Duration      `mapstructure:"timeout"`
-	Channels []TransportChannel `mapstructure:"channels"`
+	APIURL  string        `mapstructure:"api_url"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type TelegramConfig struct {
@@ -156,9 +149,8 @@ type TelegramConfig struct {
 	// APIURL overrides the default Telegram Bot API base URL. Leave
 	// empty in production; set for integration tests, corporate
 	// proxies, or a self-hosted telegram-bot-api server.
-	APIURL   string             `mapstructure:"api_url"`
-	Timeout  time.Duration      `mapstructure:"timeout"`
-	Channels []TransportChannel `mapstructure:"channels"`
+	APIURL  string        `mapstructure:"api_url"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type NotifyTransportConfig struct {

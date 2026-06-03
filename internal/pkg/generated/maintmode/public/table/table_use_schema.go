@@ -19,6 +19,7 @@ func UseSchema(schema string) {
 	MaintenanceResources = MaintenanceResources.FromSchema(schema)
 	MaintenanceSteps = MaintenanceSteps.FromSchema(schema)
 	Maintenances = Maintenances.FromSchema(schema)
+	MessengerChannels = MessengerChannels.FromSchema(schema)
 	RefreshTokens = RefreshTokens.FromSchema(schema)
 	Resources = Resources.FromSchema(schema)
 	UserIdentities = UserIdentities.FromSchema(schema)

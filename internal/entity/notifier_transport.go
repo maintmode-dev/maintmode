@@ -1,5 +1,11 @@
 package entity
 
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
 // NotifyTransport identifies transport in routing config and registries.
 type NotifyTransport string
 
@@ -19,8 +25,22 @@ func (t NotifyTransport) IsValid() bool {
 	}
 }
 
+// NotifyChannel is a catalog entry. ID is the DB row UUID and the public
+// identity used everywhere (GET /channels, subscription validation, archive).
+// ArchivedAt is nil for active channels; an archived channel is hidden from the
+// default listing but still resolvable by ID.
 type NotifyChannel struct {
-	ID                 string
+	ID                 uuid.UUID
+	Transport          NotifyTransport
+	TransportChannelID string
+	Name               string
+	Description        string
+	ArchivedAt         *time.Time
+}
+
+// CreateNotifyChannelCmd is the command to register a new channel in the
+// catalog. ID is assigned by the DB, so it is not part of the input.
+type CreateNotifyChannelCmd struct {
 	Transport          NotifyTransport
 	TransportChannelID string
 	Name               string

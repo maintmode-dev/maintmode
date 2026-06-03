@@ -56,7 +56,7 @@ func main() {
 	closer.Add(db.Close)
 
 	// Bootstrap application layers
-	stores, err := bootstrap.NewStores(cfg, db)
+	stores, err := bootstrap.NewStores(db)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}

@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	stores := testbootstraputils.InitStores(cfg, db)
+	stores := testbootstraputils.InitStores(db)
 	resourcesStore = stores.Resources
 	maintStore = stores.Maintenances
 

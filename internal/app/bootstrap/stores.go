@@ -6,7 +6,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/goque"
 
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
 
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
@@ -33,7 +32,6 @@ type Stores struct {
 
 // NewStores creates and initializes all storage layer dependencies
 func NewStores(
-	cfg *config.AppConfig,
 	db *sqlx.DB,
 ) (*Stores, error) {
 	taskStorage, err := goque.NewStorage(db)
@@ -48,7 +46,7 @@ func NewStores(
 		ConflictSnapshots:     conflictsnapshots.NewStore(db),
 		NotifyTargets:         notifytargets.NewStore(db),
 		DeferredNotifications: deferrednotifications.NewStore(db),
-		ChannelCatalog:        notifychannel.New(cfg),
+		ChannelCatalog:        notifychannel.NewStore(db),
 		taskStorage:           taskStorage,
 	}, nil
 }

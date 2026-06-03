@@ -58,6 +58,9 @@ external_services:
 s2s:
 
 notify_transport:
+  # The channel catalog lives in Postgres (messenger_channels); tests
+  # seed it via the storage layer. Create channels through
+  # POST /api/v1/notifications/channels at runtime.
   use_stub: true
   slack:
     enabled: false
@@ -67,9 +70,6 @@ notify_transport:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
-    channels:
-      - { id: "stub-team",  name: "Stub team chat",  description: "Local dev: deliveries logged, never sent" }
-      - { id: "stub-alerts", name: "Stub alerts",    description: "Local dev: second channel for testing fan-out" }
   telegram:
     enabled: false
     bot_token: <secret:messengers/telegram/bot_token>
@@ -78,9 +78,6 @@ notify_transport:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
-    channels:
-      - { id: "stub-team",  name: "Stub team chat",  description: "Local dev: deliveries logged, never sent" }
-      - { id: "stub-alerts", name: "Stub alerts",    description: "Local dev: second channel for testing fan-out" }
 
 task_processor:
   messaging:

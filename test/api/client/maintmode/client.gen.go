@@ -183,11 +183,12 @@ type ApimodelsCancelMaintRequest struct {
 
 // ApimodelsChannel defines model for apimodels.Channel.
 type ApimodelsChannel struct {
-	Description        *string `json:"description,omitempty"`
-	Id                 *string `json:"id,omitempty"`
-	Name               *string `json:"name,omitempty"`
-	Transport          *string `json:"transport,omitempty"`
-	TransportChannelId *string `json:"transport_channel_id,omitempty"`
+	ArchivedAt         *time.Time          `json:"archived_at,omitempty"`
+	Description        *string             `json:"description,omitempty"`
+	Id                 *openapi_types.UUID `json:"id,omitempty"`
+	Name               *string             `json:"name,omitempty"`
+	Transport          *string             `json:"transport,omitempty"`
+	TransportChannelId *string             `json:"transport_channel_id,omitempty"`
 }
 
 // ApimodelsChannelsResponse defines model for apimodels.ChannelsResponse.
@@ -202,6 +203,14 @@ type ApimodelsConflict struct {
 	OverlapStart  *time.Time                 `json:"overlap_start,omitempty"`
 	Resources     *[]ApimodelsResourceRef    `json:"resources,omitempty"`
 	Scope         *ApimodelsMaintenanceScope `json:"scope,omitempty"`
+}
+
+// ApimodelsCreateChannelRequest defines model for apimodels.CreateChannelRequest.
+type ApimodelsCreateChannelRequest struct {
+	Description        *string `json:"description,omitempty"`
+	Name               *string `json:"name,omitempty"`
+	Transport          *string `json:"transport,omitempty"`
+	TransportChannelId *string `json:"transport_channel_id,omitempty"`
 }
 
 // ApimodelsCreateDraftMaintRequest defines model for apimodels.CreateDraftMaintRequest.
@@ -455,6 +464,12 @@ type UimodelsMaintenanceViewResponse struct {
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
 
+// GetApiV1NotificationsChannelsParams defines parameters for GetApiV1NotificationsChannels.
+type GetApiV1NotificationsChannelsParams struct {
+	// IncludeArchived Include archived channels (default false)
+	IncludeArchived *bool `form:"include_archived,omitempty" json:"include_archived,omitempty"`
+}
+
 // GetApiV1ResourcesParams defines parameters for GetApiV1Resources.
 type GetApiV1ResourcesParams struct {
 	// Name Resource name to search for
@@ -505,6 +520,9 @@ type PostApiV1MaintenancesIdCancelJSONRequestBody = ApimodelsCancelMaintRequest
 
 // PostApiV1MaintenancesIdEditJSONRequestBody defines body for PostApiV1MaintenancesIdEdit for application/json ContentType.
 type PostApiV1MaintenancesIdEditJSONRequestBody = ApimodelsUpdateDraftMaintRequest
+
+// PostApiV1NotificationsChannelsJSONRequestBody defines body for PostApiV1NotificationsChannels for application/json ContentType.
+type PostApiV1NotificationsChannelsJSONRequestBody = ApimodelsCreateChannelRequest
 
 // PostApiV1ResourceCreateJSONRequestBody defines body for PostApiV1ResourceCreate for application/json ContentType.
 type PostApiV1ResourceCreateJSONRequestBody = ApimodelsCreateResourceRequest
@@ -627,7 +645,18 @@ type ClientInterface interface {
 	PostApiV1MaintenancesIdStepsStepIdStart(ctx context.Context, id openapi_types.UUID, stepId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1NotificationsChannels request
-	GetApiV1NotificationsChannels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiV1NotificationsChannels(ctx context.Context, params *GetApiV1NotificationsChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1NotificationsChannelsWithBody request with any body
+	PostApiV1NotificationsChannelsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1NotificationsChannels(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1NotificationsChannelsIdArchive request
+	PostApiV1NotificationsChannelsIdArchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1NotificationsChannelsIdUnarchive request
+	PostApiV1NotificationsChannelsIdUnarchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1ResourceCreateWithBody request with any body
 	PostApiV1ResourceCreateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -841,8 +870,56 @@ func (c *Client) PostApiV1MaintenancesIdStepsStepIdStart(ctx context.Context, id
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1NotificationsChannels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1NotificationsChannelsRequest(c.Server)
+func (c *Client) GetApiV1NotificationsChannels(ctx context.Context, params *GetApiV1NotificationsChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1NotificationsChannelsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1NotificationsChannelsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1NotificationsChannelsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1NotificationsChannels(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1NotificationsChannelsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1NotificationsChannelsIdArchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1NotificationsChannelsIdArchiveRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1NotificationsChannelsIdUnarchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1NotificationsChannelsIdUnarchiveRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1419,7 +1496,7 @@ func NewPostApiV1MaintenancesIdStepsStepIdStartRequest(server string, id openapi
 }
 
 // NewGetApiV1NotificationsChannelsRequest generates requests for GetApiV1NotificationsChannels
-func NewGetApiV1NotificationsChannelsRequest(server string) (*http.Request, error) {
+func NewGetApiV1NotificationsChannelsRequest(server string, params *GetApiV1NotificationsChannelsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1437,7 +1514,142 @@ func NewGetApiV1NotificationsChannelsRequest(server string) (*http.Request, erro
 		return nil, err
 	}
 
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.IncludeArchived != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_archived", *params.IncludeArchived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiV1NotificationsChannelsRequest calls the generic PostApiV1NotificationsChannels builder with application/json body
+func NewPostApiV1NotificationsChannelsRequest(server string, body PostApiV1NotificationsChannelsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1NotificationsChannelsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1NotificationsChannelsRequestWithBody generates requests for PostApiV1NotificationsChannels with any type of body
+func NewPostApiV1NotificationsChannelsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/channels")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1NotificationsChannelsIdArchiveRequest generates requests for PostApiV1NotificationsChannelsIdArchive
+func NewPostApiV1NotificationsChannelsIdArchiveRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/channels/%s/archive", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiV1NotificationsChannelsIdUnarchiveRequest generates requests for PostApiV1NotificationsChannelsIdUnarchive
+func NewPostApiV1NotificationsChannelsIdUnarchiveRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/channels/%s/unarchive", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1975,7 +2187,18 @@ type ClientWithResponsesInterface interface {
 	PostApiV1MaintenancesIdStepsStepIdStartWithResponse(ctx context.Context, id openapi_types.UUID, stepId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1MaintenancesIdStepsStepIdStartResponse, error)
 
 	// GetApiV1NotificationsChannelsWithResponse request
-	GetApiV1NotificationsChannelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsResponse, error)
+	GetApiV1NotificationsChannelsWithResponse(ctx context.Context, params *GetApiV1NotificationsChannelsParams, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsResponse, error)
+
+	// PostApiV1NotificationsChannelsWithBodyWithResponse request with any body
+	PostApiV1NotificationsChannelsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsResponse, error)
+
+	PostApiV1NotificationsChannelsWithResponse(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsResponse, error)
+
+	// PostApiV1NotificationsChannelsIdArchiveWithResponse request
+	PostApiV1NotificationsChannelsIdArchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdArchiveResponse, error)
+
+	// PostApiV1NotificationsChannelsIdUnarchiveWithResponse request
+	PostApiV1NotificationsChannelsIdUnarchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdUnarchiveResponse, error)
 
 	// PostApiV1ResourceCreateWithBodyWithResponse request with any body
 	PostApiV1ResourceCreateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1ResourceCreateResponse, error)
@@ -2423,6 +2646,110 @@ func (r GetApiV1NotificationsChannelsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiV1NotificationsChannelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1NotificationsChannelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ApimodelsChannel
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON409      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1NotificationsChannelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1NotificationsChannelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1NotificationsChannelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1NotificationsChannelsIdArchiveResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1NotificationsChannelsIdArchiveResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1NotificationsChannelsIdArchiveResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1NotificationsChannelsIdArchiveResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1NotificationsChannelsIdUnarchiveResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1NotificationsChannelsIdUnarchiveResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1NotificationsChannelsIdUnarchiveResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1NotificationsChannelsIdUnarchiveResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2878,12 +3205,47 @@ func (c *ClientWithResponses) PostApiV1MaintenancesIdStepsStepIdStartWithRespons
 }
 
 // GetApiV1NotificationsChannelsWithResponse request returning *GetApiV1NotificationsChannelsResponse
-func (c *ClientWithResponses) GetApiV1NotificationsChannelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsResponse, error) {
-	rsp, err := c.GetApiV1NotificationsChannels(ctx, reqEditors...)
+func (c *ClientWithResponses) GetApiV1NotificationsChannelsWithResponse(ctx context.Context, params *GetApiV1NotificationsChannelsParams, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsResponse, error) {
+	rsp, err := c.GetApiV1NotificationsChannels(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetApiV1NotificationsChannelsResponse(rsp)
+}
+
+// PostApiV1NotificationsChannelsWithBodyWithResponse request with arbitrary body returning *PostApiV1NotificationsChannelsResponse
+func (c *ClientWithResponses) PostApiV1NotificationsChannelsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsResponse, error) {
+	rsp, err := c.PostApiV1NotificationsChannelsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1NotificationsChannelsResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1NotificationsChannelsWithResponse(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsResponse, error) {
+	rsp, err := c.PostApiV1NotificationsChannels(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1NotificationsChannelsResponse(rsp)
+}
+
+// PostApiV1NotificationsChannelsIdArchiveWithResponse request returning *PostApiV1NotificationsChannelsIdArchiveResponse
+func (c *ClientWithResponses) PostApiV1NotificationsChannelsIdArchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdArchiveResponse, error) {
+	rsp, err := c.PostApiV1NotificationsChannelsIdArchive(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1NotificationsChannelsIdArchiveResponse(rsp)
+}
+
+// PostApiV1NotificationsChannelsIdUnarchiveWithResponse request returning *PostApiV1NotificationsChannelsIdUnarchiveResponse
+func (c *ClientWithResponses) PostApiV1NotificationsChannelsIdUnarchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdUnarchiveResponse, error) {
+	rsp, err := c.PostApiV1NotificationsChannelsIdUnarchive(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1NotificationsChannelsIdUnarchiveResponse(rsp)
 }
 
 // PostApiV1ResourceCreateWithBodyWithResponse request with arbitrary body returning *PostApiV1ResourceCreateResponse
@@ -3681,6 +4043,182 @@ func ParseGetApiV1NotificationsChannelsResponse(rsp *http.Response) (*GetApiV1No
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1NotificationsChannelsResponse parses an HTTP response from a PostApiV1NotificationsChannelsWithResponse call
+func ParsePostApiV1NotificationsChannelsResponse(rsp *http.Response) (*PostApiV1NotificationsChannelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1NotificationsChannelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ApimodelsChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1NotificationsChannelsIdArchiveResponse parses an HTTP response from a PostApiV1NotificationsChannelsIdArchiveWithResponse call
+func ParsePostApiV1NotificationsChannelsIdArchiveResponse(rsp *http.Response) (*PostApiV1NotificationsChannelsIdArchiveResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1NotificationsChannelsIdArchiveResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1NotificationsChannelsIdUnarchiveResponse parses an HTTP response from a PostApiV1NotificationsChannelsIdUnarchiveWithResponse call
+func ParsePostApiV1NotificationsChannelsIdUnarchiveResponse(rsp *http.Response) (*PostApiV1NotificationsChannelsIdUnarchiveResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1NotificationsChannelsIdUnarchiveResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest HttperrorsErrorResponse

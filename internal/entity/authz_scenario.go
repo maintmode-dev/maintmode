@@ -32,6 +32,13 @@ const (
 	AuthzScenarioResourceUnarchive AuthzScenario = "resource.unarchive"
 )
 
+// notification scenarios
+const (
+	AuthzScenarioNotificationChannelCreate    AuthzScenario = "notification.channel.create"
+	AuthzScenarioNotificationChannelArchive   AuthzScenario = "notification.channel.archive"
+	AuthzScenarioNotificationChannelUnarchive AuthzScenario = "notification.channel.unarchive"
+)
+
 // auth scenarios
 const (
 	AuthzScenarioAuthRolesRead     AuthzScenario = "auth.roles.read"

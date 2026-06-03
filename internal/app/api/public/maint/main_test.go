@@ -24,6 +24,7 @@ import (
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
 	resourcemodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
@@ -205,6 +206,9 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	}
 }
 
+// makeNotifyChannel seeds one catalog channel via the admin create endpoint
+// and returns it. The catalog now lives in Postgres, so tests must create the
+// channel they reference rather than relying on config-seeded stubs.
 func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
 	t.Helper()
 
@@ -212,14 +216,21 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 
 	impl := apinotifications.New(services.NotifyTargets)
 
-	c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+	req := &notificationsmodels.CreateChannelRequest{
+		Transport:          string(entity.NotifyTransportTelegram),
+		TransportChannelID: t.Name() + "-" + uuid.NewString(),
+		Name:               t.Name(),
+		Description:        "test channel",
+	}
+
+	c, rec := echotest.ContextConfig{
+		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
+	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
 
-	err := impl.GetChannels(c)
+	err := impl.CreateChannel(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusCreated, rec.Code)
 
-	channels := testjsonudils.JSONToAny[notificationsmodels.ChannelsResponse](t, rec.Body)
-
-	return channels.Channels[0]
+	return testjsonudils.JSONToAny[*notificationsmodels.Channel](t, rec.Body)
 }

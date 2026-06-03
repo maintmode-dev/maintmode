@@ -96,6 +96,12 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		return nil, fmt.Errorf("unsupported step")
 	}
 
+	notifyTargets, err := apimodels.FromAPINotifyTargets(req.NotifyTargets)
+	if err != nil {
+		xlog.Error(ctx, "invalid notify targets", xfield.Error(err))
+		return nil, fmt.Errorf("invalid notify targets")
+	}
+
 	return &entity.CreateMaintenanceCmd{
 		Title:                 req.Title,
 		Description:           req.Description,
@@ -104,7 +110,7 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		Impact:                impact,
 		Resources:             apimodels.FromAPIResources(req.Resources),
 		Steps:                 steps,
-		NotifyTargets:         apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		NotifyTargets:         notifyTargets,
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
 	}, nil
 }

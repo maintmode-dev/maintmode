@@ -88,6 +88,12 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		return nil, fmt.Errorf("unsupported step")
 	}
 
+	notifyTargets, err := apimodels.FromAPINotifyTargets(req.NotifyTargets)
+	if err != nil {
+		xlog.Error(ctx, "invalid notify targets", xfield.Error(err))
+		return nil, fmt.Errorf("invalid notify targets")
+	}
+
 	cmd := &entity.UpdateMaintenanceCmd{
 		MaintID:               maintID,
 		Title:                 lo.ToPtr(req.Title),
@@ -97,7 +103,7 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		Impact:                lo.ToPtr(impact),
 		Resources:             apimodels.FromAPIResources(req.Resources),
 		Steps:                 steps,
-		NotifyTargets:         apimodels.FromAPINotifyTargets(req.NotifyTargets),
+		NotifyTargets:         notifyTargets,
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
 	}
 

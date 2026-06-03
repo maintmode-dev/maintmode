@@ -19,6 +19,7 @@ var (
 	ErrConflictsChangedSincePreview ErrorCode = "conflicts changed since preview"
 	ErrMaintChangedSincePreview     ErrorCode = "maintenance changed since preview"
 	ErrResourceAlreadyExists        ErrorCode = "resource already exists"
+	ErrNotifyChannelAlreadyExists   ErrorCode = "notify channel already exists"
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
 	ErrConflict                     ErrorCode = "conflict"
 )

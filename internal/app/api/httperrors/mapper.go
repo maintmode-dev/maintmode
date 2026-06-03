@@ -27,6 +27,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrConflictsChangedSincePreview),
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
+		errors.Is(err, apperr.ErrNotifyChannelAlreadyExists),
 		errors.Is(err, apperr.ErrStepNotFound),
 		errors.Is(err, apperr.ErrInvalidRole):
 		statusCode, errResp = mapError(err)
@@ -91,6 +92,9 @@ func mapError(err error) (int, *ErrorResponse) {
 
 	case errors.Is(err, apperr.ErrResourceAlreadyExists):
 		return http.StatusConflict, NewErrorResponse(ErrResourceAlreadyExists, err.Error())
+
+	case errors.Is(err, apperr.ErrNotifyChannelAlreadyExists):
+		return http.StatusConflict, NewErrorResponse(ErrNotifyChannelAlreadyExists, err.Error())
 
 	case errors.Is(err, apperr.ErrStepNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())

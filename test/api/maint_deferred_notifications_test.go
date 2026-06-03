@@ -97,10 +97,14 @@ func TestMaintenancesAPI_DeferredNotifications(t *testing.T) {
 	require.Len(t, lo.FromPtr(getAfter.JSON200.DeferredNotifications), 2)
 }
 
-// availableChannelIDs returns every catalog channel id exposed by the API.
+// availableChannelIDs returns every catalog channel id exposed by the API,
+// seeding one via the admin API first so the catalog is never empty.
 func availableChannelIDs(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) []string {
 	t.Helper()
-	resp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx)
+
+	ensureNotifyChannel(ctx, t, apiClient)
+
+	resp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx, nil)
 	require.NoError(t, err, "Failed to fetch notification channels")
 	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
 	require.NotNil(t, resp.JSON200)
@@ -110,7 +114,7 @@ func availableChannelIDs(ctx context.Context, t *testing.T, apiClient *maintmode
 
 	ids := make([]string, 0, len(channels))
 	for _, ch := range channels {
-		ids = append(ids, lo.FromPtr(ch.Id))
+		ids = append(ids, lo.FromPtr(ch.Id).String())
 	}
 	return ids
 }

@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 	closer.Add(db.Close)
 
 	resourcesStore = resources.NewStore(db)
-	notifyChannelStore = notifychannel.New(cfg)
+	notifyChannelStore = notifychannel.NewStore(db)
 	txManager := dbtx.NewTxManager(db)
 	notifyTargetsStore := notifytargetsstore.NewStore(db)
 
@@ -86,11 +86,9 @@ func TestMain(m *testing.M) {
 func makeNotifyChannel(ctx context.Context, t *testing.T) *entity.NotifyChannel {
 	t.Helper()
 
-	notifyChannels, err := service.notifyTargets.AvailableChannels(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, notifyChannels)
-
-	channel, err := notifyChannelStore.Add(ctx, &entity.NotifyChannel{
+	// Catalog now lives in Postgres: seed a channel for this test, then
+	// assert it surfaces through the service-facing AvailableChannels.
+	channel, err := notifyChannelStore.Create(ctx, &entity.NotifyChannel{
 		Transport:          entity.NotifyTransportTelegram,
 		TransportChannelID: t.Name() + xuuid.NewString(),
 		Name:               t.Name(),
@@ -98,6 +96,10 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *entity.NotifyChannel 
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
+
+	notifyChannels, err := service.notifyTargets.AvailableChannels(ctx, false)
+	require.NoError(t, err)
+	require.NotEmpty(t, notifyChannels)
 
 	return channel
 }

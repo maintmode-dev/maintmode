@@ -358,19 +358,45 @@ func creatResource(ctx context.Context, t *testing.T, apiClient *maintmodeclient
 
 // testNotifyTargets returns a NotifyTargets payload referencing the
 // first channel from the live catalog. Notify targets are required on
-// maintenance creation, so every create helper attaches this.
+// maintenance creation, so every create helper attaches this. The
+// catalog now lives in Postgres, so ensure at least one channel exists
+// (creating one via the admin API on the first call).
 func testNotifyTargets(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) *maintmodeclient.ApimodelsNotifyTargets {
 	t.Helper()
 
-	resp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx)
-	require.NoError(t, err, "Failed to fetch notification channels")
-	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
-	require.NotNil(t, resp.JSON200)
-
-	channels := lo.FromPtr(resp.JSON200.Channels)
-	require.NotEmpty(t, channels, "catalog must expose at least one channel for API tests")
+	channelID := ensureNotifyChannel(ctx, t, apiClient)
 
 	return &maintmodeclient.ApimodelsNotifyTargets{
-		ChannelIds: lo.ToPtr([]string{lo.FromPtr(channels[0].Id)}),
+		ChannelIds: lo.ToPtr([]string{channelID}),
 	}
+}
+
+// ensureNotifyChannel returns the id of a catalog channel, creating one
+// via the admin API if the catalog is empty. Channel creation is
+// admin-scoped; the default API test client carries the admin role.
+func ensureNotifyChannel(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
+	t.Helper()
+
+	listResp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx, nil)
+	require.NoError(t, err, "Failed to fetch notification channels")
+	require.Equal(t, http.StatusOK, listResp.StatusCode(), "unexpected status: %s", listResp.Body)
+	require.NotNil(t, listResp.JSON200)
+
+	if channels := lo.FromPtr(listResp.JSON200.Channels); len(channels) > 0 {
+		return lo.FromPtr(channels[0].Id).String()
+	}
+
+	createResp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
+		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
+			Transport:          lo.ToPtr(string(entity.NotifyTransportSlack)),
+			TransportChannelId: lo.ToPtr("api-test-" + xuuid.NewString()),
+			Name:               lo.ToPtr("API test channel"),
+			Description:        lo.ToPtr("Seeded by API integration tests"),
+		},
+	)
+	require.NoError(t, err, "Failed to create notification channel")
+	require.Equal(t, http.StatusCreated, createResp.StatusCode(), "unexpected status: %s", createResp.Body)
+	require.NotNil(t, createResp.JSON201)
+
+	return lo.FromPtr(createResp.JSON201.Id).String()
 }

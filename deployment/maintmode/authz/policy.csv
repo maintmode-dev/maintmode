@@ -18,5 +18,8 @@ p, editor, resource.create, execute
 p, editor, resource.edit, execute
 p, editor, resource.archive, execute
 p, editor, resource.unarchive, execute
+p, editor, notification.channel.create, execute
+p, editor, notification.channel.archive, execute
+p, editor, notification.channel.unarchive, execute
 
 p, reviewer, maintenance.approve, execute

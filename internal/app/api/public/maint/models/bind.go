@@ -116,12 +116,20 @@ func ToAPISteps(steps []*entity.MaintenanceStep) []*MaintenanceStep {
 	})
 }
 
-func FromAPINotifyTargets(notification *NotifyTargets) []*entity.NotifyTargetInput {
-	return lo.Map(notification.ChannelIDs, func(item string, _ int) *entity.NotifyTargetInput {
-		return &entity.NotifyTargetInput{
-			ChannelID: item,
+func FromAPINotifyTargets(notification *NotifyTargets) ([]*entity.NotifyTargetInput, error) {
+	if notification == nil {
+		return nil, nil
+	}
+
+	targets := make([]*entity.NotifyTargetInput, 0, len(notification.ChannelIDs))
+	for _, item := range notification.ChannelIDs {
+		channelID, err := uuid.Parse(item)
+		if err != nil {
+			return nil, fmt.Errorf("invalid channel id %q: %w", item, err)
 		}
-	})
+		targets = append(targets, &entity.NotifyTargetInput{ChannelID: channelID})
+	}
+	return targets, nil
 }
 
 func ToAPINotifyTargets(targets []*entity.NotifyTarget) *NotifyTargets {

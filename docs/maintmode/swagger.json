@@ -29,10 +29,15 @@
             },
             "apimodels.Channel": {
                 "properties": {
+                    "archived_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
                     "description": {
                         "type": "string"
                     },
                     "id": {
+                        "format": "uuid",
                         "type": "string"
                     },
                     "name": {
@@ -82,6 +87,27 @@
                     },
                     "scope": {
                         "$ref": "#/components/schemas/apimodels.MaintenanceScope"
+                    }
+                },
+                "type": "object"
+            },
+            "apimodels.CreateChannelRequest": {
+                "properties": {
+                    "description": {
+                        "example": "Ops alerting channel",
+                        "type": "string"
+                    },
+                    "name": {
+                        "example": "Alerts",
+                        "type": "string"
+                    },
+                    "transport": {
+                        "example": "slack",
+                        "type": "string"
+                    },
+                    "transport_channel_id": {
+                        "example": "C0123456789",
+                        "type": "string"
                     }
                 },
                 "type": "object"
@@ -1900,7 +1926,17 @@
         },
         "/api/v1/notifications/channels": {
             "get": {
-                "description": "Returns the full channel catalog across enabled\ntransports. Used by the admin UI to populate the channel\npicker when creating or editing a maintenance.",
+                "description": "Returns the channel catalog across enabled transports. Used by\nthe admin UI to populate the channel picker. Archived channels\nare hidden unless include_archived=true is passed.",
+                "parameters": [
+                    {
+                        "description": "Include archived channels (default false)",
+                        "in": "query",
+                        "name": "include_archived",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "content": {
@@ -1959,6 +1995,263 @@
                     }
                 ],
                 "summary": "List notification channels",
+                "tags": [
+                    "Notifications"
+                ]
+            },
+            "post": {
+                "description": "Registers a new channel in the catalog. The catalog is the\nsingle source of truth for subscription validation across all\ninstances, so a channel created here is immediately usable on\nevery pod without a restart. Requires the editor role.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apimodels.CreateChannelRequest"
+                            }
+                        }
+                    },
+                    "description": "Channel details",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.Channel"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Channel already exists"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Auth service unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Create a notification channel",
+                "tags": [
+                    "Notifications"
+                ]
+            }
+        },
+        "/api/v1/notifications/channels/{id}/archive": {
+            "post": {
+                "description": "Soft-deletes a channel: it disappears from the default\nGET /channels listing but stays resolvable so existing\nsubscriptions keep validating. Idempotent: archiving an\nalready-archived or unknown channel succeeds. Requires the\neditor role.",
+                "parameters": [
+                    {
+                        "description": "Channel ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Channel archived"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid channel id"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Auth service unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Archive a notification channel",
+                "tags": [
+                    "Notifications"
+                ]
+            }
+        },
+        "/api/v1/notifications/channels/{id}/unarchive": {
+            "post": {
+                "description": "Returns a previously archived channel to the active catalog so\nit shows up in the picker again. Idempotent: unarchiving an\nalready-active or unknown channel succeeds. Requires the editor\nrole.",
+                "parameters": [
+                    {
+                        "description": "Channel ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Channel unarchived"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid channel id"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Auth service unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Unarchive a notification channel",
                 "tags": [
                     "Notifications"
                 ]

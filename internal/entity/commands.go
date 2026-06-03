@@ -16,7 +16,9 @@ type MaintenanceStepInput struct {
 }
 
 type NotifyTargetInput struct {
-	ChannelID string
+	// ChannelID is the catalog channel id (the messenger_channels row UUID),
+	// resolved to a concrete transport target during maintenance create/update.
+	ChannelID uuid.UUID
 }
 
 // DeferredNotificationInput is one entry of the create/update contract's

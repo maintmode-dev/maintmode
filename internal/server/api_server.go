@@ -132,12 +132,20 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	}
 
 	// notifications API group — channel catalog powering the admin
-	// picker. Read-scoped on the maintenance scenario since the picker
-	// is part of the maintenance edit flow.
+	// picker. GET is read-scoped on the maintenance scenario since the
+	// picker is part of the maintenance edit flow. POST manages the
+	// catalog (the cross-pod source of truth) and is editor-scoped,
+	// alongside the other create/edit scenarios.
 	{
 		notifAPI := gr.Group("/notifications")
 		notifAPI.Add(http.MethodGet, "/channels", s.handlers.Notifications.GetChannels,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
+		notifAPI.Add(http.MethodPost, "/channels", s.handlers.Notifications.CreateChannel,
+			s.scenarioMW(entity.AuthzScenarioNotificationChannelCreate))
+		notifAPI.Add(http.MethodPost, "/channels/:id/archive", s.handlers.Notifications.ArchiveChannel,
+			s.scenarioMW(entity.AuthzScenarioNotificationChannelArchive))
+		notifAPI.Add(http.MethodPost, "/channels/:id/unarchive", s.handlers.Notifications.UnarchiveChannel,
+			s.scenarioMW(entity.AuthzScenarioNotificationChannelUnarchive))
 	}
 }
 

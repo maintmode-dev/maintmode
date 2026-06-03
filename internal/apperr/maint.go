@@ -52,3 +52,10 @@ func ForbiddenStepStatusTransition(currentStatus, newStatus any) error {
 var (
 	ErrNotifyTargetsAlreadyExists = errors.New("notify targets already exists")
 )
+
+// ###############################################
+// ########## notify channels ####################
+// ###############################################
+var (
+	ErrNotifyChannelAlreadyExists = errors.New("notify channel already exists")
+)
