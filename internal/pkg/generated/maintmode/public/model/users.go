@@ -14,10 +14,9 @@ import (
 )
 
 type Users struct {
-	ID              uuid.UUID      `sql:"primary_key" db:"users.id"`
-	Email           string         `db:"users.email"`
-	Name            string         `db:"users.name"`
-	OAuthProviderID string         `db:"users.oauth_provider_id"`
-	Roles           pq.StringArray `db:"users.roles"`
-	CreatedAt       time.Time      `db:"users.created_at"`
+	ID        uuid.UUID      `sql:"primary_key" db:"users.id"`
+	Email     string         `db:"users.email"`
+	Name      string         `db:"users.name"`
+	Roles     pq.StringArray `db:"users.roles"`
+	CreatedAt time.Time      `db:"users.created_at"`
 }

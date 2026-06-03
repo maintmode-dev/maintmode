@@ -34,12 +34,11 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		return nil, nil, fmt.Errorf("get oauth provider user: %w", err)
 	}
 
-	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, providerUserInfo)
+	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, providerUserInfo)
 	if err != nil {
 		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
-			Email:           providerUserInfo.Email,
-			Name:            providerUserInfo.Name,
-			OAuthProviderID: providerUserInfo.ID,
+			Email: providerUserInfo.Email,
+			Name:  providerUserInfo.Name,
 		})
 
 		xlog.Error(ctx, "failed to get or create user", xfield.Error(err))

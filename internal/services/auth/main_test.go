@@ -29,6 +29,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
+	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -85,6 +86,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			config.DevEnvironment,
 			txManager,
 			users.NewStore(db),
+			useridentities.NewStore(db),
 			auditor.NewAuditor(audit.NewStore(db)),
 		),
 		distributedlock.NewStore(redis),

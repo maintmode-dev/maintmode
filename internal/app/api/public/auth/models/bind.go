@@ -1,10 +1,25 @@
 package apiauthmodels
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
+
+// FromAPIConnectableProvider validates the :provider path parameter against the
+// set of providers a user may connect or disconnect. The stub provider is an
+// internal dev-only login backend and is intentionally not connectable.
+func FromAPIConnectableProvider(s string) (entity.OAuthProvider, error) {
+	provider := entity.OAuthProvider(s)
+	switch provider {
+	case entity.OAuthProviderGoogle, entity.OAuthProviderGithub:
+		return provider, nil
+	default:
+		return "", fmt.Errorf("unsupported provider: %q", s)
+	}
+}
 
 func ToAPITokenPairResponse(p *entity.TokenPair) *TokenPairResponse {
 	return &TokenPairResponse{

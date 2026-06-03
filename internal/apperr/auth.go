@@ -19,6 +19,17 @@ var (
 	ErrAuthUnavailable      = errors.New("auth unavailable")
 )
 
+// OAuth provider connect/disconnect errors.
+var (
+	ErrProviderAlreadyConnected    = errors.New("provider already connected")
+	ErrProviderLinkedToAnotherUser = errors.New("provider linked to another user")
+	// ErrProviderNotConnected is an internal "identity row not found" marker used
+	// by identity lookups; it is handled inside the service layer (never mapped
+	// to an HTTP status), so disconnect stays idempotent.
+	ErrProviderNotConnected         = errors.New("provider not connected")
+	ErrCannotDisconnectLastProvider = errors.New("cannot disconnect the only sign-in method")
+)
+
 var (
 	ErrInvalidRole = errors.New("invalid role")
 	ErrForbidden   = errors.New("forbidden")

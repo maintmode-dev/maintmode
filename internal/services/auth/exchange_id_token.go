@@ -42,16 +42,15 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 		return nil, nil, err
 	}
 
-	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, &entity.OAuthProviderUserInfo{
+	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,
 	})
 	if err != nil {
 		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
-			OAuthProviderID: claims.Subject,
-			Email:           claims.Email,
-			Name:            claims.Name,
+			Email: claims.Email,
+			Name:  claims.Name,
 		})
 		return nil, nil, fmt.Errorf("get or create user: %w", err)
 	}

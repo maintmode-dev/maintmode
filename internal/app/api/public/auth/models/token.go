@@ -35,6 +35,13 @@ type ExchangeIDTokenRequest struct {
 	IDToken string `json:"id_token"`
 }
 
+// ConnectProviderRequest carries the upstream provider's signed JWT obtained by
+// the frontend OAuth flow; the backend verifies it and links the identity to
+// the authenticated user.
+type ConnectProviderRequest struct {
+	IDToken string `json:"id_token"`
+}
+
 type IntrospectResponse struct {
 	Active  bool     `json:"active"`
 	JTI     string   `json:"jti,omitempty"`

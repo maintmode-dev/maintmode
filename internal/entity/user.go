@@ -32,12 +32,11 @@ func (r Role) Valid(ctx context.Context) bool {
 var DefaultRoles = []Role{RoleGuest}
 
 type User struct {
-	ID              uuid.UUID
-	Email           string
-	Name            string
-	OAuthProviderID string
-	Roles           []Role
-	CreatedAt       time.Time
+	ID        uuid.UUID
+	Email     string
+	Name      string
+	Roles     []Role
+	CreatedAt time.Time
 }
 
 var SystemUser = &User{

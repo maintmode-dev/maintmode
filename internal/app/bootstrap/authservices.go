@@ -37,6 +37,7 @@ func NewAuthServices(
 		cfg.Environment,
 		stores.TxManager,
 		stores.Users,
+		stores.UserIdentities,
 		auditorSrv,
 	)
 

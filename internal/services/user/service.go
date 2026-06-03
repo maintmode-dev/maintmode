@@ -13,29 +13,33 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
 // Service manages user-related operations including role management.
 type Service struct {
-	env        config.Environment
-	txManager  *dbtx.TxManager
-	usersStore *users.Store
-	auditorSrv *auditor.Auditor
+	env             config.Environment
+	txManager       *dbtx.TxManager
+	usersStore      *users.Store
+	identitiesStore *useridentities.Store
+	auditorSrv      *auditor.Auditor
 }
 
 func NewService(
 	env config.Environment,
 	txManager *dbtx.TxManager,
 	usersStore *users.Store,
+	identitiesStore *useridentities.Store,
 	auditorSrv *auditor.Auditor,
 ) *Service {
 	return &Service{
-		env:        env,
-		auditorSrv: auditorSrv,
-		txManager:  txManager,
-		usersStore: usersStore,
+		env:             env,
+		auditorSrv:      auditorSrv,
+		txManager:       txManager,
+		usersStore:      usersStore,
+		identitiesStore: identitiesStore,
 	}
 }
 

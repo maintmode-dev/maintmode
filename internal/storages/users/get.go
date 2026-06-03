@@ -38,17 +38,6 @@ func (s *Store) GetForUpdateByID(ctx context.Context, userID uuid.UUID) (*entity
 	return s.get(ctx, stmt)
 }
 
-func (s *Store) GetByOAuthProviderID(ctx context.Context, oauthProviderID string) (*entity.User, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.Users.GetByOAuthProviderID")
-	defer span.End()
-
-	stmt := table.Users.
-		SELECT(table.Users.AllColumns).
-		WHERE(table.Users.OAuthProviderID.EQ(postgres.String(oauthProviderID)))
-
-	return s.get(ctx, stmt)
-}
-
 func (s *Store) get(ctx context.Context, stmt postgres.Statement) (*entity.User, error) {
 	user := new(model.Users)
 

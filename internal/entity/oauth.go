@@ -8,6 +8,17 @@ const (
 	OAuthProviderGithub OAuthProvider = "github"
 )
 
+// ParseOAuthProvider validates s against the known providers and returns the
+// typed provider. The bool is false for unknown values.
+func ParseOAuthProvider(s string) (OAuthProvider, bool) {
+	switch OAuthProvider(s) {
+	case OAuthProviderStub, OAuthProviderGoogle, OAuthProviderGithub:
+		return OAuthProvider(s), true
+	default:
+		return "", false
+	}
+}
+
 type OAuthCallbackType = string
 
 const (

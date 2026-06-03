@@ -159,6 +159,17 @@ type ExchangeIDTokenCmd struct {
 	ClientIP string
 }
 
+type ConnectProviderCmd struct {
+	UserID   uuid.UUID
+	Provider OAuthProvider
+	IDToken  string
+}
+
+type DisconnectProviderCmd struct {
+	UserID   uuid.UUID
+	Provider OAuthProvider
+}
+
 // --- Roles commands ---
 
 type AssignRoleCmd struct {

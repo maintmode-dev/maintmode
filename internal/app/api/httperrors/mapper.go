@@ -43,7 +43,10 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrInvalidOAuthState),
 		errors.Is(err, apperr.ErrOAuthStateExpired),
 		errors.Is(err, apperr.ErrOAuthStateTampered),
-		errors.Is(err, apperr.ErrAuthUnavailable):
+		errors.Is(err, apperr.ErrAuthUnavailable),
+		errors.Is(err, apperr.ErrProviderAlreadyConnected),
+		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
+		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		statusCode, errResp = mapAuthError(err)
 
 	// common errors. check after specific domain errors
@@ -131,8 +134,13 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrInvalidOAuthState),
 		errors.Is(err, apperr.ErrOAuthStateExpired),
-		errors.Is(err, apperr.ErrOAuthStateTampered):
+		errors.Is(err, apperr.ErrOAuthStateTampered),
+		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
+
+	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
+		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
+		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
 
 	default:
 		// For any other error, return internal server error

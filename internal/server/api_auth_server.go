@@ -89,6 +89,8 @@ func (s *APIAuthServer) authV1Group(gr *echo.Group, env config.Environment, meta
 	withAuthorize.Add(http.MethodPost, "/logout", s.authImpl.Logout)
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.authImpl.LogoutAll)
 	withAuthorize.Add(http.MethodGet, "/me", s.authImpl.Me)
+	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.authImpl.ConnectProvider)
+	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.authImpl.DisconnectProvider)
 	withAuthorize.Add(http.MethodGet, "/roles",
 		s.rolesImpl.AvailableRoles,
 		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthRolesRead),

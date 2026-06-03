@@ -17,12 +17,11 @@ type usersTable struct {
 	postgres.Table
 
 	// Columns
-	ID              postgres.ColumnString
-	Email           postgres.ColumnString
-	Name            postgres.ColumnString
-	OAuthProviderID postgres.ColumnString
-	Roles           postgres.ColumnStringArray
-	CreatedAt       postgres.ColumnTimestampz
+	ID        postgres.ColumnString
+	Email     postgres.ColumnString
+	Name      postgres.ColumnString
+	Roles     postgres.ColumnStringArray
+	CreatedAt postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -64,27 +63,25 @@ func newUsersTable(schemaName, tableName, alias string) *UsersTable {
 
 func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 	var (
-		IDColumn              = postgres.StringColumn("id")
-		EmailColumn           = postgres.StringColumn("email")
-		NameColumn            = postgres.StringColumn("name")
-		OAuthProviderIDColumn = postgres.StringColumn("oauth_provider_id")
-		RolesColumn           = postgres.StringArrayColumn("roles")
-		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
-		allColumns            = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, OAuthProviderIDColumn, RolesColumn, CreatedAtColumn}
-		mutableColumns        = postgres.ColumnList{EmailColumn, NameColumn, OAuthProviderIDColumn, RolesColumn, CreatedAtColumn}
-		defaultColumns        = postgres.ColumnList{IDColumn, NameColumn, RolesColumn, CreatedAtColumn}
+		IDColumn        = postgres.StringColumn("id")
+		EmailColumn     = postgres.StringColumn("email")
+		NameColumn      = postgres.StringColumn("name")
+		RolesColumn     = postgres.StringArrayColumn("roles")
+		CreatedAtColumn = postgres.TimestampzColumn("created_at")
+		allColumns      = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, RolesColumn, CreatedAtColumn}
+		mutableColumns  = postgres.ColumnList{EmailColumn, NameColumn, RolesColumn, CreatedAtColumn}
+		defaultColumns  = postgres.ColumnList{IDColumn, NameColumn, RolesColumn, CreatedAtColumn}
 	)
 
 	return usersTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:              IDColumn,
-		Email:           EmailColumn,
-		Name:            NameColumn,
-		OAuthProviderID: OAuthProviderIDColumn,
-		Roles:           RolesColumn,
-		CreatedAt:       CreatedAtColumn,
+		ID:        IDColumn,
+		Email:     EmailColumn,
+		Name:      NameColumn,
+		Roles:     RolesColumn,
+		CreatedAt: CreatedAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

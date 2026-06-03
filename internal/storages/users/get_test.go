@@ -19,10 +19,9 @@ func TestGet(t *testing.T) {
 	store := NewStore(db)
 
 	user := &entity.User{
-		Email:           uuid.NewString() + "@email.com",
-		Name:            "Name" + t.Name(),
-		OAuthProviderID: "OAuthProviderID" + uuid.NewString() + t.Name(),
-		Roles:           entity.DefaultRoles,
+		Email: uuid.NewString() + "@email.com",
+		Name:  "Name" + t.Name(),
+		Roles: entity.DefaultRoles,
 	}
 
 	created, err := store.Create(ctx, user)
@@ -40,15 +39,6 @@ func TestGet(t *testing.T) {
 			require.NotNil(t, dbUser)
 			require.Equal(t, created, dbUser)
 		})
-
-		t.Run("GetByOAuthProviderID", func(t *testing.T) {
-			t.Parallel()
-
-			dbUser, err := store.GetByOAuthProviderID(ctx, created.OAuthProviderID)
-			require.NoError(t, err)
-			require.NotNil(t, dbUser)
-			require.Equal(t, created, dbUser)
-		})
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -59,14 +49,6 @@ func TestGet(t *testing.T) {
 				t.Parallel()
 
 				dbUser, err := store.GetByID(ctx, uuid.New())
-				require.Nil(t, dbUser)
-				require.EqualError(t, err, apperr.ErrUserNotFound.Error())
-			})
-
-			t.Run("GetByOAuthProviderID", func(t *testing.T) {
-				t.Parallel()
-
-				dbUser, err := store.GetByOAuthProviderID(ctx, "some google id")
 				require.Nil(t, dbUser)
 				require.EqualError(t, err, apperr.ErrUserNotFound.Error())
 			})

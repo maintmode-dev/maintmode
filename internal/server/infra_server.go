@@ -6,8 +6,9 @@ import (
 	"github.com/labstack/echo-contrib/v5/pprof"
 	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 	"github.com/ruko1202/swaggerui"
+
+	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
 	"github.com/ruko1202/maintmode/docs"
 

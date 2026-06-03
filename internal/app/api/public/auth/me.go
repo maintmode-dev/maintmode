@@ -41,5 +41,11 @@ func (i *Implementation) Me(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(user))
+	providers, err := i.userSrv.ListConnectedProviders(ctx, ctxUser.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to list connected providers", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, err)
+	}
+
+	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(user, providers))
 }

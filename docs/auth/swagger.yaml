@@ -29,6 +29,11 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apiauthmodels.ConnectProviderRequest:
+            properties:
+                id_token:
+                    type: string
+            type: object
         apiauthmodels.ExchangeIDTokenRequest:
             properties:
                 id_token:
@@ -68,6 +73,11 @@ components:
             type: object
         apiauthmodels.MeResponse:
             properties:
+                connected_providers:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
                 display_name:
                     type: string
                 email:
@@ -579,6 +589,102 @@ paths:
             security:
                 - BearerAuth: []
             summary: Get current authenticated user
+            tags:
+                - Auth
+    /api/v1/me/providers/{provider}/connect:
+        post:
+            description: |-
+                Links an additional sign-in provider to the authenticated user.
+                The frontend completes the OAuth flow and posts the provider's ID token here.
+            parameters:
+                - description: OAuth provider
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                        - github
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.ConnectProviderRequest'
+                description: Provider ID token
+                required: true
+            responses:
+                "204":
+                    description: Provider connected
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid provider or OAuth payload
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Provider already connected or linked to another user
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Connect an OAuth provider to the current user
+            tags:
+                - Auth
+    /api/v1/me/providers/{provider}/disconnect:
+        delete:
+            description: |-
+                Unlinks a sign-in provider from the authenticated user. The last
+                remaining provider cannot be removed (lockout protection).
+                Disconnecting a provider the user is not linked to is a no-op (204).
+            parameters:
+                - description: OAuth provider
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                        - github
+                    type: string
+            responses:
+                "204":
+                    description: Provider disconnected
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid provider or cannot disconnect the only sign-in method
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Disconnect an OAuth provider from the current user
             tags:
                 - Auth
     /api/v1/refresh:

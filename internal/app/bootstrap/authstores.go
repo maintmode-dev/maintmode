@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
+	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	users "github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
@@ -17,6 +18,7 @@ import (
 type AuthStores struct {
 	TxManager      *dbtx.TxManager
 	Users          *users.Store
+	UserIdentities *useridentities.Store
 	RefreshToken   *refreshtoken.Store
 	TokenBlackList *blacklisttoken.Store
 	Locker         *distributedlock.Store
@@ -27,6 +29,7 @@ func NewAuthStores(db *sqlx.DB, redisDB *redis.Client) *AuthStores {
 	return &AuthStores{
 		TxManager:      dbtx.NewTxManager(db),
 		Users:          users.NewStore(db),
+		UserIdentities: useridentities.NewStore(db),
 		RefreshToken:   refreshtoken.NewStore(db),
 		TokenBlackList: blacklisttoken.NewStore(redisDB),
 		Locker:         distributedlock.NewStore(redisDB),

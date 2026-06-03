@@ -16,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -41,6 +42,7 @@ func initService(t *testing.T) *Service {
 		config.DevEnvironment,
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
+		useridentities.NewStore(db),
 		auditor.NewAuditor(audit.NewStore(db)),
 	)
 }
@@ -48,7 +50,7 @@ func initService(t *testing.T) *Service {
 func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.Role) *entity.User {
 	t.Helper()
 
-	created, err := srv.GetOrCreateByOAuthInfo(ctx, &entity.OAuthProviderUserInfo{
+	created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@email.com",
 		Name:  "Name" + t.Name(),

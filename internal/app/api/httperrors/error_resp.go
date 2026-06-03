@@ -20,6 +20,7 @@ var (
 	ErrMaintChangedSincePreview     ErrorCode = "maintenance changed since preview"
 	ErrResourceAlreadyExists        ErrorCode = "resource already exists"
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
+	ErrConflict                     ErrorCode = "conflict"
 )
 
 type ErrorResponse struct {

@@ -93,6 +93,42 @@ func (e GetApiV1LoginOauthGoogleParamsOauthCallbackType) Valid() bool {
 	}
 }
 
+// Defines values for PostApiV1MeProvidersProviderConnectParamsProvider.
+const (
+	PostApiV1MeProvidersProviderConnectParamsProviderGithub PostApiV1MeProvidersProviderConnectParamsProvider = "github"
+	PostApiV1MeProvidersProviderConnectParamsProviderGoogle PostApiV1MeProvidersProviderConnectParamsProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the PostApiV1MeProvidersProviderConnectParamsProvider enum.
+func (e PostApiV1MeProvidersProviderConnectParamsProvider) Valid() bool {
+	switch e {
+	case PostApiV1MeProvidersProviderConnectParamsProviderGithub:
+		return true
+	case PostApiV1MeProvidersProviderConnectParamsProviderGoogle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteApiV1MeProvidersProviderDisconnectParamsProvider.
+const (
+	DeleteApiV1MeProvidersProviderDisconnectParamsProviderGithub DeleteApiV1MeProvidersProviderDisconnectParamsProvider = "github"
+	DeleteApiV1MeProvidersProviderDisconnectParamsProviderGoogle DeleteApiV1MeProvidersProviderDisconnectParamsProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the DeleteApiV1MeProvidersProviderDisconnectParamsProvider enum.
+func (e DeleteApiV1MeProvidersProviderDisconnectParamsProvider) Valid() bool {
+	switch e {
+	case DeleteApiV1MeProvidersProviderDisconnectParamsProviderGithub:
+		return true
+	case DeleteApiV1MeProvidersProviderDisconnectParamsProviderGoogle:
+		return true
+	default:
+		return false
+	}
+}
+
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.
 type ApiauthmodelsAuditLog struct {
 	Action     *EntityAuditAction `json:"action,omitempty"`
@@ -109,6 +145,11 @@ type ApiauthmodelsAuditLog struct {
 // ApiauthmodelsAuditLogResponse defines model for apiauthmodels.AuditLogResponse.
 type ApiauthmodelsAuditLogResponse struct {
 	Logs *[]ApiauthmodelsAuditLog `json:"logs,omitempty"`
+}
+
+// ApiauthmodelsConnectProviderRequest defines model for apiauthmodels.ConnectProviderRequest.
+type ApiauthmodelsConnectProviderRequest struct {
+	IdToken *string `json:"id_token,omitempty"`
 }
 
 // ApiauthmodelsExchangeIDTokenRequest defines model for apiauthmodels.ExchangeIDTokenRequest.
@@ -139,11 +180,12 @@ type ApiauthmodelsJWKSResponse struct {
 
 // ApiauthmodelsMeResponse defines model for apiauthmodels.MeResponse.
 type ApiauthmodelsMeResponse struct {
-	DisplayName   *string   `json:"display_name,omitempty"`
-	Email         *string   `json:"email,omitempty"`
-	Id            *string   `json:"id,omitempty"`
-	OauthProvider *string   `json:"oauth_provider,omitempty"`
-	Roles         *[]string `json:"roles,omitempty"`
+	ConnectedProviders *[]string `json:"connected_providers,omitempty"`
+	DisplayName        *string   `json:"display_name,omitempty"`
+	Email              *string   `json:"email,omitempty"`
+	Id                 *string   `json:"id,omitempty"`
+	OauthProvider      *string   `json:"oauth_provider,omitempty"`
+	Roles              *[]string `json:"roles,omitempty"`
 }
 
 // ApiauthmodelsOAuthCallbackJSONResponse defines model for apiauthmodels.OAuthCallbackJSONResponse.
@@ -264,11 +306,20 @@ type PostApiV1LogoutAllParams struct {
 	Authorization string `json:"Authorization"`
 }
 
+// PostApiV1MeProvidersProviderConnectParamsProvider defines parameters for PostApiV1MeProvidersProviderConnect.
+type PostApiV1MeProvidersProviderConnectParamsProvider string
+
+// DeleteApiV1MeProvidersProviderDisconnectParamsProvider defines parameters for DeleteApiV1MeProvidersProviderDisconnect.
+type DeleteApiV1MeProvidersProviderDisconnectParamsProvider string
+
 // PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
 type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
 
 // PostApiV1LogoutJSONRequestBody defines body for PostApiV1Logout for application/json ContentType.
 type PostApiV1LogoutJSONRequestBody = AuthRefreshTokenJSONRequest
+
+// PostApiV1MeProvidersProviderConnectJSONRequestBody defines body for PostApiV1MeProvidersProviderConnect for application/json ContentType.
+type PostApiV1MeProvidersProviderConnectJSONRequestBody = ApiauthmodelsConnectProviderRequest
 
 // PostApiV1RefreshJSONRequestBody defines body for PostApiV1Refresh for application/json ContentType.
 type PostApiV1RefreshJSONRequestBody = AuthRefreshTokenJSONRequest
@@ -382,6 +433,14 @@ type ClientInterface interface {
 
 	// GetApiV1Me request
 	GetApiV1Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1MeProvidersProviderConnectWithBody request with any body
+	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1MeProvidersProviderConnect(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiV1MeProvidersProviderDisconnect request
+	DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1RefreshWithBody request with any body
 	PostApiV1RefreshWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -520,6 +579,42 @@ func (c *Client) PostApiV1LogoutAll(ctx context.Context, params *PostApiV1Logout
 
 func (c *Client) GetApiV1Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1MeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MeProvidersProviderConnectRequestWithBody(c.Server, provider, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1MeProvidersProviderConnect(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MeProvidersProviderConnectRequest(c.Server, provider, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1MeProvidersProviderDisconnectRequest(c.Server, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -1092,6 +1187,87 @@ func NewGetApiV1MeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostApiV1MeProvidersProviderConnectRequest calls the generic PostApiV1MeProvidersProviderConnect builder with application/json body
+func NewPostApiV1MeProvidersProviderConnectRequest(server string, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1MeProvidersProviderConnectRequestWithBody(server, provider, "application/json", bodyReader)
+}
+
+// NewPostApiV1MeProvidersProviderConnectRequestWithBody generates requests for PostApiV1MeProvidersProviderConnect with any type of body
+func NewPostApiV1MeProvidersProviderConnectRequestWithBody(server string, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/providers/%s/connect", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiV1MeProvidersProviderDisconnectRequest generates requests for DeleteApiV1MeProvidersProviderDisconnect
+func NewDeleteApiV1MeProvidersProviderDisconnectRequest(server string, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/providers/%s/disconnect", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostApiV1RefreshRequest calls the generic PostApiV1Refresh builder with application/json body
 func NewPostApiV1RefreshRequest(server string, body PostApiV1RefreshJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1384,6 +1560,14 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1MeWithResponse request
 	GetApiV1MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1MeResponse, error)
 
+	// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with any body
+	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
+
+	PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
+
+	// DeleteApiV1MeProvidersProviderDisconnectWithResponse request
+	DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error)
+
 	// PostApiV1RefreshWithBodyWithResponse request with any body
 	PostApiV1RefreshWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1RefreshResponse, error)
 
@@ -1657,6 +1841,71 @@ func (r GetApiV1MeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiV1MeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1MeProvidersProviderConnectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON409      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1MeProvidersProviderConnectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1MeProvidersProviderConnectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1MeProvidersProviderConnectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteApiV1MeProvidersProviderDisconnectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiV1MeProvidersProviderDisconnectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiV1MeProvidersProviderDisconnectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiV1MeProvidersProviderDisconnectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -1947,6 +2196,32 @@ func (c *ClientWithResponses) GetApiV1MeWithResponse(ctx context.Context, reqEdi
 		return nil, err
 	}
 	return ParseGetApiV1MeResponse(rsp)
+}
+
+// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersProviderConnectResponse
+func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
+	rsp, err := c.PostApiV1MeProvidersProviderConnectWithBody(ctx, provider, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MeProvidersProviderConnectResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
+	rsp, err := c.PostApiV1MeProvidersProviderConnect(ctx, provider, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MeProvidersProviderConnectResponse(rsp)
+}
+
+// DeleteApiV1MeProvidersProviderDisconnectWithResponse request returning *DeleteApiV1MeProvidersProviderDisconnectResponse
+func (c *ClientWithResponses) DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error) {
+	rsp, err := c.DeleteApiV1MeProvidersProviderDisconnect(ctx, provider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiV1MeProvidersProviderDisconnectResponse(rsp)
 }
 
 // PostApiV1RefreshWithBodyWithResponse request with arbitrary body returning *PostApiV1RefreshResponse
@@ -2301,6 +2576,93 @@ func ParseGetApiV1MeResponse(rsp *http.Response) (*GetApiV1MeResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1MeProvidersProviderConnectResponse parses an HTTP response from a PostApiV1MeProvidersProviderConnectWithResponse call
+func ParsePostApiV1MeProvidersProviderConnectResponse(rsp *http.Response) (*PostApiV1MeProvidersProviderConnectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1MeProvidersProviderConnectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiV1MeProvidersProviderDisconnectResponse parses an HTTP response from a DeleteApiV1MeProvidersProviderDisconnectWithResponse call
+func ParseDeleteApiV1MeProvidersProviderDisconnectResponse(rsp *http.Response) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiV1MeProvidersProviderDisconnectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest HttperrorsErrorResponse

@@ -17,10 +17,9 @@ func MakeUser(ctx context.Context, t *testing.T, store *users.Store, changers ..
 	t.Helper()
 
 	user := &entity.User{
-		Email:           uuid.NewString() + "@email.com",
-		Name:            "Name" + t.Name(),
-		OAuthProviderID: "OAuthProviderID" + uuid.NewString() + t.Name(),
-		Roles:           entity.DefaultRoles,
+		Email: uuid.NewString() + "@email.com",
+		Name:  "Name" + t.Name(),
+		Roles: entity.DefaultRoles,
 	}
 	for _, changer := range changers {
 		changer(user)

@@ -25,7 +25,7 @@ func TestMe(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		user, err := impl.userSrv.GetOrCreateByOAuthInfo(ctx, &entity.OAuthProviderUserInfo{
+		user, err := impl.userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
 			ID:    "oauth-" + uuid.NewString(),
 			Email: uuid.NewString() + "@test.local",
 			Name:  "Me Test User",
@@ -44,6 +44,7 @@ func TestMe(t *testing.T) {
 		require.Equal(t, user.Email, got.Email)
 		require.Equal(t, user.Name, got.DisplayName)
 		require.Equal(t, string(entity.OAuthProviderGoogle), got.OAuthProvider)
+		require.Equal(t, []string{string(entity.OAuthProviderGoogle)}, got.ConnectedProviders)
 	})
 
 	t.Run("missing user in context", func(t *testing.T) {

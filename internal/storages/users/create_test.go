@@ -21,10 +21,9 @@ func TestCreate(t *testing.T) {
 		t.Parallel()
 
 		user := &entity.User{
-			Email:           uuid.NewString() + "@email.com",
-			Name:            "Name" + t.Name(),
-			OAuthProviderID: "OAuthProviderID" + uuid.NewString() + t.Name(),
-			Roles:           entity.DefaultRoles,
+			Email: uuid.NewString() + "@email.com",
+			Name:  "Name" + t.Name(),
+			Roles: entity.DefaultRoles,
 		}
 
 		created, err := store.Create(ctx, user)
