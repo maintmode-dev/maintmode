@@ -21,7 +21,7 @@ const (
 // ListUsers godoc
 // @Summary List users
 // @Description Returns a paginated list of users ordered by display_name ASC (id ASC as tie-breaker). Requires admin privileges.
-// @Description connected_providers is empty and last_seen_at is null until RUK-92 lands.
+// @Description connected_providers lists the OAuth providers linked to each user; oauth_provider is the first linked provider ("unknown" when none). last_seen_at is null (not tracked yet).
 // @Description Malformed pagination/filter params are coerced to defaults rather than rejected.
 // @Tags Users
 // @Produce json
@@ -54,7 +54,7 @@ func (i *Implementation) ListUsers(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.ListUsersResponse{
-		Users:  apimodels.ToAPIUsers(result.Users, result.ActiveAdminCount),
+		Users:  apimodels.ToAPIUsers(result.Users, result.ActiveAdminCount, result.ProvidersByUser),
 		Total:  result.Total,
 		Limit:  cmd.Limit,
 		Offset: cmd.Offset,

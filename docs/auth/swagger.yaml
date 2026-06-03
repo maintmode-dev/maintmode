@@ -1076,7 +1076,7 @@ paths:
         get:
             description: |-
                 Returns a paginated list of users ordered by display_name ASC (id ASC as tie-breaker). Requires admin privileges.
-                connected_providers is empty and last_seen_at is null until RUK-92 lands.
+                connected_providers lists the OAuth providers linked to each user; oauth_provider is the first linked provider ("unknown" when none). last_seen_at is null (not tracked yet).
                 Malformed pagination/filter params are coerced to defaults rather than rejected.
             parameters:
                 - description: Case-insensitive partial match on display_name or email

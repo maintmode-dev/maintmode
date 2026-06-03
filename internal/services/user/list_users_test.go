@@ -114,6 +114,55 @@ func TestListUsers(t *testing.T) {
 		require.Len(t, res.Users, 2)
 	})
 
+	t.Run("connected providers are populated per user", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+		token := "provtok" + xuuid.NewString()
+		// Each user created via GetOrCreateByOAuthInfo(google, ...) gets exactly
+		// one google identity, so the batch lookup must return ["google"] for it.
+		makeNamedUser(ctx, t, srv, "Pat "+token)
+		makeNamedUser(ctx, t, srv, "Sam "+token)
+
+		res, err := srv.ListUsers(ctx, &entity.ListUsersCmd{Search: token, Limit: 50})
+		require.NoError(t, err)
+		require.Len(t, res.Users, 2)
+
+		for _, u := range res.Users {
+			require.Equal(t, []entity.OAuthProvider{entity.OAuthProviderGoogle}, res.ProvidersByUser[u.ID],
+				"expected google provider for user %s", u.Name)
+		}
+	})
+
+	t.Run("multiple connected providers are ordered by provider asc", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+		token := "multitok" + xuuid.NewString()
+		// Create the user with a google identity, then link a github one. The
+		// batch query must return both ordered by provider ASC (github, google),
+		// so connected[0] — the primary — is deterministic.
+		created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+			ID:    xuuid.NewString(),
+			Email: token + "@email.com",
+			Name:  "Multi " + token,
+		})
+		require.NoError(t, err)
+		require.NoError(t, srv.LinkIdentity(ctx, created.ID, entity.OAuthProviderGithub, &entity.OAuthIDTokenClaims{
+			Subject: xuuid.NewString(),
+			Email:   token + "@email.com",
+			Name:    "Multi " + token,
+		}))
+
+		res, err := srv.ListUsers(ctx, &entity.ListUsersCmd{Search: token, Limit: 50})
+		require.NoError(t, err)
+		require.Len(t, res.Users, 1)
+		require.Equal(t,
+			[]entity.OAuthProvider{entity.OAuthProviderGithub, entity.OAuthProviderGoogle},
+			res.ProvidersByUser[created.ID],
+		)
+	})
+
 	t.Run("active admin count is reported", func(t *testing.T) {
 		t.Parallel()
 

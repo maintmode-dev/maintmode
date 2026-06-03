@@ -112,8 +112,8 @@ func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider
 	return nil
 }
 
-// ListConnectedProviders returns the providers linked to userID, ordered by the
-// identity creation time.
+// ListConnectedProviders returns the providers linked to userID, ordered by
+// provider ASC.
 func (s *Service) ListConnectedProviders(ctx context.Context, userID uuid.UUID) ([]entity.OAuthProvider, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.ListConnectedProviders")
 	defer span.End()

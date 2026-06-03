@@ -8,10 +8,10 @@ import (
 
 // User is one entry in the admin users list.
 //
-// connected_providers and last_seen_at are placeholders until RUK-92 lands:
-// connected_providers is always an empty (non-nil) array and last_seen_at is
-// always null for now. oauth_provider is hardcoded to "google" (Google is the
-// only provider), mirroring MeResponse.
+// connected_providers lists every OAuth provider linked to the user (from
+// user_identities) and is always a non-nil array. oauth_provider mirrors
+// MeResponse and reports the first linked provider, or "unknown" when none are
+// linked. last_seen_at is null for now (not tracked yet).
 type User struct {
 	ID                 uuid.UUID  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Email              string     `json:"email"`
