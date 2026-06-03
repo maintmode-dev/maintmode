@@ -98,22 +98,26 @@ func TestStore_List(t *testing.T) {
 
 	t.Run("offset skips a leading row", func(t *testing.T) {
 		t.Parallel()
-		// A single 2-row query is a consistent snapshot; comparing it against an
-		// offset=1 query is racy under the shared DB, so we assert the offset
-		// query's first row equals the full snapshot's second row only when the
-		// snapshot is stable (same total before and after).
-		first, total1, err := store.List(ctx, &entity.ListResourcesCmd{Limit: 2, Offset: 0})
-		require.NoError(t, err)
+		// Comparing a full page against an offset query over the GLOBAL list is
+		// racy: the shared DB receives concurrent inserts from other parallel
+		// tests, and rows are ordered created_at DESC (newest first), so a row
+		// inserted between the two queries shifts the window even when the total
+		// happens to match. Scope both queries to a unique name token so only
+		// this subtest's rows are in the window — a stable, private snapshot.
+		token := "offset-" + uuid.NewString()
+		makeNamedResource(ctx, t, store, token+"-a")
+		makeNamedResource(ctx, t, store, token+"-b")
 
-		if total1 >= 2 {
-			skipped, total2, err := store.List(ctx, &entity.ListResourcesCmd{Limit: 1, Offset: 1})
-			require.NoError(t, err)
-			require.Len(t, skipped, 1)
-			if total1 == total2 {
-				// stable snapshot: offset=1 must equal the 2nd row of the page
-				require.Equal(t, first[1].ID, skipped[0].ID)
-			}
-		}
+		first, total, err := store.List(ctx, &entity.ListResourcesCmd{Name: token, Limit: 2, Offset: 0})
+		require.NoError(t, err)
+		require.Equal(t, int64(2), total)
+		require.Len(t, first, 2)
+
+		skipped, _, err := store.List(ctx, &entity.ListResourcesCmd{Name: token, Limit: 1, Offset: 1})
+		require.NoError(t, err)
+		require.Len(t, skipped, 1)
+		// offset=1 over this private 2-row set must equal the page's 2nd row.
+		require.Equal(t, first[1].ID, skipped[0].ID)
 	})
 }
 

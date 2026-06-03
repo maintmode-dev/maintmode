@@ -20,11 +20,11 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 const (

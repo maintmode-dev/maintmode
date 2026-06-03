@@ -96,3 +96,4 @@ s2s:
     secret: <secret:s2s/maintmode/secret>
     available_api:
       - /api/v1/s2s/introspect
+      - /api/v1/s2s/users

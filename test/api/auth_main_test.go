@@ -3,7 +3,7 @@
 package api
 
 import (
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
 // setupAuthTestClient builds an unauthenticated auth-service client. Auth

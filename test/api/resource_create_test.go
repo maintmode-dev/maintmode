@@ -10,8 +10,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 func TestReroucesAPI_Create(t *testing.T) {

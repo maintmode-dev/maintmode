@@ -18,6 +18,7 @@ import (
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
+	"github.com/ruko1202/maintmode/internal/services/userpicker"
 )
 
 // Services contains all service layer dependencies
@@ -30,6 +31,7 @@ type Services struct {
 	JWTVerifier   *jwtverifier.Service
 	NotifyTargets *notifytargets.Service
 	Notifier      *maintnotify.Service
+	UserPicker    *userpicker.Service
 }
 
 func NewServices(ctx context.Context,
@@ -99,5 +101,6 @@ func NewServices(ctx context.Context,
 		JWTVerifier:   jwtVerifier,
 		NotifyTargets: notifyTargets,
 		Notifier:      notifier,
+		UserPicker:    userpicker.NewService(gateways.Auth),
 	}, nil
 }

@@ -65,5 +65,10 @@ func listWhereExpr(cmd *entity.ListUsersCmd) postgres.BoolExpression {
 		)
 	}
 
+	// Assignment pickers hide blocked users; the admin list leaves this off.
+	if cmd.ExcludeBlocked {
+		cond = cond.AND(table.Users.BlockedAt.IS_NULL())
+	}
+
 	return cond
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
 func TestAuthAPIUsers_List(t *testing.T) {

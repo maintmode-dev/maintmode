@@ -32,8 +32,17 @@ func TestMain(m *testing.M) {
 func makeResource(ctx context.Context, t *testing.T, store *Store) *entity.ResourceDetails {
 	t.Helper()
 
+	return makeNamedResource(ctx, t, store, "Name"+t.Name()+xuuid.NewString())
+}
+
+// makeNamedResource creates an active resource with the given exact name. Tests
+// that need a private, race-free slice of the shared list use a unique name
+// token so List(Name: token) returns only their own rows.
+func makeNamedResource(ctx context.Context, t *testing.T, store *Store, name string) *entity.ResourceDetails {
+	t.Helper()
+
 	resource, err := store.Create(ctx, &entity.ResourceDetails{
-		Name:        "Name" + t.Name() + xuuid.NewString(),
+		Name:        name,
 		Description: "Description" + t.Name(),
 		ExternalID:  lo.ToPtr(xuuid.NewString()),
 		Status:      entity.ResourceStatusActive,

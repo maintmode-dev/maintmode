@@ -188,6 +188,30 @@
                 },
                 "type": "object"
             },
+            "apimodels.ListS2SUsersResponse": {
+                "properties": {
+                    "limit": {
+                        "example": 50,
+                        "type": "integer"
+                    },
+                    "offset": {
+                        "example": 0,
+                        "type": "integer"
+                    },
+                    "total": {
+                        "example": 123,
+                        "type": "integer"
+                    },
+                    "users": {
+                        "items": {
+                            "$ref": "#/components/schemas/apimodels.S2SUser"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
             "apimodels.ListUsersResponse": {
                 "properties": {
                     "limit": {
@@ -237,6 +261,28 @@
                     "RoleReviewer",
                     "RoleAdmin"
                 ]
+            },
+            "apimodels.S2SUser": {
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "example": "550e8400-e29b-41d4-a716-446655440000",
+                        "type": "string"
+                    },
+                    "roles": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
             },
             "apimodels.User": {
                 "properties": {
@@ -1373,6 +1419,102 @@
                 ]
             }
         },
+        "/api/v1/s2s/users": {
+            "get": {
+                "description": "Service-to-service paginated user listing, ordered by display_name ASC (id ASC tie-breaker). Authenticated by the S2S token, not a user scope. Returns a neutral user shape (id, email, display_name, roles) for consuming services such as maintenance assignment pickers. Pass active=true to hide blocked users.\nMalformed pagination/filter params are coerced to defaults rather than rejected.",
+                "parameters": [
+                    {
+                        "description": "Case-insensitive partial match on display_name or email",
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Keep only users having this role (guest|editor|reviewer|admin)",
+                        "in": "query",
+                        "name": "role",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "When true, hide blocked users",
+                        "in": "query",
+                        "name": "active",
+                        "schema": {
+                            "default": false,
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "Page size (max 200)",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "default": 50,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Pagination offset",
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "default": 0,
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.ListS2SUsersResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid role filter"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Missing or invalid S2S token"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "summary": "List users (service-to-service)",
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
         "/api/v1/user/{id}/roles": {
             "get": {
                 "description": "Returns all roles assigned to a user by their ID.",
@@ -1487,6 +1629,15 @@
                         "schema": {
                             "default": 0,
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "When true, hide blocked users",
+                        "in": "query",
+                        "name": "active",
+                        "schema": {
+                            "default": false,
+                            "type": "boolean"
                         }
                     }
                 ],

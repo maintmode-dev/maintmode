@@ -136,4 +136,5 @@ func (s *APIAuthServer) s2sV1Group(gr *echo.Group) {
 	gr.Use(middlewares.RequireS2SToken(s.s2s))
 
 	gr.Add(http.MethodPost, "/introspect", s.authImpl.Introspect)
+	gr.Add(http.MethodGet, "/users", s.usersImpl.ListUsersS2S)
 }

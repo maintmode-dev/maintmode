@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
 )
 
 // TestNotifyChannelsAPI_Create_HappyPath creates a channel as editor and verifies

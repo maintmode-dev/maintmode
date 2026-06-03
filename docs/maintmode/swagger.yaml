@@ -10,6 +10,21 @@ components:
                 observed_maint_revision:
                     type: integer
             type: object
+        apimodels.AssignableUser:
+            properties:
+                display_name:
+                    type: string
+                email:
+                    type: string
+                id:
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                    type: string
+                roles:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+            type: object
         apimodels.CancelMaintRequest:
             properties:
                 comment:
@@ -161,6 +176,23 @@ components:
                 fire_at:
                     format: date-time
                     type: string
+            type: object
+        apimodels.ListAssignableUsersResponse:
+            properties:
+                limit:
+                    example: 50
+                    type: integer
+                offset:
+                    example: 0
+                    type: integer
+                total:
+                    example: 123
+                    type: integer
+                users:
+                    items:
+                        $ref: '#/components/schemas/apimodels.AssignableUser'
+                    type: array
+                    uniqueItems: false
             type: object
         apimodels.ListResourcesResponse:
             properties:
@@ -1881,6 +1913,76 @@ paths:
             summary: List resources
             tags:
                 - Resources
+    /api/v1/users/assignable:
+        get:
+            description: |-
+                Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded. Backed by the auth service over S2S.
+                Malformed pagination/filter params are coerced to defaults rather than rejected.
+            parameters:
+                - description: Case-insensitive partial match on display_name or email
+                  in: query
+                  name: search
+                  schema:
+                    type: string
+                - description: Keep only users having this role (guest|editor|reviewer|admin)
+                  in: query
+                  name: role
+                  schema:
+                    type: string
+                - description: Page size (max 200)
+                  in: query
+                  name: limit
+                  schema:
+                    default: 50
+                    type: integer
+                - description: Pagination offset
+                  in: query
+                  name: offset
+                  schema:
+                    default: 0
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.ListAssignableUsersResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid role filter
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+                "503":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Auth service unavailable
+            security:
+                - BearerAuth: []
+            summary: List assignable users
+            tags:
+                - Maintenances
     /ui/v1/calendar:
         get:
             description: Returns maintenance events for the specified date range.

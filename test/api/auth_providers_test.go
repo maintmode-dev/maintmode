@@ -10,7 +10,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
 // TestAuthAPI_ConnectProvider_Unauthorized covers the 401 branch when no Bearer

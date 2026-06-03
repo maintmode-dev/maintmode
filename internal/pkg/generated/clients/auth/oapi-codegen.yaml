@@ -1,0 +1,10 @@
+# oapi-codegen config for the auth API client (used by both the auth
+# gateway and the API integration tests).
+# Generated from docs/auth/swagger.yaml (see `make gen-api-clients`).
+package: authclient
+output: ./internal/pkg/generated/clients/auth/client.gen.go
+generate:
+  models: true
+  client: true
+output-options:
+  skip-prune: true

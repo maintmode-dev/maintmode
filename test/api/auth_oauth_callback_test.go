@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
 func TestAuthAPI_OAuthCallback_InvalidState(t *testing.T) {

@@ -175,6 +175,14 @@ type ApimodelsApproveDraftMaintRequest struct {
 	ObservedMaintRevision *int                 `json:"observed_maint_revision,omitempty"`
 }
 
+// ApimodelsAssignableUser defines model for apimodels.AssignableUser.
+type ApimodelsAssignableUser struct {
+	DisplayName *string   `json:"display_name,omitempty"`
+	Email       *string   `json:"email,omitempty"`
+	Id          *string   `json:"id,omitempty"`
+	Roles       *[]string `json:"roles,omitempty"`
+}
+
 // ApimodelsCancelMaintRequest defines model for apimodels.CancelMaintRequest.
 type ApimodelsCancelMaintRequest struct {
 	Comment *string                           `json:"comment,omitempty"`
@@ -252,6 +260,14 @@ type ApimodelsCreateResourceRequest struct {
 // ApimodelsDeferredNotification defines model for apimodels.DeferredNotification.
 type ApimodelsDeferredNotification struct {
 	FireAt *time.Time `json:"fire_at,omitempty"`
+}
+
+// ApimodelsListAssignableUsersResponse defines model for apimodels.ListAssignableUsersResponse.
+type ApimodelsListAssignableUsersResponse struct {
+	Limit  *int                       `json:"limit,omitempty"`
+	Offset *int                       `json:"offset,omitempty"`
+	Total  *int                       `json:"total,omitempty"`
+	Users  *[]ApimodelsAssignableUser `json:"users,omitempty"`
 }
 
 // ApimodelsListResourcesResponse defines model for apimodels.ListResourcesResponse.
@@ -491,6 +507,21 @@ type GetApiV1ResourcesListParams struct {
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
 }
 
+// GetApiV1UsersAssignableParams defines parameters for GetApiV1UsersAssignable.
+type GetApiV1UsersAssignableParams struct {
+	// Search Case-insensitive partial match on display_name or email
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// Role Keep only users having this role (guest|editor|reviewer|admin)
+	Role *string `form:"role,omitempty" json:"role,omitempty"`
+
+	// Limit Page size (max 200)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetUiV1CalendarParams defines parameters for GetUiV1Calendar.
 type GetUiV1CalendarParams struct {
 	// From Start date
@@ -682,6 +713,9 @@ type ClientInterface interface {
 
 	// GetApiV1ResourcesList request
 	GetApiV1ResourcesList(ctx context.Context, params *GetApiV1ResourcesListParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1UsersAssignable request
+	GetApiV1UsersAssignable(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUiV1Calendar request
 	GetUiV1Calendar(ctx context.Context, params *GetUiV1CalendarParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1028,6 +1062,18 @@ func (c *Client) GetApiV1Resources(ctx context.Context, params *GetApiV1Resource
 
 func (c *Client) GetApiV1ResourcesList(ctx context.Context, params *GetApiV1ResourcesListParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1ResourcesListRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1UsersAssignable(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1UsersAssignableRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1986,6 +2032,96 @@ func NewGetApiV1ResourcesListRequest(server string, params *GetApiV1ResourcesLis
 	return req, nil
 }
 
+// NewGetApiV1UsersAssignableRequest generates requests for GetApiV1UsersAssignable
+func NewGetApiV1UsersAssignableRequest(server string, params *GetApiV1UsersAssignableParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/assignable")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Role != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUiV1CalendarRequest generates requests for GetUiV1Calendar
 func NewGetUiV1CalendarRequest(server string, params *GetUiV1CalendarParams) (*http.Request, error) {
 	var err error
@@ -2224,6 +2360,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiV1ResourcesListWithResponse request
 	GetApiV1ResourcesListWithResponse(ctx context.Context, params *GetApiV1ResourcesListParams, reqEditors ...RequestEditorFn) (*GetApiV1ResourcesListResponse, error)
+
+	// GetApiV1UsersAssignableWithResponse request
+	GetApiV1UsersAssignableWithResponse(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersAssignableResponse, error)
 
 	// GetUiV1CalendarWithResponse request
 	GetUiV1CalendarWithResponse(ctx context.Context, params *GetUiV1CalendarParams, reqEditors ...RequestEditorFn) (*GetUiV1CalendarResponse, error)
@@ -3002,6 +3141,41 @@ func (r GetApiV1ResourcesListResponse) ContentType() string {
 	return ""
 }
 
+type GetApiV1UsersAssignableResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsListAssignableUsersResponse
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1UsersAssignableResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1UsersAssignableResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1UsersAssignableResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetUiV1CalendarResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3325,6 +3499,15 @@ func (c *ClientWithResponses) GetApiV1ResourcesListWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseGetApiV1ResourcesListResponse(rsp)
+}
+
+// GetApiV1UsersAssignableWithResponse request returning *GetApiV1UsersAssignableResponse
+func (c *ClientWithResponses) GetApiV1UsersAssignableWithResponse(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersAssignableResponse, error) {
+	rsp, err := c.GetApiV1UsersAssignable(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1UsersAssignableResponse(rsp)
 }
 
 // GetUiV1CalendarWithResponse request returning *GetUiV1CalendarResponse
@@ -4653,6 +4836,67 @@ func ParseGetApiV1ResourcesListResponse(rsp *http.Response) (*GetApiV1ResourcesL
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1UsersAssignableResponse parses an HTTP response from a GetApiV1UsersAssignableWithResponse call
+func ParseGetApiV1UsersAssignableResponse(rsp *http.Response) (*GetApiV1UsersAssignableResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1UsersAssignableResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsListAssignableUsersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest HttperrorsErrorResponse

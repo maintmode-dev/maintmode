@@ -247,19 +247,21 @@ swag:
 		--domain-default 'localhost' \
 		--server 'http://{domain}:9000/auth|Dev (service in container)' \
 		--server 'http://localhost:8000|Local (service run on host)'
-	@make test-client
+	@make gen-api-clients
 
-# test-client - Generate typed API test clients from the OpenAPI specs.
-# Uses oapi-codegen; one client package per service under test/api/client/.
-# Run this after `make swag` (or just run `make swag`, which chains it).
-.PHONY: test-client
-test-client: ## Generate API test clients from OpenAPI specs
-	$(info $(M) generating API test clients (oapi-codegen)...)
+# gen-api-clients - Generate typed API clients from the OpenAPI specs.
+# Uses oapi-codegen; one client package per service under
+# internal/pkg/generated/clients/. Used by both the service gateways and the
+# API integration tests. Run after `make swag` (or just `make swag`, which
+# chains it).
+.PHONY: gen-api-clients
+gen-api-clients: ## Generate API clients from OpenAPI specs
+	$(info $(M) generating API clients (oapi-codegen)...)
 	$(GOBIN)/oapi-codegen \
-		-config ./test/api/client/maintmode/oapi-codegen.yaml ./docs/maintmode/swagger.yaml
+		-config ./internal/pkg/generated/clients/maintmode/oapi-codegen.yaml ./docs/maintmode/swagger.yaml
 	$(GOBIN)/oapi-codegen \
-		-config ./test/api/client/auth/oapi-codegen.yaml ./docs/auth/swagger.yaml
-	@echo "API clients generated in test/api/client/{maintmode,auth}/"
+		-config ./internal/pkg/generated/clients/auth/oapi-codegen.yaml ./docs/auth/swagger.yaml
+	@echo "API clients generated in internal/pkg/generated/clients/{maintmode,auth}/"
 
 # -------------------------------------
 # Database - Universal Commands (use DB_DRIVER)

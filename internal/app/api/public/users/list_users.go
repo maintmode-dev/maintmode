@@ -29,6 +29,7 @@ const (
 // @Param role query string false "Keep only users having this role (guest|editor|reviewer|admin)"
 // @Param limit query int false "Page size (max 200)" default(50)
 // @Param offset query int false "Pagination offset" default(0)
+// @Param active query bool false "When true, hide blocked users" default(false)
 // @Success 200 {object} apimodels.ListUsersResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid role filter"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
@@ -82,10 +83,15 @@ func queryToListUsersCmd(c *echo.Context) (*entity.ListUsersCmd, error) {
 		return nil, err
 	}
 
+	// active=true hides blocked users (assignment use-cases); any other value,
+	// including absent, keeps them (admin reference list default).
+	active, _ := echo.QueryParamOr[bool](c, "active", false)
+
 	return &entity.ListUsersCmd{
-		Search: c.QueryParam("search"),
-		Role:   role,
-		Limit:  limit,
-		Offset: offset,
+		Search:         c.QueryParam("search"),
+		Role:           role,
+		Limit:          limit,
+		Offset:         offset,
+		ExcludeBlocked: active,
 	}, nil
 }

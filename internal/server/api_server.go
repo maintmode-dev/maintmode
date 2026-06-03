@@ -10,6 +10,7 @@ import (
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
+	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -24,6 +25,7 @@ type APIServerHandlers struct {
 	Resources     *resourcesapi.Implementation
 	Calendar      *uicalendar.Implementation
 	Notifications *apinotifications.Implementation
+	UserPicker    *userpickerapi.Implementation
 }
 
 // APIServerSecurity holds the security primitives wired into middleware
@@ -146,6 +148,16 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioNotificationChannelArchive))
 		notifAPI.Add(http.MethodPost, "/channels/:id/unarchive", s.handlers.Notifications.UnarchiveChannel,
 			s.scenarioMW(entity.AuthzScenarioNotificationChannelUnarchive))
+	}
+
+	// users API group — assignable-user picker for the maintenance flow
+	// (reviewer/owner, notify targets). Read-scoped on the maintenance
+	// scenario (guest+); the data is fetched from the auth service over S2S
+	// and contains only active (non-blocked) users.
+	{
+		usersAPI := gr.Group("/users")
+		usersAPI.Add(http.MethodGet, "/assignable", s.handlers.UserPicker.ListAssignableUsers,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	}
 }
 

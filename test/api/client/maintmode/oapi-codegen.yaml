@@ -1,9 +1,0 @@
-# oapi-codegen config for the maintmode API test client.
-# Generated from docs/maintmode/swagger.yaml (see `make test-client`).
-package: maintmodeclient
-output: ./test/api/client/maintmode/client.gen.go
-generate:
-  models: true
-  client: true
-output-options:
-  skip-prune: true

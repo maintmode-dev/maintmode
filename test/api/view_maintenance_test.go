@@ -13,7 +13,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 )
 
 func TestUIAPI_GetMaintenanceView(t *testing.T) {

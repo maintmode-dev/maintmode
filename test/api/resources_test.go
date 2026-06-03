@@ -8,7 +8,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 )
 
 func TestReroucesAPI_List(t *testing.T) {

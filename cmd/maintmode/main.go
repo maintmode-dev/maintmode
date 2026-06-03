@@ -15,6 +15,7 @@ import (
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
+	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config/pg"
@@ -89,6 +90,7 @@ func main() {
 				Resources:     resourcesapi.New(services.Resources),
 				Calendar:      uicalendar.New(services.Calendar, services.RBAC),
 				Notifications: apinotifications.New(services.NotifyTargets),
+				UserPicker:    userpickerapi.New(services.UserPicker),
 			},
 			server.APIServerSecurity{
 				TokenVerifier: services.JWTVerifier,

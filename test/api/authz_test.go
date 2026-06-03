@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
-	maintmodeclient "github.com/ruko1202/maintmode/test/api/client/maintmode"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
+	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 )
 
 func TestMaintmodeAPIAuth_MissingToken(t *testing.T) {

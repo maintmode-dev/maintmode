@@ -11,8 +11,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
 )
 
 func TestAuthAPI_OAuthLogin(t *testing.T) {

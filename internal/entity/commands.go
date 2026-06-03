@@ -194,13 +194,28 @@ type ReplaceRolesCmd struct {
 
 // --- User management commands ---
 
-// ListUsersCmd describes a paginated user listing request (admin-only).
+// ListUsersCmd describes a paginated user listing request.
 //
 // Search, when non-empty, filters by a case-insensitive partial match on
 // display name (name) OR email (LIKE %search%).
 //
 // Role, when non-empty, keeps only users that have this role among their roles.
+//
+// ExcludeBlocked, when true, hides users with blocked_at set. Assignment
+// pickers set it so blocked users cannot be selected; the admin list leaves it
+// false to keep showing blocked users (so they can be unblocked).
 type ListUsersCmd struct {
+	Search         string
+	Role           Role
+	Limit          int64
+	Offset         int64
+	ExcludeBlocked bool
+}
+
+// ListAssignableUsersQuery describes a request for users selectable in a
+// maintenance assignment picker. It is served by the auth service (owner of the
+// users table) over S2S; only active (non-blocked) users are returned.
+type ListAssignableUsersQuery struct {
 	Search string
 	Role   Role
 	Limit  int64

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	authclient "github.com/ruko1202/maintmode/test/api/client/auth"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
 func TestAuthAPI_LogoutAll_InvalidAccessToken(t *testing.T) {

@@ -27,8 +27,13 @@ func NewGateways(cfg *config.AppConfig) (*Gateways, error) {
 		return nil, fmt.Errorf("failed to init registry: %w", err)
 	}
 
+	authGW, err := authgateway.New(autCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init auth gateway: %w", err)
+	}
+
 	return &Gateways{
-		Auth:                    authgateway.New(autCfg),
+		Auth:                    authGW,
 		NotifyTransportRegistry: registry,
 	}, nil
 }
