@@ -21,9 +21,10 @@ func (s *Store) ListProvidersByUserID(ctx context.Context, userID uuid.UUID) ([]
 	defer span.End()
 
 	stmt := table.UserIdentities.
-		SELECT(postgres.DISTINCT(table.UserIdentities.Provider)).
+		SELECT(table.UserIdentities.Provider).
+		DISTINCT(table.UserIdentities.Provider).
 		WHERE(table.UserIdentities.UserID.EQ(postgres.UUID(userID))).
-		ORDER_BY(table.UserIdentities.CreatedAt.ASC(), table.UserIdentities.ID.ASC())
+		ORDER_BY(table.UserIdentities.Provider.ASC())
 
 	var rows []*model.UserIdentities
 	if err := stmt.QueryContext(ctx, s.db.Executor(ctx), &rows); err != nil {

@@ -14,13 +14,15 @@ func fromDBUser(r *model.Users) *entity.User {
 		Name:      r.Name,
 		Roles:     lo.Map(r.Roles, func(item string, _ int) entity.Role { return entity.Role(item) }),
 		CreatedAt: r.CreatedAt,
+		BlockedAt: r.BlockedAt,
 	}
 }
 
 func toDBUser(r *entity.User) *model.Users {
 	return &model.Users{
-		Email: r.Email,
-		Name:  r.Name,
-		Roles: lo.Map(r.Roles, func(item entity.Role, _ int) string { return string(item) }),
+		Email:     r.Email,
+		Name:      r.Name,
+		Roles:     lo.Map(r.Roles, func(item entity.Role, _ int) string { return string(item) }),
+		BlockedAt: r.BlockedAt,
 	}
 }

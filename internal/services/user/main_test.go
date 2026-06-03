@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -35,15 +36,65 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// fakeTokenRevoker records the user IDs whose tokens were revoked, so block
+// tests can assert that BlockUser triggers session revocation.
+type fakeTokenRevoker struct {
+	revoked []uuid.UUID
+}
+
+func (f *fakeTokenRevoker) RevokeRefreshTokenByUserID(_ context.Context, userID uuid.UUID) error {
+	f.revoked = append(f.revoked, userID)
+	return nil
+}
+
 func initService(t *testing.T) *Service {
 	t.Helper()
+	srv, _ := initServiceWithRevoker(t)
+	return srv
+}
 
-	return NewService(
+func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
+	t.Helper()
+
+	revoker := &fakeTokenRevoker{}
+	srv := NewService(
 		config.DevEnvironment,
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
 		useridentities.NewStore(db),
 		auditor.NewAuditor(audit.NewStore(db)),
+		revoker,
+	)
+	return srv, revoker
+}
+
+// fixedAdminCountStore wraps the real users store but reports a fixed number of
+// active admins. It lets last-admin lockout tests be deterministic on the shared
+// dev DB (which carries many admins): every other method still hits the real DB,
+// only CountActiveAdmins is forced.
+type fixedAdminCountStore struct {
+	UsersStore
+	activeAdmins int64
+}
+
+func (s fixedAdminCountStore) CountActiveAdmins(context.Context) (int64, error) {
+	return s.activeAdmins, nil
+}
+
+// initServiceWithAdminCount builds a service whose CountActiveAdmins always
+// returns activeAdmins, so the last-admin guard can be exercised independently
+// of the shared DB's real admin population.
+func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
+	t.Helper()
+
+	store := fixedAdminCountStore{UsersStore: users.NewStore(db), activeAdmins: activeAdmins}
+	return NewService(
+		config.DevEnvironment,
+		dbtx.NewTxManager(db),
+		store,
+		useridentities.NewStore(db),
+		auditor.NewAuditor(audit.NewStore(db)),
+		&fakeTokenRevoker{},
 	)
 }
 

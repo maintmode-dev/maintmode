@@ -237,7 +237,7 @@ swag:
 		--v3.1 --outputTypes yaml,json -o ./docs/maintmode
 	$(GOBIN)/swag init \
 		-g ./doc_auth.go --parseInternal --parseDependency \
-		--tags Auth,Roles,Audit \
+		--tags Auth,Roles,Users,Audit \
 		--v3.1 --outputTypes yaml,json -o ./docs/auth
 	go run ./scripts/swaggerspec/inject_servers.go --spec ./docs/maintmode/swagger.yaml \
 		--domain-default 'localhost' \

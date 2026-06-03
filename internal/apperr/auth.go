@@ -1,6 +1,9 @@
 package apperr
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrUserNotFound         = errors.New("user not found")
@@ -34,4 +37,11 @@ var (
 	ErrInvalidRole = errors.New("invalid role")
 	ErrForbidden   = errors.New("forbidden")
 	ErrNotChanged  = errors.New("not changed")
+)
+
+// User management lockout protection. Both wrap ErrValidation so the HTTP layer
+// maps them to 400 (see httperrors.ToAPIError).
+var (
+	ErrLastAdmin = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
+	ErrSelfBlock = fmt.Errorf("%w: cannot block yourself", ErrValidation)
 )

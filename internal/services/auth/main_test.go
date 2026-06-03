@@ -79,6 +79,14 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
+	tokenSrv := token.NewService(
+		txManager,
+		refreshtoken.NewStore(db),
+		key,
+		tokenIssuer,
+		"kid-1",
+	)
+
 	return NewService(
 		&cfg.JWT,
 		txManager,
@@ -88,17 +96,12 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			users.NewStore(db),
 			useridentities.NewStore(db),
 			auditor.NewAuditor(audit.NewStore(db)),
+			tokenSrv,
 		),
 		distributedlock.NewStore(redis),
 		blacklisttoken.NewStore(redis),
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
-		token.NewService(
-			txManager,
-			refreshtoken.NewStore(db),
-			key,
-			tokenIssuer,
-			"kid-1",
-		),
+		tokenSrv,
 		auditor.NewAuditor(audit.NewStore(db)),
 	), mocks
 }

@@ -17,6 +17,9 @@ const (
 	AuditActionRoleAssigned  AuditAction = "assigned"
 	AuditActionRoleRevoked   AuditAction = "revoked"
 	AuditActionRolesReplaced AuditAction = "replaced"
+
+	AuditActionUserBlocked   AuditAction = "blocked"
+	AuditActionUserUnblocked AuditAction = "unblocked"
 )
 
 type AuditEntityType string
@@ -39,6 +42,10 @@ var (
 	AuditEventRoleAssigned = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeRole, Action: AuditActionRoleAssigned}
 	AuditEventRoleRevoked  = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeRole, Action: AuditActionRoleRevoked}
 	AuditEventRoleReplaced = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeRole, Action: AuditActionRolesReplaced}
+
+	// RBAC: блокировка пользователей
+	AuditEventUserBlocked   = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeUser, Action: AuditActionUserBlocked}
+	AuditEventUserUnblocked = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeUser, Action: AuditActionUserUnblocked}
 
 	// Аутентификация
 	AuditEventLoginSuccess  = AuditActionEvent{TargetType: auditEntityTypeUser, EntityType: auditEntityTypeLogin, Action: AuditActionLoginSuccess}

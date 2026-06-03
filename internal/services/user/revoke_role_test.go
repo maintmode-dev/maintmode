@@ -85,4 +85,45 @@ func TestRemoveRole(t *testing.T) {
 		})
 		require.ErrorIs(t, err, apperr.ErrUserNotFound)
 	})
+
+	t.Run("revoking admin from a non-last admin is allowed", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+
+		// Ensure more than one active admin exists so the last-admin guard does
+		// not trip (the shared DB already carries many admins).
+		_ = makeUser(ctx, t, srv, entity.RoleAdmin)
+		user := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
+
+		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
+			Actor:  &entity.User{},
+			UserID: user.ID,
+			Role:   entity.RoleAdmin,
+		})
+		require.NoError(t, err)
+
+		roles, err := srv.GetRoles(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotContains(t, roles, entity.RoleAdmin)
+	})
+}
+
+// TestRevokeRole_LastAdminGuard verifies the last-admin lockout guard rejects
+// revoking the admin role when that user is the only active admin. The active
+// admin count is forced to 1 via initServiceWithAdminCount so the assertion is
+// deterministic regardless of the shared dev DB's real admin population.
+func TestRevokeRole_LastAdminGuard(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	srv := initServiceWithAdminCount(t, 1)
+	admin := makeUser(ctx, t, srv, entity.RoleAdmin)
+
+	err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
+		Actor:  &entity.User{},
+		UserID: admin.ID,
+		Role:   entity.RoleAdmin,
+	})
+	require.ErrorIs(t, err, apperr.ErrLastAdmin)
 }

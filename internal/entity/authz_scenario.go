@@ -38,4 +38,8 @@ const (
 	AuthzScenarioAuthRolesManage   AuthzScenario = "auth.roles.manage"
 	AuthzScenarioAuthUserRolesRead AuthzScenario = "auth.user_roles.read"
 	AuthzScenarioAuthAuditRead     AuthzScenario = "auth.audit.read"
+
+	// user management (admin only)
+	AuthzScenarioAuthUsersRead   AuthzScenario = "auth.users.read"
+	AuthzScenarioAuthUsersManage AuthzScenario = "auth.users.manage"
 )

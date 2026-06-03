@@ -190,6 +190,31 @@ type ReplaceRolesCmd struct {
 	Roles  []Role
 }
 
+// --- User management commands ---
+
+// ListUsersCmd describes a paginated user listing request (admin-only).
+//
+// Search, when non-empty, filters by a case-insensitive partial match on
+// display name (name) OR email (LIKE %search%).
+//
+// Role, when non-empty, keeps only users that have this role among their roles.
+type ListUsersCmd struct {
+	Search string
+	Role   Role
+	Limit  int64
+	Offset int64
+}
+
+type BlockUserCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+}
+
+type UnblockUserCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+}
+
 // --- Audit log commands ---
 
 type GetAuditLogsCmd struct {

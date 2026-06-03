@@ -12,6 +12,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/auth"
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
+	"github.com/ruko1202/maintmode/internal/app/api/public/users"
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -24,6 +25,7 @@ type APIAuthServer struct {
 	s2s       config.S2SConfig
 	authImpl  *auth.Implementation
 	rolesImpl *roles.Implementation
+	usersImpl *users.Implementation
 	auditImpl *audit.Implementation
 
 	tokenVerifier middlewares.TokenVerifier
@@ -36,6 +38,7 @@ func NewAPIAuthServer(
 	s2s config.S2SConfig,
 	authImpl *auth.Implementation,
 	rolesImpl *roles.Implementation,
+	usersImpl *users.Implementation,
 	auditImpl *audit.Implementation,
 	tokenVerifier middlewares.TokenVerifier,
 	authorizer middlewares.Authorizer,
@@ -46,6 +49,7 @@ func NewAPIAuthServer(
 		server:    newServer(cfg, opts...),
 		authImpl:  authImpl,
 		rolesImpl: rolesImpl,
+		usersImpl: usersImpl,
 		auditImpl: auditImpl,
 		s2s:       s2s,
 
@@ -106,6 +110,19 @@ func (s *APIAuthServer) authV1Group(gr *echo.Group, env config.Environment, meta
 	withAuthorize.Add(http.MethodGet, "/user/:id/roles",
 		s.rolesImpl.ListRoles,
 		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthUserRolesRead),
+	)
+
+	withAuthorize.Add(http.MethodGet, "/users/list",
+		s.usersImpl.ListUsers,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthUsersRead),
+	)
+	withAuthorize.Add(http.MethodPost, "/users/:id/block",
+		s.usersImpl.BlockUser,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+	withAuthorize.Add(http.MethodPost, "/users/:id/unblock",
+		s.usersImpl.UnblockUser,
+		middlewares.RequireScenario(s.authorizer, entity.AuthzScenarioAuthUsersManage),
 	)
 
 	withAuthorize.Add(http.MethodGet, "/audit/log",

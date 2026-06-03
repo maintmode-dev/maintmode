@@ -2,6 +2,7 @@ package entity
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,7 +38,20 @@ type User struct {
 	Name      string
 	Roles     []Role
 	CreatedAt time.Time
+	// BlockedAt is nil for active users and records when an admin blocked the
+	// user. Blocking preserves roles so unblock immediately restores access.
+	BlockedAt *time.Time
 }
+
+// IsBlocked reports whether the user is currently blocked.
+func (u *User) IsBlocked() bool { return u.BlockedAt != nil }
+
+// IsAdmin reports whether the user holds the admin role (regardless of blocked state).
+func (u *User) IsAdmin() bool { return slices.Contains(u.Roles, RoleAdmin) }
+
+// IsActiveAdmin reports whether the user is an admin and not blocked. Only active
+// admins count toward last-admin lockout protection.
+func (u *User) IsActiveAdmin() bool { return u.IsAdmin() && !u.IsBlocked() }
 
 var SystemUser = &User{
 	Email: "system@email.com",

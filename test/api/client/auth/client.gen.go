@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -53,6 +54,8 @@ const (
 	AuditActionRoleAssigned  EntityAuditAction = "assigned"
 	AuditActionRoleRevoked   EntityAuditAction = "revoked"
 	AuditActionRolesReplaced EntityAuditAction = "replaced"
+	AuditActionUserBlocked   EntityAuditAction = "blocked"
+	AuditActionUserUnblocked EntityAuditAction = "unblocked"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
@@ -69,6 +72,10 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionRoleRevoked:
 		return true
 	case AuditActionRolesReplaced:
+		return true
+	case AuditActionUserBlocked:
+		return true
+	case AuditActionUserUnblocked:
 		return true
 	default:
 		return false
@@ -212,6 +219,14 @@ type ApimodelsListRolesResponse struct {
 	Roles *[]ApimodelsRole `json:"roles,omitempty"`
 }
 
+// ApimodelsListUsersResponse defines model for apimodels.ListUsersResponse.
+type ApimodelsListUsersResponse struct {
+	Limit  *int             `json:"limit,omitempty"`
+	Offset *int             `json:"offset,omitempty"`
+	Total  *int             `json:"total,omitempty"`
+	Users  *[]ApimodelsUser `json:"users,omitempty"`
+}
+
 // ApimodelsRevokeRoleRequest defines model for apimodels.RevokeRoleRequest.
 type ApimodelsRevokeRoleRequest struct {
 	Role   *ApimodelsRole `json:"role,omitempty"`
@@ -220,6 +235,20 @@ type ApimodelsRevokeRoleRequest struct {
 
 // ApimodelsRole defines model for apimodels.Role.
 type ApimodelsRole string
+
+// ApimodelsUser defines model for apimodels.User.
+type ApimodelsUser struct {
+	BlockedAt          *time.Time `json:"blocked_at,omitempty"`
+	ConnectedProviders *[]string  `json:"connected_providers,omitempty"`
+	CreatedAt          *time.Time `json:"created_at,omitempty"`
+	DisplayName        *string    `json:"display_name,omitempty"`
+	Email              *string    `json:"email,omitempty"`
+	Id                 *string    `json:"id,omitempty"`
+	IsLastAdmin        *bool      `json:"is_last_admin,omitempty"`
+	LastSeenAt         *time.Time `json:"last_seen_at,omitempty"`
+	OauthProvider      *string    `json:"oauth_provider,omitempty"`
+	Roles              *[]string  `json:"roles,omitempty"`
+}
 
 // AuthRefreshTokenJSONRequest defines model for auth.refreshTokenJSONRequest.
 type AuthRefreshTokenJSONRequest struct {
@@ -311,6 +340,21 @@ type PostApiV1MeProvidersProviderConnectParamsProvider string
 
 // DeleteApiV1MeProvidersProviderDisconnectParamsProvider defines parameters for DeleteApiV1MeProvidersProviderDisconnect.
 type DeleteApiV1MeProvidersProviderDisconnectParamsProvider string
+
+// GetApiV1UsersListParams defines parameters for GetApiV1UsersList.
+type GetApiV1UsersListParams struct {
+	// Search Case-insensitive partial match on display_name or email
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// Role Keep only users having this role (guest|editor|reviewer|admin)
+	Role *string `form:"role,omitempty" json:"role,omitempty"`
+
+	// Limit Page size (max 200)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
 
 // PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
 type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
@@ -467,6 +511,15 @@ type ClientInterface interface {
 
 	// GetApiV1UserIdRoles request
 	GetApiV1UserIdRoles(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1UsersList request
+	GetApiV1UsersList(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1UsersIdBlock request
+	PostApiV1UsersIdBlock(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1UsersIdUnblock request
+	PostApiV1UsersIdUnblock(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetApiV1WellKnownJwksJson(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -735,6 +788,42 @@ func (c *Client) PostApiV1S2sIntrospect(ctx context.Context, body PostApiV1S2sIn
 
 func (c *Client) GetApiV1UserIdRoles(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1UserIdRolesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1UsersList(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1UsersListRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1UsersIdBlock(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1UsersIdBlockRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1UsersIdUnblock(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1UsersIdUnblockRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1489,6 +1578,164 @@ func NewGetApiV1UserIdRolesRequest(server string, id openapi_types.UUID) (*http.
 	return req, nil
 }
 
+// NewGetApiV1UsersListRequest generates requests for GetApiV1UsersList
+func NewGetApiV1UsersListRequest(server string, params *GetApiV1UsersListParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/list")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Role != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiV1UsersIdBlockRequest generates requests for PostApiV1UsersIdBlock
+func NewPostApiV1UsersIdBlockRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/block", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiV1UsersIdUnblockRequest generates requests for PostApiV1UsersIdUnblock
+func NewPostApiV1UsersIdUnblockRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/unblock", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1593,6 +1840,15 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiV1UserIdRolesWithResponse request
 	GetApiV1UserIdRolesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiV1UserIdRolesResponse, error)
+
+	// GetApiV1UsersListWithResponse request
+	GetApiV1UsersListWithResponse(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersListResponse, error)
+
+	// PostApiV1UsersIdBlockWithResponse request
+	PostApiV1UsersIdBlockWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1UsersIdBlockResponse, error)
+
+	// PostApiV1UsersIdUnblockWithResponse request
+	PostApiV1UsersIdUnblockWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1UsersIdUnblockResponse, error)
 }
 
 type GetApiV1WellKnownJwksJsonResponse struct {
@@ -2110,6 +2366,107 @@ func (r GetApiV1UserIdRolesResponse) ContentType() string {
 	return ""
 }
 
+type GetApiV1UsersListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsListUsersResponse
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1UsersListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1UsersListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1UsersListResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1UsersIdBlockResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1UsersIdBlockResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1UsersIdBlockResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1UsersIdBlockResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1UsersIdUnblockResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1UsersIdUnblockResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1UsersIdUnblockResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1UsersIdUnblockResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // GetApiV1WellKnownJwksJsonWithResponse request returning *GetApiV1WellKnownJwksJsonResponse
 func (c *ClientWithResponses) GetApiV1WellKnownJwksJsonWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1WellKnownJwksJsonResponse, error) {
 	rsp, err := c.GetApiV1WellKnownJwksJson(ctx, reqEditors...)
@@ -2308,6 +2665,33 @@ func (c *ClientWithResponses) GetApiV1UserIdRolesWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetApiV1UserIdRolesResponse(rsp)
+}
+
+// GetApiV1UsersListWithResponse request returning *GetApiV1UsersListResponse
+func (c *ClientWithResponses) GetApiV1UsersListWithResponse(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersListResponse, error) {
+	rsp, err := c.GetApiV1UsersList(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1UsersListResponse(rsp)
+}
+
+// PostApiV1UsersIdBlockWithResponse request returning *PostApiV1UsersIdBlockResponse
+func (c *ClientWithResponses) PostApiV1UsersIdBlockWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1UsersIdBlockResponse, error) {
+	rsp, err := c.PostApiV1UsersIdBlock(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1UsersIdBlockResponse(rsp)
+}
+
+// PostApiV1UsersIdUnblockWithResponse request returning *PostApiV1UsersIdUnblockResponse
+func (c *ClientWithResponses) PostApiV1UsersIdUnblockWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1UsersIdUnblockResponse, error) {
+	rsp, err := c.PostApiV1UsersIdUnblock(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1UsersIdUnblockResponse(rsp)
 }
 
 // ParseGetApiV1WellKnownJwksJsonResponse parses an HTTP response from a GetApiV1WellKnownJwksJsonWithResponse call
@@ -2952,6 +3336,161 @@ func ParseGetApiV1UserIdRolesResponse(rsp *http.Response) (*GetApiV1UserIdRolesR
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1UsersListResponse parses an HTTP response from a GetApiV1UsersListWithResponse call
+func ParseGetApiV1UsersListResponse(rsp *http.Response) (*GetApiV1UsersListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1UsersListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsListUsersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1UsersIdBlockResponse parses an HTTP response from a PostApiV1UsersIdBlockWithResponse call
+func ParsePostApiV1UsersIdBlockResponse(rsp *http.Response) (*PostApiV1UsersIdBlockResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1UsersIdBlockResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1UsersIdUnblockResponse parses an HTTP response from a PostApiV1UsersIdUnblockWithResponse call
+func ParsePostApiV1UsersIdUnblockResponse(rsp *http.Response) (*PostApiV1UsersIdUnblockResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1UsersIdUnblockResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest HttperrorsErrorResponse

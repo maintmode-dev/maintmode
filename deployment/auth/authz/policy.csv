@@ -7,3 +7,5 @@ p, guest, auth.user_roles.read, execute
 
 p, admin, auth.roles.manage, execute
 p, admin, auth.audit.read, execute
+p, admin, auth.users.read, execute
+p, admin, auth.users.manage, execute

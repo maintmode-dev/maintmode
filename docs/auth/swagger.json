@@ -188,6 +188,30 @@
                 },
                 "type": "object"
             },
+            "apimodels.ListUsersResponse": {
+                "properties": {
+                    "limit": {
+                        "example": 50,
+                        "type": "integer"
+                    },
+                    "offset": {
+                        "example": 0,
+                        "type": "integer"
+                    },
+                    "total": {
+                        "example": 123,
+                        "type": "integer"
+                    },
+                    "users": {
+                        "items": {
+                            "$ref": "#/components/schemas/apimodels.User"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
             "apimodels.RevokeRoleRequest": {
                 "properties": {
                     "role": {
@@ -214,6 +238,54 @@
                     "RoleAdmin"
                 ]
             },
+            "apimodels.User": {
+                "properties": {
+                    "blocked_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "connected_providers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "created_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "example": "550e8400-e29b-41d4-a716-446655440000",
+                        "type": "string"
+                    },
+                    "is_last_admin": {
+                        "type": "boolean"
+                    },
+                    "last_seen_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "oauth_provider": {
+                        "example": "google",
+                        "type": "string"
+                    },
+                    "roles": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
             "auth.refreshTokenJSONRequest": {
                 "properties": {
                     "refresh_token": {
@@ -229,7 +301,9 @@
                     "logout_success",
                     "assigned",
                     "revoked",
-                    "replaced"
+                    "replaced",
+                    "blocked",
+                    "unblocked"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
@@ -238,7 +312,9 @@
                     "AuditActionLogoutSuccess",
                     "AuditActionRoleAssigned",
                     "AuditActionRoleRevoked",
-                    "AuditActionRolesReplaced"
+                    "AuditActionRolesReplaced",
+                    "AuditActionUserBlocked",
+                    "AuditActionUserUnblocked"
                 ]
             },
             "entity.JWK": {
@@ -1372,6 +1448,260 @@
                 "summary": "List user roles",
                 "tags": [
                     "Roles"
+                ]
+            }
+        },
+        "/api/v1/users/list": {
+            "get": {
+                "description": "Returns a paginated list of users ordered by display_name ASC (id ASC as tie-breaker). Requires admin privileges.\nconnected_providers is empty and last_seen_at is null until RUK-92 lands.\nMalformed pagination/filter params are coerced to defaults rather than rejected.",
+                "parameters": [
+                    {
+                        "description": "Case-insensitive partial match on display_name or email",
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Keep only users having this role (guest|editor|reviewer|admin)",
+                        "in": "query",
+                        "name": "role",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size (max 200)",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "default": 50,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Pagination offset",
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "default": 0,
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.ListUsersResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid role filter"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List users",
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
+        "/api/v1/users/{id}/block": {
+            "post": {
+                "description": "Blocks a user: sets blocked_at and revokes their refresh tokens. Roles are preserved. Idempotent. Requires admin privileges.",
+                "parameters": [
+                    {
+                        "description": "User ID (UUID)",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "User blocked"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Cannot block self or the last active admin"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "User not found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Block user",
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
+        "/api/v1/users/{id}/unblock": {
+            "post": {
+                "description": "Clears blocked_at. Roles were preserved on block, so access is immediately restored. Idempotent. Requires admin privileges.",
+                "parameters": [
+                    {
+                        "description": "User ID (UUID)",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "User unblocked"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "User not found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Unblock user",
+                "tags": [
+                    "Users"
                 ]
             }
         }

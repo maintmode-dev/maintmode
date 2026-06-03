@@ -12,6 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
+	"github.com/ruko1202/maintmode/internal/app/api/public/users"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
@@ -84,6 +85,9 @@ func main() {
 				cfg.App.FrontendURL,
 			),
 			roles.New(
+				services.User,
+			),
+			users.New(
 				services.User,
 			),
 			audit.New(services.Audit),

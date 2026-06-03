@@ -33,20 +33,23 @@ func NewAuthServices(
 		stores.Audit,
 	)
 
-	userSrv := user.NewService(
-		cfg.Environment,
-		stores.TxManager,
-		stores.Users,
-		stores.UserIdentities,
-		auditorSrv,
-	)
-
+	// tokenSrv is built before userSrv: blocking a user revokes their refresh
+	// tokens, so the user service depends on the token service.
 	tokenSrv := token.NewService(
 		stores.TxManager,
 		stores.RefreshToken,
 		cfg.JWT.GeneratePrivateKey(),
 		cfg.JWT.Issuer,
 		cfg.JWT.Kid,
+	)
+
+	userSrv := user.NewService(
+		cfg.Environment,
+		stores.TxManager,
+		stores.Users,
+		stores.UserIdentities,
+		auditorSrv,
+		tokenSrv,
 	)
 
 	authorizer, err := authz.NewCasbinAuthorizer(cfg.RBAC)

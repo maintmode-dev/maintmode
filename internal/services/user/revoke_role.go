@@ -32,6 +32,14 @@ func (s *Service) RevokeRole(ctx context.Context, cmd *entity.RevokeRoleCmd) err
 			return apperr.ErrNotChanged
 		}
 
+		// Lockout protection: refuse to strip the admin role from the last active
+		// admin. Validated server-side — the UI guard is not authoritative.
+		if cmd.Role == entity.RoleAdmin {
+			if err := s.ensureNotLastActiveAdmin(ctx, user); err != nil {
+				return err
+			}
+		}
+
 		user.Roles = slices.Delete(user.Roles, idx, idx+1)
 		return nil
 	})

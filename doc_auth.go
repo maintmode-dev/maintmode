@@ -20,6 +20,8 @@ package maintmode
 // @tag.description Authentication API
 // @tag.name Roles
 // @tag.description Role management API
+// @tag.name Users
+// @tag.description User management API
 // @tag.name Audit
 // @tag.description Audit log API
 func SwaggerDocsAuth() {}
