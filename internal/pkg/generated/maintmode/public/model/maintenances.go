@@ -26,5 +26,6 @@ type Maintenances struct {
 	CanceledReasonComment *string           `db:"maintenances.canceled_reason_comment"`
 	CreatedAt             time.Time         `db:"maintenances.created_at"`
 	UpdatedAt             *time.Time        `db:"maintenances.updated_at"`
-	CreatedByUserID       uuid.UUID         `db:"maintenances.created_by_user_id"`
+	ApproverUserID        uuid.UUID         `db:"maintenances.approver_user_id"`
+	CreatedByUserID       uuid.UUID         `db:"maintenances.created_by_user_id"` // Author of the maintenance: the authenticated user who created the draft.
 }

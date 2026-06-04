@@ -222,9 +222,8 @@ type ApimodelsAssignRoleRequest struct {
 
 // ApimodelsCreateInvitationRequest defines model for apimodels.CreateInvitationRequest.
 type ApimodelsCreateInvitationRequest struct {
-	Email   *string   `json:"email,omitempty"`
-	Message *string   `json:"message,omitempty"`
-	Roles   *[]string `json:"roles,omitempty"`
+	Email *string   `json:"email,omitempty"`
+	Roles *[]string `json:"roles,omitempty"`
 }
 
 // ApimodelsCreateInvitationResponse defines model for apimodels.CreateInvitationResponse.

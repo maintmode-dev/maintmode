@@ -56,6 +56,7 @@ func TestMaintenancesAPI_DeferredNotifications(t *testing.T) {
 		Steps:                 lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets:         &maintmodeclient.ApimodelsNotifyTargets{ChannelIds: lo.ToPtr(channelIDs)},
 		DeferredNotifications: lo.ToPtr(deferred),
+		ApproverUserId:        lo.ToPtr(uuid.New()),
 	}
 
 	createResp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, createReq)

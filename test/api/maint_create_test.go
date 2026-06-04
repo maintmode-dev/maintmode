@@ -34,8 +34,9 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
 			{Id: lo.ToPtr(resourceID)},
 		}),
-		Steps:         lo.ToPtr(testMaintenanceSteps()),
-		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
+		Steps:          lo.ToPtr(testMaintenanceSteps()),
+		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
+		ApproverUserId: lo.ToPtr(uuid.New()),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)

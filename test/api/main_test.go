@@ -249,8 +249,9 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *maintmo
 		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
 			{Id: lo.ToPtr(uuid.MustParse(lo.FromPtr(resource.Id)))},
 		}),
-		Steps:         lo.ToPtr(testMaintenanceSteps()),
-		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
+		Steps:          lo.ToPtr(testMaintenanceSteps()),
+		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
+		ApproverUserId: lo.ToPtr(uuid.New()),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
@@ -276,8 +277,9 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
 			{Id: lo.ToPtr(resourceUUID)},
 		}),
-		Steps:         lo.ToPtr(testMaintenanceSteps()),
-		NotifyTargets: testNotifyTargets(ctx, t, apiClient),
+		Steps:          lo.ToPtr(testMaintenanceSteps()),
+		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
+		ApproverUserId: lo.ToPtr(uuid.New()),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)

@@ -127,8 +127,6 @@ components:
                 email:
                     example: new.user@example.com
                     type: string
-                message:
-                    type: string
                 roles:
                     example:
                         - editor

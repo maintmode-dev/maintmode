@@ -105,6 +105,7 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		Steps:                 steps,
 		NotifyTargets:         notifyTargets,
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
+		ApproverUserID:        req.ApproverUserID,
 	}
 
 	return cmd, nil

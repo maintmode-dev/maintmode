@@ -39,12 +39,13 @@ func makeMaint(ctx context.Context, t *testing.T, store *Store, period entity.Pe
 	t.Helper()
 
 	maint := &entity.Maintenance{
-		Title:         "Title" + t.Name(),
-		Description:   "Description" + t.Name(),
-		PlannedPeriod: period,
-		Scope:         entity.MaintenanceScopeResources,
-		Status:        entity.MaintenanceStatusPlanned,
-		Impact:        entity.MaintenanceImpactFull,
+		Title:          "Title" + t.Name(),
+		Description:    "Description" + t.Name(),
+		PlannedPeriod:  period,
+		Scope:          entity.MaintenanceScopeResources,
+		Status:         entity.MaintenanceStatusPlanned,
+		Impact:         entity.MaintenanceImpactFull,
+		ApproverUserID: uuid.New(),
 		Resources: []uuid.UUID{
 			makeResource(ctx, t),
 			makeResource(ctx, t),

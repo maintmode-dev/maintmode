@@ -124,6 +124,10 @@ func applyValuesFromUpdateCmd(
 		maint.Impact = lo.FromPtr(cmd.Impact)
 	}
 
+	if cmd.ApproverUserID != nil {
+		maint.ApproverUserID = lo.FromPtr(cmd.ApproverUserID)
+	}
+
 	if len(cmd.Resources) > 0 {
 		maint.Resources = cmd.Resources
 	}
@@ -170,6 +174,9 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 	return validation.ValidateStructWithContext(ctx, cmd,
 		validation.Field(&cmd.Title, validation.NilOrNotEmpty),
 		validation.Field(&cmd.Description, validation.NilOrNotEmpty),
+		validation.Field(&cmd.ApproverUserID, validation.NilOrNotEmpty,
+			validation.When(cmd.ApproverUserID != nil, validation.By(xvalidation.UUIDNotNil)),
+		),
 		validation.Field(&cmd.PlannedStart, validation.NilOrNotEmpty),
 		validation.Field(&cmd.Scope, validation.NilOrNotEmpty),
 		validation.Field(&cmd.Impact, validation.NilOrNotEmpty),

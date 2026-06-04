@@ -42,6 +42,7 @@ func TestCreateDraftMaint(t *testing.T) {
 			NotifyTargets: &apimodels.NotifyTargets{
 				ChannelIDs: []string{notifyChan.ID},
 			},
+			ApproverUserID: uuid.New(),
 		}
 
 		author := makeUser(t)
@@ -118,6 +119,7 @@ func TestCreateDraftMaint(t *testing.T) {
 			NotifyTargets: &apimodels.NotifyTargets{
 				ChannelIDs: []string{notifyChan.ID},
 			},
+			ApproverUserID: uuid.New(),
 		}
 
 		c, rec := echotest.ContextConfig{
@@ -247,6 +249,7 @@ func TestCreateDraftMaint(t *testing.T) {
 					NotifyTargets: &apimodels.NotifyTargets{
 						ChannelIDs: []string{t.Name()},
 					},
+					ApproverUserID: uuid.New(),
 				}
 				tc.reqMutator(req)
 

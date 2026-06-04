@@ -93,6 +93,9 @@ components:
             type: object
         apimodels.CreateDraftMaintRequest:
             properties:
+                approver_user_id:
+                    format: uuid
+                    type: string
                 deferred_notifications:
                     items:
                         $ref: '#/components/schemas/apimodels.DeferredNotification'
@@ -126,6 +129,8 @@ components:
             type: object
         apimodels.CreateDraftMaintResponse:
             properties:
+                approver_user:
+                    $ref: '#/components/schemas/apimodels.UserSummary'
                 created_at:
                     format: date-time
                     type: string
@@ -394,6 +399,9 @@ components:
             type: object
         apimodels.UpdateDraftMaintRequest:
             properties:
+                approver_user_id:
+                    format: uuid
+                    type: string
                 deferred_notifications:
                     items:
                         $ref: '#/components/schemas/apimodels.DeferredNotification'

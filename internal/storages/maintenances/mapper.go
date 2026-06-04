@@ -23,6 +23,7 @@ func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
 		CancelReason:        entity.MaintenanceCancelReason(lo.FromPtr(m.CanceledReasonCode)),
 		CancelReasonComment: lo.FromPtr(m.CanceledReasonComment),
 		CreatedByUserID:     m.CreatedByUserID,
+		ApproverUserID:      m.ApproverUserID,
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
 	}
@@ -49,6 +50,7 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
 		CreatedByUserID:       m.CreatedByUserID,
 		CreatedAt:             m.CreatedAt,
 		UpdatedAt:             m.UpdatedAt,
+		ApproverUserID:        m.ApproverUserID,
 	}
 
 	if m.ActualPeriod != nil {

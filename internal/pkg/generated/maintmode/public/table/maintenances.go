@@ -29,7 +29,8 @@ type maintenancesTable struct {
 	CanceledReasonComment postgres.ColumnString
 	CreatedAt             postgres.ColumnTimestampz
 	UpdatedAt             postgres.ColumnTimestampz
-	CreatedByUserID       postgres.ColumnString
+	ApproverUserID        postgres.ColumnString
+	CreatedByUserID       postgres.ColumnString // Author of the maintenance: the authenticated user who created the draft.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -83,9 +84,10 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		CanceledReasonCommentColumn = postgres.StringColumn("canceled_reason_comment")
 		CreatedAtColumn             = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn             = postgres.TimestampzColumn("updated_at")
+		ApproverUserIDColumn        = postgres.StringColumn("approver_user_id")
 		CreatedByUserIDColumn       = postgres.StringColumn("created_by_user_id")
-		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, CreatedByUserIDColumn}
-		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, CreatedByUserIDColumn}
+		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn}
+		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn}
 		defaultColumns              = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -105,6 +107,7 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		CanceledReasonComment: CanceledReasonCommentColumn,
 		CreatedAt:             CreatedAtColumn,
 		UpdatedAt:             UpdatedAtColumn,
+		ApproverUserID:        ApproverUserIDColumn,
 		CreatedByUserID:       CreatedByUserIDColumn,
 
 		AllColumns:     allColumns,

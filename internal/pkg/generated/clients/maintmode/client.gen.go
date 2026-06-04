@@ -223,6 +223,7 @@ type ApimodelsCreateChannelRequest struct {
 
 // ApimodelsCreateDraftMaintRequest defines model for apimodels.CreateDraftMaintRequest.
 type ApimodelsCreateDraftMaintRequest struct {
+	ApproverUserId        *openapi_types.UUID              `json:"approver_user_id,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
@@ -236,6 +237,7 @@ type ApimodelsCreateDraftMaintRequest struct {
 
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
 type ApimodelsCreateDraftMaintResponse struct {
+	ApproverUser          *ApimodelsUserSummary            `json:"approver_user,omitempty"`
 	CreatedAt             *time.Time                       `json:"created_at,omitempty"`
 	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
@@ -363,6 +365,7 @@ type ApimodelsSearchResourcesResponse struct {
 
 // ApimodelsUpdateDraftMaintRequest defines model for apimodels.UpdateDraftMaintRequest.
 type ApimodelsUpdateDraftMaintRequest struct {
+	ApproverUserId        *openapi_types.UUID              `json:"approver_user_id,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`

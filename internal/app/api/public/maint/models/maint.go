@@ -69,10 +69,10 @@ type DeferredNotification struct {
 	FireAt time.Time `json:"fire_at" format:"date-time"`
 }
 
-// UserSummary is a privacy-safe view of a user (e.g. a maintenance author)
-// exposed in API responses. It carries only what the UI needs to render a name,
-// never internal fields. A nil *UserSummary is serialized as null (unknown
-// author), so clients must handle the null case.
+// UserSummary is a privacy-safe view of a user (e.g. a maintenance author or
+// assigned approver) exposed in API responses. It carries only what the UI
+// needs to render a name, never internal fields. A nil *UserSummary is
+// serialized as null (unknown/unassigned), so clients must handle the null case.
 type UserSummary struct {
 	ID          uuid.UUID `json:"id" format:"uuid"`
 	DisplayName string    `json:"display_name"`
@@ -108,6 +108,7 @@ type CreateDraftMaintRequest struct {
 	Steps                 []*MaintenanceStepInput `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
+	ApproverUserID        uuid.UUID               `json:"approver_user_id" format:"uuid"`
 }
 
 type CreateDraftMaintResponse struct {
@@ -120,6 +121,7 @@ type CreateDraftMaintResponse struct {
 	Impact                string                  `json:"impact"`
 	Status                string                  `json:"status"`
 	CreatedBy             *UserSummary            `json:"created_by"`
+	ApproverUserID        *UserSummary            `json:"approver_user"`
 	CreatedAt             time.Time               `json:"created_at" format:"date-time"`
 	Steps                 []*MaintenanceStep      `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
@@ -136,6 +138,7 @@ type UpdateDraftMaintRequest struct {
 	Steps                 []*MaintenanceStepInput `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
+	ApproverUserID        *uuid.UUID              `json:"approver_user_id" format:"uuid"`
 }
 
 type CancelMaintRequest struct {

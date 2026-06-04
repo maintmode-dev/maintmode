@@ -136,6 +136,10 @@
             },
             "apimodels.CreateDraftMaintRequest": {
                 "properties": {
+                    "approver_user_id": {
+                        "format": "uuid",
+                        "type": "string"
+                    },
                     "deferred_notifications": {
                         "items": {
                             "$ref": "#/components/schemas/apimodels.DeferredNotification"
@@ -183,6 +187,9 @@
             },
             "apimodels.CreateDraftMaintResponse": {
                 "properties": {
+                    "approver_user": {
+                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                    },
                     "created_at": {
                         "format": "date-time",
                         "type": "string"
@@ -563,6 +570,10 @@
             },
             "apimodels.UpdateDraftMaintRequest": {
                 "properties": {
+                    "approver_user_id": {
+                        "format": "uuid",
+                        "type": "string"
+                    },
                     "deferred_notifications": {
                         "items": {
                             "$ref": "#/components/schemas/apimodels.DeferredNotification"

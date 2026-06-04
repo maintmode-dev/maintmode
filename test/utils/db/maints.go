@@ -77,15 +77,16 @@ func MakeMaint(
 	t.Helper()
 
 	maint := &entity.Maintenance{
-		ID:            xuuid.New(),
-		Title:         "Title" + t.Name(),
-		Description:   "Description" + t.Name(),
-		PlannedPeriod: period,
-		Scope:         entity.MaintenanceScopeResources,
-		Status:        entity.MaintenanceStatusDraft,
-		Impact:        entity.MaintenanceImpactFull,
-		CreatedAt:     xtime.UTCNow(),
-		Resources:     MakeResources(ctx, t, resourceStore, 2),
+		ID:             xuuid.New(),
+		Title:          "Title" + t.Name(),
+		Description:    "Description" + t.Name(),
+		PlannedPeriod:  period,
+		Scope:          entity.MaintenanceScopeResources,
+		Status:         entity.MaintenanceStatusDraft,
+		Impact:         entity.MaintenanceImpactFull,
+		CreatedAt:      xtime.UTCNow(),
+		ApproverUserID: xuuid.New(),
+		Resources:      MakeResources(ctx, t, resourceStore, 2),
 		Steps: []*entity.MaintenanceStep{{
 			Order:               1,
 			Description:         "Step 1" + t.Name(),

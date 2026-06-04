@@ -50,6 +50,7 @@ func TestCreate(t *testing.T) {
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
 			}},
+			ApproverUserID: uuid.New(),
 		}
 
 		maint, err := service.CreateDraft(ctx, cmd)
@@ -85,6 +86,7 @@ func TestCreate(t *testing.T) {
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
 			}},
+			ApproverUserID: uuid.New(),
 		}
 		maint1, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
@@ -132,6 +134,7 @@ func TestCreate(t *testing.T) {
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
 			}},
+			ApproverUserID: uuid.New(),
 		}
 
 		maint, err := service.CreateDraft(ctx, cmd)
@@ -160,6 +163,7 @@ func TestCreate(t *testing.T) {
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
 			}},
+			ApproverUserID: uuid.New(),
 		}
 
 		maint, err := service.CreateDraft(ctx, cmd)

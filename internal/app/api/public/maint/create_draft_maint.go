@@ -71,15 +71,20 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &apimodels.CreateDraftMaintResponse{
-		ID:                    maint.ID,
-		Title:                 maint.Title,
-		Description:           maint.Description,
-		PlannedPeriod:         apimodels.ToAPIPeriod(maint.PlannedPeriod),
-		Resources:             apimodels.ToAPIResources(maint.Resources),
-		Scope:                 string(maint.Scope),
-		Impact:                string(maint.Impact),
-		Status:                string(maint.Status),
-		CreatedBy:             apimodels.ToAPIUserSummary(author),
+		ID:            maint.ID,
+		Title:         maint.Title,
+		Description:   maint.Description,
+		PlannedPeriod: apimodels.ToAPIPeriod(maint.PlannedPeriod),
+		Resources:     apimodels.ToAPIResources(maint.Resources),
+		Scope:         string(maint.Scope),
+		Impact:        string(maint.Impact),
+		Status:        string(maint.Status),
+		CreatedBy:     apimodels.ToAPIUserSummary(author),
+		ApproverUserID: apimodels.ToAPIUserSummary(&entity.User{
+			ID:    maint.ApproverUserID,
+			Name:  "unknown user name",
+			Email: "unknown user email",
+		}),
 		CreatedAt:             maint.CreatedAt,
 		Steps:                 apimodels.ToAPISteps(maint.Steps),
 		NotifyTargets:         apimodels.ToAPINotifyTargets(maint.NotifyTargets),
@@ -122,6 +127,7 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		Steps:                 steps,
 		NotifyTargets:         notifyTargets,
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
+		ApproverUserID:        req.ApproverUserID,
 	}, nil
 }
 

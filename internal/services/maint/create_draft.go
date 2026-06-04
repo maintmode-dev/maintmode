@@ -49,6 +49,7 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 			Scope:           cmd.Scope,
 			Impact:          cmd.Impact,
 			Status:          entity.MaintenanceStatusDraft,
+			ApproverUserID:  cmd.ApproverUserID,
 			CreatedByUserID: cmd.CreatedByUserID,
 		})
 		if err != nil {
@@ -111,6 +112,8 @@ func recalculatePlannedPeriod(plannedPeriodStart time.Time, steps []*entity.Main
 func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error {
 	return validation.ValidateStructWithContext(ctx, cmd,
 		validation.Field(&cmd.Title, validation.Required),
+		validation.Field(&cmd.CreatedByUserID, validation.Required),
+		validation.Field(&cmd.ApproverUserID, validation.Required),
 		validation.Field(&cmd.Resources,
 			validation.Required.When(cmd.Scope == entity.MaintenanceScopeResources),
 			validation.Each(validation.By(xvalidation.UUIDNotNil)),

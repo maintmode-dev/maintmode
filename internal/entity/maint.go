@@ -103,6 +103,7 @@ type Maintenance struct {
 	Steps                 []*MaintenanceStep
 	NotifyTargets         []*NotifyTarget
 	DeferredNotifications []*DeferredNotification
+	ApproverUserID        uuid.UUID
 }
 
 // Normalize enforces the Scope ↔ Resources invariant: a global-scoped
