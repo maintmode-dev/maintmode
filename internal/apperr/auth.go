@@ -45,3 +45,25 @@ var (
 	ErrLastAdmin = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
 	ErrSelfBlock = fmt.Errorf("%w: cannot block yourself", ErrValidation)
 )
+
+// User invitation errors.
+//
+// The accept endpoint must never leak which precondition failed: a holder of a
+// token-link must not learn the invited email, the roles, or even whether the
+// token maps to a real invitation. The public-facing failures therefore wrap
+// ErrValidation → HTTP 400, and the accept handler translates them into a bare
+// {status: "invalid"|"email_mismatch"} body with no further detail.
+var (
+	ErrInvitationNotFound   = errors.New("invitation not found")
+	ErrInvitationNotPending = errors.New("invitation is not pending")
+	ErrInvitationExpired    = errors.New("invitation expired")
+	ErrUserAlreadyExists    = errors.New("user already exists")
+	ErrActivePendingExists  = errors.New("active pending invitation already exists")
+	// ErrInvalidInvitation covers any accept-time failure that must surface as a
+	// generic "invalid" status: token not found, expired, already accepted,
+	// revoked, or an unverifiable OAuth token.
+	ErrInvalidInvitation = fmt.Errorf("%w: invitation invalid", ErrValidation)
+	// ErrEmailMismatch is the accept-time guard: the OAuth email does not match
+	// the invitation email. Surfaced as status "email_mismatch" with no detail.
+	ErrEmailMismatch = fmt.Errorf("%w: email mismatch", ErrValidation)
+)

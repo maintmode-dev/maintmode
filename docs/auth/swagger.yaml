@@ -108,12 +108,102 @@ components:
                 refresh_token:
                     type: string
             type: object
+        apimodels.AcceptInvitationRequest:
+            properties:
+                invitation_token:
+                    type: string
+                oauth_payload:
+                    $ref: '#/components/schemas/apimodels.OAuthPayload'
+            type: object
         apimodels.AssignRoleRequest:
             properties:
                 role:
                     $ref: '#/components/schemas/apimodels.Role'
                 user_id:
                     type: string
+            type: object
+        apimodels.CreateInvitationRequest:
+            properties:
+                email:
+                    example: new.user@example.com
+                    type: string
+                message:
+                    type: string
+                roles:
+                    example:
+                        - editor
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+            type: object
+        apimodels.CreateInvitationResponse:
+            properties:
+                email:
+                    type: string
+                expires_at:
+                    format: date-time
+                    type: string
+                invitation_id:
+                    type: string
+                roles:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+                status:
+                    example: pending
+                    type: string
+            type: object
+        apimodels.Invitation:
+            properties:
+                accepted_at:
+                    format: date-time
+                    type: string
+                email:
+                    type: string
+                expires_at:
+                    format: date-time
+                    type: string
+                id:
+                    type: string
+                invited_by:
+                    $ref: '#/components/schemas/apimodels.InvitedBy'
+                roles:
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+                sent_at:
+                    format: date-time
+                    type: string
+                status:
+                    example: pending
+                    type: string
+            type: object
+        apimodels.InvitationPreviewResponse:
+            properties:
+                status:
+                    example: valid
+                    type: string
+                suggested_provider:
+                    type: string
+            type: object
+        apimodels.InvitedBy:
+            properties:
+                handle:
+                    example: system
+                    type: string
+                id:
+                    type: string
+            type: object
+        apimodels.ListInvitationsResponse:
+            properties:
+                invitations:
+                    items:
+                        $ref: '#/components/schemas/apimodels.Invitation'
+                    type: array
+                    uniqueItems: false
             type: object
         apimodels.ListRolesResponse:
             properties:
@@ -156,6 +246,14 @@ components:
                         $ref: '#/components/schemas/apimodels.User'
                     type: array
                     uniqueItems: false
+            type: object
+        apimodels.OAuthPayload:
+            properties:
+                id_token:
+                    type: string
+                provider:
+                    example: google
+                    type: string
             type: object
         apimodels.RevokeRoleRequest:
             properties:
@@ -1164,6 +1262,271 @@ paths:
             security:
                 - BearerAuth: []
             summary: Unblock user
+            tags:
+                - Users
+    /api/v1/users/invitations:
+        get:
+            description: Returns invitations (admin-view, may include sensitive fields), optionally filtered by status. Requires admin privileges.
+            parameters:
+                - description: Filter by status (pending|expired|accepted|revoked)
+                  in: query
+                  name: status
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.ListInvitationsResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid status filter
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: List invitations
+            tags:
+                - Users
+    /api/v1/users/invitations/{id}/resend:
+        post:
+            description: Rotates the token, extends the expiry, and re-sends the email for a pending invitation. Works only for pending invitations; expired/accepted/revoked return 409. Requires admin privileges.
+            parameters:
+                - description: Invitation ID (UUID)
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "204":
+                    description: Invitation resent
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid UUID
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invitation not found
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invitation is not pending (expired/accepted/revoked)
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Resend an invitation
+            tags:
+                - Users
+    /api/v1/users/invitations/{id}/revoke:
+        post:
+            description: Invalidates a pending invitation's link (status → revoked). Idempotent for already-revoked invitations. Requires admin privileges.
+            parameters:
+                - description: Invitation ID (UUID)
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            responses:
+                "204":
+                    description: Invitation revoked
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid UUID
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invitation not found
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invitation already accepted
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Revoke an invitation
+            tags:
+                - Users
+    /api/v1/users/invitations/accept:
+        post:
+            description: 'Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code ("invalid" / "email_mismatch") with no message, so no invitation detail leaks.'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.AcceptInvitationRequest'
+                description: Accept request
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: 'code: invalid | email_mismatch'
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Accept an invitation (public)
+            tags:
+                - Users
+    /api/v1/users/invitations/preview:
+        get:
+            description: Validates an invitation token and returns only its status plus an optional OAuth-provider hint. PUBLIC — no auth required. Carries no sensitive invitation data. An unknown/empty token reports status "invalid" with HTTP 200 (never 404), so a link holder cannot probe for valid tokens.
+            parameters:
+                - description: Invitation token from the email link
+                  in: query
+                  name: token
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.InvitationPreviewResponse'
+                    description: OK
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Preview an invitation (public)
+            tags:
+                - Users
+    /api/v1/users/invite:
+        post:
+            description: Creates an invitation for an email with pre-assigned roles and sends the invite link. Requires admin privileges.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.CreateInvitationRequest'
+                description: Invitation request
+                required: true
+            responses:
+                "201":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.CreateInvitationResponse'
+                    description: Created
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid email/roles
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: User already exists or active invitation conflict
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Invite a new user
             tags:
                 - Users
     /api/v1/users/list:

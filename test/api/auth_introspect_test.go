@@ -13,7 +13,7 @@ import (
 )
 
 func TestAuthAPI_Introspect_WithoutS2SToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 

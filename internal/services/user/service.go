@@ -30,6 +30,7 @@ type TokenRevoker interface {
 type UsersStore interface {
 	Create(ctx context.Context, u *entity.User) (*entity.User, error)
 	GetByID(ctx context.Context, userID uuid.UUID) (*entity.User, error)
+	GetByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetForUpdateByID(ctx context.Context, userID uuid.UUID) (*entity.User, error)
 	List(ctx context.Context, cmd *entity.ListUsersCmd) ([]*entity.User, int64, error)
 	Update(ctx context.Context, user *entity.User) error

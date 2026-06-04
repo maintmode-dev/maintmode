@@ -13,7 +13,7 @@ import (
 
 func TestReroucesAPI_List(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	createdResources := lo.RepeatBy(150, func(_ int) maintmodeclient.ApimodelsResource {

@@ -130,6 +130,9 @@ type LoggerConfig struct {
 
 type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
+	// InvitationTTL is how long a user invitation link stays valid. Zero falls
+	// back to a 7-day default at wiring time.
+	InvitationTTL time.Duration `mapstructure:"invitation_ttl"`
 }
 
 type SlackConfig struct {

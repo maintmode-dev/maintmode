@@ -47,8 +47,21 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrAuthUnavailable),
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
-		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
+		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrInvitationNotFound),
+		errors.Is(err, apperr.ErrInvitationNotPending),
+		errors.Is(err, apperr.ErrInvitationExpired),
+		errors.Is(err, apperr.ErrUserAlreadyExists),
+		errors.Is(err, apperr.ErrActivePendingExists):
 		statusCode, errResp = mapAuthError(err)
+
+	// Invitation accept failures: surface only the status code, never the
+	// wrapped message — a token-link holder must not learn which precondition
+	// failed. Checked before the generic ErrValidation case below (both wrap it).
+	case errors.Is(err, apperr.ErrEmailMismatch):
+		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrEmailMismatch, "")
+	case errors.Is(err, apperr.ErrInvalidInvitation):
+		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvitationInvalid, "")
 
 	// common errors. check after specific domain errors
 	case errors.Is(err, apperr.ErrValidation):
@@ -144,6 +157,15 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
+		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
+
+	case errors.Is(err, apperr.ErrInvitationNotFound):
+		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
+
+	case errors.Is(err, apperr.ErrUserAlreadyExists),
+		errors.Is(err, apperr.ErrActivePendingExists),
+		errors.Is(err, apperr.ErrInvitationNotPending),
+		errors.Is(err, apperr.ErrInvitationExpired):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
 
 	default:

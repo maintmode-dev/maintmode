@@ -106,18 +106,13 @@ func (s *Service) assignAdminRoleBySystem(ctx context.Context, user *entity.User
 		return user, nil
 	}
 
-	err := s.AssignRole(ctx, &entity.AssignRoleCmd{
+	user, err := s.AssignRoles(ctx, &entity.AssignRolesCmd{
 		Actor:  entity.SystemUser,
 		UserID: user.ID,
-		Role:   entity.RoleAdmin,
+		Roles:  []entity.Role{entity.RoleAdmin},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("assign admin role by system: %w", err)
-	}
-
-	user, err = s.GetByID(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("get user after admin role assignment: %w", err)
 	}
 
 	return user, nil

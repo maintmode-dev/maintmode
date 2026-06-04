@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -72,6 +73,18 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 	os.Exit(code)
+}
+
+//nolint:unparam,prealloc // by design
+func ctxWithLogger(ctx context.Context, t *testing.T, option ...zaptest.LoggerOption) context.Context {
+	t.Helper()
+
+	opts := []zaptest.LoggerOption{zaptest.Level(zap.InfoLevel)}
+	opts = append(opts, option...)
+
+	return xlog.ContextWithLogger(ctx, xlog.NewZapAdapter(
+		zaptest.NewLogger(t, opts...),
+	))
 }
 
 func waitForAPIHealth(ctx context.Context) error {

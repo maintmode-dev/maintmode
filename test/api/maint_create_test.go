@@ -17,7 +17,7 @@ import (
 )
 
 func TestMaintenancesAPI_CreateDraft(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	resource := creatResource(ctx, t, apiClient)

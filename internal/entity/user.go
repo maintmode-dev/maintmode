@@ -17,6 +17,8 @@ const (
 	RoleEditor   Role = "editor"
 	RoleReviewer Role = "reviewer"
 	RoleAdmin    Role = "admin"
+	// system admin role is used for system-level operations
+	roleSystemAdmin Role = "system admin"
 )
 
 // Valid checks whether the role is one of the known roles.
@@ -56,5 +58,5 @@ func (u *User) IsActiveAdmin() bool { return u.IsAdmin() && !u.IsBlocked() }
 var SystemUser = &User{
 	Email: "system@email.com",
 	Name:  "system",
-	Roles: []Role{RoleAdmin},
+	Roles: []Role{roleSystemAdmin},
 }

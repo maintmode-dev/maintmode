@@ -16,7 +16,7 @@ import (
 )
 
 func TestUIAPI_GetCalendarView(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -41,7 +41,7 @@ func TestUIAPI_GetCalendarView(t *testing.T) {
 }
 
 func TestUIAPI_GetCalendarView_WithStatusFilter(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -70,7 +70,7 @@ func TestUIAPI_GetCalendarView_WithStatusFilter(t *testing.T) {
 }
 
 func TestUIAPI_GetCalendarView_WithResourceFilter(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 

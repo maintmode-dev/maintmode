@@ -2,7 +2,6 @@ package uicalendar
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	uimodels "github.com/ruko1202/maintmode/internal/app/api/ui/calendar/models"
-	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/calendardto"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/services/authz"
@@ -40,30 +38,18 @@ import (
 func (i *Implementation) MaintView(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Calendar.MaintView")
 	defer span.End()
+	op := "get maintenance view"
 
 	maintID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		xlog.Error(ctx, "parse maintID failed", xfield.Error(err))
-		return c.JSON(http.StatusBadRequest, httperrors.NewErrorResponse(
-			httperrors.ErrInvalidRequest,
-			"id must be a valid UUID",
-		))
+		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
 	maint, err := i.calendarSrv.GetMaint(ctx, maintID)
 	if err != nil {
 		xlog.Error(ctx, "get maintenance failed", xfield.Error(err))
-		if errors.Is(err, apperr.ErrMaintNotFound) {
-			return c.JSON(http.StatusNotFound, httperrors.NewErrorResponse(
-				httperrors.ErrInvalidRequest,
-				err.Error(),
-			))
-		}
-
-		return c.JSON(http.StatusInternalServerError, httperrors.NewErrorResponse(
-			httperrors.ErrInternalError,
-			"get maintenance failed",
-		))
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	conflicts, err := i.calendarSrv.GetConflicts(ctx, &calendardto.ConflictQueryCmd{
@@ -76,17 +62,7 @@ func (i *Implementation) MaintView(c *echo.Context) error {
 	})
 	if err != nil {
 		xlog.Error(ctx, "get maintenance conflict failed", xfield.Error(err))
-		if errors.Is(err, apperr.ErrMaintNotFound) {
-			return c.JSON(http.StatusNotFound, httperrors.NewErrorResponse(
-				httperrors.ErrInvalidRequest,
-				err.Error(),
-			))
-		}
-
-		return c.JSON(http.StatusInternalServerError, httperrors.NewErrorResponse(
-			httperrors.ErrInternalError,
-			"get maintenance conflict failed",
-		))
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	user, ok := xecho.UserFromEchoCtx(c)

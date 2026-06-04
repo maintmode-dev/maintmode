@@ -19,7 +19,7 @@ import (
 )
 
 func TestAuthAPI_JWKS(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 

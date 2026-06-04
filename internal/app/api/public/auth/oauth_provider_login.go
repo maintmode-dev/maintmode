@@ -2,14 +2,14 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+
+	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -85,14 +85,18 @@ func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvid
 	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+// nonceTokenBytes is the entropy of the raw invitation token (256 bits),
+// matching the refresh-token generator.
+const nonceTokenBytes = 16
+
 func generateNonce(ctx context.Context) string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
+	raw, _, err := xcripto.GenerateToken(nonceTokenBytes)
+	if err != nil {
 		xlog.Error(ctx, "failed to generate random bytes", xfield.Error(err))
-		b = xuuid.NewBytes()
+		return xuuid.NewString()
 	}
 
-	return base64.URLEncoding.EncodeToString(b)
+	return raw
 }
 
 var (

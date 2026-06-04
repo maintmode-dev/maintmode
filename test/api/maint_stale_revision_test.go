@@ -17,7 +17,7 @@ import (
 )
 
 func TestMaintenancesAPI_ApproveRejectsStaleRevision(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 	maintenanceID := createTestMaintenance(ctx, t, apiClient)

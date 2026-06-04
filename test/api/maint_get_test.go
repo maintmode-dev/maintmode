@@ -16,7 +16,7 @@ import (
 )
 
 func TestMaintenancesAPI_GetByID(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -33,7 +33,7 @@ func TestMaintenancesAPI_GetByID(t *testing.T) {
 }
 
 func TestMaintenancesAPI_GetNonExistent(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -46,7 +46,7 @@ func TestMaintenancesAPI_GetNonExistent(t *testing.T) {
 }
 
 func TestMaintenancesAPI_InvalidUUID(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	// The typed client serializes path UUIDs, so a malformed UUID can only be
 	// exercised with a hand-rolled request against the maintenance path.

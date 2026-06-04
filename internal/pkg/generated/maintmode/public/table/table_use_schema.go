@@ -23,5 +23,6 @@ func UseSchema(schema string) {
 	RefreshTokens = RefreshTokens.FromSchema(schema)
 	Resources = Resources.FromSchema(schema)
 	UserIdentities = UserIdentities.FromSchema(schema)
+	UserInvitations = UserInvitations.FromSchema(schema)
 	Users = Users.FromSchema(schema)
 }

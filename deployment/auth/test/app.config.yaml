@@ -2,6 +2,7 @@ environment: dev
 
 app:
   frontend_url: http://localhost:9000
+  invitation_ttl: 168h
 
 rbac:
   adapter: file

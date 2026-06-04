@@ -7,17 +7,15 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
 func (s *Service) Replace(ctx context.Context, maint *entity.Maintenance) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Notifytargets.Replace")
 	defer span.End()
 
-	if _, ok := dbtx.TxFromContext(ctx); ok {
-		return s.replace(ctx, maint)
-	}
-
+	// WithinTx is reentrant: when called inside an existing transaction (e.g.
+	// the maint update flow) it joins it, otherwise it opens its own. Either
+	// way the delete+create pair is atomic.
 	return s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		return s.replace(ctx, maint)
 	})

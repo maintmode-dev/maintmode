@@ -14,7 +14,7 @@ import (
 )
 
 func TestAuthAPI_Logout_InvalidToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 
@@ -33,7 +33,7 @@ func TestAuthAPI_Logout_InvalidToken(t *testing.T) {
 // cookie attached. The handler must accept this and reject only on token validity,
 // not on missing cookie.
 func TestAuthAPI_Logout_BodyFallback_NoCookie(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 

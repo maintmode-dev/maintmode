@@ -61,8 +61,7 @@ func (i *Implementation) Assign(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
-	err = i.userSrv.AssignRole(ctx, cmd)
-	if err != nil {
+	if _, err = i.userSrv.AssignRoles(ctx, cmd); err != nil {
 		xlog.Error(ctx, "assign role failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
 	}
@@ -77,7 +76,7 @@ func validateAssignRoleRequest(ctx context.Context, req *apimodels.AssignRoleReq
 	)
 }
 
-func toAssignRoleCmd(ctx context.Context, actor *entity.User, req *apimodels.AssignRoleRequest) (*entity.AssignRoleCmd, error) {
+func toAssignRoleCmd(ctx context.Context, actor *entity.User, req *apimodels.AssignRoleRequest) (*entity.AssignRolesCmd, error) {
 	role, err := apimodels.FromAPIRole(req.Role)
 	if err != nil {
 		xlog.Error(ctx, "unsupported role", xfield.Error(err))
@@ -90,9 +89,9 @@ func toAssignRoleCmd(ctx context.Context, actor *entity.User, req *apimodels.Ass
 		return nil, fmt.Errorf("invalid user id")
 	}
 
-	return &entity.AssignRoleCmd{
+	return &entity.AssignRolesCmd{
 		Actor:  actor,
 		UserID: userID,
-		Role:   role,
+		Roles:  []entity.Role{role},
 	}, nil
 }

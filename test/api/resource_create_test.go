@@ -16,7 +16,7 @@ import (
 
 func TestReroucesAPI_Create(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	for _, tc := range []struct {
@@ -58,7 +58,7 @@ func TestReroucesAPI_Create(t *testing.T) {
 
 func TestReroucesAPI_Create_IdempotentCaseInsensitive(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	name := fmt.Sprintf("test name: %s [%s]", t.Name(), xuuid.NewString())

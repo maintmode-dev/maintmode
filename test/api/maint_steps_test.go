@@ -15,7 +15,7 @@ import (
 )
 
 func TestMaintenancesAPI_StepLifecycle(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 	maintenanceID := createAndStartMaintenance(ctx, t, apiClient)

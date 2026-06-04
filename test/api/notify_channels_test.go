@@ -20,7 +20,7 @@ import (
 // it then appears in GET /channels with the assigned UUID id — the DB-backed
 // catalog is the cross-pod source of truth the FE picker reads.
 func TestNotifyChannelsAPI_Create_HappyPath(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient() // admin (inherits editor)
 
 	transportChannelID := "happy-" + xuuid.NewString()
@@ -55,7 +55,7 @@ func TestNotifyChannelsAPI_Create_HappyPath(t *testing.T) {
 // TestNotifyChannelsAPI_Create_Duplicate verifies the unique (transport,
 // transport_channel_id) constraint surfaces as 409.
 func TestNotifyChannelsAPI_Create_Duplicate(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient() // admin
 
 	body := maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
@@ -76,7 +76,7 @@ func TestNotifyChannelsAPI_Create_Duplicate(t *testing.T) {
 
 // TestNotifyChannelsAPI_Create_InvalidTransport verifies transport validation.
 func TestNotifyChannelsAPI_Create_InvalidTransport(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient() // admin
 
 	resp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
@@ -94,7 +94,7 @@ func TestNotifyChannelsAPI_Create_InvalidTransport(t *testing.T) {
 // TestNotifyChannelsAPI_Create_Forbidden verifies catalog writes require at
 // least editor: a guest (read-only) is rejected.
 func TestNotifyChannelsAPI_Create_Forbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClientWithRoles(entity.RoleGuest)
 
 	resp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
@@ -113,7 +113,7 @@ func TestNotifyChannelsAPI_Create_Forbidden(t *testing.T) {
 // archive hides the channel from the default listing but keeps it visible with
 // include_archived=true; unarchive restores it.
 func TestNotifyChannelsAPI_Archive_Unarchive(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient() // admin (inherits editor)
 
 	channelID := createChannel(ctx, t, apiClient)
@@ -140,7 +140,7 @@ func TestNotifyChannelsAPI_Archive_Unarchive(t *testing.T) {
 // TestNotifyChannelsAPI_Archive_Idempotent verifies archiving twice and
 // archiving an unknown id both succeed (no 404).
 func TestNotifyChannelsAPI_Archive_Idempotent(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	channelID := createChannel(ctx, t, apiClient)
@@ -158,7 +158,7 @@ func TestNotifyChannelsAPI_Archive_Idempotent(t *testing.T) {
 
 // TestNotifyChannelsAPI_Archive_Forbidden verifies archive requires editor.
 func TestNotifyChannelsAPI_Archive_Forbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	channelID := createChannel(ctx, t, setupMaintmodeTestClient())
 

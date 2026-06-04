@@ -17,7 +17,7 @@ import (
 )
 
 func TestUIAPI_GetMaintenanceView(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -46,7 +46,7 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 }
 
 func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -69,7 +69,7 @@ func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {
 }
 
 func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -95,7 +95,7 @@ func TestUIAPI_GetMaintenanceView_InProgress(t *testing.T) {
 }
 
 func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 
@@ -121,7 +121,7 @@ func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 }
 
 func TestUIAPI_GetMaintenanceView_NonExistent(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 

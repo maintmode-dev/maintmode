@@ -18,7 +18,7 @@ import (
 // handler- and service-level unit tests, since the integration harness has no
 // helper for seeding a user that matches a synthetic JWT subject.
 func TestAuthAPI_ConnectProvider_Unauthorized(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 
@@ -34,7 +34,7 @@ func TestAuthAPI_ConnectProvider_Unauthorized(t *testing.T) {
 // TestAuthAPI_DisconnectProvider_Unauthorized covers the 401 branch when no
 // Bearer token is supplied.
 func TestAuthAPI_DisconnectProvider_Unauthorized(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 

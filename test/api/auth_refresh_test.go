@@ -14,7 +14,7 @@ import (
 )
 
 func TestAuthAPI_Refresh_InvalidToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 

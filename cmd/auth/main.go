@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/public/audit"
 
+	"github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	"github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	"github.com/ruko1202/maintmode/internal/app/api/public/users"
 
@@ -89,6 +90,9 @@ func main() {
 			),
 			users.New(
 				services.User,
+			),
+			invitations.New(
+				services.Invitation,
 			),
 			audit.New(services.Audit),
 			services.Token,

@@ -16,7 +16,7 @@ import (
 )
 
 func TestAuthAPI_OAuthCallback_InvalidState(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 
@@ -36,7 +36,7 @@ func TestAuthAPI_OAuthCallback_InvalidState(t *testing.T) {
 // requires nonce + signed state cooperation that the API test harness can't
 // produce without a real browser flow — that's covered by handler unit tests.
 func TestAuthAPI_OAuthCallback_JSONMode_InvalidState(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	url := fmt.Sprintf("http://%s:%s/auth/api/v1/login/oauth/google/callback?state=invalid&code=abc",
 		viper.GetString(envAPIHost), viper.GetString(envAPIPort))

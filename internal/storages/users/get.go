@@ -26,6 +26,19 @@ func (s *Store) GetByID(ctx context.Context, userID uuid.UUID) (*entity.User, er
 	return s.get(ctx, stmt)
 }
 
+// GetByEmail resolves a user by email, case-insensitively. Returns
+// apperr.ErrUserNotFound when no user has that email.
+func (s *Store) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Users.GetByEmail")
+	defer span.End()
+
+	stmt := table.Users.
+		SELECT(table.Users.AllColumns).
+		WHERE(postgres.LOWER(table.Users.Email).EQ(postgres.LOWER(postgres.String(email))))
+
+	return s.get(ctx, stmt)
+}
+
 func (s *Store) GetForUpdateByID(ctx context.Context, userID uuid.UUID) (*entity.User, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Users.GetForUpdateByID")
 	defer span.End()

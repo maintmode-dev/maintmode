@@ -29,6 +29,21 @@ func (m *TxManager) WithinTx(ctx context.Context, fn func(ctx context.Context) e
 	ctx, span := xlog.WithOperationSpan(ctx, "txManager.WithinTx")
 	defer span.End()
 
+	// Reentrant: if a transaction is already active in the context, join it
+	// instead of opening a second, independent one. Begin/commit/rollback stay
+	// with the outermost WithinTx — a nested call only runs fn against the
+	// existing tx and propagates its error so the outer call rolls back the
+	// whole unit. This lets a service that wraps work in a transaction call
+	// other transactional services and have them all commit atomically.
+	//
+	// There are no savepoints: a nested call cannot roll back just its own part
+	// while the outer transaction continues. Every caller propagates the error
+	// upward (none swallows it to "continue after a failed sub-step"), so this
+	// matches existing usage; do not rely on partial rollback.
+	if _, ok := TxFromContext(ctx); ok {
+		return fn(ctx)
+	}
+
 	tx, beginTxErr := m.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if beginTxErr != nil {
 		return beginTxErr

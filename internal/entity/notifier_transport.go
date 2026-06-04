@@ -13,6 +13,11 @@ const (
 	NotifyTransportStub     NotifyTransport = "stub"
 	NotifyTransportSlack    NotifyTransport = "slack"
 	NotifyTransportTelegram NotifyTransport = "telegram"
+	// NotifyTransportEmail delivers to an email address. Unlike slack/telegram
+	// it is a system delivery transport (e.g. user invitations), not a
+	// user-subscribable notify channel, so it is intentionally excluded from
+	// IsValid below.
+	NotifyTransportEmail NotifyTransport = "email"
 )
 
 func (t NotifyTransport) IsValid() bool {

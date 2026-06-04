@@ -16,7 +16,7 @@ import (
 )
 
 func TestMaintmodeAPIAuth_MissingToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClientWithoutAuth()
 
 	resp, err := apiClient.GetApiV1ResourcesWithResponse(ctx, &maintmodeclient.GetApiV1ResourcesParams{})
@@ -25,7 +25,7 @@ func TestMaintmodeAPIAuth_MissingToken(t *testing.T) {
 }
 
 func TestMaintmodeAPIAuth_InvalidToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClientWithToken("invalid")
 
 	resp, err := apiClient.GetApiV1ResourcesWithResponse(ctx, &maintmodeclient.GetApiV1ResourcesParams{})
@@ -34,7 +34,7 @@ func TestMaintmodeAPIAuth_InvalidToken(t *testing.T) {
 }
 
 func TestMaintmodeAPIRBAC_GuestReadAllowed(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClientWithRoles(entity.RoleGuest)
 
 	resp, err := apiClient.GetApiV1ResourcesWithResponse(ctx, &maintmodeclient.GetApiV1ResourcesParams{})
@@ -43,7 +43,7 @@ func TestMaintmodeAPIRBAC_GuestReadAllowed(t *testing.T) {
 }
 
 func TestMaintmodeAPIRBAC_GuestMutationForbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClientWithRoles(entity.RoleGuest)
 
 	resp, err := apiClient.PostApiV1ResourceCreateWithResponse(ctx, maintmodeclient.PostApiV1ResourceCreateJSONRequestBody{
@@ -55,7 +55,7 @@ func TestMaintmodeAPIRBAC_GuestMutationForbidden(t *testing.T) {
 }
 
 func TestAuthAPIRBAC_GuestCanReadRoles(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(entity.RoleGuest)
 
 	resp, err := apiClient.GetApiV1RolesWithResponse(ctx)
@@ -64,7 +64,7 @@ func TestAuthAPIRBAC_GuestCanReadRoles(t *testing.T) {
 }
 
 func TestAuthAPIRBAC_GuestAuditForbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(entity.RoleGuest)
 	limit := 1
 
@@ -76,7 +76,7 @@ func TestAuthAPIRBAC_GuestAuditForbidden(t *testing.T) {
 }
 
 func TestAuthAPIRBAC_EditorAuditForbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(entity.RoleEditor)
 	limit := 1
 
@@ -88,7 +88,7 @@ func TestAuthAPIRBAC_EditorAuditForbidden(t *testing.T) {
 }
 
 func TestAuthAPIRBAC_ReviewerAuditForbidden(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(entity.RoleReviewer)
 	limit := 1
 
@@ -100,7 +100,7 @@ func TestAuthAPIRBAC_ReviewerAuditForbidden(t *testing.T) {
 }
 
 func TestAuthAPIRBAC_AdminAuditAllowed(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(entity.RoleAdmin)
 	limit := 1
 
@@ -137,7 +137,7 @@ func TestAuthAPIRBAC_ReviewerRolesRevokeForbidden(t *testing.T) {
 
 func assertRolesAssignForbidden(t *testing.T, role entity.Role) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(role)
 
 	resp, err := apiClient.PostApiV1RolesAssignWithResponse(ctx, authclient.PostApiV1RolesAssignJSONRequestBody{
@@ -150,7 +150,7 @@ func assertRolesAssignForbidden(t *testing.T, role entity.Role) {
 
 func assertRolesRevokeForbidden(t *testing.T, role entity.Role) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClientWithRoles(role)
 
 	resp, err := apiClient.PostApiV1RolesRevokeWithResponse(ctx, authclient.PostApiV1RolesRevokeJSONRequestBody{

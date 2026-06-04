@@ -174,10 +174,12 @@ type DisconnectProviderCmd struct {
 
 // --- Roles commands ---
 
-type AssignRoleCmd struct {
+// AssignRolesCmd adds one or more roles to a user, unioned with the roles they
+// already hold.
+type AssignRolesCmd struct {
 	Actor  *User
 	UserID uuid.UUID
-	Role   Role
+	Roles  []Role
 }
 
 type RevokeRoleCmd struct {

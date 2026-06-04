@@ -15,7 +15,7 @@ import (
 )
 
 func TestMaintenancesAPI_CompleteMaintenance(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupMaintmodeTestClient()
 

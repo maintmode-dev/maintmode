@@ -15,7 +15,7 @@ import (
 )
 
 func TestAuthAPIUsers_List(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	t.Run("admin allowed", func(t *testing.T) {
 		apiClient := setupAuthTestClientWithRoles(entity.RoleAdmin)
@@ -62,7 +62,7 @@ func TestAuthAPIUsers_List(t *testing.T) {
 }
 
 func TestAuthAPIUsers_Block(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	t.Run("editor forbidden", func(t *testing.T) {
 		apiClient := setupAuthTestClientWithRoles(entity.RoleEditor)
@@ -82,7 +82,7 @@ func TestAuthAPIUsers_Block(t *testing.T) {
 }
 
 func TestAuthAPIUsers_Unblock(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	t.Run("editor forbidden", func(t *testing.T) {
 		apiClient := setupAuthTestClientWithRoles(entity.RoleEditor)

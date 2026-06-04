@@ -22,6 +22,11 @@ var (
 	ErrNotifyChannelAlreadyExists   ErrorCode = "notify channel already exists"
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
 	ErrConflict                     ErrorCode = "conflict"
+
+	// Invitation accept codes. The accept endpoint must not leak which
+	// precondition failed (privacy), so these are returned with no message.
+	ErrInvitationInvalid ErrorCode = "invalid"
+	ErrEmailMismatch     ErrorCode = "email_mismatch"
 )
 
 type ErrorResponse struct {

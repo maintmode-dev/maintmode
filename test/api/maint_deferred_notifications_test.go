@@ -22,7 +22,7 @@ import (
 // enqueues the goque reminders), then cancel (which cancels them). The flow
 // exercises the server-side enqueue/cancel path end to end.
 func TestMaintenancesAPI_DeferredNotifications(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupMaintmodeTestClient()
 
 	channelIDs := availableChannelIDs(ctx, t, apiClient)
@@ -112,8 +112,9 @@ func availableChannelIDs(ctx context.Context, t *testing.T, apiClient *maintmode
 	channels := lo.FromPtr(resp.JSON200.Channels)
 	require.NotEmpty(t, channels, "catalog must expose at least one channel for API tests")
 
-	ids := make([]string, 0, len(channels))
-	for _, ch := range channels {
+	count := min(10, len(channels))
+	ids := make([]string, 0, count)
+	for _, ch := range channels[:count] {
 		ids = append(ids, lo.FromPtr(ch.Id).String())
 	}
 	return ids

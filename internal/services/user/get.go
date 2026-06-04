@@ -22,3 +22,17 @@ func (s *Service) GetByID(ctx context.Context, userID uuid.UUID) (*entity.User, 
 
 	return user, nil
 }
+
+// GetByEmail resolves a user by email (case-insensitive). Returns
+// apperr.ErrUserNotFound when no such user exists.
+func (s *Service) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.User.GetByEmail")
+	defer span.End()
+
+	user, err := s.usersStore.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}

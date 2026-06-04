@@ -16,7 +16,7 @@ import (
 )
 
 func TestAuthAPI_OAuthLogin(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	// The login endpoint issues a 307 redirect to the provider. The shared test
 	// client follows redirects, so build a dedicated client backed by a

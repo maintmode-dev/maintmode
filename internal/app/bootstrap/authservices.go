@@ -5,9 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
+	emailtransport "github.com/ruko1202/maintmode/internal/gateways/notifytransport/email"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
+	"github.com/ruko1202/maintmode/internal/services/invitation"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider/googleoauth"
 	statecodec "github.com/ruko1202/maintmode/internal/services/state_codec"
@@ -19,6 +22,7 @@ type AuthServices struct {
 	Auth       *auth.Service
 	Token      *token.Service
 	User       *user.Service
+	Invitation *invitation.Service
 	Audit      *auditor.Auditor
 	RBAC       *authz.CasbinAuthorizer
 	StateCodec *statecodec.Service
@@ -62,23 +66,35 @@ func NewAuthServices(
 		cfg.JWT.OAuthStateTTL,
 	)
 
-	oauthProviders, err := initOAuthProviders(ctx, &cfg.OauthProviders)
+	oauthProviderList, err := initOAuthProviders(ctx, &cfg.OauthProviders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init oauth providers: %w", err)
 	}
+	oauthProviders := oauthprovider.NewOAuthProviders(cfg, oauthProviderList)
+
+	authSrv := auth.NewService(
+		&cfg.JWT,
+		stores.TxManager,
+		userSrv,
+		stores.Locker,
+		stores.TokenBlackList,
+		oauthProviders,
+		tokenSrv,
+		auditorSrv,
+	)
 
 	return &AuthServices{
 		Token: tokenSrv,
 		User:  userSrv,
-		Auth: auth.NewService(
-			&cfg.JWT,
+		Auth:  authSrv,
+		Invitation: invitation.NewService(
+			cfg,
 			stores.TxManager,
+			stores.UserInvitations,
 			userSrv,
-			stores.Locker,
-			stores.TokenBlackList,
-			oauthprovider.NewOAuthProviders(cfg, oauthProviders),
-			tokenSrv,
-			auditorSrv,
+			authSrv,
+			oauthProviders,
+			notifytransport.NewRegistry(cfg, emailtransport.New()),
 		),
 		Audit:      auditorSrv,
 		RBAC:       authorizer,

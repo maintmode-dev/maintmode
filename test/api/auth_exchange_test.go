@@ -22,7 +22,7 @@ import (
 // unit tests. This test pins the integration contract: route mounted, JSON
 // body bound, error mapper wired.
 func TestAuthAPI_AuthExchange_InvalidIDToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 
@@ -37,7 +37,7 @@ func TestAuthAPI_AuthExchange_InvalidIDToken(t *testing.T) {
 // TestAuthAPI_AuthExchange_MissingIDToken verifies the handler rejects an
 // empty id_token before hitting the verifier.
 func TestAuthAPI_AuthExchange_MissingIDToken(t *testing.T) {
-	ctx := context.Background()
+	ctx := ctxWithLogger(context.Background(), t)
 
 	apiClient := setupAuthTestClient()
 
