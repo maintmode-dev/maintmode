@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-jet/jet/v2/postgres"
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
 
@@ -58,11 +59,23 @@ func listWhereExpr(cmd *entity.ListUsersCmd) postgres.BoolExpression {
 		)
 	}
 
-	// Optional exact-role filter: keep users having this role among their roles.
-	if cmd.Role != "" {
-		cond = cond.AND(
-			postgres.String(string(cmd.Role)).EQ(postgres.ANY(table.Users.Roles)),
-		)
+	// Optional batch id filter: the author-resolution path restricts to a known
+	// set of ids in one query (no N+1 over a page of maintenances).
+	if len(cmd.IDs) > 0 {
+		ids := lo.Map(cmd.IDs, func(id uuid.UUID, _ int) postgres.Expression {
+			return postgres.UUID(id)
+		})
+		cond = cond.AND(table.Users.ID.IN(ids...))
+	}
+
+	// Optional role filter: keep users having ANY of these roles (OR). Expressed
+	// as array overlap (roles && ARRAY[...]) — the same && idiom used for period
+	// overlap elsewhere — so it is one GIN-indexable expression, not an OR chain.
+	if len(cmd.Roles) > 0 {
+		roles := lo.Map(cmd.Roles, func(r entity.Role, _ int) string {
+			return string(r)
+		})
+		cond = cond.AND(table.Users.Roles.OVERLAP(postgres.StringArray(roles...)))
 	}
 
 	// Assignment pickers hide blocked users; the admin list leaves this off.

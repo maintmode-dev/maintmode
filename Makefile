@@ -224,6 +224,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/user/service.go -source ./internal/services/user/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/notifytransport/service.go -source ./internal/gateways/notifytransport/transports.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/userpicker/service.go -source ./internal/services/userpicker/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go

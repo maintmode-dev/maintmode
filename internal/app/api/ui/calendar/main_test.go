@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 
 	services = testbootstraputils.InitServices(context.Background(), db, cfg)
 
-	maintImpl = maintapi.New(services.Maint)
+	maintImpl = maintapi.New(services.Maint, services.UserSummary)
 
 	code := m.Run()
 
@@ -76,7 +76,7 @@ p, reviewer, maintenance.approve, execute
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	return New(services.Calendar, services.RBAC)
+	return New(services.Calendar, services.RBAC, services.UserSummary)
 }
 
 func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintResponse {

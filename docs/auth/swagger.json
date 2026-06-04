@@ -1573,12 +1573,28 @@
                         }
                     },
                     {
-                        "description": "Keep only users having this role (guest|editor|reviewer|admin)",
+                        "description": "Keep only users having ANY of these roles (guest|editor|reviewer|admin)",
                         "in": "query",
-                        "name": "role",
+                        "name": "roles",
                         "schema": {
-                            "type": "string"
-                        }
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "style": "form"
+                    },
+                    {
+                        "description": "Resolve only these user ids (UUID); batch author lookup. When set, the page size is capped to the number of ids.",
+                        "in": "query",
+                        "name": "ids",
+                        "schema": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "style": "form"
                     },
                     {
                         "description": "When true, hide blocked users",
@@ -2186,12 +2202,16 @@
                         }
                     },
                     {
-                        "description": "Keep only users having this role (guest|editor|reviewer|admin)",
+                        "description": "Keep only users having ANY of these roles (guest|editor|reviewer|admin)",
                         "in": "query",
-                        "name": "role",
+                        "name": "roles",
                         "schema": {
-                            "type": "string"
-                        }
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "style": "form"
                     },
                     {
                         "description": "Page size (max 200)",

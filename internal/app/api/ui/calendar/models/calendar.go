@@ -7,13 +7,14 @@ import (
 )
 
 type CalendarEvent struct {
-	ID     uuid.UUID         `json:"id" format:"uuid"`
-	Title  string            `json:"title"`
-	Start  time.Time         `json:"start"`
-	End    time.Time         `json:"end"`
-	Scope  string            `json:"scope"`
-	Impact string            `json:"impact"`
-	Status MaintenanceStatus `json:"status"`
+	ID        uuid.UUID         `json:"id" format:"uuid"`
+	Title     string            `json:"title"`
+	Start     time.Time         `json:"start"`
+	End       time.Time         `json:"end"`
+	Scope     string            `json:"scope"`
+	Impact    string            `json:"impact"`
+	Status    MaintenanceStatus `json:"status"`
+	CreatedBy *UserSummary      `json:"created_by"`
 }
 
 type CalendarViewRequest struct {

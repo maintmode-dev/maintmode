@@ -212,14 +212,21 @@ type ReplaceRolesCmd struct {
 // Search, when non-empty, filters by a case-insensitive partial match on
 // display name (name) OR email (LIKE %search%).
 //
-// Role, when non-empty, keeps only users that have this role among their roles.
+// Roles, when non-empty, keeps only users that have ANY of these roles among
+// their roles (OR semantics).
+//
+// IDs, when non-empty, restricts the result to users with these ids — the batch
+// author-resolution path (GET /api/v1/s2s/users?ids=...). Other filters still
+// apply; the resolver sends no ExcludeBlocked so blocked/removed authors still
+// resolve (they are labeled, not hidden).
 //
 // ExcludeBlocked, when true, hides users with blocked_at set. Assignment
 // pickers set it so blocked users cannot be selected; the admin list leaves it
 // false to keep showing blocked users (so they can be unblocked).
 type ListUsersCmd struct {
 	Search         string
-	Role           Role
+	Roles          []Role
+	IDs            []uuid.UUID
 	Limit          int64
 	Offset         int64
 	ExcludeBlocked bool
@@ -244,7 +251,8 @@ type ListUsersResult struct {
 // users table) over S2S; only active (non-blocked) users are returned.
 type ListAssignableUsersQuery struct {
 	Search string
-	Role   Role
+	// Roles, when non-empty, keeps only users having ANY of these roles (OR).
+	Roles  []Role
 	Limit  int64
 	Offset int64
 }

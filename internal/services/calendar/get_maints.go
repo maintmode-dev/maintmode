@@ -48,6 +48,8 @@ func (s *Service) GetMaints(ctx context.Context, filter *calendardto.GetMaintsFi
 				CancelReasonComment: item.CancelReasonComment,
 				CreatedAt:           item.CreatedAt,
 				UpdatedAt:           item.UpdatedAt,
+				CreatedByUserID:     item.CreatedByUserID,
+				ApproverUserID:      item.ApproverUserID,
 			}
 		}), &calendardto.MaintenancesMeta{
 			Count:     int64(len(maints)),

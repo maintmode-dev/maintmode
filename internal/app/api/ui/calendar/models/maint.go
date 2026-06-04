@@ -28,6 +28,16 @@ type MaintenanceStep struct {
 	PlannedTimeEnd      time.Time `json:"planned_time_end" format:"date-time"`
 }
 
+// UserSummary is the author/user view attached to UI read responses: {id,
+// display_name, email}. A nil *UserSummary serializes as null. When the author
+// could not be resolved from auth, display_name is "Unknown user" (the id is
+// still carried) rather than null.
+type UserSummary struct {
+	ID          uuid.UUID `json:"id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+}
+
 type MaintenanceView struct {
 	ID                  uuid.UUID                  `json:"id" format:"uuid"`
 	Title               string                     `json:"title"`
@@ -45,7 +55,12 @@ type MaintenanceView struct {
 	CreatedAt           time.Time                  `json:"created_at" format:"date-time"`
 	UpdatedAt           *time.Time                 `json:"updated_at" format:"date-time"`
 	Revision            int64                      `json:"revision"`
-	Steps               []*MaintenanceStep         `json:"steps"`
+	// CreatedBy is the author resolved from auth; always present (degrades to the
+	// "Unknown user" label when unresolvable). Approver is the assigned approver,
+	// or null when none is set (e.g. a draft).
+	CreatedBy *UserSummary       `json:"created_by"`
+	Approver  *UserSummary       `json:"approver"`
+	Steps     []*MaintenanceStep `json:"steps"`
 }
 
 type ConflictView struct {

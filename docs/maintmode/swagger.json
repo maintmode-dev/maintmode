@@ -322,6 +322,9 @@
                     "actual_period": {
                         "$ref": "#/components/schemas/apimodels.Period"
                     },
+                    "approver": {
+                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                    },
                     "cancel_reason": {
                         "$ref": "#/components/schemas/apimodels.MaintenanceCancelReason"
                     },
@@ -331,6 +334,9 @@
                     "created_at": {
                         "format": "date-time",
                         "type": "string"
+                    },
+                    "created_by": {
+                        "$ref": "#/components/schemas/apimodels.UserSummary"
                     },
                     "deferred_notifications": {
                         "items": {
@@ -634,6 +640,7 @@
                 "type": "object"
             },
             "apimodels.UserSummary": {
+                "description": "CreatedBy is the maintenance author resolved from the auth service. Always\npresent on read (carries the author id); display_name is \"Unknown user\"\nwhen the profile could not be resolved (auth down or user removed).",
                 "properties": {
                     "display_name": {
                         "type": "string"
@@ -663,6 +670,9 @@
             },
             "uimodels.CalendarEvent": {
                 "properties": {
+                    "created_by": {
+                        "$ref": "#/components/schemas/uimodels.UserSummary"
+                    },
                     "end": {
                         "type": "string"
                     },
@@ -823,6 +833,9 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "approver": {
+                        "$ref": "#/components/schemas/uimodels.UserSummary"
+                    },
                     "cancel_reason": {
                         "type": "string"
                     },
@@ -832,6 +845,9 @@
                     "created_at": {
                         "format": "date-time",
                         "type": "string"
+                    },
+                    "created_by": {
+                        "$ref": "#/components/schemas/uimodels.UserSummary"
                     },
                     "description": {
                         "type": "string"
@@ -910,6 +926,21 @@
                     },
                     "maintenance": {
                         "$ref": "#/components/schemas/uimodels.MaintenanceView"
+                    }
+                },
+                "type": "object"
+            },
+            "uimodels.UserSummary": {
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
+                        "type": "string"
                     }
                 },
                 "type": "object"
@@ -3009,12 +3040,16 @@
                         }
                     },
                     {
-                        "description": "Keep only users having this role (guest|editor|reviewer|admin)",
+                        "description": "Keep only users having ANY of these roles (guest|editor|reviewer|admin)",
                         "in": "query",
-                        "name": "role",
+                        "name": "roles",
                         "schema": {
-                            "type": "string"
-                        }
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "style": "form"
                     },
                     {
                         "description": "Page size (max 200)",

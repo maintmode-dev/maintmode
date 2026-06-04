@@ -418,8 +418,11 @@ type GetApiV1S2sUsersParams struct {
 	// Search Case-insensitive partial match on display_name or email
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
-	// Role Keep only users having this role (guest|editor|reviewer|admin)
-	Role *string `form:"role,omitempty" json:"role,omitempty"`
+	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)
+	Roles *[]string `form:"roles,omitempty" json:"roles,omitempty"`
+
+	// Ids Resolve only these user ids (UUID); batch author lookup. When set, the page size is capped to the number of ids.
+	Ids *[]string `form:"ids,omitempty" json:"ids,omitempty"`
 
 	// Active When true, hide blocked users
 	Active *bool `form:"active,omitempty" json:"active,omitempty"`
@@ -448,8 +451,8 @@ type GetApiV1UsersListParams struct {
 	// Search Case-insensitive partial match on display_name or email
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
-	// Role Keep only users having this role (guest|editor|reviewer|admin)
-	Role *string `form:"role,omitempty" json:"role,omitempty"`
+	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)
+	Roles *[]string `form:"roles,omitempty" json:"roles,omitempty"`
 
 	// Limit Page size (max 200)
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1828,9 +1831,21 @@ func NewGetApiV1S2sUsersRequest(server string, params *GetApiV1S2sUsersParams) (
 
 		}
 
-		if params.Role != nil {
+		if params.Roles != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "roles", *params.Roles, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Ids != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ids", *params.Ids, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -2216,9 +2231,9 @@ func NewGetApiV1UsersListRequest(server string, params *GetApiV1UsersListParams)
 
 		}
 
-		if params.Role != nil {
+		if params.Roles != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "roles", *params.Roles, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

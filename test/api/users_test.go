@@ -42,20 +42,20 @@ func TestAuthAPIUsers_List(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, resp.StatusCode())
 	})
 
-	t.Run("valid role filter allowed", func(t *testing.T) {
+	t.Run("valid roles filter allowed", func(t *testing.T) {
 		apiClient := setupAuthTestClientWithRoles(entity.RoleAdmin)
-		role := string(entity.RoleAdmin)
+		roles := []string{string(entity.RoleAdmin)}
 
-		resp, err := apiClient.GetApiV1UsersListWithResponse(ctx, &authclient.GetApiV1UsersListParams{Role: &role})
+		resp, err := apiClient.GetApiV1UsersListWithResponse(ctx, &authclient.GetApiV1UsersListParams{Roles: &roles})
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
 	})
 
-	t.Run("unknown role filter is rejected", func(t *testing.T) {
+	t.Run("unknown roles filter is rejected", func(t *testing.T) {
 		apiClient := setupAuthTestClientWithRoles(entity.RoleAdmin)
-		role := "superuser"
+		roles := []string{"superuser"}
 
-		resp, err := apiClient.GetApiV1UsersListWithResponse(ctx, &authclient.GetApiV1UsersListParams{Role: &role})
+		resp, err := apiClient.GetApiV1UsersListWithResponse(ctx, &authclient.GetApiV1UsersListParams{Roles: &roles})
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode())
 	})

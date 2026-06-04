@@ -25,7 +25,7 @@ func TestListAssignableDelegatesToGateway(t *testing.T) {
 			Offset: 0,
 		}, nil)
 
-	q := &entity.ListAssignableUsersQuery{Search: "alice", Role: entity.RoleReviewer, Limit: 50}
+	q := &entity.ListAssignableUsersQuery{Search: "alice", Roles: []entity.Role{entity.RoleReviewer}, Limit: 50}
 	res, err := srv.ListAssignable(context.Background(), q)
 	require.NoError(t, err)
 

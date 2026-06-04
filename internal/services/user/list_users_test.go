@@ -92,7 +92,7 @@ func TestListUsers(t *testing.T) {
 		makeNamedUser(ctx, t, srv, "Rev "+token, entity.RoleReviewer)
 		makeNamedUser(ctx, t, srv, "Ed "+token, entity.RoleEditor)
 
-		res, err := srv.ListUsers(ctx, &entity.ListUsersCmd{Search: token, Role: entity.RoleReviewer, Limit: 50})
+		res, err := srv.ListUsers(ctx, &entity.ListUsersCmd{Search: token, Roles: []entity.Role{entity.RoleReviewer}, Limit: 50})
 		require.NoError(t, err)
 		require.Equal(t, int64(1), res.Total)
 		require.Len(t, res.Users, 1)

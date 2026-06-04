@@ -109,6 +109,14 @@ func TestMaintView(t *testing.T) {
 
 				require.NotNil(t, resp.Maintenance)
 				require.Equal(t, tc.expectedActions, resp.Actions)
+
+				// created_by is always present on read and carries the author id
+				// from the create response. The display_name resolves from auth
+				// when available, else degrades to the "Unknown user" label —
+				// either way the read does not fail and the id is preserved.
+				require.NotNil(t, resp.Maintenance.CreatedBy)
+				require.Equal(t, maint.CreatedBy.ID, resp.Maintenance.CreatedBy.ID)
+				require.NotEmpty(t, resp.Maintenance.CreatedBy.DisplayName)
 			})
 		}
 	})

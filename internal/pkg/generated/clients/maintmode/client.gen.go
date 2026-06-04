@@ -237,8 +237,15 @@ type ApimodelsCreateDraftMaintRequest struct {
 
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
 type ApimodelsCreateDraftMaintResponse struct {
-	ApproverUser          *ApimodelsUserSummary            `json:"approver_user,omitempty"`
-	CreatedAt             *time.Time                       `json:"created_at,omitempty"`
+	// ApproverUser CreatedBy is the maintenance author resolved from the auth service. Always
+	// present on read (carries the author id); display_name is "Unknown user"
+	// when the profile could not be resolved (auth down or user removed).
+	ApproverUser *ApimodelsUserSummary `json:"approver_user,omitempty"`
+	CreatedAt    *time.Time            `json:"created_at,omitempty"`
+
+	// CreatedBy CreatedBy is the maintenance author resolved from the auth service. Always
+	// present on read (carries the author id); display_name is "Unknown user"
+	// when the profile could not be resolved (auth down or user removed).
 	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
@@ -283,22 +290,32 @@ type ApimodelsListResourcesResponse struct {
 
 // ApimodelsMaintenance defines model for apimodels.Maintenance.
 type ApimodelsMaintenance struct {
-	ActualPeriod          *ApimodelsPeriod                  `json:"actual_period,omitempty"`
-	CancelReason          *ApimodelsMaintenanceCancelReason `json:"cancel_reason,omitempty"`
-	CancelReasonComment   *string                           `json:"cancel_reason_comment,omitempty"`
-	CreatedAt             *time.Time                        `json:"created_at,omitempty"`
-	DeferredNotifications *[]ApimodelsDeferredNotification  `json:"deferred_notifications,omitempty"`
-	Description           *string                           `json:"description,omitempty"`
-	Id                    *openapi_types.UUID               `json:"id,omitempty"`
-	Impact                *ApimodelsMaintenanceImpact       `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets           `json:"notify_targets,omitempty"`
-	PlannedPeriod         *ApimodelsPeriod                  `json:"planned_period,omitempty"`
-	Resources             *[]ApimodelsResourceRef           `json:"resources,omitempty"`
-	Scope                 *ApimodelsMaintenanceScope        `json:"scope,omitempty"`
-	Status                *string                           `json:"status,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStep       `json:"steps,omitempty"`
-	Title                 *string                           `json:"title,omitempty"`
-	UpdatedAt             *time.Time                        `json:"updated_at,omitempty"`
+	ActualPeriod *ApimodelsPeriod `json:"actual_period,omitempty"`
+
+	// Approver CreatedBy is the maintenance author resolved from the auth service. Always
+	// present on read (carries the author id); display_name is "Unknown user"
+	// when the profile could not be resolved (auth down or user removed).
+	Approver            *ApimodelsUserSummary             `json:"approver,omitempty"`
+	CancelReason        *ApimodelsMaintenanceCancelReason `json:"cancel_reason,omitempty"`
+	CancelReasonComment *string                           `json:"cancel_reason_comment,omitempty"`
+	CreatedAt           *time.Time                        `json:"created_at,omitempty"`
+
+	// CreatedBy CreatedBy is the maintenance author resolved from the auth service. Always
+	// present on read (carries the author id); display_name is "Unknown user"
+	// when the profile could not be resolved (auth down or user removed).
+	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
+	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
+	Description           *string                          `json:"description,omitempty"`
+	Id                    *openapi_types.UUID              `json:"id,omitempty"`
+	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
+	NotifyTargets         *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
+	PlannedPeriod         *ApimodelsPeriod                 `json:"planned_period,omitempty"`
+	Resources             *[]ApimodelsResourceRef          `json:"resources,omitempty"`
+	Scope                 *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
+	Status                *string                          `json:"status,omitempty"`
+	Steps                 *[]ApimodelsMaintenanceStep      `json:"steps,omitempty"`
+	Title                 *string                          `json:"title,omitempty"`
+	UpdatedAt             *time.Time                       `json:"updated_at,omitempty"`
 }
 
 // ApimodelsMaintenanceCancelReason defines model for apimodels.MaintenanceCancelReason.
@@ -384,7 +401,9 @@ type ApimodelsUpdateResourceRequest struct {
 	Name        *string `json:"name,omitempty"`
 }
 
-// ApimodelsUserSummary defines model for apimodels.UserSummary.
+// ApimodelsUserSummary CreatedBy is the maintenance author resolved from the auth service. Always
+// present on read (carries the author id); display_name is "Unknown user"
+// when the profile could not be resolved (auth down or user removed).
 type ApimodelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
 	Email       *string             `json:"email,omitempty"`
@@ -399,13 +418,14 @@ type HttperrorsErrorResponse struct {
 
 // UimodelsCalendarEvent defines model for uimodels.CalendarEvent.
 type UimodelsCalendarEvent struct {
-	End    *string                    `json:"end,omitempty"`
-	Id     *openapi_types.UUID        `json:"id,omitempty"`
-	Impact *string                    `json:"impact,omitempty"`
-	Scope  *string                    `json:"scope,omitempty"`
-	Start  *string                    `json:"start,omitempty"`
-	Status *UimodelsMaintenanceStatus `json:"status,omitempty"`
-	Title  *string                    `json:"title,omitempty"`
+	CreatedBy *UimodelsUserSummary       `json:"created_by,omitempty"`
+	End       *string                    `json:"end,omitempty"`
+	Id        *openapi_types.UUID        `json:"id,omitempty"`
+	Impact    *string                    `json:"impact,omitempty"`
+	Scope     *string                    `json:"scope,omitempty"`
+	Start     *string                    `json:"start,omitempty"`
+	Status    *UimodelsMaintenanceStatus `json:"status,omitempty"`
+	Title     *string                    `json:"title,omitempty"`
 }
 
 // UimodelsCalendarViewMeta defines model for uimodels.CalendarViewMeta.
@@ -458,9 +478,11 @@ type UimodelsMaintenanceStep struct {
 type UimodelsMaintenanceView struct {
 	ActualTimeEnd       *time.Time                         `json:"actual_time_end,omitempty"`
 	ActualTimeStart     *time.Time                         `json:"actual_time_start,omitempty"`
+	Approver            *UimodelsUserSummary               `json:"approver,omitempty"`
 	CancelReason        *string                            `json:"cancel_reason,omitempty"`
 	CancelReasonComment *string                            `json:"cancel_reason_comment,omitempty"`
 	CreatedAt           *time.Time                         `json:"created_at,omitempty"`
+	CreatedBy           *UimodelsUserSummary               `json:"created_by,omitempty"`
 	Description         *string                            `json:"description,omitempty"`
 	Id                  *openapi_types.UUID                `json:"id,omitempty"`
 	Impact              *string                            `json:"impact,omitempty"`
@@ -486,6 +508,13 @@ type UimodelsMaintenanceViewResponse struct {
 	Actions     *UimodelsMaintenanceActions `json:"actions,omitempty"`
 	Conflicts   *[]UimodelsConflictView     `json:"conflicts,omitempty"`
 	Maintenance *UimodelsMaintenanceView    `json:"maintenance,omitempty"`
+}
+
+// UimodelsUserSummary defines model for uimodels.UserSummary.
+type UimodelsUserSummary struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
 }
 
 // bearerAuthContextKey is the context key for BearerAuth security scheme
@@ -523,8 +552,8 @@ type GetApiV1UsersAssignableParams struct {
 	// Search Case-insensitive partial match on display_name or email
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
-	// Role Keep only users having this role (guest|editor|reviewer|admin)
-	Role *string `form:"role,omitempty" json:"role,omitempty"`
+	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)
+	Roles *[]string `form:"roles,omitempty" json:"roles,omitempty"`
 
 	// Limit Page size (max 200)
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -2083,9 +2112,9 @@ func NewGetApiV1UsersAssignableRequest(server string, params *GetApiV1UsersAssig
 
 		}
 
-		if params.Role != nil {
+		if params.Roles != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "roles", *params.Roles, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

@@ -49,6 +49,8 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		CreatedAt:           maint.CreatedAt,
 		UpdatedAt:           maint.UpdatedAt,
 		Revision:            maint.Revision(),
+		CreatedByUserID:     maint.CreatedByUserID,
+		ApproverUserID:      maint.ApproverUserID,
 		Steps: lo.Map(steps, func(item *entity.MaintenanceStep, _ int) *calendardto.MaintenanceStep {
 			return &calendardto.MaintenanceStep{
 				ID:                  item.ID,

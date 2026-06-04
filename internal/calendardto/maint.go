@@ -37,6 +37,8 @@ type Maintenance struct {
 	CreatedAt           time.Time
 	UpdatedAt           *time.Time
 	Revision            int64
+	CreatedByUserID     uuid.UUID
+	ApproverUserID      uuid.UUID
 	Steps               []*MaintenanceStep
 }
 

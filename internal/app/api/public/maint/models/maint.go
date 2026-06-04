@@ -80,19 +80,27 @@ type UserSummary struct {
 }
 
 type Maintenance struct {
-	ID                    uuid.UUID               `json:"id" format:"uuid"`
-	Title                 string                  `json:"title"`
-	Description           string                  `json:"description"`
-	PlannedPeriod         Period                  `json:"planned_period"`
-	ActualPeriod          *Period                 `json:"actual_period"`
-	Resources             []*ResourceRef          `json:"resources"`
-	Scope                 MaintenanceScope        `json:"scope"`
-	Impact                MaintenanceImpact       `json:"impact"`
-	Status                string                  `json:"status"`
-	CancelReason          MaintenanceCancelReason `json:"cancel_reason"`
-	CancelReasonComment   string                  `json:"cancel_reason_comment"`
-	CreatedAt             time.Time               `json:"created_at" format:"date-time"`
-	UpdatedAt             *time.Time              `json:"updated_at" format:"date-time"`
+	ID                  uuid.UUID               `json:"id" format:"uuid"`
+	Title               string                  `json:"title"`
+	Description         string                  `json:"description"`
+	PlannedPeriod       Period                  `json:"planned_period"`
+	ActualPeriod        *Period                 `json:"actual_period"`
+	Resources           []*ResourceRef          `json:"resources"`
+	Scope               MaintenanceScope        `json:"scope"`
+	Impact              MaintenanceImpact       `json:"impact"`
+	Status              string                  `json:"status"`
+	CancelReason        MaintenanceCancelReason `json:"cancel_reason"`
+	CancelReasonComment string                  `json:"cancel_reason_comment"`
+	CreatedAt           time.Time               `json:"created_at" format:"date-time"`
+	UpdatedAt           *time.Time              `json:"updated_at" format:"date-time"`
+	// CreatedBy is the maintenance author resolved from the auth service. Always
+	// present on read (carries the author id); display_name is "Unknown user"
+	// when the profile could not be resolved (auth down or user removed).
+	CreatedBy *UserSummary `json:"created_by"`
+	// Approver is the assigned approver resolved from the auth service, or null
+	// when no approver is set (e.g. a draft). When set but unresolvable it
+	// degrades to the "Unknown user" label like CreatedBy.
+	Approver              *UserSummary            `json:"approver"`
 	Steps                 []*MaintenanceStep      `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`

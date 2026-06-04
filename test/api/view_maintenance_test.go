@@ -38,6 +38,13 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 	require.Equal(t, "Test Maintenance", lo.FromPtr(maint.Title))
 	require.Equal(t, maintmodeclient.MaintenanceStatusDraft, lo.FromPtr(maint.Status))
 
+	// created_by is resolved from auth on read and always present. The test
+	// token's subject is not a real auth user, so resolution degrades to the
+	// "Unknown user" label — the id is still carried and the read does not fail.
+	require.NotNil(t, maint.CreatedBy, "created_by should be present on read")
+	require.NotEmpty(t, lo.FromPtr(maint.CreatedBy.Id), "created_by.id should carry the author id")
+	require.NotEmpty(t, lo.FromPtr(maint.CreatedBy.DisplayName), "created_by.display_name should be set (resolved or Unknown user)")
+
 	actions := payload.Actions
 	require.True(t, lo.FromPtr(actions.CanEdit), "Should be able to edit draft")
 	require.True(t, lo.FromPtr(actions.CanApprove), "Should be able to approve draft")

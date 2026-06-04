@@ -2,14 +2,17 @@ package apimaint
 
 import (
 	"github.com/ruko1202/maintmode/internal/services/maint"
+	"github.com/ruko1202/maintmode/internal/services/usersummary"
 )
 
 type Implementation struct {
-	maintSrv *maint.Service
+	maintSrv       *maint.Service
+	userSummarySrv *usersummary.Service
 }
 
-func New(maintSrv *maint.Service) *Implementation {
+func New(maintSrv *maint.Service, userSummarySrv *usersummary.Service) *Implementation {
 	return &Implementation{
-		maintSrv: maintSrv,
+		maintSrv:       maintSrv,
+		userSummarySrv: userSummarySrv,
 	}
 }

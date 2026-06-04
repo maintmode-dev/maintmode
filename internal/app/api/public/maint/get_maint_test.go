@@ -37,6 +37,14 @@ func TestGetMaint(t *testing.T) {
 		require.Equal(t, draft.ID, resp.ID)
 		require.Equal(t, draft.Title, resp.Title)
 		require.Equal(t, "draft", resp.Status)
+
+		// created_by is resolved from auth on read and always present, carrying
+		// the author id from the create response. display_name is the resolved
+		// name or the "Unknown user" label when auth cannot resolve it — never
+		// failing the read.
+		require.NotNil(t, resp.CreatedBy)
+		require.Equal(t, draft.CreatedBy.ID, resp.CreatedBy.ID)
+		require.NotEmpty(t, resp.CreatedBy.DisplayName)
 	})
 
 	t.Run("invalid uuid", func(t *testing.T) {

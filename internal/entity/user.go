@@ -60,3 +60,26 @@ var SystemUser = &User{
 	Name:  "system",
 	Roles: []Role{roleSystemAdmin},
 }
+
+// UnknownUserName labels an author whose profile could not be resolved from the
+// auth service (auth unavailable, or the user no longer exists). Read paths
+// degrade to this rather than failing: the maintenance still renders its author
+// slot, carrying the id with a human-readable placeholder name.
+const UnknownUserName = "Unknown user"
+
+type UserSummary struct {
+	ID    uuid.UUID
+	Name  string
+	Email string
+}
+
+// ToUserSummary projects a resolved user onto the summary shape.
+func (u *User) ToUserSummary() *UserSummary {
+	return &UserSummary{ID: u.ID, Name: u.Name, Email: u.Email}
+}
+
+// NewUnknownUserSummary builds the degraded, id-only summary used when auth
+// cannot resolve a user. The id is preserved so callers can still correlate.
+func NewUnknownUserSummary(id uuid.UUID) *UserSummary {
+	return &UserSummary{ID: id, Name: UnknownUserName}
+}

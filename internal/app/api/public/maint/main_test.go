@@ -53,7 +53,7 @@ func initImpl(t *testing.T) *Implementation {
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
-	return New(services.Maint)
+	return New(services.Maint, services.UserSummary)
 }
 
 func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementation) *apimodels.CreateDraftMaintResponse {

@@ -28,9 +28,11 @@ func (s *Gateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableU
 	if q.Search != "" {
 		params.Search = &q.Search
 	}
-	if q.Role != "" {
-		role := string(q.Role)
-		params.Role = &role
+	if len(q.Roles) > 0 {
+		roles := lo.Map(q.Roles, func(r entity.Role, _ int) string {
+			return string(r)
+		})
+		params.Roles = &roles
 	}
 	if q.Limit > 0 {
 		limit := int(q.Limit)

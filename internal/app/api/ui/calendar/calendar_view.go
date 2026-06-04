@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -73,13 +74,20 @@ func (i *Implementation) CalendarView(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
+	// Batch-resolve all authors in one auth call (no per-row lookup). Degrades
+	// to labeled summaries when auth is unavailable; never errors the list.
+	authorIDs := lo.Map(maints, func(item *calendardto.Maintenance, _ int) uuid.UUID {
+		return item.CreatedByUserID
+	})
+	authors := i.userSummarySrv.ResolveMany(ctx, authorIDs)
+
 	return c.JSON(http.StatusOK, &uimodels.CalendarViewResponse{
 		Meta: &uimodels.CalendarViewMeta{
 			Truncated: maintsMeta.Truncated,
 			Count:     maintsMeta.Count,
 		},
 		Events: lo.Map(maints, func(item *calendardto.Maintenance, _ int) *uimodels.CalendarEvent {
-			return uimodels.ToAPICalendarEvent(item)
+			return uimodels.ToAPICalendarEvent(item, authors[item.CreatedByUserID])
 		}),
 	})
 }

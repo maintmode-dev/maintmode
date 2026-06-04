@@ -26,7 +26,7 @@ const (
 // @Tags Users
 // @Produce json
 // @Param search query string false "Case-insensitive partial match on display_name or email"
-// @Param role query string false "Keep only users having this role (guest|editor|reviewer|admin)"
+// @Param roles query []string false "Keep only users having ANY of these roles (guest|editor|reviewer|admin)" collectionFormat(multi)
 // @Param limit query int false "Page size (max 200)" default(50)
 // @Param offset query int false "Pagination offset" default(0)
 // @Param active query bool false "When true, hide blocked users" default(false)
@@ -78,7 +78,7 @@ func queryToListUsersCmd(c *echo.Context) (*entity.ListUsersCmd, error) {
 		offset = defaultUsersOffset
 	}
 
-	role, err := apimodels.FromAPIRoleFilter(c.QueryParam("role"))
+	roles, err := apimodels.FromAPIRolesFilter(c.QueryParams()["roles"])
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func queryToListUsersCmd(c *echo.Context) (*entity.ListUsersCmd, error) {
 
 	return &entity.ListUsersCmd{
 		Search:         c.QueryParam("search"),
-		Role:           role,
+		Roles:          roles,
 		Limit:          limit,
 		Offset:         offset,
 		ExcludeBlocked: active,

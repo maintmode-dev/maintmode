@@ -19,6 +19,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
 	"github.com/ruko1202/maintmode/internal/services/userpicker"
+	"github.com/ruko1202/maintmode/internal/services/usersummary"
 )
 
 // Services contains all service layer dependencies
@@ -32,6 +33,7 @@ type Services struct {
 	NotifyTargets *notifytargets.Service
 	Notifier      *maintnotify.Service
 	UserPicker    *userpicker.Service
+	UserSummary   *usersummary.Service
 }
 
 func NewServices(ctx context.Context,
@@ -102,5 +104,6 @@ func NewServices(ctx context.Context,
 		NotifyTargets: notifyTargets,
 		Notifier:      notifier,
 		UserPicker:    userpicker.NewService(gateways.Auth),
+		UserSummary:   usersummary.NewService(gateways.Auth),
 	}, nil
 }

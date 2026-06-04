@@ -77,6 +77,20 @@ func ToAPIUserSummary(u *entity.User) *UserSummary {
 	}
 }
 
+// ToAPIUserSummaryFromSummary maps a resolved domain user summary (from the auth
+// resolver) to its API shape. Nil-safe: a nil summary maps to nil (null).
+func ToAPIUserSummaryFromSummary(u *entity.UserSummary) *UserSummary {
+	if u == nil {
+		return nil
+	}
+
+	return &UserSummary{
+		ID:          u.ID,
+		DisplayName: u.Name,
+		Email:       u.Email,
+	}
+}
+
 func ToAPIPeriod(p entity.Period) Period {
 	if p.IsOpen() {
 		return Period{Start: p.Start, End: nil}
@@ -175,7 +189,11 @@ func ToAPIDeferredNotifications(notifications []*entity.DeferredNotification) []
 	})
 }
 
-func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
+// ToAPIMaintenance maps a maintenance entity to its API DTO. author is the
+// resolved author summary (from the auth resolver); pass nil when there is no
+// author to render — the resolver supplies a labeled "Unknown user" summary
+// rather than nil when auth cannot resolve the id.
+func ToAPIMaintenance(m *entity.Maintenance, author, approver *entity.UserSummary) *Maintenance {
 	maint := &Maintenance{
 		ID:                    m.ID,
 		Title:                 m.Title,
@@ -190,6 +208,8 @@ func ToAPIMaintenance(m *entity.Maintenance) *Maintenance {
 		CancelReasonComment:   m.CancelReasonComment,
 		CreatedAt:             m.CreatedAt,
 		UpdatedAt:             m.UpdatedAt,
+		CreatedBy:             ToAPIUserSummaryFromSummary(author),
+		Approver:              ToAPIUserSummaryFromSummary(approver),
 		Steps:                 ToAPISteps(m.Steps),
 		NotifyTargets:         ToAPINotifyTargets(m.NotifyTargets),
 		DeferredNotifications: ToAPIDeferredNotifications(m.DeferredNotifications),

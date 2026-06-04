@@ -23,6 +23,29 @@ func FromAPIRoleFilter(role string) (entity.Role, error) {
 	}
 }
 
+// FromAPIRolesFilter parses the optional repeated `roles` query param into
+// domain roles (OR filter). An empty input means "no role filter" and returns
+// nil with no error. Any value that is not a known role is rejected. Reuses
+// FromAPIRoleFilter for per-value validation.
+func FromAPIRolesFilter(roles []string) ([]entity.Role, error) {
+	if len(roles) == 0 {
+		return nil, nil
+	}
+
+	out := make([]entity.Role, 0, len(roles))
+	for _, raw := range roles {
+		if raw == "" {
+			continue
+		}
+		r, err := FromAPIRoleFilter(raw)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
 // ToAPIUser maps a domain user to its API representation. activeAdminCount is the
 // system-wide number of non-blocked admins; is_last_admin is true when this user
 // is an active admin and the only one left. connectedProviders are the OAuth

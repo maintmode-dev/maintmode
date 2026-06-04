@@ -40,7 +40,7 @@ func TestListActiveUsers(t *testing.T) {
 
 	res, err := gw.ListActiveUsers(context.Background(), &entity.ListAssignableUsersQuery{
 		Search: "alice",
-		Role:   entity.RoleEditor,
+		Roles:  []entity.Role{entity.RoleEditor},
 		Limit:  50,
 	})
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestListActiveUsers(t *testing.T) {
 	require.Equal(t, "/api/v1/s2s/users", gotPath)
 	require.Equal(t, "true", gotQuery.Get("active"))
 	require.Equal(t, "alice", gotQuery.Get("search"))
-	require.Equal(t, "editor", gotQuery.Get("role"))
+	require.Equal(t, []string{"editor"}, gotQuery["roles"])
 	require.Equal(t, "50", gotQuery.Get("limit"))
 
 	require.Equal(t, int64(1), res.Total)

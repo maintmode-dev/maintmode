@@ -6,21 +6,41 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/calendardto"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func ToAPICalendarEvent(maintEvent *calendardto.Maintenance) *CalendarEvent {
-	return &CalendarEvent{
-		ID:     maintEvent.ID,
-		Title:  maintEvent.Title,
-		Start:  maintEvent.PlannedPeriod.Start,
-		End:    lo.FromPtr(maintEvent.PlannedPeriod.End),
-		Scope:  string(maintEvent.Scope),
-		Impact: string(maintEvent.Impact),
-		Status: maintEvent.Status,
+// ToAPIUserSummary maps a resolved domain user summary to the UI shape. Nil-safe:
+// a nil summary maps to nil (null).
+func ToAPIUserSummary(u *entity.UserSummary) *UserSummary {
+	if u == nil {
+		return nil
+	}
+
+	return &UserSummary{
+		ID:          u.ID,
+		DisplayName: u.Name,
+		Email:       u.Email,
 	}
 }
 
-func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance) *MaintenanceView {
+// ToAPICalendarEvent maps a calendar maintenance to its list event. author is the
+// resolved author summary (batch-resolved by the handler); nil when absent.
+func ToAPICalendarEvent(maintEvent *calendardto.Maintenance, author *entity.UserSummary) *CalendarEvent {
+	return &CalendarEvent{
+		ID:        maintEvent.ID,
+		Title:     maintEvent.Title,
+		Start:     maintEvent.PlannedPeriod.Start,
+		End:       lo.FromPtr(maintEvent.PlannedPeriod.End),
+		Scope:     string(maintEvent.Scope),
+		Impact:    string(maintEvent.Impact),
+		Status:    maintEvent.Status,
+		CreatedBy: ToAPIUserSummary(author),
+	}
+}
+
+// ToAPIMaintenanceView maps a calendar maintenance to its detailed view. author
+// is the resolved author summary; nil when absent.
+func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance, author, approver *entity.UserSummary) *MaintenanceView {
 	event := &MaintenanceView{
 		ID:               maintEvent.ID,
 		Title:            maintEvent.Title,
@@ -43,6 +63,8 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance) *MaintenanceView 
 		CreatedAt:           maintEvent.CreatedAt,
 		UpdatedAt:           maintEvent.UpdatedAt,
 		Revision:            maintEvent.Revision,
+		CreatedBy:           ToAPIUserSummary(author),
+		Approver:            ToAPIUserSummary(approver),
 		Steps:               toAPISteps(maintEvent),
 	}
 
