@@ -7,7 +7,6 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/casbin/casbin/v3 v3.10.0
 	github.com/go-jet/jet/v2 v2.15.0
-	github.com/go-openapi/testify/v2 v2.4.2
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/go-telegram/bot v1.21.0

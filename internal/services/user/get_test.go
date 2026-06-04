@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-openapi/testify/v2/require"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
