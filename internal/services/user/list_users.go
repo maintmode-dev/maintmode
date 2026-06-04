@@ -11,22 +11,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// ListResult is a page of users plus the metadata the API layer needs to render
-// last-admin lockout state.
-type ListResult struct {
-	Users []*entity.User
-	Total int64
-	// ActiveAdminCount is the number of non-blocked admins in the whole system,
-	// used to compute is_last_admin per row.
-	ActiveAdminCount int64
-	// ProvidersByUser maps a user ID to its connected OAuth providers (provider
-	// ASC). Users with no identities are absent. Fetched in one batch query to
-	// avoid an N+1 over the page.
-	ProvidersByUser map[uuid.UUID][]entity.OAuthProvider
-}
-
 // ListUsers returns a paginated, filtered list of users (admin-only use-case).
-func (s *Service) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*ListResult, error) {
+func (s *Service) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.ListUsers")
 	defer span.End()
 
@@ -49,7 +35,7 @@ func (s *Service) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*Lis
 		return nil, err
 	}
 
-	return &ListResult{
+	return &entity.ListUsersResult{
 		Users:            users,
 		Total:            total,
 		ActiveAdminCount: activeAdmins,

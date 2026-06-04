@@ -145,6 +145,14 @@ type ListResourcesCmd struct {
 	IncludeArchived bool
 }
 
+// ListResourcesResult is a single page of resources plus the total count of
+// resources matching the same filter (used by the API to expose pagination
+// metadata).
+type ListResourcesResult struct {
+	Resources []*ResourceDetails
+	Total     int64
+}
+
 // --- Authorization commands ---
 
 type GetAuthCodeURLCmd struct {
@@ -217,12 +225,35 @@ type ListUsersCmd struct {
 	ExcludeBlocked bool
 }
 
+// ListUsersResult is a page of users plus the metadata the API layer needs to
+// render last-admin lockout state.
+type ListUsersResult struct {
+	Users []*User
+	Total int64
+	// ActiveAdminCount is the number of non-blocked admins in the whole system,
+	// used to compute is_last_admin per row.
+	ActiveAdminCount int64
+	// ProvidersByUser maps a user ID to its connected OAuth providers (provider
+	// ASC). Users with no identities are absent. Fetched in one batch query to
+	// avoid an N+1 over the page.
+	ProvidersByUser map[uuid.UUID][]OAuthProvider
+}
+
 // ListAssignableUsersQuery describes a request for users selectable in a
 // maintenance assignment picker. It is served by the auth service (owner of the
 // users table) over S2S; only active (non-blocked) users are returned.
 type ListAssignableUsersQuery struct {
 	Search string
 	Role   Role
+	Limit  int64
+	Offset int64
+}
+
+// ListAssignableUsersResult is a page of active (non-blocked) users eligible for
+// maintenance assignment, served by auth over S2S.
+type ListAssignableUsersResult struct {
+	Users  []*User
+	Total  int64
 	Limit  int64
 	Offset int64
 }

@@ -15,19 +15,11 @@ import (
 	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
 
-// ListActiveUsersResult is a page of active (non-blocked) users from auth.
-type ListActiveUsersResult struct {
-	Users  []*entity.User
-	Total  int64
-	Limit  int64
-	Offset int64
-}
-
 // ListActiveUsers fetches active (non-blocked) users from the auth service over
 // S2S using the generated auth client. Auth owns the users table; this gateway
 // is how maintmode reads it for assignment selection. active=true is always
 // sent so blocked users are never returned.
-func (s *Gateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableUsersQuery) (*ListActiveUsersResult, error) {
+func (s *Gateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "gateway.Auth.ListActiveUsers")
 	defer span.End()
 
@@ -63,8 +55,8 @@ func (s *Gateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableU
 	return fromS2SUsersResponse(resp.JSON200), nil
 }
 
-func fromS2SUsersResponse(body *authclient.ApimodelsListS2SUsersResponse) *ListActiveUsersResult {
-	res := &ListActiveUsersResult{
+func fromS2SUsersResponse(body *authclient.ApimodelsListS2SUsersResponse) *entity.ListAssignableUsersResult {
+	res := &entity.ListAssignableUsersResult{
 		Total:  int64(lo.FromPtr(body.Total)),
 		Limit:  int64(lo.FromPtr(body.Limit)),
 		Offset: int64(lo.FromPtr(body.Offset)),
