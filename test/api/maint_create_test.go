@@ -52,4 +52,10 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 	require.NotNil(t, payload.PlannedPeriod)
 	require.Equal(t, plannedStart, lo.FromPtr(payload.PlannedPeriod.Start))
 	require.Equal(t, plannedStart.Add(testMaintenanceDuration), lo.FromPtr(payload.PlannedPeriod.End))
+
+	// Author is captured from the access token (subject = user id, email from
+	// the token) and exposed as a privacy-safe summary.
+	require.NotNil(t, payload.CreatedBy)
+	require.NotEqual(t, uuid.Nil, lo.FromPtr(payload.CreatedBy.Id))
+	require.Equal(t, "api-test@example.com", lo.FromPtr(payload.CreatedBy.Email))
 }

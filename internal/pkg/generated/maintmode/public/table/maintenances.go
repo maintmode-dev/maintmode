@@ -29,6 +29,7 @@ type maintenancesTable struct {
 	CanceledReasonComment postgres.ColumnString
 	CreatedAt             postgres.ColumnTimestampz
 	UpdatedAt             postgres.ColumnTimestampz
+	CreatedByUserID       postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -82,8 +83,9 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		CanceledReasonCommentColumn = postgres.StringColumn("canceled_reason_comment")
 		CreatedAtColumn             = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn             = postgres.TimestampzColumn("updated_at")
-		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn}
+		CreatedByUserIDColumn       = postgres.StringColumn("created_by_user_id")
+		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, CreatedByUserIDColumn}
+		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, CreatedByUserIDColumn}
 		defaultColumns              = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -103,6 +105,7 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		CanceledReasonComment: CanceledReasonCommentColumn,
 		CreatedAt:             CreatedAtColumn,
 		UpdatedAt:             UpdatedAtColumn,
+		CreatedByUserID:       CreatedByUserIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

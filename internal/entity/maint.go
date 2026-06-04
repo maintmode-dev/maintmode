@@ -83,17 +83,21 @@ const (
 // appears (e.g., explicitly read-only maintenance must run in parallel with a
 // deploy), introduce a dedicated flag — do not overload Impact for that.
 type Maintenance struct {
-	ID                    uuid.UUID
-	Title                 string
-	Description           string
-	PlannedPeriod         Period
-	ActualPeriod          *Period
-	Resources             []uuid.UUID
-	Scope                 MaintenanceScope
-	Impact                MaintenanceImpact
-	Status                MaintenanceStatus
-	CancelReason          MaintenanceCancelReason
-	CancelReasonComment   string
+	ID                  uuid.UUID
+	Title               string
+	Description         string
+	PlannedPeriod       Period
+	ActualPeriod        *Period
+	Resources           []uuid.UUID
+	Scope               MaintenanceScope
+	Impact              MaintenanceImpact
+	Status              MaintenanceStatus
+	CancelReason        MaintenanceCancelReason
+	CancelReasonComment string
+	// CreatedByUserID is the author of the maintenance: the authenticated user
+	// who created the draft. Always set — the create path requires an
+	// authenticated user and the column is NOT NULL.
+	CreatedByUserID       uuid.UUID
 	CreatedAt             time.Time
 	UpdatedAt             *time.Time
 	Steps                 []*MaintenanceStep

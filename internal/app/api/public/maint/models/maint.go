@@ -69,6 +69,16 @@ type DeferredNotification struct {
 	FireAt time.Time `json:"fire_at" format:"date-time"`
 }
 
+// UserSummary is a privacy-safe view of a user (e.g. a maintenance author)
+// exposed in API responses. It carries only what the UI needs to render a name,
+// never internal fields. A nil *UserSummary is serialized as null (unknown
+// author), so clients must handle the null case.
+type UserSummary struct {
+	ID          uuid.UUID `json:"id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+}
+
 type Maintenance struct {
 	ID                    uuid.UUID               `json:"id" format:"uuid"`
 	Title                 string                  `json:"title"`
@@ -109,6 +119,7 @@ type CreateDraftMaintResponse struct {
 	Scope                 string                  `json:"scope"`
 	Impact                string                  `json:"impact"`
 	Status                string                  `json:"status"`
+	CreatedBy             *UserSummary            `json:"created_by"`
 	CreatedAt             time.Time               `json:"created_at" format:"date-time"`
 	Steps                 []*MaintenanceStep      `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`

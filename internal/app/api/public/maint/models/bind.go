@@ -63,6 +63,20 @@ func ToAPIResources(resourceIDs []uuid.UUID) []*ResourceRef {
 	})
 }
 
+// ToAPIUserSummary maps a domain user to its privacy-safe API summary. It is
+// nil-safe: a nil user (unknown author) maps to nil, serialized as null.
+func ToAPIUserSummary(u *entity.User) *UserSummary {
+	if u == nil {
+		return nil
+	}
+
+	return &UserSummary{
+		ID:          u.ID,
+		DisplayName: u.Name,
+		Email:       u.Email,
+	}
+}
+
 func ToAPIPeriod(p entity.Period) Period {
 	if p.IsOpen() {
 		return Period{Start: p.Start, End: nil}

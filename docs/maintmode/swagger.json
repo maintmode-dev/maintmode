@@ -187,6 +187,9 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "created_by": {
+                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                    },
                     "deferred_notifications": {
                         "items": {
                             "$ref": "#/components/schemas/apimodels.DeferredNotification"
@@ -614,6 +617,21 @@
                         "type": "string"
                     },
                     "name": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "apimodels.UserSummary": {
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
                         "type": "string"
                     }
                 },

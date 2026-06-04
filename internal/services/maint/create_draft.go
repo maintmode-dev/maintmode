@@ -43,12 +43,13 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		maint, err = s.maintStore.CreateMaint(ctx, &entity.Maintenance{
-			Title:         cmd.Title,
-			Description:   cmd.Description,
-			PlannedPeriod: cmd.PlannedPeriod,
-			Scope:         cmd.Scope,
-			Impact:        cmd.Impact,
-			Status:        entity.MaintenanceStatusDraft,
+			Title:           cmd.Title,
+			Description:     cmd.Description,
+			PlannedPeriod:   cmd.PlannedPeriod,
+			Scope:           cmd.Scope,
+			Impact:          cmd.Impact,
+			Status:          entity.MaintenanceStatusDraft,
+			CreatedByUserID: cmd.CreatedByUserID,
 		})
 		if err != nil {
 			xlog.Error(ctx, "create maint failed", xfield.Error(err))

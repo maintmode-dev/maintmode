@@ -24,6 +24,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
@@ -103,6 +104,14 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
+	// CreateDraftMaint captures the author from the Echo context (set by the
+	// auth middleware in production), so the setup helper must seed a user.
+	xecho.UserToEchoCtx(c, &entity.User{
+		ID:    uuid.New(),
+		Email: "author-" + uuid.NewString() + "@example.com",
+		Name:  "Author " + t.Name(),
+		Roles: entity.DefaultRoles,
+	})
 
 	err := maintImpl.CreateDraftMaint(c)
 	require.NoError(t, err)

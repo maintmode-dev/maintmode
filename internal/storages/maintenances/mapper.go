@@ -22,6 +22,7 @@ func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
 		Status:              entity.MaintenanceStatus(m.Status),
 		CancelReason:        entity.MaintenanceCancelReason(lo.FromPtr(m.CanceledReasonCode)),
 		CancelReasonComment: lo.FromPtr(m.CanceledReasonComment),
+		CreatedByUserID:     m.CreatedByUserID,
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
 	}
@@ -45,6 +46,7 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
 		Status:                string(m.Status),
 		CanceledReasonCode:    lo.ToPtr(string(m.CancelReason)),
 		CanceledReasonComment: lo.ToPtr(m.CancelReasonComment),
+		CreatedByUserID:       m.CreatedByUserID,
 		CreatedAt:             m.CreatedAt,
 		UpdatedAt:             m.UpdatedAt,
 	}

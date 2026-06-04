@@ -39,6 +39,10 @@ type CreateMaintenanceCmd struct {
 	Steps                 []*MaintenanceStepInput
 	NotifyTargets         []*NotifyTargetInput
 	DeferredNotifications []*DeferredNotificationInput
+	// CreatedByUserID is the authenticated user creating the draft, captured
+	// from the request context. Required — the handler rejects unauthenticated
+	// requests before building this command.
+	CreatedByUserID uuid.UUID
 }
 
 type UpdateMaintenanceCmd struct {

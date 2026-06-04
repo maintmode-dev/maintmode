@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
 
@@ -43,9 +44,11 @@ func TestCreateDraftMaint(t *testing.T) {
 			},
 		}
 
+		author := makeUser(t)
 		c, rec := echotest.ContextConfig{
 			JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 		}.ToContextRecorder(t)
+		xecho.UserToEchoCtx(c, author)
 
 		err := impl.CreateDraftMaint(c)
 		require.NoError(t, err)
@@ -60,6 +63,13 @@ func TestCreateDraftMaint(t *testing.T) {
 		require.Equal(t, "draft", resp.Status)
 		require.Len(t, resp.Steps, 1)
 		require.NotEqual(t, uuid.Nil, resp.Steps[0].ID)
+
+		// Author is captured from the authenticated user and exposed as a
+		// privacy-safe summary.
+		require.NotNil(t, resp.CreatedBy)
+		require.Equal(t, author.ID, resp.CreatedBy.ID)
+		require.Equal(t, author.Name, resp.CreatedBy.DisplayName)
+		require.Equal(t, author.Email, resp.CreatedBy.Email)
 
 		maint := getMaintByID(t, impl, resp.ID)
 		require.Equal(t, resp.ID, maint.ID)
@@ -113,6 +123,7 @@ func TestCreateDraftMaint(t *testing.T) {
 		c, rec := echotest.ContextConfig{
 			JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 		}.ToContextRecorder(t)
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CreateDraftMaint(c)
 		require.NoError(t, err)
@@ -136,6 +147,41 @@ func TestCreateDraftMaint(t *testing.T) {
 		require.Len(t, maint.Steps, 1)
 		require.Equal(t, req.Steps[0].Description, maint.Steps[0].Description)
 		require.Equal(t, int64(15), maint.Steps[0].DurationMinutes)
+	})
+
+	t.Run("missing authenticated author", func(t *testing.T) {
+		t.Parallel()
+
+		resource := createResource(ctx, t)
+		req := &apimodels.CreateDraftMaintRequest{
+			Title:        "Resource maintenance",
+			Description:  "Service deploy",
+			PlannedStart: time.Now().Add(24 * time.Hour).UTC().Truncate(time.Second),
+			Scope:        apimodels.MaintenanceScopeResources,
+			Impact:       apimodels.MaintenanceImpactPartial,
+			Resources:    []*apimodels.ResourceRef{{ID: resource.ID}},
+			Steps: []*apimodels.MaintenanceStepInput{
+				{
+					Order:               1,
+					Description:         "Deploy",
+					RollbackDescription: "Rollback deploy",
+					Duration:            "15m",
+				},
+			},
+			NotifyTargets: &apimodels.NotifyTargets{
+				ChannelIDs: []string{notifyChan.ID},
+			},
+		}
+
+		// No user in the Echo context: the handler must refuse to create an
+		// authorless maintenance rather than silently persisting NULL.
+		c, rec := echotest.ContextConfig{
+			JSONBody: testjsonudils.AnyToJSONBytes(t, req),
+		}.ToContextRecorder(t)
+
+		err := impl.CreateDraftMaint(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
 	t.Run("validation error", func(t *testing.T) {

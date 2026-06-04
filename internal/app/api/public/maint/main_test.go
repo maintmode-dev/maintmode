@@ -26,6 +26,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
@@ -88,6 +89,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 	c, rec := echotest.ContextConfig{
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 	}.ToContextRecorder(t)
+	xecho.UserToEchoCtx(c, makeUser(t))
 
 	err := impl.CreateDraftMaint(c)
 	require.NoError(t, err)
@@ -95,6 +97,21 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 
 	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
 	return &resp
+}
+
+// makeUser builds an authenticated user to act as the maintenance author.
+// CreateDraftMaint reads the author from the Echo context (mirroring what the
+// auth middleware sets from the access token), so handler tests must put a user
+// there. No DB row is needed: created_by_user_id has no FK to users.
+func makeUser(t *testing.T) *entity.User {
+	t.Helper()
+
+	return &entity.User{
+		ID:    uuid.New(),
+		Email: "author-" + uuid.NewString() + "@example.com",
+		Name:  "Author " + t.Name(),
+		Roles: entity.DefaultRoles,
+	}
 }
 
 func approveMaint(t *testing.T, impl *Implementation, maint *apimodels.CreateDraftMaintResponse) {

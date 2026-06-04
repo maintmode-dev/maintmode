@@ -237,6 +237,7 @@ type ApimodelsCreateDraftMaintRequest struct {
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
 type ApimodelsCreateDraftMaintResponse struct {
 	CreatedAt             *time.Time                       `json:"created_at,omitempty"`
+	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Id                    *openapi_types.UUID              `json:"id,omitempty"`
@@ -378,6 +379,13 @@ type ApimodelsUpdateResourceRequest struct {
 	Description *string `json:"description,omitempty"`
 	ExternalId  *string `json:"external_id,omitempty"`
 	Name        *string `json:"name,omitempty"`
+}
+
+// ApimodelsUserSummary defines model for apimodels.UserSummary.
+type ApimodelsUserSummary struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
 }
 
 // HttperrorsErrorResponse defines model for httperrors.ErrorResponse.
