@@ -23,6 +23,13 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 		return err
 	}
 
+	// nil approver means "keep the current approver"; only validate a new one.
+	if cmd.ApproverUserID != nil {
+		if err := s.validateApprover(ctx, lo.FromPtr(cmd.ApproverUserID)); err != nil {
+			return err
+		}
+	}
+
 	notifyTargets, err := s.notifyTargets.ResolveNotifyTarget(ctx, cmd.MaintID, cmd.NotifyTargets)
 	if err != nil {
 		xlog.Error(ctx, "failed to resolve notify targets", xfield.Error(err))

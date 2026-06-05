@@ -155,6 +155,7 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 		validation.Field(&r.PlannedStart, validation.Required),
 		validation.Field(&r.Scope, validation.Required),
 		validation.Field(&r.Impact, validation.Required),
+		validation.Field(&r.ApproverUserID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
 		validation.Field(&r.Resources, validation.Required.
 			When(r.Scope == apimodels.MaintenanceScopeResources),
 			validation.Each(validation.WithContext(validateResource)),

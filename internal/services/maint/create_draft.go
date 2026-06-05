@@ -39,6 +39,10 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		return nil, err
 	}
 
+	if err := s.validateApprover(ctx, cmd.ApproverUserID); err != nil {
+		return nil, err
+	}
+
 	var maint *entity.Maintenance
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		var err error

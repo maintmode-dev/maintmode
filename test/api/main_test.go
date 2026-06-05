@@ -194,6 +194,13 @@ func newAuthTestClient(token string) *authclient.ClientWithResponses {
 }
 
 func mustTestAccessToken(roles ...entity.Role) string {
+	return mustTestAccessTokenForUser(xuuid.NewString(), roles...)
+}
+
+// mustTestAccessTokenForUser mints a signed access token for a specific subject
+// (user id). Use it when the acting user's identity matters downstream — e.g.
+// approving a maintenance, where the actor must be the assigned approver.
+func mustTestAccessTokenForUser(subject string, roles ...entity.Role) string {
 	if len(roles) == 0 {
 		roles = []entity.Role{entity.RoleAdmin}
 	}
@@ -205,7 +212,7 @@ func mustTestAccessToken(roles ...entity.Role) string {
 		Roles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        xuuid.NewString(),
-			Subject:   xuuid.NewString(),
+			Subject:   subject,
 			Issuer:    testAPIJWTIssuer,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
@@ -251,7 +258,7 @@ func createTestMaintenance(ctx context.Context, t *testing.T, apiClient *maintmo
 		}),
 		Steps:          lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
-		ApproverUserId: lo.ToPtr(uuid.New()),
+		ApproverUserId: lo.ToPtr(resolveEligibleApprover(ctx, t, apiClient)),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
@@ -279,7 +286,7 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 		}),
 		Steps:          lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
-		ApproverUserId: lo.ToPtr(uuid.New()),
+		ApproverUserId: lo.ToPtr(resolveEligibleApprover(ctx, t, apiClient)),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
@@ -288,6 +295,27 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 	require.NotNil(t, resp.JSON200)
 
 	return lo.FromPtr(resp.JSON200.Id).String()
+}
+
+// resolveEligibleApprover returns the id of an active reviewer/admin from the
+// auth service via the assignable-users picker (the same path the UI uses).
+// Approver assignment is validated at write time against this set, so tests must
+// pick a real eligible user rather than a random uuid.
+func resolveEligibleApprover(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) uuid.UUID {
+	t.Helper()
+
+	resp, err := apiClient.GetApiV1UsersAssignableWithResponse(ctx, &maintmodeclient.GetApiV1UsersAssignableParams{
+		Roles: lo.ToPtr([]string{string(entity.RoleReviewer), string(entity.RoleAdmin)}),
+		Limit: lo.ToPtr(1),
+	})
+	require.NoError(t, err, "Failed to list assignable users")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+	require.NotEmpty(t, lo.FromPtr(resp.JSON200.Users), "no eligible (reviewer/admin) approver in auth")
+
+	id, err := uuid.Parse(lo.FromPtr(lo.FromPtr(resp.JSON200.Users)[0].Id))
+	require.NoError(t, err, "malformed approver id")
+	return id
 }
 
 func approveMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses, maintenanceID string) {
@@ -308,7 +336,14 @@ func approveMaintenance(ctx context.Context, t *testing.T, apiClient *maintmodec
 		ConflictsSnapshot:     lo.ToPtr([]maintmodeclient.ApimodelsConflict{}),
 	}
 
-	resp, err := apiClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
+	// Only the assigned approver may approve, so act as that user: mint a token
+	// whose subject is the maintenance's approver id.
+	approverID := lo.FromPtr(lo.FromPtr(getResp.JSON200.Approver).Id)
+	approverClient := setupMaintmodeTestClientWithToken(
+		mustTestAccessTokenForUser(approverID.String(), entity.RoleReviewer),
+	)
+
+	resp, err := approverClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
 	require.NoError(t, err, "Failed to approve maintenance")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }

@@ -13,6 +13,13 @@ Before making changes, read the focused file for the task:
 - `.agents/project/branch-naming.md` - branch naming rules
 - `.agents/project/commits.md` - commit message rules
 
+## Skills
+
+Project skills live in `.agents/skills/` (symlinked as `.claude/skills/`). For
+async/queue work see the `goque-async-patterns` and `transaction-patterns`
+skills; before handing work back, self-review with `code-reviewer` and
+`code-skeptic`.
+
 ## Repository Scope
 
 This repository is the MaintMode backend. It is a Go service for planning,

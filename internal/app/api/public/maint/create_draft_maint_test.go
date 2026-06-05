@@ -53,7 +53,7 @@ func TestCreateDraftMaint(t *testing.T) {
 
 		err := impl.CreateDraftMaint(c)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 		resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
 		require.NotEqual(t, uuid.Nil, resp.ID)

@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/entity"
 	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
@@ -52,7 +53,14 @@ func TestMaintenancesAPI_ApproveRejectsStaleRevision(t *testing.T) {
 		ConflictsSnapshot:     lo.ToPtr([]maintmodeclient.ApimodelsConflict{}),
 	}
 
-	approveResp, err := apiClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
+	// Act as the assigned approver so the request reaches the revision check
+	// rather than being rejected by the approver-mismatch guard.
+	approverID := lo.FromPtr(lo.FromPtr(getResp.JSON200.Approver).Id)
+	approverClient := setupMaintmodeTestClientWithToken(
+		mustTestAccessTokenForUser(approverID.String(), entity.RoleReviewer),
+	)
+
+	approveResp, err := approverClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusConflict, approveResp.StatusCode(), "unexpected status: %s", approveResp.Body)
 }

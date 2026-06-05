@@ -22,10 +22,11 @@ func TestUpdateDraft(t *testing.T) {
 
 	ctx := context.Background()
 	defaultPeriod := entity.NewPeriod(now, now.Add(time.Hour))
+	service, _ := initService(t)
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
-		notifyChannel := makeNotifyChannel(ctx, t)
+		notifyChannel := makeNotifyChannel(ctx, t, service)
 
 		for _, tc := range []struct {
 			name           string
@@ -87,7 +88,7 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
 					t.Helper()
@@ -96,7 +97,7 @@ func TestUpdateDraft(t *testing.T) {
 			}, {
 				name: "Resources[scope global]",
 				cmd: &entity.UpdateMaintenanceCmd{
-					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+					Resources: []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
 					Scope:     lo.ToPtr(entity.MaintenanceScopeGlobal),
 				},
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
@@ -150,7 +151,7 @@ func TestUpdateDraft(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, defaultPeriod)
+				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore, defaultPeriod)
 				tc.cmd.MaintID = maint.ID
 
 				err := service.UpdateMaint(ctx, tc.cmd)
@@ -225,7 +226,7 @@ func TestUpdateDraft(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) {
 					t.Parallel()
 
-					maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, defaultPeriod)
+					maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore, defaultPeriod)
 					tc.cmd.MaintID = maint.ID
 
 					err := service.UpdateMaint(ctx, tc.cmd)

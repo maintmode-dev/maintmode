@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/entity"
 	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 )
 
@@ -33,7 +34,13 @@ func TestMaintenancesAPI_ApproveDraft(t *testing.T) {
 		ConflictsSnapshot:     lo.ToPtr([]maintmodeclient.ApimodelsConflict{}),
 	}
 
-	resp, err := apiClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
+	// Only the assigned approver may approve, so act as that user.
+	approverID := lo.FromPtr(lo.FromPtr(getResp.JSON200.Approver).Id)
+	approverClient := setupMaintmodeTestClientWithToken(
+		mustTestAccessTokenForUser(approverID.String(), entity.RoleReviewer),
+	)
+
+	resp, err := approverClient.PostApiV1MaintenancesIdApproveWithResponse(ctx, uuid.MustParse(maintenanceID), approveReq)
 	require.NoError(t, err, "Failed to approve maintenance draft")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode(), "unexpected status: %s", resp.Body)
 

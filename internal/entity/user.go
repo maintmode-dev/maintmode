@@ -34,6 +34,11 @@ func (r Role) Valid(ctx context.Context) bool {
 
 var DefaultRoles = []Role{RoleGuest}
 
+// ApproverEligibleRoles are the roles that make a user eligible to be assigned as
+// a maintenance approver. It mirrors the RBAC right maintenance.approve: reviewer
+// and admin (which inherits reviewer).
+var ApproverEligibleRoles = []Role{RoleReviewer, RoleAdmin}
+
 type User struct {
 	ID        uuid.UUID
 	Email     string

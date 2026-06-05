@@ -84,6 +84,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 		NotifyTargets: &apimodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
+		ApproverUserID: uuid.New(),
 	}
 
 	c, rec := echotest.ContextConfig{
@@ -93,7 +94,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 
 	err := impl.CreateDraftMaint(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
 	return &resp
@@ -126,10 +127,23 @@ func approveMaint(t *testing.T, impl *Implementation, maint *apimodels.CreateDra
 	c.SetPathValues(echo.PathValues{
 		{Name: "id", Value: maint.ID.String()},
 	})
+	// Only the assigned approver may approve, so act as that user.
+	xecho.UserToEchoCtx(c, approverUser(maint))
 
 	err := impl.ApproveMaint(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
+}
+
+// approverUser builds the authenticated user that the maintenance was assigned
+// to as approver, so an approve call passes the assigned-approver guard.
+func approverUser(maint *apimodels.CreateDraftMaintResponse) *entity.User {
+	return &entity.User{
+		ID:    maint.ApproverUserID.ID,
+		Email: "approver-" + maint.ApproverUserID.ID.String() + "@example.com",
+		Name:  "Approver",
+		Roles: []entity.Role{entity.RoleReviewer},
+	}
 }
 
 func startMaint(t *testing.T, impl *Implementation, maint *apimodels.CreateDraftMaintResponse) {

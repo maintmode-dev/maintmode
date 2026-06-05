@@ -19,6 +19,8 @@ func TestCancel(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 
+	service, _ := initService(t)
+
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
@@ -30,7 +32,7 @@ func TestCancel(t *testing.T) {
 			t.Run(string(status), func(t *testing.T) {
 				t.Parallel()
 
-				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+				maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 					testdbutils.WithStatus(status),
 				)
 
@@ -48,7 +50,7 @@ func TestCancel(t *testing.T) {
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
 		t.Parallel()
-		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
 			testdbutils.WithStatus(entity.MaintenanceStatusCompleted),
 		)
 

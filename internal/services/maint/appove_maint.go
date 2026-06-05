@@ -26,6 +26,13 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 			return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusPlanned)
 		}
 
+		// Only the user assigned as approver may approve this maintenance. The
+		// actor's role/permission is already enforced by RBAC; this guards the
+		// assignment itself.
+		if maint.ApproverUserID != cmd.ActorUserID {
+			return apperr.ErrApproverMismatch
+		}
+
 		if maint.Revision() != cmd.ObservedMaintRevision {
 			return fmt.Errorf("%w: preview '%d', actual '%d'",
 				apperr.ErrMaintChangedSincePreview,

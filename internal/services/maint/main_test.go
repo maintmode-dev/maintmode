@@ -4,86 +4,109 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/goque"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-
-	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/notifytargets"
-	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
-	notifytargetsstore "github.com/ruko1202/maintmode/internal/storages/notifytargets"
-
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
-	"github.com/ruko1202/maintmode/internal/services/conflicts"
+	mock_maint "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/maint"
 	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
 	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
+	deferrednotificationsstore "github.com/ruko1202/maintmode/internal/storages/deferrednotifications"
+	notifytargetsstore "github.com/ruko1202/maintmode/internal/storages/notifytargets"
+	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
+
+	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+
+	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/services/conflicts"
+	"github.com/ruko1202/maintmode/internal/services/notifytargets"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	conflictsStore "github.com/ruko1202/maintmode/internal/storages/conflicts"
-	deferrednotificationsstore "github.com/ruko1202/maintmode/internal/storages/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
+	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
-	"github.com/ruko1202/maintmode/internal/utils/dbtx"
-
 	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
 var (
-	resourcesStore     *resources.Store
+	db                 *sqlx.DB
+	cfg                *config.AppConfig
 	notifyChannelStore *notifychannel.Store
-	service            *Service
 )
 
 func TestMain(m *testing.M) {
-	cfg := testconfigutils.LoadMaintConfig()
-	db := testdbconnutils.NewDB(cfg)
+	cfg = testconfigutils.LoadMaintConfig()
+	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	resourcesStore = resources.NewStore(db)
 	notifyChannelStore = notifychannel.NewStore(db)
-	txManager := dbtx.NewTxManager(db)
-	notifyTargetsStore := notifytargetsstore.NewStore(db)
-
-	taskStorage, err := goque.NewStorage(db)
-	if err != nil {
-		panic(err)
-	}
-	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(taskStorage))
-	sender := messagesender.NewService(notifytransport.NewRegistry(cfg), taskScheduler)
-	notifier, err := maintnotify.NewNotifier(cfg, sender, notifyTargetsStore)
-	if err != nil {
-		panic(err)
-	}
-
-	deferred := deferrednotifications.NewService(
-		txManager,
-		deferrednotificationsstore.NewStore(db),
-		taskScheduler,
-	)
-
-	service = NewService(
-		txManager,
-		maintenances.NewStore(db),
-		resourcesStore,
-		notifytargets.NewService(txManager, notifyChannelStore, notifyTargetsStore),
-		conflicts.NewService(
-			conflictsStore.NewStore(db),
-			conflictsnapshots.NewStore(db),
-		),
-		notifier,
-		deferred,
-	)
 
 	code := m.Run()
 	os.Exit(code)
 }
 
-func makeNotifyChannel(ctx context.Context, t *testing.T) *entity.NotifyChannel {
+type serviceMocks struct {
+	approverValidator *mock_maint.MockApproverValidator
+}
+
+func initService(t *testing.T) (*Service, serviceMocks) {
+	t.Helper()
+
+	ctrl := gomock.NewController(t)
+	mocks := serviceMocks{
+		approverValidator: mock_maint.NewMockApproverValidator(ctrl),
+	}
+
+	txManager := dbtx.NewTxManager(db)
+	notifyTargetsStore := notifytargetsstore.NewStore(db)
+
+	taskStorage, err := goque.NewStorage(db)
+	require.NoError(t, err)
+
+	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(taskStorage))
+	notifier, err := maintnotify.NewNotifier(
+		cfg,
+		messagesender.NewService(notifytransport.NewRegistry(cfg), taskScheduler),
+		notifyTargetsStore,
+	)
+	require.NoError(t, err)
+
+	return NewService(
+		txManager,
+		maintenances.NewStore(db),
+		resources.NewStore(db),
+		notifytargets.NewService(
+			txManager,
+			notifychannel.NewStore(db),
+			notifyTargetsStore,
+		),
+		conflicts.NewService(
+			conflictsStore.NewStore(db),
+			conflictsnapshots.NewStore(db),
+		),
+		notifier,
+		deferrednotifications.NewService(
+			txManager,
+			deferrednotificationsstore.NewStore(db),
+			taskScheduler,
+		),
+		mocks.approverValidator,
+	), mocks
+}
+
+func makeNotifyChannel(ctx context.Context, t *testing.T, service *Service) *entity.NotifyChannel {
 	t.Helper()
 
 	// Catalog now lives in Postgres: seed a channel for this test, then
@@ -102,4 +125,30 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *entity.NotifyChannel 
 	require.NotEmpty(t, notifyChannels)
 
 	return channel
+}
+
+// validCreateCmd builds a minimal create command that passes structural
+// validation, so a test exercises only the approver-eligibility path.
+func validCreateCmd(ctx context.Context, t *testing.T, service *Service, approverID uuid.UUID) *entity.CreateMaintenanceCmd {
+	t.Helper()
+	now := xtime.UTCNow().Round(time.Microsecond)
+	notifyChannel := makeNotifyChannel(ctx, t, service)
+
+	return &entity.CreateMaintenanceCmd{
+		Title:           "Title" + t.Name(),
+		Description:     "Description" + t.Name(),
+		PlannedPeriod:   entity.NewPeriod(now, now.Add(time.Hour)),
+		Impact:          entity.MaintenanceImpactFull,
+		Scope:           entity.MaintenanceScopeResources,
+		Resources:       []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
+		CreatedByUserID: uuid.New(),
+		Steps: []*entity.MaintenanceStepInput{{
+			Order:               1,
+			Description:         "Step1" + t.Name(),
+			RollbackDescription: "RollbackStep1" + t.Name(),
+			DurationMinutes:     minStepDurationsMinutes,
+		}},
+		NotifyTargets:  []*entity.NotifyTargetInput{{ChannelID: notifyChannel.ID}},
+		ApproverUserID: approverID,
+	}
 }

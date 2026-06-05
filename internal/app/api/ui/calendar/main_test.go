@@ -30,10 +30,8 @@ import (
 )
 
 var (
-	db        *sqlx.DB
-	cfg       *config.AppConfig
-	services  *bootstrap.Services
-	maintImpl *maintapi.Implementation
+	db  *sqlx.DB
+	cfg *config.AppConfig
 )
 
 func TestMain(m *testing.M) {
@@ -41,10 +39,6 @@ func TestMain(m *testing.M) {
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
-
-	services = testbootstraputils.InitServices(context.Background(), db, cfg)
-
-	maintImpl = maintapi.New(services.Maint, services.UserSummary)
 
 	code := m.Run()
 
@@ -73,14 +67,27 @@ p, editor, resource.create, execute
 p, reviewer, maintenance.approve, execute
 `
 
+// newServices builds a per-test service set with the permissive auth mock bound
+// to t (so create/read paths run without a live auth service).
+func newServices(ctx context.Context, t *testing.T) *bootstrap.Services {
+	t.Helper()
+
+	services, _ := testbootstraputils.InitServicesWithMocks(ctx, t, db, cfg)
+	return services
+}
+
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
+	services := newServices(context.Background(), t)
 	return New(services.Calendar, services.RBAC, services.UserSummary)
 }
 
 func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintResponse {
 	t.Helper()
+
+	services := newServices(ctx, t)
+	maintImpl := maintapi.New(services.Maint, services.UserSummary)
 
 	notifyChan := makeNotifyChannel(ctx, t)
 	req := &maintmodels.CreateDraftMaintRequest{
@@ -98,6 +105,7 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 		NotifyTargets: &maintmodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
+		ApproverUserID: uuid.New(),
 	}
 
 	c, rec := echotest.ContextConfig{
@@ -115,7 +123,7 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 
 	err := maintImpl.CreateDraftMaint(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	resp := testjsonudils.JSONToAny[maintmodels.CreateDraftMaintResponse](t, rec.Body)
 	return &resp
@@ -127,7 +135,7 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
 	t.Helper()
 
-	impl := apinotifications.New(services.NotifyTargets)
+	impl := apinotifications.New(newServices(ctx, t).NotifyTargets)
 
 	req := &notificationsmodels.CreateChannelRequest{
 		Transport:          string(entity.NotifyTransportTelegram),

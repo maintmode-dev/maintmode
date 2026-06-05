@@ -36,7 +36,7 @@ func TestMaintenancesAPI_CreateDraft(t *testing.T) {
 		}),
 		Steps:          lo.ToPtr(testMaintenanceSteps()),
 		NotifyTargets:  testNotifyTargets(ctx, t, apiClient),
-		ApproverUserId: lo.ToPtr(uuid.New()),
+		ApproverUserId: lo.ToPtr(resolveEligibleApprover(ctx, t, apiClient)),
 	}
 
 	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)

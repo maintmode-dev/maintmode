@@ -12,6 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
 
@@ -36,10 +37,11 @@ func TestApproveMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, approverUser(draft))
 
 		err := impl.ApproveMaint(c)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusNoContent, rec.Code)
+		require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 
 		maint := getMaintByID(t, impl, draft.ID)
 		requireMaintStillMatchesDraft(t, draft, maint)
@@ -101,10 +103,11 @@ func TestApproveMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, approverUser(draft))
 
 		err := impl.ApproveMaint(c)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusNoContent, rec.Code)
+		require.Equal(t, http.StatusNoContent, rec.Code, rec.Body.String())
 
 		maint := getMaintByID(t, impl, draft.ID)
 		require.Equal(t, string(entity.MaintenanceStatusPlanned), maint.Status)
@@ -116,10 +119,11 @@ func TestApproveMaint(t *testing.T) {
 		c2.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c2, approverUser(draft))
 
 		err = impl.ApproveMaint(c2)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusConflict, rec2.Code)
+		require.Equal(t, http.StatusConflict, rec2.Code, rec2.Body.String())
 
 		maint = getMaintByID(t, impl, draft.ID)
 		require.Equal(t, string(entity.MaintenanceStatusPlanned), maint.Status)

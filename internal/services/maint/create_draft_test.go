@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 
@@ -20,11 +21,16 @@ func TestCreate(t *testing.T) {
 
 	ctx := context.Background()
 	now := xtime.UTCNow().Round(time.Microsecond)
+	service, mocks := initService(t)
+	mocks.approverValidator.EXPECT().
+		IsEligibleApprover(gomock.Any(), gomock.Any()).
+		Return(true, nil).
+		AnyTimes()
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		notifyChannel := makeNotifyChannel(ctx, t)
+		notifyChannel := makeNotifyChannel(ctx, t, service)
 
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
@@ -32,7 +38,7 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{
 				{
 					Order:               1,
@@ -68,7 +74,7 @@ func TestCreate(t *testing.T) {
 	t.Run("maints with overlaps", func(t *testing.T) {
 		t.Parallel()
 
-		notifyChannel := makeNotifyChannel(ctx, t)
+		notifyChannel := makeNotifyChannel(ctx, t, service)
 
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
@@ -76,7 +82,7 @@ func TestCreate(t *testing.T) {
 			PlannedPeriod: entity.NewPeriod(now, now.Add(2*time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
-			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),
@@ -86,7 +92,8 @@ func TestCreate(t *testing.T) {
 			NotifyTargets: []*entity.NotifyTargetInput{{
 				ChannelID: notifyChannel.ID,
 			}},
-			ApproverUserID: uuid.New(),
+			CreatedByUserID: uuid.New(),
+			ApproverUserID:  uuid.New(),
 		}
 		maint1, err := service.CreateDraft(ctx, cmd)
 		require.NoError(t, err)
@@ -115,9 +122,9 @@ func TestCreate(t *testing.T) {
 	t.Run("duplicate resources", func(t *testing.T) {
 		t.Parallel()
 
-		notifyChannel := makeNotifyChannel(ctx, t)
+		notifyChannel := makeNotifyChannel(ctx, t, service)
 
-		resourceID := testdbutils.MakeResource(ctx, t, resourcesStore).ID
+		resourceID := testdbutils.MakeResource(ctx, t, service.resourcesStore).ID
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
@@ -146,14 +153,14 @@ func TestCreate(t *testing.T) {
 	t.Run("global scope does not save resources", func(t *testing.T) {
 		t.Parallel()
 
-		notifyChannel := makeNotifyChannel(ctx, t)
+		notifyChannel := makeNotifyChannel(ctx, t, service)
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
 			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeGlobal,
-			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, resourcesStore).ID},
+			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
 			Steps: []*entity.MaintenanceStepInput{{
 				Order:               1,
 				Description:         "Step1" + t.Name(),

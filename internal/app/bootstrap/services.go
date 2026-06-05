@@ -88,6 +88,7 @@ func NewServices(ctx context.Context,
 			conflictsService,
 			notifier,
 			deferred,
+			gateways.Auth,
 		),
 		Conflicts: conflictsService,
 		Calendar: calendar.NewService(

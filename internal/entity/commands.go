@@ -74,6 +74,9 @@ type ApproveMaintenanceCmd struct {
 	MaintID               uuid.UUID
 	ObservedMaintRevision int64
 	ConflictSnapshot      ConflictsSnapshot
+	// ActorUserID is the authenticated user performing the approve. Only the
+	// user assigned as the maintenance approver may approve it.
+	ActorUserID uuid.UUID
 }
 
 // --- Steps commands ---

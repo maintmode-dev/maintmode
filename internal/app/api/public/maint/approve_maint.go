@@ -14,6 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
@@ -57,11 +58,19 @@ func (i *Implementation) ApproveMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	actor, ok := xecho.UserFromEchoCtx(c)
+	if !ok {
+		err := fmt.Errorf("actor not found")
+		xlog.Error(ctx, "actor user not found in echo context", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
+	}
+
 	cmd, err := toApproveMaintenanceCmd(ctx, maintID, req)
 	if err != nil {
 		xlog.Error(ctx, "to approve maintenance command failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
+	cmd.ActorUserID = actor.ID
 
 	err = i.maintSrv.ApproveMaint(ctx, cmd)
 	if err != nil {

@@ -17,6 +17,15 @@ var (
 	ErrInvalidPeriodStartOrEnd        = fmt.Errorf("%w: invalid period: start > end or start == end", ErrValidation)
 	ErrInvalidPeriodInterval          = fmt.Errorf("%w: invalid period interval", ErrValidation)
 	ErrForbiddenMaintStatusTransition = fmt.Errorf("%w: forbidden maint status", ErrValidation)
+
+	// ErrApproverNotEligible is returned when the user assigned as a maintenance
+	// approver does not exist, is blocked, or lacks the reviewer/admin role.
+	// Wraps ErrValidation => HTTP 400.
+	ErrApproverNotEligible = fmt.Errorf("%w: approver is not an active reviewer/admin", ErrValidation)
+
+	// ErrApproverMismatch is returned when the user performing approve is not the
+	// one assigned as the maintenance approver. Wraps ErrForbidden => HTTP 403.
+	ErrApproverMismatch = fmt.Errorf("%w: only the assigned approver may approve this maintenance", ErrForbidden)
 )
 
 func ForbiddenMaintStatusTransition(currentStatus, newStatus any) error {
