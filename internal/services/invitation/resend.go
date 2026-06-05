@@ -54,15 +54,14 @@ func (s *Service) Resend(ctx context.Context, cmd *entity.ResendInvitationCmd) e
 		if err != nil {
 			return fmt.Errorf("resend invitation: %w", err)
 		}
-		return nil
+
+		// Enqueue inside the tx (transactional outbox), like Create.
+		return s.sendInvitationEmail(ctx, resended, s.buildAcceptLink(raw))
 	})
 	if err != nil {
 		xlog.Error(ctx, "resend invitation failed", xfield.Error(err))
 		return err
 	}
-
-	// Re-send after commit, like Create.
-	s.sendInvitationEmail(ctx, resended, s.buildAcceptLink(raw))
 
 	return nil
 }

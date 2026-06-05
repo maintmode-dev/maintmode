@@ -90,8 +90,16 @@ type NotifyTarget struct {
 	CreatedAt time.Time
 }
 
+type MessageMIME string
+
+const (
+	HTMLMessageMIME MessageMIME = "text/html"
+	TextMessageMIME MessageMIME = "text/plain"
+)
+
 // NotifyMessage is a rendered notification ready for delivery.
 type NotifyMessage struct {
-	Subject string
-	Body    string
+	Subject     string
+	Body        string
+	MessageMIME MessageMIME
 }

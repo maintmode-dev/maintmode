@@ -156,10 +156,29 @@ type TelegramConfig struct {
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
+type EmailConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	// From is the envelope/header sender address. Required when Enabled.
+	From string `mapstructure:"from"`
+	// ReplyTo is optional; left empty no Reply-To header is set.
+	ReplyTo string `mapstructure:"reply_to"`
+	// TLSPolicy selects the STARTTLS posture: "mandatory" (default), "opportunistic",
+	// or "none". "none" together with an empty Username is the integration-test mode
+	// against an in-process SMTP server — the SMTP analog of the slack/telegram
+	// api_url override.
+	TLSPolicy string        `mapstructure:"tls_policy"`
+	Timeout   time.Duration `mapstructure:"timeout"`
+}
+
 type NotifyTransportConfig struct {
 	UseStub  bool           `mapstructure:"use_stub"`
 	Slack    SlackConfig    `mapstructure:"slack"`
 	Telegram TelegramConfig `mapstructure:"telegram"`
+	Email    EmailConfig    `mapstructure:"email"`
 }
 
 type TaskProcessorConfig struct {
@@ -209,6 +228,14 @@ type S2S struct {
 // The key is the service name and the value is the service configuration.
 type S2SConfig = map[string]S2S
 
+type ExternalServices map[string]ExternalService
+
+func (e ExternalServices) Get(name string) (ExternalService, bool) {
+	cfg, ok := e[name]
+
+	return cfg, ok
+}
+
 type ExternalService struct {
 	Secret   string        `mapstructure:"secret"`
 	Protocol string        `mapstructure:"protocol"`
@@ -230,23 +257,23 @@ func (e ExternalService) GetURL() string {
 
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
-	App              App                        `mapstructure:"app"`
-	Environment      Environment                `mapstructure:"environment"`
-	JWTVerifier      JWTVerifierConfig          `mapstructure:"jwtverifier"`
-	RBAC             RbacConfig                 `mapstructure:"rbac"`
-	InfraServer      HTTPServer                 `mapstructure:"infra_server"`
-	APIServer        HTTPServer                 `mapstructure:"api_server"`
-	Shutdown         Shutdown                   `mapstructure:"shutdown"`
-	Tracer           Tracer                     `mapstructure:"tracer"`
-	Logger           LoggerConfig               `mapstructure:"logger"`
-	DB               DB                         `mapstructure:"db"`
-	Redis            Redis                      `mapstructure:"redis"`
-	OauthProviders   OauthProviders             `mapstructure:"oauth_providers"`
-	JWT              JWT                        `mapstructure:"jwt"`
-	S2SConfig        S2SConfig                  `mapstructure:"s2s"`
-	ExternalServices map[string]ExternalService `mapstructure:"external_services"`
-	NotifyTransport  NotifyTransportConfig      `mapstructure:"notify_transport"`
-	TaskProcessor    TaskProcessorConfig        `mapstructure:"taskprocessor"`
+	App              App                   `mapstructure:"app"`
+	Environment      Environment           `mapstructure:"environment"`
+	JWTVerifier      JWTVerifierConfig     `mapstructure:"jwtverifier"`
+	RBAC             RbacConfig            `mapstructure:"rbac"`
+	InfraServer      HTTPServer            `mapstructure:"infra_server"`
+	APIServer        HTTPServer            `mapstructure:"api_server"`
+	Shutdown         Shutdown              `mapstructure:"shutdown"`
+	Tracer           Tracer                `mapstructure:"tracer"`
+	Logger           LoggerConfig          `mapstructure:"logger"`
+	DB               DB                    `mapstructure:"db"`
+	Redis            Redis                 `mapstructure:"redis"`
+	OauthProviders   OauthProviders        `mapstructure:"oauth_providers"`
+	JWT              JWT                   `mapstructure:"jwt"`
+	S2SConfig        S2SConfig             `mapstructure:"s2s"`
+	ExternalServices ExternalServices      `mapstructure:"external_services"`
+	NotifyTransport  NotifyTransportConfig `mapstructure:"notify_transport"`
+	TaskProcessor    TaskProcessorConfig   `mapstructure:"task_processor"`
 }
 
 const (

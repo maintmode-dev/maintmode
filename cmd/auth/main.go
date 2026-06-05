@@ -67,10 +67,29 @@ func main() {
 	closer.Add(redisClient.Close)
 
 	// Bootstrap application layers
-	stores := bootstrap.NewAuthStores(db, redisClient)
-	services, err := bootstrap.NewAuthServices(ctx, cfg, stores)
+	stores, err := bootstrap.NewAuthStores(db, redisClient)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
+	}
+	gateways, err := bootstrap.NewAuthGateways(cfg)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init gateways", xfield.Error(err))
+	}
+	services, err := bootstrap.NewAuthServices(ctx, cfg, stores, gateways)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
+	}
+
+	// start async task processor: drains invitation-email outbox tasks and
+	// performs the real SMTP delivery off the request path.
+	{
+		taskProcessors := bootstrap.NewAuthTaskProcessors(cfg.TaskProcessor, stores, gateways)
+		closer.Add(closer.NoErrCloseFunc(taskProcessors.Stop))
+		go func() {
+			if err := taskProcessors.Run(ctx); err != nil {
+				xlog.Fatal(ctx, "auth messaging goque exited with error", xfield.Error(err))
+			}
+		}()
 	}
 
 	// start api server

@@ -13,10 +13,25 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
+// Schedule enqueues a typed task of taskType for processing as soon as a worker
+// picks it up, returning the goque task id. If a maintmode tx is attached to ctx,
+// the insert joins it (transactional outbox), making the enqueue atomic with the
+// caller's writes. Use ScheduleDelayed when the task must not fire before a delay.
+func (s *Service) Schedule(
+	ctx context.Context,
+	taskType string,
+	payload any,
+	idempotencyKey string,
+) (uuid.UUID, error) {
+	return s.ScheduleDelayed(ctx, taskType, payload, 0, idempotencyKey)
+}
+
 // ScheduleDelayed enqueues a typed task of taskType to be processed after delay
 // (NextAttemptAt = now+delay), returning the goque task id so the caller can
-// cancel it later. If a maintmode tx is attached to ctx, the insert joins it
-// (transactional outbox), making the enqueue atomic with the caller's writes.
+// cancel it later. A non-positive delay enqueues for immediate processing — see
+// Schedule for the clearer spelling of that case. If a maintmode tx is attached
+// to ctx, the insert joins it (transactional outbox), making the enqueue atomic
+// with the caller's writes.
 func (s *Service) ScheduleDelayed(
 	ctx context.Context,
 	taskType string,

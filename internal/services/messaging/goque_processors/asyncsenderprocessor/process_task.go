@@ -26,8 +26,9 @@ func (p *queueProcessor) ProcessTask(ctx context.Context, task *goque.TypedTask[
 	}
 
 	err = transport.Send(ctx, payload.Target, entity.NotifyMessage{
-		Subject: payload.Subject,
-		Body:    payload.Body,
+		Subject:     payload.Subject,
+		Body:        payload.Body,
+		MessageMIME: payload.MessageMIME,
 	})
 	if err != nil {
 		xlog.Error(ctx, "messaging processor send failed", xfield.Error(err))

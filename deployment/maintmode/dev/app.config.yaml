@@ -81,6 +81,21 @@ notify_transport:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
+  email:
+    # SMTP delivery for invitation emails. Disabled in dev — use_stub above
+    # routes deliveries to the in-memory stub so no real mail server is needed.
+    enabled: false
+    host: ""
+    port: 587
+    username: ""
+    password: <secret:messengers/email/password>
+    from: "noreply@maintmode.local"
+    reply_to: ""
+    # tls_policy: "mandatory" (default) | "opportunistic" | "none".
+    # "none" + empty username is the integration-test mode against an in-process
+    # SMTP server (the SMTP analogue of the slack/telegram api_url override).
+    tls_policy: "mandatory"
+    timeout: 10s
 
 task_processor:
   messaging:

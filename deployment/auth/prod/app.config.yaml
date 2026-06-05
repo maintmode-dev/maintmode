@@ -98,3 +98,24 @@ s2s:
     available_api:
       - /api/v1/s2s/introspect
       - /api/v1/s2s/users
+
+# Invitation emails are delivered through the email transport via the goque
+# outbox. The auth binary runs the messaging.send processor (see task_processor).
+notify_transport:
+  email:
+    # SMTP delivery for invitation emails. host/from come from secrets, never
+    # inline.
+    enabled: true
+    host: <secret:messengers/email/host>
+    port: 587
+    username: <secret:messengers/email/username>
+    password: <secret:messengers/email/password>
+    from: <secret:messengers/email/from>
+    reply_to: ""
+    tls_policy: "mandatory"
+    timeout: 10s
+
+task_processor:
+  messaging:
+    workers: 10
+    max_attempts: 5

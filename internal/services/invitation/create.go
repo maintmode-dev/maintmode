@@ -86,16 +86,17 @@ func (s *Service) Create(ctx context.Context, cmd *entity.CreateInvitationCmd) (
 		if err != nil {
 			return fmt.Errorf("create invitation: %w", err)
 		}
-		return nil
+
+		// Enqueue the email inside the tx (transactional outbox): the goque_task
+		// insert commits atomically with the invitation, and the auth processor
+		// performs the real SMTP send off the request path. A failed enqueue
+		// rolls back the invitation so we never persist an unsendable invite.
+		return s.sendInvitationEmail(ctx, created, s.buildAcceptLink(raw))
 	})
 	if err != nil {
 		xlog.Error(ctx, "create invitation failed", xfield.Error(err))
 		return nil, err
 	}
-
-	// Email delivery happens after commit: a send failure must not roll back a
-	// persisted invitation (admin can always resend).
-	s.sendInvitationEmail(ctx, created, s.buildAcceptLink(raw))
 
 	return created, nil
 }

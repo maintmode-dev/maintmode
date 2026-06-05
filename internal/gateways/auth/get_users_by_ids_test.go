@@ -26,7 +26,7 @@ func newTestGateway(t *testing.T, h http.HandlerFunc) *Gateway {
 	port, err := strconv.Atoi(u.Port())
 	require.NoError(t, err)
 
-	gw, err := New(config.ExternalService{Protocol: "http", Host: u.Hostname(), Port: port})
+	gw, err := New(config.ExternalServices{extServiceName: {Protocol: "http", Host: u.Hostname(), Port: port}})
 	require.NoError(t, err)
 	return gw
 }

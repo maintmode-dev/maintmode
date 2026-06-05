@@ -30,8 +30,9 @@ func (r *Service) Render(ctx context.Context, evt entity.NotifyEvent) (entity.No
 	}
 
 	return entity.NotifyMessage{
-		Subject: evt.Kind.Subject(),
-		Body:    strings.TrimSpace(body),
+		Subject:     evt.Kind.Subject(),
+		Body:        strings.TrimSpace(body),
+		MessageMIME: entity.TextMessageMIME,
 	}, nil
 }
 

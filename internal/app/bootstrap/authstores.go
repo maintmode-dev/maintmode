@@ -1,8 +1,11 @@
 package bootstrap
 
 import (
+	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
+	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
 
@@ -25,9 +28,18 @@ type AuthStores struct {
 	TokenBlackList  *blacklisttoken.Store
 	Locker          *distributedlock.Store
 	Audit           *audit.Store
+	// taskStorage backs the goque outbox: invitation emails enqueue through it
+	// (atomically with the invitation insert) and the auth task processor drains
+	// it. Shares the goque_task table with the maintmode binary.
+	taskStorage goque.TaskStorage
 }
 
-func NewAuthStores(db *sqlx.DB, redisDB *redis.Client) *AuthStores {
+func NewAuthStores(db *sqlx.DB, redisDB *redis.Client) (*AuthStores, error) {
+	taskStorage, err := goque.NewStorage(db)
+	if err != nil {
+		return nil, fmt.Errorf("init goque storage: %w", err)
+	}
+
 	return &AuthStores{
 		TxManager:       dbtx.NewTxManager(db),
 		Users:           users.NewStore(db),
@@ -37,5 +49,6 @@ func NewAuthStores(db *sqlx.DB, redisDB *redis.Client) *AuthStores {
 		TokenBlackList:  blacklisttoken.NewStore(redisDB),
 		Locker:          distributedlock.NewStore(redisDB),
 		Audit:           audit.NewStore(db),
-	}
+		taskStorage:     taskStorage,
+	}, nil
 }

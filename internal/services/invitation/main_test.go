@@ -13,9 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
-	mock_notifytransport "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/notifytransport"
 	mock_user "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/user"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -51,12 +49,12 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	oauthProvider  *mock_oauthprovider.MockOAuthProvider
-	tokenIssuer    *mock_invitation.MockTokenIssuer
-	tokenRevoker   *mock_user.MockTokenRevoker
-	emailTransport *mock_notifytransport.MockTransport
+	oauthProvider *mock_oauthprovider.MockOAuthProvider
+	tokenIssuer   *mock_invitation.MockTokenIssuer
+	tokenRevoker  *mock_user.MockTokenRevoker
+	sender        *mock_invitation.MockMessageSender
 
-	// sentEmail captures the last message handed to the email transport so tests
+	// sentEmail captures the last message enqueued for email delivery so tests
 	// can read the recipient and pull the accept link out of the body.
 	sentEmail *sentEmail
 }
@@ -74,24 +72,22 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	txManager := dbtx.NewTxManager(db)
 
 	mocks := &serviceMocks{
-		tokenIssuer:    mock_invitation.NewMockTokenIssuer(ctrl),
-		tokenRevoker:   mock_user.NewMockTokenRevoker(ctrl),
-		oauthProvider:  mock_oauthprovider.NewMockOAuthProvider(ctrl),
-		emailTransport: mock_notifytransport.NewMockTransport(ctrl),
-		sentEmail:      &sentEmail{},
+		tokenIssuer:   mock_invitation.NewMockTokenIssuer(ctrl),
+		tokenRevoker:  mock_user.NewMockTokenRevoker(ctrl),
+		oauthProvider: mock_oauthprovider.NewMockOAuthProvider(ctrl),
+		sender:        mock_invitation.NewMockMessageSender(ctrl),
+		sentEmail:     &sentEmail{},
 	}
 	mocks.oauthProvider.EXPECT().
 		ProviderID().Return(entity.OAuthProviderGoogle).
 		AnyTimes()
 
-	// The registry routes by TransportID, so the email transport must claim the
-	// email transport id. Send captures the message for assertions and succeeds.
-	mocks.emailTransport.EXPECT().
-		TransportID().Return(entity.NotifyTransportEmail).
-		AnyTimes()
-	mocks.emailTransport.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, target string, msg entity.NotifyMessage) error {
+	// SendAsync captures the enqueued message for assertions and succeeds. The
+	// invitation flow enqueues inside its tx (transactional outbox) under the
+	// dedicated invitation.email task type.
+	mocks.sender.EXPECT().
+		SendAsync(gomock.Any(), entity.ProcessorTaskInvitationEmailSend, entity.NotifyTransportEmail, gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, _ entity.NotifyTransport, target string, msg entity.NotifyMessage, _ string) error {
 			mocks.sentEmail.target = target
 			mocks.sentEmail.body = msg.Body
 			return nil
@@ -112,7 +108,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		),
 		mocks.tokenIssuer,
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
-		notifytransport.NewRegistry(cfg, mocks.emailTransport),
+		mocks.sender,
 	), mocks
 }
 
@@ -139,13 +135,16 @@ func mustCreate(ctx context.Context, t *testing.T, s *Service, emailAddr string,
 
 // rawTokenFromLink extracts the raw token query param from a sent invitation
 // email body, so tests can drive preview/accept exactly as a recipient would.
+// The body is HTML, so the link sits inside an <a href="..."> attribute.
 func rawTokenFromLink(t *testing.T, body string) string {
 	t.Helper()
 	idx := strings.Index(body, "http")
 	require.GreaterOrEqual(t, idx, 0, "body has no link: %q", body)
-	// The link sits inside a multi-line template, so cut at the first whitespace
-	// after it before parsing.
-	link := strings.Fields(body[idx:])[0]
+	// Cut at the first delimiter after the URL: the closing quote of the href
+	// attribute (HTML), or whitespace.
+	link := strings.FieldsFunc(body[idx:], func(r rune) bool {
+		return r == '"' || r == '\'' || r == ' ' || r == '\n' || r == '\t' || r == '<'
+	})[0]
 	u, err := url.Parse(link)
 	require.NoError(t, err)
 	raw := u.Query().Get("token")

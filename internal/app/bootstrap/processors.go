@@ -35,3 +35,28 @@ func NewTaskProcessors(
 
 	return goq
 }
+
+// NewAuthTaskProcessors builds the goque worker for the auth binary. It drains
+// invitation.email tasks (invitation emails enqueued via the outbox) against the
+// email registry the invitation service targets.
+//
+// It deliberately registers invitation.email, NOT messaging.send: the maintmode
+// binary also polls the shared goque_task table for messaging.send (Slack/Telegram
+// maint notifications) with a different registry, so invitation emails get their
+// own task type to guarantee only this binary delivers them. maint.reminder is
+// likewise maintmode-only and not registered here.
+func NewAuthTaskProcessors(
+	cfg config.TaskProcessorConfig,
+	stores *AuthStores,
+	gateways *AuthGateways,
+) *goque.Goque {
+	goq := goque.NewGoque(stores.taskStorage)
+	goq.RegisterProcessor(
+		entity.ProcessorTaskInvitationEmailSend,
+		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
+		goque.WithWorkersCount(cfg.Messaging.Workers),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	return goq
+}

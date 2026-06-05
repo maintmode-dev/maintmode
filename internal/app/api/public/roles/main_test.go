@@ -60,7 +60,13 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	services, err := bootstrap.NewAuthServices(t.Context(), cfg, bootstrap.NewAuthStores(db, redis))
+	stores, err := bootstrap.NewAuthStores(db, redis)
+	require.NoError(t, err)
+
+	gateways, err := bootstrap.NewAuthGateways(cfg)
+	require.NoError(t, err)
+
+	services, err := bootstrap.NewAuthServices(t.Context(), cfg, stores, gateways)
 	require.NoError(t, err)
 
 	return New(services.User)

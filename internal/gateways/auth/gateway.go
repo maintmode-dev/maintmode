@@ -2,26 +2,26 @@ package authgateway
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
-const (
-	introspectURI = "/api/v1/s2s/introspect"
-)
+const extServiceName = "auth"
 
 type Gateway struct {
-	baseURL    string
-	httpClient *http.Client
-	// client is the generated, typed auth API client. It shares httpClient as
-	// its request doer, so S2S headers and timeouts apply uniformly.
+	// client is the generated, typed auth API client. Its underlying HTTP client
+	// carries the S2S headers and timeout, so all calls apply them uniformly.
 	client authclient.ClientWithResponsesInterface
 }
 
-func New(cfg config.ExternalService) (*Gateway, error) {
+func New(extServicesCfg config.ExternalServices) (*Gateway, error) {
+	cfg, ok := extServicesCfg.Get(extServiceName)
+	if !ok {
+		return nil, fmt.Errorf("external service 'auth' config is missing")
+	}
+
 	httpClient := xhttp.NewClient(
 		xhttp.WithS2S(config.GetAppBuildMeta().AppName, cfg.Secret),
 		xhttp.WithTimeout(cfg.Timeout),
@@ -36,8 +36,6 @@ func New(cfg config.ExternalService) (*Gateway, error) {
 	}
 
 	return &Gateway{
-		baseURL:    cfg.GetURL(),
-		httpClient: httpClient,
-		client:     client,
+		client: client,
 	}, nil
 }

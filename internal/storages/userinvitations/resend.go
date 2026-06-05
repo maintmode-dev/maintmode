@@ -41,21 +41,3 @@ func (s *Store) Resend(ctx context.Context, id uuid.UUID, tokenHash string, expi
 
 	return fromDB(row), nil
 }
-
-// SendAt marks an invitation as sent at a specific time.
-func (s *Store) SendAt(ctx context.Context, id uuid.UUID, sentAt time.Time) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.UserInvitations.Resend")
-	defer span.End()
-
-	stmt := table.UserInvitations.
-		UPDATE(
-			table.UserInvitations.SentAt,
-		).
-		SET(
-			postgres.TimestampzT(sentAt),
-		).
-		WHERE(table.UserInvitations.ID.EQ(postgres.UUID(id)))
-
-	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))
-	return err
-}

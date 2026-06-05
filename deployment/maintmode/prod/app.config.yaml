@@ -85,6 +85,18 @@ notify_transport:
     # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
     api_url: ""
     timeout: 10s
+  email:
+    # SMTP delivery for invitation emails. host/from must point at the real
+    # provider; credentials come from secrets, never inline.
+    enabled: true
+    host: <secret:messengers/email/host>
+    port: 587
+    username: <secret:messengers/email/username>
+    password: <secret:messengers/email/password>
+    from: <secret:messengers/email/from>
+    reply_to: ""
+    tls_policy: "mandatory"
+    timeout: 10s
 
 task_processor:
   messaging:

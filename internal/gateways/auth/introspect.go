@@ -1,12 +1,9 @@
 package authgateway
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,83 +13,46 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 )
-
-type introspectRequest struct {
-	AccessToken string `json:"access_token"`
-}
-
-type introspectResponse struct {
-	Active  bool     `json:"active"`
-	JTI     string   `json:"jti,omitempty"`
-	Subject string   `json:"sub,omitempty"`
-	Email   string   `json:"email,omitempty"`
-	Roles   []string `json:"roles,omitempty"`
-	Exp     int64    `json:"exp,omitempty"`
-}
 
 func (s *Gateway) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "gateway.Auth.Introspect")
 	defer span.End()
 
-	resp, err := s.callIntrospect(ctx, tokenString)
-	if err != nil {
-		xlog.Error(ctx, "introspect call failed", xfield.Error(err))
-		return nil, err
-	}
-	if !resp.Active {
-		xlog.Error(ctx, "access token inactive")
-		return nil, apperr.ErrInvalidAccessToken
-	}
-
-	return &entity.AccessClaims{
-		Email: resp.Email,
-		Roles: lo.Map(resp.Roles, func(item string, _ int) entity.Role {
-			return entity.Role(item)
-		}),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        resp.JTI,
-			Subject:   resp.Subject,
-			ExpiresAt: jwt.NewNumericDate(time.Unix(resp.Exp, 0)),
-		},
-	}, nil
-}
-
-func (s *Gateway) callIntrospect(ctx context.Context, tokenString string) (*introspectResponse, error) {
-	buf := new(bytes.Buffer)
-
-	err := json.NewEncoder(buf).Encode(introspectRequest{AccessToken: tokenString}) //nolint:gosec // Introspection must send the bearer token to the auth service.
-	if err != nil {
-		return nil, fmt.Errorf("marshal introspect request: %w", err)
-	}
-
-	endpoint, err := url.JoinPath(s.baseURL, introspectURI)
-	if err != nil {
-		return nil, fmt.Errorf("join introspect endpoint: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, buf)
-	if err != nil {
-		return nil, fmt.Errorf("%w: create introspect request: %w", apperr.ErrAuthUnavailable, err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := s.httpClient.Do(req)
+	resp, err := s.client.PostApiV1S2sIntrospectWithResponse(ctx, authclient.PostApiV1S2sIntrospectJSONRequestBody{
+		AccessToken: &tokenString,
+	})
 	if err != nil {
 		xlog.Error(ctx, "auth introspect request failed", xfield.Error(err))
 		return nil, fmt.Errorf("%w: call introspect: %w", apperr.ErrAuthUnavailable, err)
 	}
-	defer res.Body.Close() //nolint:errcheck
 
-	if res.StatusCode != http.StatusOK {
-		xlog.Error(ctx, "auth introspect returned unexpected status", xfield.Int("status", res.StatusCode))
-		return nil, fmt.Errorf("%w: introspect status %d", apperr.ErrAuthUnavailable, res.StatusCode)
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		xlog.Error(ctx, "auth introspect returned unexpected status", xfield.Int("status", resp.StatusCode()))
+		return nil, fmt.Errorf("%w: introspect status %d", apperr.ErrAuthUnavailable, resp.StatusCode())
 	}
 
-	result := new(introspectResponse)
-	if err := json.NewDecoder(res.Body).Decode(result); err != nil {
-		return nil, fmt.Errorf("%w: decode introspect response: %w", apperr.ErrAuthUnavailable, err)
+	if !lo.FromPtr(resp.JSON200.Active) {
+		xlog.Error(ctx, "access token inactive")
+		return nil, apperr.ErrInvalidAccessToken
 	}
 
-	return result, nil
+	return fromIntrospectResponse(resp.JSON200), nil
+}
+
+func fromIntrospectResponse(body *authclient.ApiauthmodelsIntrospectResponse) *entity.AccessClaims {
+	roles := lo.Map(lo.FromPtr(body.Roles), func(item string, _ int) entity.Role {
+		return entity.Role(item)
+	})
+
+	return &entity.AccessClaims{
+		Email: lo.FromPtr(body.Email),
+		Roles: roles,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        lo.FromPtr(body.Jti),
+			Subject:   lo.FromPtr(body.Sub),
+			ExpiresAt: jwt.NewNumericDate(time.Unix(int64(lo.FromPtr(body.Exp)), 0)),
+		},
+	}
 }

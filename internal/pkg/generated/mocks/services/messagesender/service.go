@@ -12,7 +12,6 @@ package mock_messagesender
 import (
 	context "context"
 	reflect "reflect"
-	time "time"
 
 	uuid "github.com/google/uuid"
 	entity "github.com/ruko1202/maintmode/internal/entity"
@@ -82,17 +81,17 @@ func (c *MockSenderSendCall) DoAndReturn(f func(context.Context, entity.NotifyTr
 }
 
 // SendAsync mocks base method.
-func (m *MockSender) SendAsync(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error {
+func (m *MockSender) SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendAsync", ctx, trName, target, msg, idempotencyKey)
+	ret := m.ctrl.Call(m, "SendAsync", ctx, taskType, trName, target, msg, idempotencyKey)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendAsync indicates an expected call of SendAsync.
-func (mr *MockSenderMockRecorder) SendAsync(ctx, trName, target, msg, idempotencyKey any) *MockSenderSendAsyncCall {
+func (mr *MockSenderMockRecorder) SendAsync(ctx, taskType, trName, target, msg, idempotencyKey any) *MockSenderSendAsyncCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAsync", reflect.TypeOf((*MockSender)(nil).SendAsync), ctx, trName, target, msg, idempotencyKey)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAsync", reflect.TypeOf((*MockSender)(nil).SendAsync), ctx, taskType, trName, target, msg, idempotencyKey)
 	return &MockSenderSendAsyncCall{Call: call}
 }
 
@@ -108,13 +107,13 @@ func (c *MockSenderSendAsyncCall) Return(arg0 error) *MockSenderSendAsyncCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSenderSendAsyncCall) Do(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockSenderSendAsyncCall {
+func (c *MockSenderSendAsyncCall) Do(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockSenderSendAsyncCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSenderSendAsyncCall) DoAndReturn(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockSenderSendAsyncCall {
+func (c *MockSenderSendAsyncCall) DoAndReturn(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockSenderSendAsyncCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -143,41 +142,41 @@ func (m *MocktaskScheduler) EXPECT() *MocktaskSchedulerMockRecorder {
 	return m.recorder
 }
 
-// ScheduleDelayed mocks base method.
-func (m *MocktaskScheduler) ScheduleDelayed(ctx context.Context, taskType string, payload any, delay time.Duration, idempotencyKey string) (uuid.UUID, error) {
+// Schedule mocks base method.
+func (m *MocktaskScheduler) Schedule(ctx context.Context, taskType string, payload any, idempotencyKey string) (uuid.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScheduleDelayed", ctx, taskType, payload, delay, idempotencyKey)
+	ret := m.ctrl.Call(m, "Schedule", ctx, taskType, payload, idempotencyKey)
 	ret0, _ := ret[0].(uuid.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ScheduleDelayed indicates an expected call of ScheduleDelayed.
-func (mr *MocktaskSchedulerMockRecorder) ScheduleDelayed(ctx, taskType, payload, delay, idempotencyKey any) *MocktaskSchedulerScheduleDelayedCall {
+// Schedule indicates an expected call of Schedule.
+func (mr *MocktaskSchedulerMockRecorder) Schedule(ctx, taskType, payload, idempotencyKey any) *MocktaskSchedulerScheduleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScheduleDelayed", reflect.TypeOf((*MocktaskScheduler)(nil).ScheduleDelayed), ctx, taskType, payload, delay, idempotencyKey)
-	return &MocktaskSchedulerScheduleDelayedCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Schedule", reflect.TypeOf((*MocktaskScheduler)(nil).Schedule), ctx, taskType, payload, idempotencyKey)
+	return &MocktaskSchedulerScheduleCall{Call: call}
 }
 
-// MocktaskSchedulerScheduleDelayedCall wrap *gomock.Call
-type MocktaskSchedulerScheduleDelayedCall struct {
+// MocktaskSchedulerScheduleCall wrap *gomock.Call
+type MocktaskSchedulerScheduleCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MocktaskSchedulerScheduleDelayedCall) Return(arg0 uuid.UUID, arg1 error) *MocktaskSchedulerScheduleDelayedCall {
+func (c *MocktaskSchedulerScheduleCall) Return(arg0 uuid.UUID, arg1 error) *MocktaskSchedulerScheduleCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MocktaskSchedulerScheduleDelayedCall) Do(f func(context.Context, string, any, time.Duration, string) (uuid.UUID, error)) *MocktaskSchedulerScheduleDelayedCall {
+func (c *MocktaskSchedulerScheduleCall) Do(f func(context.Context, string, any, string) (uuid.UUID, error)) *MocktaskSchedulerScheduleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MocktaskSchedulerScheduleDelayedCall) DoAndReturn(f func(context.Context, string, any, time.Duration, string) (uuid.UUID, error)) *MocktaskSchedulerScheduleDelayedCall {
+func (c *MocktaskSchedulerScheduleCall) DoAndReturn(f func(context.Context, string, any, string) (uuid.UUID, error)) *MocktaskSchedulerScheduleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
@@ -34,7 +33,6 @@ type Store interface {
 	SetRevoked(ctx context.Context, id uuid.UUID, revokedAt time.Time) error
 	MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error)
 	Resend(ctx context.Context, id uuid.UUID, tokenHash string, expiresAt, sentAt time.Time) (*entity.Invitation, error)
-	SendAt(ctx context.Context, id uuid.UUID, sentAt time.Time) error
 }
 
 // UserService is the subset of user.Service used by the invitation flow.
@@ -50,18 +48,28 @@ type TokenIssuer interface {
 	IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error)
 }
 
+// MessageSender enqueues an invitation email through the messaging outbox.
+// Implemented by messaging/sender.Service. Defined consumer-side so tests can
+// substitute a fake. The enqueue joins the caller's tx (transactional outbox)
+// when one is on the context, so it is atomic with the invitation write. The
+// task type is explicit so invitation emails land on a queue only the auth binary
+// drains (see entity.ProcessorTaskInvitationEmailSend).
+type MessageSender interface {
+	SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error
+}
+
 // defaultInvitationTTL is used when app.invitation_ttl is not configured.
 const defaultInvitationTTL = 7 * 24 * time.Hour
 
 type Service struct {
-	txManager       *dbtx.TxManager
-	store           Store
-	userSrv         UserService
-	tokenIssuer     TokenIssuer
-	oauthProviders  *oauthprovider.Providers
-	notifyTransport *notifytransport.Registry
-	ttl             time.Duration
-	frontendURL     string
+	txManager      *dbtx.TxManager
+	store          Store
+	userSrv        UserService
+	tokenIssuer    TokenIssuer
+	oauthProviders *oauthprovider.Providers
+	sender         MessageSender
+	ttl            time.Duration
+	frontendURL    string
 }
 
 func NewService(
@@ -71,7 +79,7 @@ func NewService(
 	userSrv UserService,
 	tokenIssuer TokenIssuer,
 	oauthProviders *oauthprovider.Providers,
-	notifyTransport *notifytransport.Registry,
+	sender MessageSender,
 ) *Service {
 	invitationTTL := cfg.App.InvitationTTL
 	if invitationTTL <= 0 {
@@ -79,13 +87,13 @@ func NewService(
 	}
 
 	return &Service{
-		txManager:       txManager,
-		store:           store,
-		userSrv:         userSrv,
-		tokenIssuer:     tokenIssuer,
-		oauthProviders:  oauthProviders,
-		notifyTransport: notifyTransport,
-		ttl:             invitationTTL,
-		frontendURL:     cfg.App.FrontendURL,
+		txManager:      txManager,
+		store:          store,
+		userSrv:        userSrv,
+		tokenIssuer:    tokenIssuer,
+		oauthProviders: oauthProviders,
+		sender:         sender,
+		ttl:            invitationTTL,
+		frontendURL:    cfg.App.FrontendURL,
 	}
 }

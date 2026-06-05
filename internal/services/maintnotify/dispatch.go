@@ -30,7 +30,7 @@ func (n *Service) dispatchSync(ctx context.Context, event entity.NotifyEvent) er
 
 func (n *Service) dispatchAsync(ctx context.Context, event entity.NotifyEvent) error {
 	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
-		return n.sender.SendAsync(ctx, target.Transport, target.ChannelID, msg,
+		return n.sender.SendAsync(ctx, entity.ProcessorTaskMessagingSend, target.Transport, target.ChannelID, msg,
 			idempotencyKey(event, target),
 		)
 	})

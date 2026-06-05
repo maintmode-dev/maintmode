@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ruko1202/goque"
+
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
-	emailtransport "github.com/ruko1202/maintmode/internal/gateways/notifytransport/email"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/invitation"
+	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
+	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider/googleoauth"
 	statecodec "github.com/ruko1202/maintmode/internal/services/state_codec"
@@ -32,6 +34,7 @@ func NewAuthServices(
 	ctx context.Context,
 	cfg *config.AppConfig,
 	stores *AuthStores,
+	gateways *AuthGateways,
 ) (*AuthServices, error) {
 	auditorSrv := auditor.NewAuditor(
 		stores.Audit,
@@ -94,7 +97,10 @@ func NewAuthServices(
 			userSrv,
 			authSrv,
 			oauthProviders,
-			notifytransport.NewRegistry(cfg, emailtransport.New()),
+			messagesender.NewService(
+				gateways.NotifyTransportRegistry,
+				scheduler.NewService(goque.NewTaskQueueManager(stores.taskStorage)),
+			),
 		),
 		Audit:      auditorSrv,
 		RBAC:       authorizer,
