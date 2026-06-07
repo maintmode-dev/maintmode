@@ -34,20 +34,43 @@ func (t NotifyTransport) IsValid() bool {
 // identity used everywhere (GET /channels, subscription validation, archive).
 // ArchivedAt is nil for active channels; an archived channel is hidden from the
 // default listing but still resolvable by ID.
+//
+// CreatedByUserID / UpdatedByUserID carry the authorship identity (token
+// subject) for the detail-page header. They are pointers because pre-existing
+// catalog rows have no author and UpdatedByUserID is unset until the first edit;
+// read paths resolve a nil id to the "Unknown user" summary.
 type NotifyChannel struct {
 	ID                 uuid.UUID
 	Transport          NotifyTransport
 	TransportChannelID string
 	Name               string
 	Description        string
+	CreatedAt          time.Time
+	CreatedByUserID    *uuid.UUID
+	UpdatedAt          *time.Time
+	UpdatedByUserID    *uuid.UUID
 	ArchivedAt         *time.Time
 }
 
 // CreateNotifyChannelCmd is the command to register a new channel in the
 // catalog. ID is assigned by the DB, so it is not part of the input.
+// CreatedByUserID is the authenticated author captured from the access token.
 type CreateNotifyChannelCmd struct {
 	Transport          NotifyTransport
 	TransportChannelID string
 	Name               string
 	Description        string
+	CreatedByUserID    uuid.UUID
+}
+
+// UpdateNotifyChannelCmd is a partial update of a channel. A nil field is left
+// unchanged. Transport is intentionally absent: changing a channel's transport
+// would break notification history and existing subscriptions, so a new channel
+// must be created instead. UpdatedByUserID is the authenticated editor.
+type UpdateNotifyChannelCmd struct {
+	ID                 uuid.UUID
+	Name               *string
+	Description        *string
+	TransportChannelID *string
+	UpdatedByUserID    uuid.UUID
 }

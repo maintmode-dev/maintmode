@@ -5,14 +5,17 @@ package apinotifications
 
 import (
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
+	"github.com/ruko1202/maintmode/internal/services/usersummary"
 )
 
 type Implementation struct {
-	notifyTargets *notifytargets.Service
+	notifyTargets  *notifytargets.Service
+	userSummarySrv *usersummary.Service
 }
 
-func New(notifyTargets *notifytargets.Service) *Implementation {
+func New(notifyTargets *notifytargets.Service, userSummarySrv *usersummary.Service) *Implementation {
 	return &Implementation{
-		notifyTargets: notifyTargets,
+		notifyTargets:  notifyTargets,
+		userSummarySrv: userSummarySrv,
 	}
 }

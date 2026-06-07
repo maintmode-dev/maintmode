@@ -135,7 +135,8 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
 	t.Helper()
 
-	impl := apinotifications.New(newServices(ctx, t).NotifyTargets)
+	services := newServices(ctx, t)
+	impl := apinotifications.New(services.NotifyTargets, services.UserSummary)
 
 	req := &notificationsmodels.CreateChannelRequest{
 		Transport:          string(entity.NotifyTransportTelegram),
@@ -148,6 +149,7 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
+	xecho.UserToEchoCtx(c, &entity.User{ID: uuid.New(), Name: t.Name(), Email: t.Name() + "@example.com"})
 
 	err := impl.CreateChannel(c)
 	require.NoError(t, err)

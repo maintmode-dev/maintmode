@@ -19,6 +19,7 @@ p, editor, resource.edit, execute
 p, editor, resource.archive, execute
 p, editor, resource.unarchive, execute
 p, editor, notification.channel.create, execute
+p, editor, notification.channel.edit, execute
 p, editor, notification.channel.archive, execute
 p, editor, notification.channel.unarchive, execute
 

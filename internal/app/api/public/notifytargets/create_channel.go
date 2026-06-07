@@ -2,6 +2,7 @@ package apinotifications
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -12,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // CreateChannel godoc
@@ -49,18 +51,28 @@ func (i *Implementation) CreateChannel(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	author, ok := xecho.UserFromEchoCtx(c)
+	if !ok {
+		err := fmt.Errorf("author not found")
+		xlog.Error(ctx, "author user not found in echo context", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
+	}
+
 	channel, err := i.notifyTargets.CreateChannel(ctx, &entity.CreateNotifyChannelCmd{
 		Transport:          entity.NotifyTransport(req.Transport),
 		TransportChannelID: req.TransportChannelID,
 		Name:               req.Name,
 		Description:        req.Description,
+		CreatedByUserID:    author.ID,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create channel failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusCreated, apimodels.ToChannel(channel))
+	// The author is the authenticated creator from the token, so render its
+	// summary directly. A freshly created channel has no editor (updated_by nil).
+	return c.JSON(http.StatusCreated, apimodels.ToChannel(channel, author.ToUserSummary(), nil))
 }
 
 func validateCreateChannelRequest(ctx context.Context, req *apimodels.CreateChannelRequest) error {

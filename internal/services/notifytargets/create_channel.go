@@ -27,6 +27,7 @@ func (s *Service) CreateChannel(ctx context.Context, cmd *entity.CreateNotifyCha
 		TransportChannelID: cmd.TransportChannelID,
 		Name:               cmd.Name,
 		Description:        cmd.Description,
+		CreatedByUserID:    &cmd.CreatedByUserID,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create channel failed", xfield.Error(err))

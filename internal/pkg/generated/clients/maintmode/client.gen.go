@@ -191,12 +191,24 @@ type ApimodelsCancelMaintRequest struct {
 
 // ApimodelsChannel defines model for apimodels.Channel.
 type ApimodelsChannel struct {
-	ArchivedAt         *time.Time          `json:"archived_at,omitempty"`
-	Description        *string             `json:"description,omitempty"`
-	Id                 *openapi_types.UUID `json:"id,omitempty"`
-	Name               *string             `json:"name,omitempty"`
-	Transport          *string             `json:"transport,omitempty"`
-	TransportChannelId *string             `json:"transport_channel_id,omitempty"`
+	ArchivedAt *time.Time `json:"archived_at,omitempty"`
+	CreatedAt  *time.Time `json:"created_at,omitempty"`
+
+	// CreatedBy UpdatedBy is the last editor resolved from the auth service, null until the
+	// channel is first edited (degrades to "Unknown user" like CreatedBy).
+	CreatedBy          *GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary `json:"created_by,omitempty"`
+	Description        *string                                                                       `json:"description,omitempty"`
+	Id                 *openapi_types.UUID                                                           `json:"id,omitempty"`
+	Name               *string                                                                       `json:"name,omitempty"`
+	Transport          *string                                                                       `json:"transport,omitempty"`
+	TransportChannelId *string                                                                       `json:"transport_channel_id,omitempty"`
+
+	// UpdatedAt UpdatedAt is null until the channel is first edited.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// UpdatedBy UpdatedBy is the last editor resolved from the auth service, null until the
+	// channel is first edited (degrades to "Unknown user" like CreatedBy).
+	UpdatedBy *GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary `json:"updated_by,omitempty"`
 }
 
 // ApimodelsChannelsResponse defines model for apimodels.ChannelsResponse.
@@ -240,24 +252,24 @@ type ApimodelsCreateDraftMaintResponse struct {
 	// ApproverUser Approver is the assigned approver resolved from the auth service, or null
 	// when no approver is set (e.g. a draft). When set but unresolvable it
 	// degrades to the "Unknown user" label like CreatedBy.
-	ApproverUser *ApimodelsUserSummary `json:"approver_user,omitempty"`
-	CreatedAt    *time.Time            `json:"created_at,omitempty"`
+	ApproverUser *GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary `json:"approver_user,omitempty"`
+	CreatedAt    *time.Time                                                            `json:"created_at,omitempty"`
 
 	// CreatedBy Approver is the assigned approver resolved from the auth service, or null
 	// when no approver is set (e.g. a draft). When set but unresolvable it
 	// degrades to the "Unknown user" label like CreatedBy.
-	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
-	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
-	Description           *string                          `json:"description,omitempty"`
-	Id                    *openapi_types.UUID              `json:"id,omitempty"`
-	Impact                *string                          `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
-	PlannedPeriod         *ApimodelsPeriod                 `json:"planned_period,omitempty"`
-	Resources             *[]ApimodelsResourceRef          `json:"resources,omitempty"`
-	Scope                 *string                          `json:"scope,omitempty"`
-	Status                *string                          `json:"status,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStep      `json:"steps,omitempty"`
-	Title                 *string                          `json:"title,omitempty"`
+	CreatedBy             *GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary `json:"created_by,omitempty"`
+	DeferredNotifications *[]ApimodelsDeferredNotification                                      `json:"deferred_notifications,omitempty"`
+	Description           *string                                                               `json:"description,omitempty"`
+	Id                    *openapi_types.UUID                                                   `json:"id,omitempty"`
+	Impact                *string                                                               `json:"impact,omitempty"`
+	NotifyTargets         *ApimodelsNotifyTargets                                               `json:"notify_targets,omitempty"`
+	PlannedPeriod         *ApimodelsPeriod                                                      `json:"planned_period,omitempty"`
+	Resources             *[]ApimodelsResourceRef                                               `json:"resources,omitempty"`
+	Scope                 *string                                                               `json:"scope,omitempty"`
+	Status                *string                                                               `json:"status,omitempty"`
+	Steps                 *[]ApimodelsMaintenanceStep                                           `json:"steps,omitempty"`
+	Title                 *string                                                               `json:"title,omitempty"`
 }
 
 // ApimodelsCreateResourceRequest defines model for apimodels.CreateResourceRequest.
@@ -295,27 +307,27 @@ type ApimodelsMaintenance struct {
 	// Approver Approver is the assigned approver resolved from the auth service, or null
 	// when no approver is set (e.g. a draft). When set but unresolvable it
 	// degrades to the "Unknown user" label like CreatedBy.
-	Approver            *ApimodelsUserSummary             `json:"approver,omitempty"`
-	CancelReason        *ApimodelsMaintenanceCancelReason `json:"cancel_reason,omitempty"`
-	CancelReasonComment *string                           `json:"cancel_reason_comment,omitempty"`
-	CreatedAt           *time.Time                        `json:"created_at,omitempty"`
+	Approver            *GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary `json:"approver,omitempty"`
+	CancelReason        *ApimodelsMaintenanceCancelReason                                     `json:"cancel_reason,omitempty"`
+	CancelReasonComment *string                                                               `json:"cancel_reason_comment,omitempty"`
+	CreatedAt           *time.Time                                                            `json:"created_at,omitempty"`
 
 	// CreatedBy Approver is the assigned approver resolved from the auth service, or null
 	// when no approver is set (e.g. a draft). When set but unresolvable it
 	// degrades to the "Unknown user" label like CreatedBy.
-	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
-	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
-	Description           *string                          `json:"description,omitempty"`
-	Id                    *openapi_types.UUID              `json:"id,omitempty"`
-	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
-	PlannedPeriod         *ApimodelsPeriod                 `json:"planned_period,omitempty"`
-	Resources             *[]ApimodelsResourceRef          `json:"resources,omitempty"`
-	Scope                 *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
-	Status                *string                          `json:"status,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStep      `json:"steps,omitempty"`
-	Title                 *string                          `json:"title,omitempty"`
-	UpdatedAt             *time.Time                       `json:"updated_at,omitempty"`
+	CreatedBy             *GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary `json:"created_by,omitempty"`
+	DeferredNotifications *[]ApimodelsDeferredNotification                                      `json:"deferred_notifications,omitempty"`
+	Description           *string                                                               `json:"description,omitempty"`
+	Id                    *openapi_types.UUID                                                   `json:"id,omitempty"`
+	Impact                *ApimodelsMaintenanceImpact                                           `json:"impact,omitempty"`
+	NotifyTargets         *ApimodelsNotifyTargets                                               `json:"notify_targets,omitempty"`
+	PlannedPeriod         *ApimodelsPeriod                                                      `json:"planned_period,omitempty"`
+	Resources             *[]ApimodelsResourceRef                                               `json:"resources,omitempty"`
+	Scope                 *ApimodelsMaintenanceScope                                            `json:"scope,omitempty"`
+	Status                *string                                                               `json:"status,omitempty"`
+	Steps                 *[]ApimodelsMaintenanceStep                                           `json:"steps,omitempty"`
+	Title                 *string                                                               `json:"title,omitempty"`
+	UpdatedAt             *time.Time                                                            `json:"updated_at,omitempty"`
 }
 
 // ApimodelsMaintenanceCancelReason defines model for apimodels.MaintenanceCancelReason.
@@ -391,6 +403,13 @@ type ApimodelsTransportsResponse struct {
 	Transports *[]ApimodelsTransport `json:"transports,omitempty"`
 }
 
+// ApimodelsUpdateChannelRequest defines model for apimodels.UpdateChannelRequest.
+type ApimodelsUpdateChannelRequest struct {
+	Description        *string `json:"description,omitempty"`
+	Name               *string `json:"name,omitempty"`
+	TransportChannelId *string `json:"transport_channel_id,omitempty"`
+}
+
 // ApimodelsUpdateDraftMaintRequest defines model for apimodels.UpdateDraftMaintRequest.
 type ApimodelsUpdateDraftMaintRequest struct {
 	ApproverUserId        *openapi_types.UUID              `json:"approver_user_id,omitempty"`
@@ -412,10 +431,18 @@ type ApimodelsUpdateResourceRequest struct {
 	Name        *string `json:"name,omitempty"`
 }
 
-// ApimodelsUserSummary Approver is the assigned approver resolved from the auth service, or null
+// GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary Approver is the assigned approver resolved from the auth service, or null
 // when no approver is set (e.g. a draft). When set but unresolvable it
 // degrades to the "Unknown user" label like CreatedBy.
-type ApimodelsUserSummary struct {
+type GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
+// GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary UpdatedBy is the last editor resolved from the auth service, null until the
+// channel is first edited (degrades to "Unknown user" like CreatedBy).
+type GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
 	Email       *string             `json:"email,omitempty"`
 	Id          *openapi_types.UUID `json:"id,omitempty"`
@@ -619,6 +646,9 @@ type PostApiV1MaintenancesIdEditJSONRequestBody = ApimodelsUpdateDraftMaintReque
 // PostApiV1NotificationsChannelsJSONRequestBody defines body for PostApiV1NotificationsChannels for application/json ContentType.
 type PostApiV1NotificationsChannelsJSONRequestBody = ApimodelsCreateChannelRequest
 
+// PatchApiV1NotificationsChannelsIdJSONRequestBody defines body for PatchApiV1NotificationsChannelsId for application/json ContentType.
+type PatchApiV1NotificationsChannelsIdJSONRequestBody = ApimodelsUpdateChannelRequest
+
 // PostApiV1ResourceCreateJSONRequestBody defines body for PostApiV1ResourceCreate for application/json ContentType.
 type PostApiV1ResourceCreateJSONRequestBody = ApimodelsCreateResourceRequest
 
@@ -746,6 +776,14 @@ type ClientInterface interface {
 	PostApiV1NotificationsChannelsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1NotificationsChannels(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1NotificationsChannelsId request
+	GetApiV1NotificationsChannelsId(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiV1NotificationsChannelsIdWithBody request with any body
+	PatchApiV1NotificationsChannelsIdWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchApiV1NotificationsChannelsId(ctx context.Context, id openapi_types.UUID, body PatchApiV1NotificationsChannelsIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1NotificationsChannelsIdArchive request
 	PostApiV1NotificationsChannelsIdArchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -997,6 +1035,42 @@ func (c *Client) PostApiV1NotificationsChannelsWithBody(ctx context.Context, con
 
 func (c *Client) PostApiV1NotificationsChannels(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1NotificationsChannelsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1NotificationsChannelsId(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1NotificationsChannelsIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1NotificationsChannelsIdWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1NotificationsChannelsIdRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1NotificationsChannelsId(ctx context.Context, id openapi_types.UUID, body PatchApiV1NotificationsChannelsIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1NotificationsChannelsIdRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1705,6 +1779,87 @@ func NewPostApiV1NotificationsChannelsRequestWithBody(server string, contentType
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApiV1NotificationsChannelsIdRequest generates requests for GetApiV1NotificationsChannelsId
+func NewGetApiV1NotificationsChannelsIdRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/channels/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPatchApiV1NotificationsChannelsIdRequest calls the generic PatchApiV1NotificationsChannelsId builder with application/json body
+func NewPatchApiV1NotificationsChannelsIdRequest(server string, id openapi_types.UUID, body PatchApiV1NotificationsChannelsIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiV1NotificationsChannelsIdRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPatchApiV1NotificationsChannelsIdRequestWithBody generates requests for PatchApiV1NotificationsChannelsId with any type of body
+func NewPatchApiV1NotificationsChannelsIdRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/channels/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -2436,6 +2591,14 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1NotificationsChannelsWithResponse(ctx context.Context, body PostApiV1NotificationsChannelsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsResponse, error)
 
+	// GetApiV1NotificationsChannelsIdWithResponse request
+	GetApiV1NotificationsChannelsIdWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsIdResponse, error)
+
+	// PatchApiV1NotificationsChannelsIdWithBodyWithResponse request with any body
+	PatchApiV1NotificationsChannelsIdWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1NotificationsChannelsIdResponse, error)
+
+	PatchApiV1NotificationsChannelsIdWithResponse(ctx context.Context, id openapi_types.UUID, body PatchApiV1NotificationsChannelsIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1NotificationsChannelsIdResponse, error)
+
 	// PostApiV1NotificationsChannelsIdArchiveWithResponse request
 	PostApiV1NotificationsChannelsIdArchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdArchiveResponse, error)
 
@@ -2930,6 +3093,78 @@ func (r PostApiV1NotificationsChannelsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1NotificationsChannelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1NotificationsChannelsIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsChannel
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1NotificationsChannelsIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1NotificationsChannelsIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1NotificationsChannelsIdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PatchApiV1NotificationsChannelsIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsChannel
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON409      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+	JSON503      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiV1NotificationsChannelsIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiV1NotificationsChannelsIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiV1NotificationsChannelsIdResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3543,6 +3778,32 @@ func (c *ClientWithResponses) PostApiV1NotificationsChannelsWithResponse(ctx con
 		return nil, err
 	}
 	return ParsePostApiV1NotificationsChannelsResponse(rsp)
+}
+
+// GetApiV1NotificationsChannelsIdWithResponse request returning *GetApiV1NotificationsChannelsIdResponse
+func (c *ClientWithResponses) GetApiV1NotificationsChannelsIdWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsChannelsIdResponse, error) {
+	rsp, err := c.GetApiV1NotificationsChannelsId(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1NotificationsChannelsIdResponse(rsp)
+}
+
+// PatchApiV1NotificationsChannelsIdWithBodyWithResponse request with arbitrary body returning *PatchApiV1NotificationsChannelsIdResponse
+func (c *ClientWithResponses) PatchApiV1NotificationsChannelsIdWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1NotificationsChannelsIdResponse, error) {
+	rsp, err := c.PatchApiV1NotificationsChannelsIdWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1NotificationsChannelsIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchApiV1NotificationsChannelsIdWithResponse(ctx context.Context, id openapi_types.UUID, body PatchApiV1NotificationsChannelsIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1NotificationsChannelsIdResponse, error) {
+	rsp, err := c.PatchApiV1NotificationsChannelsId(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1NotificationsChannelsIdResponse(rsp)
 }
 
 // PostApiV1NotificationsChannelsIdArchiveWithResponse request returning *PostApiV1NotificationsChannelsIdArchiveResponse
@@ -4451,6 +4712,142 @@ func ParsePostApiV1NotificationsChannelsResponse(rsp *http.Response) (*PostApiV1
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1NotificationsChannelsIdResponse parses an HTTP response from a GetApiV1NotificationsChannelsIdWithResponse call
+func ParseGetApiV1NotificationsChannelsIdResponse(rsp *http.Response) (*GetApiV1NotificationsChannelsIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1NotificationsChannelsIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiV1NotificationsChannelsIdResponse parses an HTTP response from a PatchApiV1NotificationsChannelsIdWithResponse call
+func ParsePatchApiV1NotificationsChannelsIdResponse(rsp *http.Response) (*PatchApiV1NotificationsChannelsIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiV1NotificationsChannelsIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest HttperrorsErrorResponse

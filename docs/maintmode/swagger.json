@@ -55,6 +55,13 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "created_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_notifytargets_models.UserSummary"
+                    },
                     "description": {
                         "type": "string"
                     },
@@ -70,6 +77,14 @@
                     },
                     "transport_channel_id": {
                         "type": "string"
+                    },
+                    "updated_at": {
+                        "description": "UpdatedAt is null until the channel is first edited.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "updated_by": {
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_notifytargets_models.UserSummary"
                     }
                 },
                 "type": "object"
@@ -188,14 +203,14 @@
             "apimodels.CreateDraftMaintResponse": {
                 "properties": {
                     "approver_user": {
-                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary"
                     },
                     "created_at": {
                         "format": "date-time",
                         "type": "string"
                     },
                     "created_by": {
-                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary"
                     },
                     "deferred_notifications": {
                         "items": {
@@ -323,7 +338,7 @@
                         "$ref": "#/components/schemas/apimodels.Period"
                     },
                     "approver": {
-                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary"
                     },
                     "cancel_reason": {
                         "$ref": "#/components/schemas/apimodels.MaintenanceCancelReason"
@@ -336,7 +351,7 @@
                         "type": "string"
                     },
                     "created_by": {
-                        "$ref": "#/components/schemas/apimodels.UserSummary"
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary"
                     },
                     "deferred_notifications": {
                         "items": {
@@ -599,6 +614,23 @@
                 },
                 "type": "object"
             },
+            "apimodels.UpdateChannelRequest": {
+                "properties": {
+                    "description": {
+                        "example": "Ops alerting channel",
+                        "type": "string"
+                    },
+                    "name": {
+                        "example": "Alerts",
+                        "type": "string"
+                    },
+                    "transport_channel_id": {
+                        "example": "C0123456789",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "apimodels.UpdateDraftMaintRequest": {
                 "properties": {
                     "approver_user_id": {
@@ -664,8 +696,24 @@
                 },
                 "type": "object"
             },
-            "apimodels.UserSummary": {
+            "github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary": {
                 "description": "Approver is the assigned approver resolved from the auth service, or null\nwhen no approver is set (e.g. a draft). When set but unresolvable it\ndegrades to the \"Unknown user\" label like CreatedBy.",
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "github_com_ruko1202_maintmode_internal_app_api_public_notifytargets_models.UserSummary": {
+                "description": "UpdatedBy is the last editor resolved from the auth service, null until the\nchannel is first edited (degrades to \"Unknown user\" like CreatedBy).",
                 "properties": {
                     "display_name": {
                         "type": "string"
@@ -2222,6 +2270,211 @@
                     }
                 ],
                 "summary": "Create a notification channel",
+                "tags": [
+                    "Notifications"
+                ]
+            }
+        },
+        "/api/v1/notifications/channels/{id}": {
+            "get": {
+                "description": "Returns a single channel from the catalog by its id, including\nauthorship metadata (created_by / updated_by) resolved from the\nauth service. Archived channels are still returned so the detail\npage can render them. Available to any authenticated role.",
+                "parameters": [
+                    {
+                        "description": "Channel ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.Channel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid channel id"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Channel not found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Auth service unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get a notification channel by ID",
+                "tags": [
+                    "Notifications"
+                ]
+            },
+            "patch": {
+                "description": "Partially updates a channel (name, description,\ntransport_channel_id). All body fields are optional; an omitted\nfield is left unchanged. Transport is immutable and cannot be\nchanged — switching it would break notification history and\nexisting subscriptions, so a new channel must be created instead;\nany transport key in the body is ignored. Requires the editor role.",
+                "parameters": [
+                    {
+                        "description": "Channel ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "uuid",
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apimodels.UpdateChannelRequest"
+                            }
+                        }
+                    },
+                    "description": "Fields to update",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.Channel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Invalid request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Channel not found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Channel already exists"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Auth service unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Update a notification channel",
                 "tags": [
                     "Notifications"
                 ]

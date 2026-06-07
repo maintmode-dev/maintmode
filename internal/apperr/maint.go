@@ -67,4 +67,5 @@ var (
 // ###############################################
 var (
 	ErrNotifyChannelAlreadyExists = errors.New("notify channel already exists")
+	ErrNotifyChannelNotFound      = errors.New("notify channel not found")
 )

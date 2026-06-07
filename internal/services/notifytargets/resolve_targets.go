@@ -30,8 +30,8 @@ func (s *Service) ResolveNotifyTarget(ctx context.Context, maintID uuid.UUID, in
 				xfield.Error(err))
 			// An unknown channel id is bad client input, not a server
 			// fault: surface it as a validation error (400) rather than
-			// letting apperr.ErrNotFound fall through to a 500.
-			if errors.Is(err, apperr.ErrNotFound) {
+			// letting the not-found error fall through to a 500.
+			if errors.Is(err, apperr.ErrNotifyChannelNotFound) {
 				return nil, fmt.Errorf("%w: unknown channel %q", apperr.ErrValidation, item.ChannelID)
 			}
 			return nil, err

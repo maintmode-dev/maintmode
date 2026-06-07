@@ -245,7 +245,7 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
-	impl := apinotifications.New(services.NotifyTargets)
+	impl := apinotifications.New(services.NotifyTargets, services.UserSummary)
 
 	req := &notificationsmodels.CreateChannelRequest{
 		Transport:          string(entity.NotifyTransportTelegram),
@@ -258,6 +258,7 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
+	xecho.UserToEchoCtx(c, &entity.User{ID: uuid.New(), Name: t.Name(), Email: t.Name() + "@example.com"})
 
 	err := impl.CreateChannel(c)
 	require.NoError(t, err)

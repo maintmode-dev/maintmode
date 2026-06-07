@@ -28,6 +28,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
 		errors.Is(err, apperr.ErrNotifyChannelAlreadyExists),
+		errors.Is(err, apperr.ErrNotifyChannelNotFound),
 		errors.Is(err, apperr.ErrStepNotFound),
 		errors.Is(err, apperr.ErrInvalidRole):
 		statusCode, errResp = mapError(err)
@@ -91,7 +92,8 @@ func mapError(err error) (int, *ErrorResponse) {
 	switch {
 	case errors.Is(err, apperr.ErrMaintNotFound),
 		errors.Is(err, apperr.ErrUserNotFound),
-		errors.Is(err, apperr.ErrResourceNotFound):
+		errors.Is(err, apperr.ErrResourceNotFound),
+		errors.Is(err, apperr.ErrNotifyChannelNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
 	case errors.Is(err, apperr.ErrForbiddenMaintStatusTransition):

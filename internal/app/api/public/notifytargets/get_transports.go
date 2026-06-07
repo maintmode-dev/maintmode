@@ -2,12 +2,9 @@ package apinotifications
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
-
-	"github.com/ruko1202/maintmode/internal/entity"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
 )
@@ -31,14 +28,5 @@ func (i *Implementation) GetTransports(c *echo.Context) error {
 	_, span := xlog.WithOperationSpan(c.Request().Context(), "api.Notifications.GetTransports")
 	defer span.End()
 
-	return c.JSON(http.StatusOK, apimodels.TransportsResponse{Transports: []*apimodels.Transport{
-		{
-			ID:    string(entity.NotifyTransportSlack),
-			Title: strings.ToTitle(string(entity.NotifyTransportSlack)),
-		},
-		{
-			ID:    string(entity.NotifyTransportTelegram),
-			Title: strings.ToTitle(string(entity.NotifyTransportTelegram)),
-		}},
-	})
+	return c.JSON(http.StatusOK, apimodels.TransportsResponse{Transports: apimodels.SupportedTransports})
 }

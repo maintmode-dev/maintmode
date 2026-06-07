@@ -89,7 +89,7 @@ func main() {
 				Maint:         apimaint.New(services.Maint, services.UserSummary),
 				Resources:     resourcesapi.New(services.Resources),
 				Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
-				Notifications: apinotifications.New(services.NotifyTargets),
+				Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary),
 				UserPicker:    userpickerapi.New(services.UserPicker),
 			},
 			server.APIServerSecurity{

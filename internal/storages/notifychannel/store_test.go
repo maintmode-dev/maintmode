@@ -51,7 +51,7 @@ func TestStore_Get_UnknownIsNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := store.Get(ctx, uuid.New())
-	require.ErrorIs(t, err, apperr.ErrNotFound)
+	require.ErrorIs(t, err, apperr.ErrNotifyChannelNotFound)
 }
 
 func TestStore_List_HidesArchivedByDefault(t *testing.T) {

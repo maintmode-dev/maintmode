@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -11,6 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // GetChannels godoc
@@ -42,5 +44,24 @@ func (i *Implementation) GetChannels(c *echo.Context) error {
 		return httperrors.ToAPIError(c, "get available channels", err)
 	}
 
-	return c.JSON(http.StatusOK, apimodels.ToChannelsResponse(channels))
+	// Batch-resolve every author/editor id across the page in one auth call
+	// (ResolveMany dedups and drops nil ids; degrades to "Unknown user" on
+	// failure, never erroring the read).
+	summaries := i.userSummarySrv.ResolveMany(ctx, channelUserIDs(channels))
+
+	return c.JSON(http.StatusOK, apimodels.ToChannelsResponse(channels, summaries))
+}
+
+// channelUserIDs collects the non-nil author and editor ids across the channels.
+func channelUserIDs(channels []*entity.NotifyChannel) []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(channels)*2)
+	for _, ch := range channels {
+		if ch.CreatedByUserID != nil {
+			ids = append(ids, *ch.CreatedByUserID)
+		}
+		if ch.UpdatedByUserID != nil {
+			ids = append(ids, *ch.UpdatedByUserID)
+		}
+	}
+	return ids
 }

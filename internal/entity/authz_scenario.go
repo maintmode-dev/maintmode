@@ -35,6 +35,7 @@ const (
 // notification scenarios
 const (
 	AuthzScenarioNotificationChannelCreate    AuthzScenario = "notification.channel.create"
+	AuthzScenarioNotificationChannelEdit      AuthzScenario = "notification.channel.edit"
 	AuthzScenarioNotificationChannelArchive   AuthzScenario = "notification.channel.archive"
 	AuthzScenarioNotificationChannelUnarchive AuthzScenario = "notification.channel.unarchive"
 )

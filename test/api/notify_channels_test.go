@@ -168,6 +168,190 @@ func TestNotifyChannelsAPI_Archive_Forbidden(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, resp.StatusCode(), "guest must be 403: %s", resp.Body)
 }
 
+// TestNotifyChannelsAPI_Create_RecordsAuthor verifies create stamps created_by
+// with the authenticated caller's id and leaves updated_by null.
+func TestNotifyChannelsAPI_Create_RecordsAuthor(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	authorID := xuuid.NewString()
+	apiClient := setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(authorID, entity.RoleAdmin))
+
+	resp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
+		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
+			Transport:          lo.ToPtr(string(entity.NotifyTransportSlack)),
+			TransportChannelId: lo.ToPtr("author-" + xuuid.NewString()),
+			Name:               lo.ToPtr("Authored channel"),
+			Description:        lo.ToPtr("created by API test"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON201)
+
+	require.NotNil(t, resp.JSON201.CreatedBy, "create response must carry created_by")
+	require.Equal(t, authorID, lo.FromPtr(resp.JSON201.CreatedBy.Id).String(), "created_by.id must be the caller")
+	require.NotNil(t, resp.JSON201.CreatedAt, "create response must carry created_at")
+	require.Nil(t, resp.JSON201.UpdatedBy, "a freshly created channel has no editor")
+}
+
+// TestNotifyChannelsAPI_Get_HappyPath verifies single-read returns the channel
+// with authorship metadata. Any authenticated role may read.
+func TestNotifyChannelsAPI_Get_HappyPath(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClient() // admin
+
+	channelID := createChannel(ctx, t, apiClient)
+
+	resp, err := apiClient.GetApiV1NotificationsChannelsIdWithResponse(ctx, channelID)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+	require.Equal(t, channelID.String(), lo.FromPtr(resp.JSON200.Id).String())
+	require.NotNil(t, resp.JSON200.CreatedAt, "single-read must carry created_at")
+	require.NotNil(t, resp.JSON200.CreatedBy, "single-read must carry created_by")
+}
+
+// TestNotifyChannelsAPI_Get_Reader verifies a guest (read-only) can read a
+// channel by id.
+func TestNotifyChannelsAPI_Get_Reader(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	channelID := createChannel(ctx, t, setupMaintmodeTestClient())
+
+	guest := setupMaintmodeTestClientWithRoles(entity.RoleGuest)
+	resp, err := guest.GetApiV1NotificationsChannelsIdWithResponse(ctx, channelID)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "guest must be able to read: %s", resp.Body)
+}
+
+// TestNotifyChannelsAPI_Get_NotFound verifies an unknown id is 404.
+func TestNotifyChannelsAPI_Get_NotFound(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClient()
+
+	resp, err := apiClient.GetApiV1NotificationsChannelsIdWithResponse(ctx, uuid.New())
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode(), "unknown id must be 404: %s", resp.Body)
+}
+
+// TestNotifyChannelsAPI_Update_HappyPath edits name/description and verifies the
+// response reflects the change and stamps updated_by with the editor's id.
+func TestNotifyChannelsAPI_Update_HappyPath(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	editorID := xuuid.NewString()
+	apiClient := setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(editorID, entity.RoleAdmin))
+
+	channelID := createChannel(ctx, t, apiClient)
+
+	resp, err := apiClient.PatchApiV1NotificationsChannelsIdWithResponse(ctx, channelID,
+		maintmodeclient.PatchApiV1NotificationsChannelsIdJSONRequestBody{
+			Name:        lo.ToPtr("Renamed channel"),
+			Description: lo.ToPtr("edited by API test"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+	require.Equal(t, "Renamed channel", lo.FromPtr(resp.JSON200.Name))
+	require.Equal(t, "edited by API test", lo.FromPtr(resp.JSON200.Description))
+	require.NotNil(t, resp.JSON200.UpdatedAt, "update must stamp updated_at")
+	require.NotNil(t, resp.JSON200.UpdatedBy, "update must stamp updated_by")
+	require.Equal(t, editorID, lo.FromPtr(resp.JSON200.UpdatedBy.Id).String(), "updated_by.id must be the editor")
+
+	// Persisted: a subsequent read reflects the edit.
+	got, err := apiClient.GetApiV1NotificationsChannelsIdWithResponse(ctx, channelID)
+	require.NoError(t, err)
+	require.Equal(t, "Renamed channel", lo.FromPtr(got.JSON200.Name))
+}
+
+// TestNotifyChannelsAPI_Update_PartialLeavesOthers verifies an omitted field is
+// left unchanged and a transport key in the body is ignored (transport immutable).
+func TestNotifyChannelsAPI_Update_PartialLeavesOthers(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClient()
+
+	channelID := createChannel(ctx, t, apiClient)
+
+	before, err := apiClient.GetApiV1NotificationsChannelsIdWithResponse(ctx, channelID)
+	require.NoError(t, err)
+	originalTransport := lo.FromPtr(before.JSON200.Transport)
+	originalChannelID := lo.FromPtr(before.JSON200.TransportChannelId)
+
+	// Only description set: name and transport_channel_id must be untouched.
+	resp, err := apiClient.PatchApiV1NotificationsChannelsIdWithResponse(ctx, channelID,
+		maintmodeclient.PatchApiV1NotificationsChannelsIdJSONRequestBody{
+			Description: lo.ToPtr("only-description-changed"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.Equal(t, "only-description-changed", lo.FromPtr(resp.JSON200.Description))
+	require.Equal(t, originalChannelID, lo.FromPtr(resp.JSON200.TransportChannelId), "transport_channel_id must be unchanged")
+	require.Equal(t, originalTransport, lo.FromPtr(resp.JSON200.Transport), "transport must be immutable")
+}
+
+// TestNotifyChannelsAPI_Update_Forbidden verifies edit requires editor: a guest
+// is rejected.
+func TestNotifyChannelsAPI_Update_Forbidden(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	channelID := createChannel(ctx, t, setupMaintmodeTestClient())
+
+	guest := setupMaintmodeTestClientWithRoles(entity.RoleGuest)
+	resp, err := guest.PatchApiV1NotificationsChannelsIdWithResponse(ctx, channelID,
+		maintmodeclient.PatchApiV1NotificationsChannelsIdJSONRequestBody{
+			Name: lo.ToPtr("nope"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusForbidden, resp.StatusCode(), "guest must be 403: %s", resp.Body)
+}
+
+// TestNotifyChannelsAPI_Update_NotFound verifies editing an unknown id is 404.
+func TestNotifyChannelsAPI_Update_NotFound(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClient()
+
+	resp, err := apiClient.PatchApiV1NotificationsChannelsIdWithResponse(ctx, uuid.New(),
+		maintmodeclient.PatchApiV1NotificationsChannelsIdJSONRequestBody{
+			Name: lo.ToPtr("ghost"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode(), "unknown id must be 404: %s", resp.Body)
+}
+
+// TestNotifyChannelsAPI_Update_DuplicateIsConflict verifies editing a channel's
+// transport_channel_id to collide with another channel of the same transport
+// surfaces 409.
+func TestNotifyChannelsAPI_Update_DuplicateIsConflict(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClient()
+
+	existingChannelID := "dup-target-" + xuuid.NewString()
+	first, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
+		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
+			Transport:          lo.ToPtr(string(entity.NotifyTransportSlack)),
+			TransportChannelId: lo.ToPtr(existingChannelID),
+			Name:               lo.ToPtr("Existing"),
+			Description:        lo.ToPtr("created by API test"),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, first.StatusCode(), "unexpected status: %s", first.Body)
+
+	victimID := createChannel(ctx, t, apiClient) // slack transport
+
+	resp, err := apiClient.PatchApiV1NotificationsChannelsIdWithResponse(ctx, victimID,
+		maintmodeclient.PatchApiV1NotificationsChannelsIdJSONRequestBody{
+			TransportChannelId: lo.ToPtr(existingChannelID),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusConflict, resp.StatusCode(), "colliding transport_channel_id must be 409: %s", resp.Body)
+}
+
 // createChannel creates a channel as the given (admin) client and returns its
 // UUID id.
 func createChannel(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) uuid.UUID {

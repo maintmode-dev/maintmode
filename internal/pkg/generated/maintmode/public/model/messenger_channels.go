@@ -19,5 +19,8 @@ type MessengerChannels struct {
 	Name               string     `db:"messenger_channels.name"`
 	Description        string     `db:"messenger_channels.description"`
 	CreatedAt          time.Time  `db:"messenger_channels.created_at"`
+	CreatedByUserID    *uuid.UUID `db:"messenger_channels.created_by_user_id"`
+	UpdatedAt          *time.Time `db:"messenger_channels.updated_at"`
+	UpdatedByUserID    *uuid.UUID `db:"messenger_channels.updated_by_user_id"`
 	ArchivedAt         *time.Time `db:"messenger_channels.archived_at"`
 }

@@ -146,8 +146,12 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		notifAPI.Add(http.MethodGet, "/channels", s.handlers.Notifications.GetChannels,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
+		notifAPI.Add(http.MethodGet, "/channels/:id", s.handlers.Notifications.GetChannel,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		notifAPI.Add(http.MethodPost, "/channels", s.handlers.Notifications.CreateChannel,
 			s.scenarioMW(entity.AuthzScenarioNotificationChannelCreate))
+		notifAPI.Add(http.MethodPatch, "/channels/:id", s.handlers.Notifications.UpdateChannel,
+			s.scenarioMW(entity.AuthzScenarioNotificationChannelEdit))
 		notifAPI.Add(http.MethodPost, "/channels/:id/archive", s.handlers.Notifications.ArchiveChannel,
 			s.scenarioMW(entity.AuthzScenarioNotificationChannelArchive))
 		notifAPI.Add(http.MethodPost, "/channels/:id/unarchive", s.handlers.Notifications.UnarchiveChannel,
