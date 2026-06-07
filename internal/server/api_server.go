@@ -133,13 +133,17 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioResourceEdit))
 	}
 
-	// notifications API group — channel catalog powering the admin
-	// picker. GET is read-scoped on the maintenance scenario since the
-	// picker is part of the maintenance edit flow. POST manages the
-	// catalog (the cross-pod source of truth) and is editor-scoped,
-	// alongside the other create/edit scenarios.
+	// notifications API group — transports + channel catalog powering the
+	// admin picker. The GET endpoints are read-scoped on the maintenance
+	// scenario (guest+) since the picker is part of the maintenance edit
+	// flow; the transports catalog is a reference list available to any
+	// authenticated role. POST manages the channel catalog (the cross-pod
+	// source of truth) and is editor-scoped, alongside the other
+	// create/edit scenarios.
 	{
 		notifAPI := gr.Group("/notifications")
+		notifAPI.Add(http.MethodGet, "/transports", s.handlers.Notifications.GetTransports,
+			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		notifAPI.Add(http.MethodGet, "/channels", s.handlers.Notifications.GetChannels,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		notifAPI.Add(http.MethodPost, "/channels", s.handlers.Notifications.CreateChannel,

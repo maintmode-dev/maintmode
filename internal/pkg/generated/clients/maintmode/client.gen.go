@@ -237,15 +237,15 @@ type ApimodelsCreateDraftMaintRequest struct {
 
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
 type ApimodelsCreateDraftMaintResponse struct {
-	// ApproverUser CreatedBy is the maintenance author resolved from the auth service. Always
-	// present on read (carries the author id); display_name is "Unknown user"
-	// when the profile could not be resolved (auth down or user removed).
+	// ApproverUser Approver is the assigned approver resolved from the auth service, or null
+	// when no approver is set (e.g. a draft). When set but unresolvable it
+	// degrades to the "Unknown user" label like CreatedBy.
 	ApproverUser *ApimodelsUserSummary `json:"approver_user,omitempty"`
 	CreatedAt    *time.Time            `json:"created_at,omitempty"`
 
-	// CreatedBy CreatedBy is the maintenance author resolved from the auth service. Always
-	// present on read (carries the author id); display_name is "Unknown user"
-	// when the profile could not be resolved (auth down or user removed).
+	// CreatedBy Approver is the assigned approver resolved from the auth service, or null
+	// when no approver is set (e.g. a draft). When set but unresolvable it
+	// degrades to the "Unknown user" label like CreatedBy.
 	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
@@ -292,17 +292,17 @@ type ApimodelsListResourcesResponse struct {
 type ApimodelsMaintenance struct {
 	ActualPeriod *ApimodelsPeriod `json:"actual_period,omitempty"`
 
-	// Approver CreatedBy is the maintenance author resolved from the auth service. Always
-	// present on read (carries the author id); display_name is "Unknown user"
-	// when the profile could not be resolved (auth down or user removed).
+	// Approver Approver is the assigned approver resolved from the auth service, or null
+	// when no approver is set (e.g. a draft). When set but unresolvable it
+	// degrades to the "Unknown user" label like CreatedBy.
 	Approver            *ApimodelsUserSummary             `json:"approver,omitempty"`
 	CancelReason        *ApimodelsMaintenanceCancelReason `json:"cancel_reason,omitempty"`
 	CancelReasonComment *string                           `json:"cancel_reason_comment,omitempty"`
 	CreatedAt           *time.Time                        `json:"created_at,omitempty"`
 
-	// CreatedBy CreatedBy is the maintenance author resolved from the auth service. Always
-	// present on read (carries the author id); display_name is "Unknown user"
-	// when the profile could not be resolved (auth down or user removed).
+	// CreatedBy Approver is the assigned approver resolved from the auth service, or null
+	// when no approver is set (e.g. a draft). When set but unresolvable it
+	// degrades to the "Unknown user" label like CreatedBy.
 	CreatedBy             *ApimodelsUserSummary            `json:"created_by,omitempty"`
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
@@ -380,6 +380,17 @@ type ApimodelsSearchResourcesResponse struct {
 	Resources *[]ApimodelsResource `json:"resources,omitempty"`
 }
 
+// ApimodelsTransport defines model for apimodels.Transport.
+type ApimodelsTransport struct {
+	Id    *string `json:"id,omitempty"`
+	Title *string `json:"title,omitempty"`
+}
+
+// ApimodelsTransportsResponse defines model for apimodels.TransportsResponse.
+type ApimodelsTransportsResponse struct {
+	Transports *[]ApimodelsTransport `json:"transports,omitempty"`
+}
+
 // ApimodelsUpdateDraftMaintRequest defines model for apimodels.UpdateDraftMaintRequest.
 type ApimodelsUpdateDraftMaintRequest struct {
 	ApproverUserId        *openapi_types.UUID              `json:"approver_user_id,omitempty"`
@@ -401,9 +412,9 @@ type ApimodelsUpdateResourceRequest struct {
 	Name        *string `json:"name,omitempty"`
 }
 
-// ApimodelsUserSummary CreatedBy is the maintenance author resolved from the auth service. Always
-// present on read (carries the author id); display_name is "Unknown user"
-// when the profile could not be resolved (auth down or user removed).
+// ApimodelsUserSummary Approver is the assigned approver resolved from the auth service, or null
+// when no approver is set (e.g. a draft). When set but unresolvable it
+// degrades to the "Unknown user" label like CreatedBy.
 type ApimodelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
 	Email       *string             `json:"email,omitempty"`
@@ -418,6 +429,9 @@ type HttperrorsErrorResponse struct {
 
 // UimodelsCalendarEvent defines model for uimodels.CalendarEvent.
 type UimodelsCalendarEvent struct {
+	// CreatedBy CreatedBy is the author resolved from auth; always present (degrades to the
+	// "Unknown user" label when unresolvable). Approver is the assigned approver,
+	// or null when none is set (e.g. a draft).
 	CreatedBy *UimodelsUserSummary       `json:"created_by,omitempty"`
 	End       *string                    `json:"end,omitempty"`
 	Id        *openapi_types.UUID        `json:"id,omitempty"`
@@ -476,25 +490,33 @@ type UimodelsMaintenanceStep struct {
 
 // UimodelsMaintenanceView defines model for uimodels.MaintenanceView.
 type UimodelsMaintenanceView struct {
-	ActualTimeEnd       *time.Time                         `json:"actual_time_end,omitempty"`
-	ActualTimeStart     *time.Time                         `json:"actual_time_start,omitempty"`
-	Approver            *UimodelsUserSummary               `json:"approver,omitempty"`
-	CancelReason        *string                            `json:"cancel_reason,omitempty"`
-	CancelReasonComment *string                            `json:"cancel_reason_comment,omitempty"`
-	CreatedAt           *time.Time                         `json:"created_at,omitempty"`
-	CreatedBy           *UimodelsUserSummary               `json:"created_by,omitempty"`
-	Description         *string                            `json:"description,omitempty"`
-	Id                  *openapi_types.UUID                `json:"id,omitempty"`
-	Impact              *string                            `json:"impact,omitempty"`
-	PlannedTimeEnd      *time.Time                         `json:"planned_time_end,omitempty"`
-	PlannedTimeStart    *time.Time                         `json:"planned_time_start,omitempty"`
-	Resources           *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
-	Revision            *int                               `json:"revision,omitempty"`
-	Scope               *string                            `json:"scope,omitempty"`
-	Status              *UimodelsMaintenanceStatus         `json:"status,omitempty"`
-	Steps               *[]UimodelsMaintenanceStep         `json:"steps,omitempty"`
-	Title               *string                            `json:"title,omitempty"`
-	UpdatedAt           *time.Time                         `json:"updated_at,omitempty"`
+	ActualTimeEnd   *time.Time `json:"actual_time_end,omitempty"`
+	ActualTimeStart *time.Time `json:"actual_time_start,omitempty"`
+
+	// Approver CreatedBy is the author resolved from auth; always present (degrades to the
+	// "Unknown user" label when unresolvable). Approver is the assigned approver,
+	// or null when none is set (e.g. a draft).
+	Approver            *UimodelsUserSummary `json:"approver,omitempty"`
+	CancelReason        *string              `json:"cancel_reason,omitempty"`
+	CancelReasonComment *string              `json:"cancel_reason_comment,omitempty"`
+	CreatedAt           *time.Time           `json:"created_at,omitempty"`
+
+	// CreatedBy CreatedBy is the author resolved from auth; always present (degrades to the
+	// "Unknown user" label when unresolvable). Approver is the assigned approver,
+	// or null when none is set (e.g. a draft).
+	CreatedBy        *UimodelsUserSummary               `json:"created_by,omitempty"`
+	Description      *string                            `json:"description,omitempty"`
+	Id               *openapi_types.UUID                `json:"id,omitempty"`
+	Impact           *string                            `json:"impact,omitempty"`
+	PlannedTimeEnd   *time.Time                         `json:"planned_time_end,omitempty"`
+	PlannedTimeStart *time.Time                         `json:"planned_time_start,omitempty"`
+	Resources        *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
+	Revision         *int                               `json:"revision,omitempty"`
+	Scope            *string                            `json:"scope,omitempty"`
+	Status           *UimodelsMaintenanceStatus         `json:"status,omitempty"`
+	Steps            *[]UimodelsMaintenanceStep         `json:"steps,omitempty"`
+	Title            *string                            `json:"title,omitempty"`
+	UpdatedAt        *time.Time                         `json:"updated_at,omitempty"`
 }
 
 // UimodelsMaintenanceViewResource defines model for uimodels.MaintenanceViewResource.
@@ -510,7 +532,9 @@ type UimodelsMaintenanceViewResponse struct {
 	Maintenance *UimodelsMaintenanceView    `json:"maintenance,omitempty"`
 }
 
-// UimodelsUserSummary defines model for uimodels.UserSummary.
+// UimodelsUserSummary CreatedBy is the author resolved from auth; always present (degrades to the
+// "Unknown user" label when unresolvable). Approver is the assigned approver,
+// or null when none is set (e.g. a draft).
 type UimodelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
 	Email       *string             `json:"email,omitempty"`
@@ -728,6 +752,9 @@ type ClientInterface interface {
 
 	// PostApiV1NotificationsChannelsIdUnarchive request
 	PostApiV1NotificationsChannelsIdUnarchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1NotificationsTransports request
+	GetApiV1NotificationsTransports(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1ResourceCreateWithBody request with any body
 	PostApiV1ResourceCreateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -994,6 +1021,18 @@ func (c *Client) PostApiV1NotificationsChannelsIdArchive(ctx context.Context, id
 
 func (c *Client) PostApiV1NotificationsChannelsIdUnarchive(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1NotificationsChannelsIdUnarchiveRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1NotificationsTransports(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1NotificationsTransportsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1743,6 +1782,33 @@ func NewPostApiV1NotificationsChannelsIdUnarchiveRequest(server string, id opena
 	return req, nil
 }
 
+// NewGetApiV1NotificationsTransportsRequest generates requests for GetApiV1NotificationsTransports
+func NewGetApiV1NotificationsTransportsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/notifications/transports")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostApiV1ResourceCreateRequest calls the generic PostApiV1ResourceCreate builder with application/json body
 func NewPostApiV1ResourceCreateRequest(server string, body PostApiV1ResourceCreateJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2376,6 +2442,9 @@ type ClientWithResponsesInterface interface {
 	// PostApiV1NotificationsChannelsIdUnarchiveWithResponse request
 	PostApiV1NotificationsChannelsIdUnarchiveWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1NotificationsChannelsIdUnarchiveResponse, error)
 
+	// GetApiV1NotificationsTransportsWithResponse request
+	GetApiV1NotificationsTransportsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsTransportsResponse, error)
+
 	// PostApiV1ResourceCreateWithBodyWithResponse request with any body
 	PostApiV1ResourceCreateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1ResourceCreateResponse, error)
 
@@ -2935,6 +3004,38 @@ func (r PostApiV1NotificationsChannelsIdUnarchiveResponse) ContentType() string 
 	return ""
 }
 
+type GetApiV1NotificationsTransportsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsTransportsResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1NotificationsTransportsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1NotificationsTransportsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1NotificationsTransportsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiV1ResourceCreateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3460,6 +3561,15 @@ func (c *ClientWithResponses) PostApiV1NotificationsChannelsIdUnarchiveWithRespo
 		return nil, err
 	}
 	return ParsePostApiV1NotificationsChannelsIdUnarchiveResponse(rsp)
+}
+
+// GetApiV1NotificationsTransportsWithResponse request returning *GetApiV1NotificationsTransportsResponse
+func (c *ClientWithResponses) GetApiV1NotificationsTransportsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1NotificationsTransportsResponse, error) {
+	rsp, err := c.GetApiV1NotificationsTransports(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1NotificationsTransportsResponse(rsp)
 }
 
 // PostApiV1ResourceCreateWithBodyWithResponse request with arbitrary body returning *PostApiV1ResourceCreateResponse
@@ -4470,6 +4580,46 @@ func ParsePostApiV1NotificationsChannelsIdUnarchiveResponse(rsp *http.Response) 
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1NotificationsTransportsResponse parses an HTTP response from a GetApiV1NotificationsTransportsWithResponse call
+func ParseGetApiV1NotificationsTransportsResponse(rsp *http.Response) (*GetApiV1NotificationsTransportsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1NotificationsTransportsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsTransportsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

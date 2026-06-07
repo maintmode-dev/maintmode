@@ -401,6 +401,23 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apimodels.Transport:
+            properties:
+                id:
+                    example: slack
+                    type: string
+                title:
+                    example: Slack
+                    type: string
+            type: object
+        apimodels.TransportsResponse:
+            properties:
+                transports:
+                    items:
+                        $ref: '#/components/schemas/apimodels.Transport'
+                    type: array
+                    uniqueItems: false
+            type: object
         apimodels.UpdateDraftMaintRequest:
             properties:
                 approver_user_id:
@@ -448,9 +465,9 @@ components:
             type: object
         apimodels.UserSummary:
             description: |-
-                CreatedBy is the maintenance author resolved from the auth service. Always
-                present on read (carries the author id); display_name is "Unknown user"
-                when the profile could not be resolved (auth down or user removed).
+                Approver is the assigned approver resolved from the auth service, or null
+                when no approver is set (e.g. a draft). When set but unresolvable it
+                degrades to the "Unknown user" label like CreatedBy.
             properties:
                 display_name:
                     type: string
@@ -651,6 +668,10 @@ components:
                     $ref: '#/components/schemas/uimodels.MaintenanceView'
             type: object
         uimodels.UserSummary:
+            description: |-
+                CreatedBy is the author resolved from auth; always present (degrades to the
+                "Unknown user" label when unresolvable). Approver is the assigned approver,
+                or null when none is set (e.g. a draft).
             properties:
                 display_name:
                     type: string
@@ -1548,6 +1569,39 @@ paths:
             security:
                 - BearerAuth: []
             summary: Unarchive a notification channel
+            tags:
+                - Notifications
+    /api/v1/notifications/transports:
+        get:
+            description: |-
+                Returns the catalog of transports a channel can be created on
+                (slack, telegram, ...). Each entry carries the UX copy the
+                channel-create form needs: title, description and the
+                transport-specific transport_channel_id label, placeholder and
+                helper text. It is a reference catalog available to any
+                authenticated role, not an attestation, so it never returns 403.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.TransportsResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: List supported notification transports
             tags:
                 - Notifications
     /api/v1/resource/{id}:
