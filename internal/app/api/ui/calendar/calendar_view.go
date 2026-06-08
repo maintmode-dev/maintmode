@@ -32,6 +32,7 @@ import (
 // @Param to query string true "End date" Format(date)
 // @Param statuses query []string false "Maintenance statuses" collectionFormat(multi) Enums(draft,planned,in_progress,canceled,completed)
 // @Param resource_ids query []string false "Resource IDs(uuid)" collectionFormat(multi)
+// @Param channel_ids query []string false "Notify channel IDs(uuid)" collectionFormat(multi)
 // @Success 200 {object} uimodels.CalendarViewResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid request"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
@@ -64,6 +65,7 @@ func (i *Implementation) CalendarView(c *echo.Context) error {
 		PeriodTo:    req.To.Time,
 		Statuses:    req.Statuses,
 		ResourceIDs: req.ResourceIDs,
+		ChannelIDs:  req.ChannelIDs,
 	})
 	if err != nil {
 		xlog.Error(ctx, "get maintenances failed", xfield.Error(err))
@@ -106,5 +108,6 @@ func validateListEventsRequest(ctx context.Context, req *uimodels.CalendarViewRe
 		),
 		validation.Field(&req.Statuses, validation.Each(validation.Required)),
 		validation.Field(&req.ResourceIDs, validation.Each(validation.Required)),
+		validation.Field(&req.ChannelIDs, validation.Each(validation.Required)),
 	)
 }

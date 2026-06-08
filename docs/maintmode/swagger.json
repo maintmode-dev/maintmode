@@ -3522,6 +3522,18 @@
                             "type": "array"
                         },
                         "style": "form"
+                    },
+                    {
+                        "description": "Notify channel IDs(uuid)",
+                        "in": "query",
+                        "name": "channel_ids",
+                        "schema": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "style": "form"
                     }
                 ],
                 "responses": {

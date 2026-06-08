@@ -626,6 +626,9 @@ type GetUiV1CalendarParams struct {
 
 	// ResourceIds Resource IDs(uuid)
 	ResourceIds *[]string `form:"resource_ids,omitempty" json:"resource_ids,omitempty"`
+
+	// ChannelIds Notify channel IDs(uuid)
+	ChannelIds *[]string `form:"channel_ids,omitempty" json:"channel_ids,omitempty"`
 }
 
 // GetUiV1CalendarParamsStatuses defines parameters for GetUiV1Calendar.
@@ -2442,6 +2445,18 @@ func NewGetUiV1CalendarRequest(server string, params *GetUiV1CalendarParams) (*h
 		if params.ResourceIds != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_ids", *params.ResourceIds, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ChannelIds != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel_ids", *params.ChannelIds, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {

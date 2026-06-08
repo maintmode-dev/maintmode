@@ -266,3 +266,57 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 
 	return testjsonudils.JSONToAny[*notificationsmodels.Channel](t, rec.Body)
 }
+
+// createTwoStepDraftMaintenance is createDraftMaintenance with a second step,
+// so step-order scenarios (e.g. starting step 2 while step 1 is still pending)
+// can be exercised. Steps come back ordered by step_order ASC, so the response
+// Steps[0]/Steps[1] are order 1/2 respectively.
+func createTwoStepDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementation) *apimodels.CreateDraftMaintResponse {
+	t.Helper()
+
+	notifyChan := makeNotifyChannel(ctx, t)
+	resource := createResource(ctx, t)
+	plannedStart := time.Now().
+		AddDate(100, 0, 0).
+		Add(time.Duration(testMaintenanceIndex.Add(1)) * 2 * time.Hour)
+	req := &apimodels.CreateDraftMaintRequest{
+		Title:        "Test maintenance " + uuid.New().String()[:8],
+		Description:  "Test description",
+		PlannedStart: plannedStart,
+		Scope:        apimodels.MaintenanceScopeResources,
+		Impact:       apimodels.MaintenanceImpactPartial,
+		Resources: []*apimodels.ResourceRef{
+			resource,
+		},
+		Steps: []*apimodels.MaintenanceStepInput{
+			{
+				Order:               1,
+				Description:         "Step 1",
+				RollbackDescription: "Rollback step 1",
+				Duration:            "30m",
+			},
+			{
+				Order:               2,
+				Description:         "Step 2",
+				RollbackDescription: "Rollback step 2",
+				Duration:            "30m",
+			},
+		},
+		NotifyTargets: &apimodels.NotifyTargets{
+			ChannelIDs: []string{notifyChan.ID},
+		},
+		ApproverUserID: uuid.New(),
+	}
+
+	c, rec := echotest.ContextConfig{
+		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
+	}.ToContextRecorder(t)
+	xecho.UserToEchoCtx(c, makeUser(t))
+
+	err := impl.CreateDraftMaint(c)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
+	return &resp
+}

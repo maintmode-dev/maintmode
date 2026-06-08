@@ -1156,7 +1156,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Forbidden step status transition
+                    description: Forbidden step status transition or maintenance not in progress
                 "500":
                     content:
                         application/json:
@@ -1224,7 +1224,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Forbidden step status transition
+                    description: Forbidden step status transition or maintenance not in progress
                 "500":
                     content:
                         application/json:
@@ -1292,7 +1292,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Forbidden step status transition or step order violation
+                    description: Forbidden step status transition or step order violation or maintenance not in progress
                 "500":
                     content:
                         application/json:
@@ -2289,6 +2289,14 @@ paths:
                 - description: Resource IDs(uuid)
                   in: query
                   name: resource_ids
+                  schema:
+                    items:
+                        type: string
+                    type: array
+                  style: form
+                - description: Notify channel IDs(uuid)
+                  in: query
+                  name: channel_ids
                   schema:
                     items:
                         type: string

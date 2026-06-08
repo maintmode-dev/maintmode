@@ -30,6 +30,9 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrNotifyChannelAlreadyExists),
 		errors.Is(err, apperr.ErrNotifyChannelNotFound),
 		errors.Is(err, apperr.ErrStepNotFound),
+		errors.Is(err, apperr.ErrStepOrderViolation),
+		errors.Is(err, apperr.ErrForbiddenStepStatusTransition),
+		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps),
 		errors.Is(err, apperr.ErrInvalidRole):
 		statusCode, errResp = mapError(err)
 	// auth domain errors
@@ -114,9 +117,11 @@ func mapError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrStepNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
+	case errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps):
+		return http.StatusConflict, NewErrorResponse(ErrStepsNotTerminal, err.Error())
+
 	case errors.Is(err, apperr.ErrStepOrderViolation),
-		errors.Is(err, apperr.ErrForbiddenStepStatusTransition),
-		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps):
+		errors.Is(err, apperr.ErrForbiddenStepStatusTransition):
 		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())
 
 	case errors.Is(err, apperr.ErrInvalidRole):

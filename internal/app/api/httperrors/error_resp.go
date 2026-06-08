@@ -21,6 +21,7 @@ var (
 	ErrResourceAlreadyExists        ErrorCode = "resource already exists"
 	ErrNotifyChannelAlreadyExists   ErrorCode = "notify channel already exists"
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
+	ErrStepsNotTerminal             ErrorCode = "steps not terminal"
 	ErrConflict                     ErrorCode = "conflict"
 
 	// Invitation accept codes. The accept endpoint must not leak which

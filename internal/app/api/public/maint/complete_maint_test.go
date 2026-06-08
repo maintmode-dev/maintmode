@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 )
 
@@ -81,5 +82,27 @@ func TestCompleteMaint(t *testing.T) {
 		err := impl.CompleteMaint(c)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, rec.Code)
+	})
+
+	t.Run("cannot complete with unfinished steps", func(t *testing.T) {
+		t.Parallel()
+
+		// Maintenance is in_progress but its step is left non-terminal (pending).
+		// This is a domain precondition failure, not an internal error: it must
+		// surface as 409 with a stable code, never a 500 "internal error".
+		draft := createDraftMaintenance(ctx, t, impl)
+
+		approveMaint(t, impl, draft)
+		startMaint(t, impl, draft)
+
+		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+		c.SetPathValues(echo.PathValues{
+			{Name: "id", Value: draft.ID.String()},
+		})
+
+		err := impl.CompleteMaint(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, rec.Code)
+		require.Contains(t, rec.Body.String(), string(httperrors.ErrStepsNotTerminal))
 	})
 }

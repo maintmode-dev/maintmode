@@ -13,6 +13,7 @@ type GetMaintsFilter struct {
 	PeriodTo    time.Time
 	Statuses    []entity.MaintenanceStatus
 	ResourceIDs []uuid.UUID
+	ChannelIDs  []uuid.UUID
 }
 
 type ConflictQueryCmd entity.ConflictQueryCmd

@@ -25,7 +25,7 @@ import (
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
 // @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition or step order violation"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition or step order violation or maintenance not in progress"
 // @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Security BearerAuth
@@ -67,7 +67,7 @@ func (i *Implementation) StartStep(c *echo.Context) error {
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
 // @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition or maintenance not in progress"
 // @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Security BearerAuth
@@ -109,7 +109,7 @@ func (i *Implementation) CompleteStep(c *echo.Context) error {
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 403 {object} httperrors.ErrorResponse "Forbidden"
 // @Failure 404 {object} httperrors.ErrorResponse "Maintenance or step not found"
-// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition"
+// @Failure 409 {object} httperrors.ErrorResponse "Forbidden step status transition or maintenance not in progress"
 // @Failure 503 {object} httperrors.ErrorResponse "Auth service unavailable"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Security BearerAuth

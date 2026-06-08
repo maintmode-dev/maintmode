@@ -421,6 +421,57 @@ func testNotifyTargets(ctx context.Context, t *testing.T, apiClient *maintmodecl
 	}
 }
 
+// createNotifyChannel always creates a fresh catalog channel and returns
+// its id. Use when a test needs a channel isolated from any other
+// maintenance (e.g. filtering the calendar by a single channel).
+func createNotifyChannel(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
+	t.Helper()
+
+	createResp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
+		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
+			Transport:          lo.ToPtr(string(entity.NotifyTransportSlack)),
+			TransportChannelId: lo.ToPtr("api-test-" + xuuid.NewString()),
+			Name:               lo.ToPtr("API test channel"),
+			Description:        lo.ToPtr("Seeded by API integration tests"),
+		},
+	)
+	require.NoError(t, err, "Failed to create notification channel")
+	require.Equal(t, http.StatusCreated, createResp.StatusCode(), "unexpected status: %s", createResp.Body)
+	require.NotNil(t, createResp.JSON201)
+
+	return lo.FromPtr(createResp.JSON201.Id).String()
+}
+
+// createMaintenanceWithChannel creates a maintenance whose only notify
+// target is the given channel, returning the maintenance id.
+func createMaintenanceWithChannel(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses, channelID string) string {
+	t.Helper()
+
+	resource := creatResource(ctx, t, apiClient)
+	plannedStart := xtime.UTCNow().Add(testMaintenanceStartOffset)
+
+	req := maintmodeclient.PostApiV1MaintenancesCreateJSONRequestBody{
+		Title:        lo.ToPtr("Test Maintenance with Channel"),
+		Description:  lo.ToPtr("Maintenance for testing channel-based filtering"),
+		Impact:       lo.ToPtr(maintmodeclient.MaintenanceImpactNone),
+		Scope:        lo.ToPtr(maintmodeclient.MaintenanceScopeResources),
+		PlannedStart: lo.ToPtr(plannedStart),
+		Resources: lo.ToPtr([]maintmodeclient.ApimodelsResourceRef{
+			{Id: lo.ToPtr(uuid.MustParse(lo.FromPtr(resource.Id)))},
+		}),
+		Steps:          lo.ToPtr(testMaintenanceSteps()),
+		NotifyTargets:  &maintmodeclient.ApimodelsNotifyTargets{ChannelIds: lo.ToPtr([]string{channelID})},
+		ApproverUserId: lo.ToPtr(resolveEligibleApprover(ctx, t, apiClient)),
+	}
+
+	resp, err := apiClient.PostApiV1MaintenancesCreateWithResponse(ctx, req)
+	require.NoError(t, err, "Failed to create maintenance with channel")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+
+	return lo.FromPtr(resp.JSON200.Id).String()
+}
+
 // ensureNotifyChannel returns the id of a catalog channel, creating one
 // via the admin API if the catalog is empty. Channel creation is
 // admin-scoped; the default API test client carries the admin role.
@@ -436,17 +487,5 @@ func ensureNotifyChannel(ctx context.Context, t *testing.T, apiClient *maintmode
 		return lo.FromPtr(channels[0].Id).String()
 	}
 
-	createResp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
-		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
-			Transport:          lo.ToPtr(string(entity.NotifyTransportSlack)),
-			TransportChannelId: lo.ToPtr("api-test-" + xuuid.NewString()),
-			Name:               lo.ToPtr("API test channel"),
-			Description:        lo.ToPtr("Seeded by API integration tests"),
-		},
-	)
-	require.NoError(t, err, "Failed to create notification channel")
-	require.Equal(t, http.StatusCreated, createResp.StatusCode(), "unexpected status: %s", createResp.Body)
-	require.NotNil(t, createResp.JSON201)
-
-	return lo.FromPtr(createResp.JSON201.Id).String()
+	return createNotifyChannel(ctx, t, apiClient)
 }
