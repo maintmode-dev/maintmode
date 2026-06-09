@@ -52,4 +52,24 @@ func TestReplaceRoles(t *testing.T) {
 		})
 		require.ErrorIs(t, err, apperr.ErrUserNotFound)
 	})
+
+	t.Run("self replace is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+
+		user := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
+
+		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
+			Actor:  &entity.User{ID: user.ID},
+			UserID: user.ID,
+			Roles:  []entity.Role{entity.RoleEditor},
+		})
+		require.ErrorIs(t, err, apperr.ErrSelfRevoke)
+
+		// The role set must be untouched after a rejected self-replace.
+		roles, err := srv.GetRoles(ctx, user.ID)
+		require.NoError(t, err)
+		require.ElementsMatch(t, user.Roles, roles)
+	})
 }

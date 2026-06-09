@@ -21,6 +21,13 @@ func (s *Service) RevokeRole(ctx context.Context, cmd *entity.RevokeRoleCmd) err
 		return apperr.ErrInvalidRole
 	}
 
+	// Lockout protection (validated server-side, not just in the UI): an actor
+	// cannot revoke a role from themselves — that is how admins lock themselves
+	// out of the system. Mirrors the self-block guard in BlockUser.
+	if cmd.Actor != nil && cmd.Actor.ID == cmd.UserID {
+		return apperr.ErrSelfRevoke
+	}
+
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		idx := slices.Index(user.Roles, cmd.Role)
 		if idx == -1 {

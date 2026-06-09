@@ -109,6 +109,28 @@ func TestRemoveRole(t *testing.T) {
 	})
 }
 
+// TestRevokeRole_SelfRevokeGuard verifies an actor cannot revoke a role from
+// themselves — the self-lockout vector. Mirrors the self-block guard.
+func TestRevokeRole_SelfRevokeGuard(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	srv := initService(t)
+	user := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
+
+	err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
+		Actor:  &entity.User{ID: user.ID},
+		UserID: user.ID,
+		Role:   entity.RoleEditor,
+	})
+	require.ErrorIs(t, err, apperr.ErrSelfRevoke)
+
+	// The role set must be untouched after a rejected self-revoke.
+	roles, err := srv.GetRoles(ctx, user.ID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, user.Roles, roles)
+}
+
 // TestRevokeRole_LastAdminGuard verifies the last-admin lockout guard rejects
 // revoking the admin role when that user is the only active admin. The active
 // admin count is forced to 1 via initServiceWithAdminCount so the assertion is

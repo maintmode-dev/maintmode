@@ -42,8 +42,9 @@ var (
 // User management lockout protection. Both wrap ErrValidation so the HTTP layer
 // maps them to 400 (see httperrors.ToAPIError).
 var (
-	ErrLastAdmin = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
-	ErrSelfBlock = fmt.Errorf("%w: cannot block yourself", ErrValidation)
+	ErrLastAdmin  = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
+	ErrSelfBlock  = fmt.Errorf("%w: cannot block yourself", ErrValidation)
+	ErrSelfRevoke = fmt.Errorf("%w: cannot revoke a role from yourself", ErrValidation)
 )
 
 // User invitation errors.

@@ -19,6 +19,13 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.ReplaceRoles")
 	defer span.End()
 
+	// Lockout protection (validated server-side, not just in the UI): an actor
+	// cannot replace their own role set — a replace can silently drop their admin
+	// role and lock them out. Mirrors the self-block / self-revoke guards.
+	if cmd.Actor != nil && cmd.Actor.ID == cmd.UserID {
+		return apperr.ErrSelfRevoke
+	}
+
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		newRoles := lo.FilterMap(cmd.Roles, func(item entity.Role, _ int) (entity.Role, bool) {
 			return item, item.Valid(ctx)
