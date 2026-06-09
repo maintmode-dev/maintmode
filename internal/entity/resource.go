@@ -21,5 +21,12 @@ type ResourceDetails struct {
 	ExternalID  *string
 	Status      ResourceStatus
 	CreatedAt   time.Time
-	UpdatedAt   *time.Time
+	// CreatedByUserID is the author (token subject) captured at create time.
+	// Nullable: rows that predate authorship carry no author and degrade to the
+	// "Unknown user" summary on read.
+	CreatedByUserID *uuid.UUID
+	UpdatedAt       *time.Time
+	// UpdatedByUserID is the last editor (token subject), nil until the resource
+	// is first edited.
+	UpdatedByUserID *uuid.UUID
 }

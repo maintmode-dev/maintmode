@@ -55,9 +55,10 @@ func (s *Service) getOrCreate(ctx context.Context, cmd *entity.CreateResourceCmd
 	}
 
 	return s.store.Create(ctx, &entity.ResourceDetails{
-		Name:        cmd.Name,
-		Description: cmd.Description,
-		ExternalID:  cmd.ExternalID,
-		Status:      entity.ResourceStatusActive,
+		Name:            cmd.Name,
+		Description:     cmd.Description,
+		ExternalID:      cmd.ExternalID,
+		Status:          entity.ResourceStatusActive,
+		CreatedByUserID: &cmd.CreatedByUserID,
 	})
 }

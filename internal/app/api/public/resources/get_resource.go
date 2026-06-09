@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // GetResource godoc
@@ -44,5 +45,22 @@ func (i *Implementation) GetResource(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource))
+	// Resolve author/editor profiles from auth in one batch call (degrades to a
+	// labeled summary on failure; never errors the read). ResolveMany dedups and
+	// drops nil ids, so author==editor or an unedited resource are safe.
+	summaries := i.userSummarySrv.ResolveMany(ctx, apimodels.ResourceUserIDs([]*entity.ResourceDetails{resource}))
+
+	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource,
+		lookupSummary(summaries, resource.CreatedByUserID),
+		lookupSummary(summaries, resource.UpdatedByUserID),
+	))
+}
+
+// lookupSummary resolves a (possibly nil) user id against the resolved summary
+// index. A nil id (no author/editor) maps to nil.
+func lookupSummary(summaries map[uuid.UUID]*entity.UserSummary, id *uuid.UUID) *entity.UserSummary {
+	if id == nil {
+		return nil
+	}
+	return summaries[*id]
 }

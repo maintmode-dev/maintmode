@@ -2,6 +2,7 @@ package resourcesapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -12,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // CreateResource godoc
@@ -46,17 +48,35 @@ func (i *Implementation) CreateResource(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	author, ok := xecho.UserFromEchoCtx(c)
+	if !ok {
+		err := fmt.Errorf("author not found")
+		xlog.Error(ctx, "author user not found in echo context", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
+	}
+
 	resource, err := i.resourcesSrv.CreateResource(ctx, &entity.CreateResourceCmd{
-		Name:        req.Name,
-		Description: req.Description,
-		ExternalID:  req.ExternalID,
+		Name:            req.Name,
+		Description:     req.Description,
+		ExternalID:      req.ExternalID,
+		CreatedByUserID: author.ID,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create resource failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource))
+	// CreateResource is get-or-create: on a name clash it returns the existing
+	// resource, whose author/editor may be someone else. Resolve authorship from
+	// the returned row rather than assuming the caller, so an idempotent create
+	// renders the real author. ResolveMany degrades to a labeled summary on auth
+	// failure and never errors the response.
+	summaries := i.userSummarySrv.ResolveMany(ctx, apimodels.ResourceUserIDs([]*entity.ResourceDetails{resource}))
+
+	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource,
+		lookupSummary(summaries, resource.CreatedByUserID),
+		lookupSummary(summaries, resource.UpdatedByUserID),
+	))
 }
 
 func validateCreateResourceRequest(ctx context.Context, req *apimodels.CreateResourceRequest) error {

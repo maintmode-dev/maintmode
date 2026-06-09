@@ -2,6 +2,7 @@ package resourcesapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -9,10 +10,12 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // UpdateResource godoc
@@ -57,18 +60,31 @@ func (i *Implementation) UpdateResource(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	editor, ok := xecho.UserFromEchoCtx(c)
+	if !ok {
+		err := fmt.Errorf("editor not found")
+		xlog.Error(ctx, "editor user not found in echo context", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
+	}
+
 	resource, err := i.resourcesSrv.UpdateResource(ctx, &entity.UpdateResourceCmd{
-		ID:          resourceID,
-		Name:        req.Name,
-		Description: req.Description,
-		ExternalID:  req.ExternalID,
+		ID:              resourceID,
+		Name:            req.Name,
+		Description:     req.Description,
+		ExternalID:      req.ExternalID,
+		UpdatedByUserID: editor.ID,
 	})
 	if err != nil {
 		xlog.Error(ctx, "update resource failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource))
+	// Resolve only the author from auth — the editor is the authenticated caller,
+	// so render its summary directly. ResolveOne degrades to a labeled summary on
+	// failure and never errors the write result.
+	author := i.userSummarySrv.ResolveOne(ctx, lo.FromPtr(resource.CreatedByUserID))
+
+	return c.JSON(http.StatusOK, apimodels.ToAPIResource(resource, author, editor.ToUserSummary()))
 }
 
 func validateUpdateResourceRequest(ctx context.Context, req *apimodels.UpdateResourceRequest) error {

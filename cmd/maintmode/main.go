@@ -87,7 +87,7 @@ func main() {
 			cfg.APIServer,
 			server.APIServerHandlers{
 				Maint:         apimaint.New(services.Maint, services.UserSummary),
-				Resources:     resourcesapi.New(services.Resources),
+				Resources:     resourcesapi.New(services.Resources, services.UserSummary),
 				Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
 				Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary),
 				UserPicker:    userpickerapi.New(services.UserPicker),

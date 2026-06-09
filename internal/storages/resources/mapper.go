@@ -11,25 +11,29 @@ import (
 
 func toDBResource(r *entity.ResourceDetails) *model.Resources {
 	return &model.Resources{
-		ID:          r.ID,
-		Name:        r.Name,
-		Description: r.Description,
-		ExternalID:  r.ExternalID,
-		Status:      string(r.Status),
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		ID:              r.ID,
+		Name:            r.Name,
+		Description:     r.Description,
+		ExternalID:      r.ExternalID,
+		Status:          string(r.Status),
+		CreatedAt:       r.CreatedAt,
+		CreatedByUserID: r.CreatedByUserID,
+		UpdatedAt:       r.UpdatedAt,
+		UpdatedByUserID: r.UpdatedByUserID,
 	}
 }
 
 func fromDBResource(r *model.Resources) *entity.ResourceDetails {
 	return &entity.ResourceDetails{
-		ID:          r.ID,
-		Name:        r.Name,
-		Description: r.Description,
-		ExternalID:  r.ExternalID,
-		Status:      entity.ResourceStatus(r.Status),
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		ID:              r.ID,
+		Name:            r.Name,
+		Description:     r.Description,
+		ExternalID:      r.ExternalID,
+		Status:          entity.ResourceStatus(r.Status),
+		CreatedAt:       r.CreatedAt,
+		CreatedByUserID: r.CreatedByUserID,
+		UpdatedAt:       r.UpdatedAt,
+		UpdatedByUserID: r.UpdatedByUserID,
 	}
 }
 

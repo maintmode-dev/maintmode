@@ -29,13 +29,15 @@ func (s *Store) Update(ctx context.Context, r *entity.ResourceDetails) (*entity.
 
 	// Write only the editable columns. Status is owned by the archive/unarchive
 	// endpoints, so a full MutableColumns write would risk clobbering a
-	// concurrent archive (lost update). CreatedAt is likewise left untouched.
+	// concurrent archive (lost update). CreatedAt / CreatedByUserID are likewise
+	// left untouched so the author survives edits.
 	stmt := table.Resources.
 		UPDATE(
 			table.Resources.Name,
 			table.Resources.Description,
 			table.Resources.ExternalID,
 			table.Resources.UpdatedAt,
+			table.Resources.UpdatedByUserID,
 		).
 		MODEL(resource).
 		WHERE(table.Resources.ID.EQ(postgres.UUID(r.ID))).

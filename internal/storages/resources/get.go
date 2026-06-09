@@ -28,6 +28,21 @@ func (s *Store) GetByID(ctx context.Context, resourceID uuid.UUID) (*entity.Reso
 	return s.get(ctx, stmt)
 }
 
+// GetForUpdate reads a resource and locks the row (SELECT ... FOR UPDATE) so a
+// read-modify-write update is serialized against concurrent writers. Must run
+// inside a transaction.
+func (s *Store) GetForUpdate(ctx context.Context, resourceID uuid.UUID) (*entity.ResourceDetails, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetForUpdate")
+	defer span.End()
+
+	stmt := table.Resources.
+		SELECT(table.Resources.AllColumns).
+		WHERE(table.Resources.ID.EQ(postgres.UUID(resourceID))).
+		FOR(postgres.UPDATE())
+
+	return s.get(ctx, stmt)
+}
+
 func (s *Store) GetByName(ctx context.Context, name string) (*entity.ResourceDetails, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Resources.GetByName")
 	defer span.End()

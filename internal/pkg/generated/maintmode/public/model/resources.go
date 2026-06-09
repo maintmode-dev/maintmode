@@ -13,11 +13,13 @@ import (
 )
 
 type Resources struct {
-	ID          uuid.UUID  `sql:"primary_key" db:"resources.id"`
-	Name        string     `db:"resources.name"`
-	Description string     `db:"resources.description"`
-	ExternalID  *string    `db:"resources.external_id"`
-	CreatedAt   time.Time  `db:"resources.created_at"`
-	UpdatedAt   *time.Time `db:"resources.updated_at"`
-	Status      string     `db:"resources.status"`
+	ID              uuid.UUID  `sql:"primary_key" db:"resources.id"`
+	Name            string     `db:"resources.name"`
+	Description     string     `db:"resources.description"`
+	ExternalID      *string    `db:"resources.external_id"`
+	CreatedAt       time.Time  `db:"resources.created_at"`
+	UpdatedAt       *time.Time `db:"resources.updated_at"`
+	Status          string     `db:"resources.status"`
+	CreatedByUserID *uuid.UUID `db:"resources.created_by_user_id"`
+	UpdatedByUserID *uuid.UUID `db:"resources.updated_by_user_id"`
 }

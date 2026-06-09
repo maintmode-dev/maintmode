@@ -543,6 +543,9 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "created_by": {
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_resources_models.UserSummary"
+                    },
                     "description": {
                         "type": "string"
                     },
@@ -561,8 +564,12 @@
                         "type": "string"
                     },
                     "updated_at": {
+                        "description": "UpdatedAt is null until the resource is first edited.",
                         "format": "date-time",
                         "type": "string"
+                    },
+                    "updated_by": {
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_resources_models.UserSummary"
                     }
                 },
                 "type": "object"
@@ -714,6 +721,22 @@
             },
             "github_com_ruko1202_maintmode_internal_app_api_public_notifytargets_models.UserSummary": {
                 "description": "UpdatedBy is the last editor resolved from the auth service, null until the\nchannel is first edited (degrades to \"Unknown user\" like CreatedBy).",
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "github_com_ruko1202_maintmode_internal_app_api_public_resources_models.UserSummary": {
+                "description": "UpdatedBy is the last editor resolved from the auth service, null until the\nresource is first edited (degrades to \"Unknown user\" like CreatedBy).",
                 "properties": {
                     "display_name": {
                         "type": "string"
@@ -1848,7 +1871,7 @@
                                 }
                             }
                         },
-                        "description": "Forbidden step status transition"
+                        "description": "Forbidden step status transition or maintenance not in progress"
                     },
                     "500": {
                         "content": {
@@ -1959,7 +1982,7 @@
                                 }
                             }
                         },
-                        "description": "Forbidden step status transition"
+                        "description": "Forbidden step status transition or maintenance not in progress"
                     },
                     "500": {
                         "content": {
@@ -2070,7 +2093,7 @@
                                 }
                             }
                         },
-                        "description": "Forbidden step status transition or step order violation"
+                        "description": "Forbidden step status transition or step order violation or maintenance not in progress"
                     },
                     "500": {
                         "content": {

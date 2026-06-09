@@ -17,13 +17,15 @@ type resourcesTable struct {
 	postgres.Table
 
 	// Columns
-	ID          postgres.ColumnString
-	Name        postgres.ColumnString
-	Description postgres.ColumnString
-	ExternalID  postgres.ColumnString
-	CreatedAt   postgres.ColumnTimestampz
-	UpdatedAt   postgres.ColumnTimestampz
-	Status      postgres.ColumnString
+	ID              postgres.ColumnString
+	Name            postgres.ColumnString
+	Description     postgres.ColumnString
+	ExternalID      postgres.ColumnString
+	CreatedAt       postgres.ColumnTimestampz
+	UpdatedAt       postgres.ColumnTimestampz
+	Status          postgres.ColumnString
+	CreatedByUserID postgres.ColumnString
+	UpdatedByUserID postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -65,29 +67,33 @@ func newResourcesTable(schemaName, tableName, alias string) *ResourcesTable {
 
 func newResourcesTableImpl(schemaName, tableName, alias string) resourcesTable {
 	var (
-		IDColumn          = postgres.StringColumn("id")
-		NameColumn        = postgres.StringColumn("name")
-		DescriptionColumn = postgres.StringColumn("description")
-		ExternalIDColumn  = postgres.StringColumn("external_id")
-		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn   = postgres.TimestampzColumn("updated_at")
-		StatusColumn      = postgres.StringColumn("status")
-		allColumns        = postgres.ColumnList{IDColumn, NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn}
-		mutableColumns    = postgres.ColumnList{NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn}
-		defaultColumns    = postgres.ColumnList{IDColumn, CreatedAtColumn}
+		IDColumn              = postgres.StringColumn("id")
+		NameColumn            = postgres.StringColumn("name")
+		DescriptionColumn     = postgres.StringColumn("description")
+		ExternalIDColumn      = postgres.StringColumn("external_id")
+		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
+		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
+		StatusColumn          = postgres.StringColumn("status")
+		CreatedByUserIDColumn = postgres.StringColumn("created_by_user_id")
+		UpdatedByUserIDColumn = postgres.StringColumn("updated_by_user_id")
+		allColumns            = postgres.ColumnList{IDColumn, NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn, CreatedByUserIDColumn, UpdatedByUserIDColumn}
+		mutableColumns        = postgres.ColumnList{NameColumn, DescriptionColumn, ExternalIDColumn, CreatedAtColumn, UpdatedAtColumn, StatusColumn, CreatedByUserIDColumn, UpdatedByUserIDColumn}
+		defaultColumns        = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
 	return resourcesTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:          IDColumn,
-		Name:        NameColumn,
-		Description: DescriptionColumn,
-		ExternalID:  ExternalIDColumn,
-		CreatedAt:   CreatedAtColumn,
-		UpdatedAt:   UpdatedAtColumn,
-		Status:      StatusColumn,
+		ID:              IDColumn,
+		Name:            NameColumn,
+		Description:     DescriptionColumn,
+		ExternalID:      ExternalIDColumn,
+		CreatedAt:       CreatedAtColumn,
+		UpdatedAt:       UpdatedAtColumn,
+		Status:          StatusColumn,
+		CreatedByUserID: CreatedByUserIDColumn,
+		UpdatedByUserID: UpdatedByUserIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

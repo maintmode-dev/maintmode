@@ -215,7 +215,7 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
 
-	impl := resourcesapi.New(services.Resources)
+	impl := resourcesapi.New(services.Resources, services.UserSummary)
 	req := &resourcemodels.CreateResourceRequest{
 		Name:        "test-resource-" + uuid.New().String(),
 		Description: "Test resource",
@@ -225,6 +225,9 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),
 	}.ToContextRecorder(t)
 	c.SetRequest(c.Request().WithContext(ctx))
+	// CreateResource captures the author from the Echo context (set by the auth
+	// middleware in production), so the setup helper must seed a user.
+	xecho.UserToEchoCtx(c, &entity.User{ID: uuid.New(), Name: t.Name(), Email: t.Name() + "@example.com"})
 
 	err := impl.CreateResource(c)
 	require.NoError(t, err)

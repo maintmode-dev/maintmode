@@ -6,14 +6,33 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserSummary is a privacy-safe view of a user (a resource author or editor)
+// exposed in API responses. It mirrors the channel/maintenance UserSummary shape
+// so the FE renders authorship the same way everywhere. A nil *UserSummary
+// serializes as null (unknown/unset author), so clients must handle the null
+// case.
+type UserSummary struct {
+	ID          uuid.UUID `json:"id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+}
+
 type Resource struct {
-	ID          uuid.UUID  `json:"id" example:"550e8400-e29b-41d4-a716-4466554400000"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	ExternalID  *string    `json:"external_id,omitempty"`
-	Status      string     `json:"status" example:"active"`
-	CreatedAt   time.Time  `json:"created_at" format:"date-time"`
-	UpdatedAt   *time.Time `json:"updated_at,omitempty" format:"date-time"`
+	ID          uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-4466554400000"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	ExternalID  *string   `json:"external_id,omitempty"`
+	Status      string    `json:"status" example:"active"`
+	CreatedAt   time.Time `json:"created_at" format:"date-time"`
+	// CreatedBy is the resource author resolved from the auth service. Null for
+	// legacy rows with no recorded author; when the id is set but unresolvable
+	// (auth down or user removed) it degrades to the "Unknown user" label.
+	CreatedBy *UserSummary `json:"created_by"`
+	// UpdatedAt is null until the resource is first edited.
+	UpdatedAt *time.Time `json:"updated_at,omitempty" format:"date-time"`
+	// UpdatedBy is the last editor resolved from the auth service, null until the
+	// resource is first edited (degrades to "Unknown user" like CreatedBy).
+	UpdatedBy *UserSummary `json:"updated_by"`
 }
 
 type CreateResourceRequest struct {

@@ -49,8 +49,12 @@ func (i *Implementation) ListResources(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
+	// Batch-resolve every author/editor id across the page in one auth call
+	// (degrades to "Unknown user" on failure, never errors the read).
+	summaries := i.userSummarySrv.ResolveMany(ctx, apimodels.ResourceUserIDs(result.Resources))
+
 	return c.JSON(http.StatusOK, &apimodels.ListResourcesResponse{
-		Resources: apimodels.ToAPIResources(result.Resources),
+		Resources: apimodels.ToAPIResources(result.Resources, summaries),
 		Total:     result.Total,
 		Limit:     cmd.Limit,
 		Offset:    cmd.Offset,

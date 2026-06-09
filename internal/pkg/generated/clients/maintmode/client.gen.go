@@ -373,13 +373,23 @@ type ApimodelsPeriod struct {
 
 // ApimodelsResource defines model for apimodels.Resource.
 type ApimodelsResource struct {
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
-	Description *string    `json:"description,omitempty"`
-	ExternalId  *string    `json:"external_id,omitempty"`
-	Id          *string    `json:"id,omitempty"`
-	Name        *string    `json:"name,omitempty"`
-	Status      *string    `json:"status,omitempty"`
-	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// CreatedBy UpdatedBy is the last editor resolved from the auth service, null until the
+	// resource is first edited (degrades to "Unknown user" like CreatedBy).
+	CreatedBy   *GithubComRuko1202MaintmodeInternalAppApiPublicResourcesModelsUserSummary `json:"created_by,omitempty"`
+	Description *string                                                                   `json:"description,omitempty"`
+	ExternalId  *string                                                                   `json:"external_id,omitempty"`
+	Id          *string                                                                   `json:"id,omitempty"`
+	Name        *string                                                                   `json:"name,omitempty"`
+	Status      *string                                                                   `json:"status,omitempty"`
+
+	// UpdatedAt UpdatedAt is null until the resource is first edited.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+
+	// UpdatedBy UpdatedBy is the last editor resolved from the auth service, null until the
+	// resource is first edited (degrades to "Unknown user" like CreatedBy).
+	UpdatedBy *GithubComRuko1202MaintmodeInternalAppApiPublicResourcesModelsUserSummary `json:"updated_by,omitempty"`
 }
 
 // ApimodelsResourceRef defines model for apimodels.ResourceRef.
@@ -443,6 +453,14 @@ type GithubComRuko1202MaintmodeInternalAppApiPublicMaintModelsUserSummary struct
 // GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary UpdatedBy is the last editor resolved from the auth service, null until the
 // channel is first edited (degrades to "Unknown user" like CreatedBy).
 type GithubComRuko1202MaintmodeInternalAppApiPublicNotifytargetsModelsUserSummary struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
+// GithubComRuko1202MaintmodeInternalAppApiPublicResourcesModelsUserSummary UpdatedBy is the last editor resolved from the auth service, null until the
+// resource is first edited (degrades to "Unknown user" like CreatedBy).
+type GithubComRuko1202MaintmodeInternalAppApiPublicResourcesModelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
 	Email       *string             `json:"email,omitempty"`
 	Id          *openapi_types.UUID `json:"id,omitempty"`
