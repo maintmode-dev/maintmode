@@ -1,7 +1,7 @@
 environment: dev
 
 app:
-  frontend_url: http://localhost:9000
+  frontend_url: http://localhost:3000
   invitation_ttl: 168h
 
 rbac:
@@ -47,7 +47,7 @@ redis:
   db: 0
 
 oauth_providers:
-  use_stub: false
+  use_stub: true
   stub:
     redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
   google:
@@ -96,19 +96,21 @@ s2s:
 # Invitation emails are delivered through the email transport via the goque
 # outbox. The auth binary runs the messaging.send processor (see task_processor).
 notify_transport:
-  # use_stub=true routes invitation emails to the in-memory stub transport so no
-  # real SMTP credentials are needed in dev.
-  use_stub: true
+  # Dev delivers real SMTP into the MailPit sink (compose service `mailpit`).
+  # Open the inbox at http://localhost:9001/mail/ to read invitation emails. Set
+  # use_stub=true to fall back to the stub.
+  use_stub: false
   email:
-    enabled: false
-    host: ""
-    port: 587
+    enabled: true
+    host: "mailpit"
+    port: 1025
     username: ""
     password: <secret:messengers/email/password>
     from: "noreply@maintmode.local"
     reply_to: ""
     # tls_policy: "mandatory" (default) | "opportunistic" | "none".
-    tls_policy: "mandatory"
+    # MailPit speaks plaintext SMTP on 1025 — no TLS.
+    tls_policy: "none"
     timeout: 10s
 
 task_processor:

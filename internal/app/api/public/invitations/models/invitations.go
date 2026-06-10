@@ -21,23 +21,27 @@ type CreateInvitationResponse struct {
 	Status       string    `json:"status" example:"pending"`
 }
 
-// InvitedBy is the minimal inviter reference shown in the admin list.
-type InvitedBy struct {
-	ID     uuid.UUID `json:"id"`
-	Handle string    `json:"handle" example:"system"`
+// UserSummary is a privacy-safe view of a user (e.g. a maintenance author or
+// assigned approver) exposed in API responses. It carries only what the UI
+// needs to render a name, never internal fields. A nil *UserSummary is
+// serialized as null (unknown/unassigned), so clients must handle the null case.
+type UserSummary struct {
+	ID          uuid.UUID `json:"id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
 }
 
 // Invitation is the admin-view shape (GET /users/invitations). It MAY contain
 // sensitive fields (email, roles, inviter) — this endpoint is admin-only.
 type Invitation struct {
-	ID         uuid.UUID  `json:"id"`
-	Email      string     `json:"email"`
-	Roles      []string   `json:"roles"`
-	InvitedBy  InvitedBy  `json:"invited_by"`
-	SentAt     time.Time  `json:"sent_at" format:"date-time"`
-	ExpiresAt  time.Time  `json:"expires_at" format:"date-time"`
-	Status     string     `json:"status" example:"pending"`
-	AcceptedAt *time.Time `json:"accepted_at,omitempty" format:"date-time"`
+	ID         uuid.UUID    `json:"id"`
+	Email      string       `json:"email"`
+	Roles      []string     `json:"roles"`
+	Inviter    *UserSummary `json:"inviter"`
+	SentAt     time.Time    `json:"sent_at" format:"date-time"`
+	ExpiresAt  time.Time    `json:"expires_at" format:"date-time"`
+	Status     string       `json:"status" example:"pending"`
+	AcceptedAt *time.Time   `json:"accepted_at,omitempty" format:"date-time"`
 }
 
 // ListInvitationsResponse wraps the admin invitations list.

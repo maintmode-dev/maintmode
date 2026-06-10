@@ -10,9 +10,11 @@ package invitation
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -70,6 +72,7 @@ type Service struct {
 	sender         MessageSender
 	ttl            time.Duration
 	frontendURL    string
+	emailMatch     emailMatcherFunc
 }
 
 func NewService(
@@ -86,7 +89,7 @@ func NewService(
 		invitationTTL = defaultInvitationTTL
 	}
 
-	return &Service{
+	s := &Service{
 		txManager:      txManager,
 		store:          store,
 		userSrv:        userSrv,
@@ -95,5 +98,29 @@ func NewService(
 		sender:         sender,
 		ttl:            invitationTTL,
 		frontendURL:    cfg.App.FrontendURL,
+		emailMatch:     emailMatchesIgnoreCase,
 	}
+
+	if cfg.Environment.IsDev() && cfg.OauthProviders.UseStub {
+		s.emailMatch = emailMatchesStub
+	}
+
+	return s
+}
+
+type emailMatcherFunc func(ctx context.Context, email, invited string) bool
+
+func emailMatchesIgnoreCase(ctx context.Context, email, invited string) bool {
+	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesIgnoreCase")
+	defer span.End()
+
+	return strings.EqualFold(strings.ToLower(email), strings.ToLower(invited))
+}
+
+// always true for stub
+func emailMatchesStub(ctx context.Context, _, _ string) bool {
+	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesStub")
+	defer span.End() //nolint: gocritic
+
+	return true
 }

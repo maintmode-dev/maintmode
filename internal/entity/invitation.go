@@ -78,10 +78,10 @@ func (i *Invitation) PreviewStatus(now time.Time) InvitationPreviewStatus {
 }
 
 // InvitationListItem is an admin-view invitation joined with its inviter's
-// display handle, for GET /users/invitations.
+// resolved profile, for GET /users/invitations.
 type InvitationListItem struct {
-	Invitation    *Invitation
-	InviterHandle string
+	Invitation *Invitation
+	Inviter    *UserSummary
 }
 
 // ParseInvitationStatusFilter validates the ?status= list filter. The empty

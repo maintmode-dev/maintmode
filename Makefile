@@ -44,6 +44,11 @@ DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml
 # selective runs (e.g. test-api drops monitoring).
 COMPOSE_PROFILES_FLAGS ?= --profile storages --profile app --profile monitoring
 COMPOSE_PROFILES_STORAGES ?= --profile storages
+# Local app stack = the base profiles plus the dev-only `mail` profile, which
+# brings up the MailPit email sink (inbox at http://localhost:9001/mail/ via
+# Caddy, or http://localhost:8025/mail/ direct). prod-up uses COMPOSE_PROFILES_FLAGS
+# without `mail`, so MailPit never ships to production.
+COMPOSE_PROFILES_FLAGS_APP ?= $(COMPOSE_PROFILES_FLAGS) --profile mail
 
 # -------------------------------------
 # Default target
@@ -409,7 +414,7 @@ app-up: app-down
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS) auth=$(AUTH_REPLICAS)...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} up -d \
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} up -d \
 		--scale maintmode=$(MAINTMODE_REPLICAS) \
 		--scale auth=$(AUTH_REPLICAS) \
 		${args}
@@ -422,7 +427,7 @@ app-up: ## Start all services with maintmode using Docker Compose
 .PHONY: app-down
 app-down: ## Stop and remove all containers
 	$(info $(M) stopping all containers...)
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} down -v --remove-orphans
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} down -v --remove-orphans
 	make app-ps
 
 .PHONY: app-reup
@@ -436,7 +441,7 @@ app-reup: ## Stop and start all containers
 # Useful for debugging application issues
 .PHONY: app-logs
 app-logs: ## Show logs from maintmode container
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} logs -f maintmode
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} logs -f maintmode
 
 # app-ps - Show status of all containers
 # Displays:
@@ -446,7 +451,7 @@ app-logs: ## Show logs from maintmode container
 # Useful for verifying that all services are running
 .PHONY: app-ps
 app-ps: ## Show status of all containers
-	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS} ps -a
+	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} ps -a
 
 # -------------------------------------
 # K6 Load Testing

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -74,7 +73,8 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 
 	// Anti-takeover guard: the account being created must match the invited
 	// email exactly (case-insensitive). No detail is leaked on mismatch.
-	if !strings.EqualFold(claims.Email, inv.Email) {
+
+	if !s.emailMatch(ctx, claims.Email, inv.Email) {
 		xlog.Warn(ctx, "accept: oauth email does not match invitation")
 		return nil, apperr.ErrEmailMismatch
 	}

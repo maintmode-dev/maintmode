@@ -237,26 +237,20 @@ type ApimodelsCreateInvitationResponse struct {
 
 // ApimodelsInvitation defines model for apimodels.Invitation.
 type ApimodelsInvitation struct {
-	AcceptedAt *time.Time          `json:"accepted_at,omitempty"`
-	Email      *string             `json:"email,omitempty"`
-	ExpiresAt  *time.Time          `json:"expires_at,omitempty"`
-	Id         *string             `json:"id,omitempty"`
-	InvitedBy  *ApimodelsInvitedBy `json:"invited_by,omitempty"`
-	Roles      *[]string           `json:"roles,omitempty"`
-	SentAt     *time.Time          `json:"sent_at,omitempty"`
-	Status     *string             `json:"status,omitempty"`
+	AcceptedAt *time.Time                                                                  `json:"accepted_at,omitempty"`
+	Email      *string                                                                     `json:"email,omitempty"`
+	ExpiresAt  *time.Time                                                                  `json:"expires_at,omitempty"`
+	Id         *string                                                                     `json:"id,omitempty"`
+	Inviter    *GithubComRuko1202MaintmodeInternalAppApiPublicInvitationsModelsUserSummary `json:"inviter,omitempty"`
+	Roles      *[]string                                                                   `json:"roles,omitempty"`
+	SentAt     *time.Time                                                                  `json:"sent_at,omitempty"`
+	Status     *string                                                                     `json:"status,omitempty"`
 }
 
 // ApimodelsInvitationPreviewResponse defines model for apimodels.InvitationPreviewResponse.
 type ApimodelsInvitationPreviewResponse struct {
 	Status            *string `json:"status,omitempty"`
 	SuggestedProvider *string `json:"suggested_provider,omitempty"`
-}
-
-// ApimodelsInvitedBy defines model for apimodels.InvitedBy.
-type ApimodelsInvitedBy struct {
-	Handle *string `json:"handle,omitempty"`
-	Id     *string `json:"id,omitempty"`
 }
 
 // ApimodelsListInvitationsResponse defines model for apimodels.ListInvitationsResponse.
@@ -339,6 +333,13 @@ type EntityJWK struct {
 	Use *string `json:"use,omitempty"`
 	X   *string `json:"x,omitempty"`
 	Y   *string `json:"y,omitempty"`
+}
+
+// GithubComRuko1202MaintmodeInternalAppApiPublicInvitationsModelsUserSummary defines model for github_com_ruko1202_maintmode_internal_app_api_public_invitations_models.UserSummary.
+type GithubComRuko1202MaintmodeInternalAppApiPublicInvitationsModelsUserSummary struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
 }
 
 // HttperrorsErrorResponse defines model for httperrors.ErrorResponse.

@@ -55,13 +55,10 @@ func ToAPICreateInvitationResponse(inv *entity.Invitation, now time.Time) *Creat
 func ToAPIInvitation(item *entity.InvitationListItem, now time.Time) *Invitation {
 	inv := item.Invitation
 	return &Invitation{
-		ID:    inv.ID,
-		Email: inv.Email,
-		Roles: toAPIRoleStrings(inv.Roles),
-		InvitedBy: InvitedBy{
-			ID:     inv.InvitedByID,
-			Handle: item.InviterHandle,
-		},
+		ID:         inv.ID,
+		Email:      inv.Email,
+		Roles:      toAPIRoleStrings(inv.Roles),
+		Inviter:    ToAPIUserSummaryFromSummary(item.Inviter),
 		SentAt:     inv.SentAt,
 		ExpiresAt:  inv.ExpiresAt,
 		Status:     string(inv.EffectiveStatus(now)),
@@ -73,4 +70,18 @@ func ToAPIInvitations(items []*entity.InvitationListItem, now time.Time) []*Invi
 	return lo.Map(items, func(item *entity.InvitationListItem, _ int) *Invitation {
 		return ToAPIInvitation(item, now)
 	})
+}
+
+// ToAPIUserSummaryFromSummary maps a resolved domain user summary (from the auth
+// resolver) to its API shape. Nil-safe: a nil summary maps to nil (null).
+func ToAPIUserSummaryFromSummary(u *entity.UserSummary) *UserSummary {
+	if u == nil {
+		return nil
+	}
+
+	return &UserSummary{
+		ID:          u.ID,
+		DisplayName: u.Name,
+		Email:       u.Email,
+	}
 }

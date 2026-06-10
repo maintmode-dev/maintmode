@@ -14,15 +14,16 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-// listRow is the join destination: the invitation plus the inviter's display
-// name (users.name), aliased so jet does not collide it with the invitation's
-// own columns.
+// listRow is the join destination. The embedded UserInvitations soaks up the
+// invitation's own columns; the inviter's resolved profile arrives under the
+// "inviter.*" aliases, which qrm matches via the `alias` struct tag (not `db`).
 type listRow struct {
 	model.UserInvitations
-	InviterHandle string `db:"inviter.handle"`
+	InviterName  string `alias:"inviter.name"`
+	InviterEmail string `alias:"inviter.email"`
 }
 
-// List returns admin-view invitations (with the inviter's handle) filtered by
+// List returns admin-view invitations (with the inviter's profile) filtered by
 // status, ordered by sent_at DESC with id DESC as a stable tie-breaker.
 //
 // The "expired" filter is derived: status='pending' AND expires_at < now. The
@@ -36,7 +37,8 @@ func (s *Store) List(ctx context.Context, cmd *entity.ListInvitationsCmd) ([]*en
 		INNER_JOIN(table.Users, table.Users.ID.EQ(table.UserInvitations.InvitedByID)).
 		SELECT(
 			table.UserInvitations.AllColumns,
-			table.Users.Name.AS("inviter.handle"),
+			table.Users.Name.AS("inviter.name"),
+			table.Users.Email.AS("inviter.email"),
 		).
 		WHERE(listWhereExpr(cmd)).
 		ORDER_BY(
@@ -52,8 +54,12 @@ func (s *Store) List(ctx context.Context, cmd *entity.ListInvitationsCmd) ([]*en
 	return lo.Map(rows, func(r *listRow, _ int) *entity.InvitationListItem {
 		inv := r.UserInvitations
 		return &entity.InvitationListItem{
-			Invitation:    fromDB(&inv),
-			InviterHandle: r.InviterHandle,
+			Invitation: fromDB(&inv),
+			Inviter: &entity.UserSummary{
+				ID:    inv.InvitedByID,
+				Name:  r.InviterName,
+				Email: r.InviterEmail,
+			},
 		}
 	}), nil
 }

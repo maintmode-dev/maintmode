@@ -93,12 +93,14 @@ func createUser(ctx context.Context, t *testing.T, impl *Implementation, apiRole
 		roles = append(roles, r)
 	}
 
+	// The actor must be a different admin than the user being modified: the
+	// self-revoke guard rejects an actor replacing its own role set.
 	err = impl.userSrv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
 		UserID: user.ID,
 		Roles:  roles,
 		Actor: &entity.User{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:    uuid.New(),
+			Email: "seed-admin-" + uuid.NewString() + "@test.local",
 			Roles: []entity.Role{entity.RoleAdmin},
 		},
 	})

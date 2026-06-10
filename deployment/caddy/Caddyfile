@@ -110,6 +110,14 @@
 		}
 	}
 
+	# MailPit inbox (dev only). The mailpit container runs with MP_WEBROOT=mail,
+	# so its UI lives under /mail and serves its own assets from there — proxy
+	# the prefix through unchanged (handle, not handle_path). No app_lb: mailpit
+	# is a single container with no /readiness endpoint.
+	handle /mail/* {
+		reverse_proxy mailpit:8025
+	}
+
 	root * /var/www/html/infra
 	file_server
 }

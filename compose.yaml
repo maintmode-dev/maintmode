@@ -175,6 +175,30 @@ services:
     networks:
       - theapp
 
+  # MailPit — local SMTP sink + web UI for inspecting outgoing email.
+  # The auth binary delivers invitation emails here (see deployment/auth/dev
+  # notify_transport.email: host=mailpit, port=1025, tls_policy=none). Nothing
+  # leaves the host — open the inbox at http://localhost:8025 to read them.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    # Own "mail" profile, not "app": the dev/local stacks opt in (see the
+    # Makefile app targets), while prod-up — which passes storages/app/
+    # monitoring but not mail — never starts this dev-only email sink.
+    profiles: ["mail"]
+    restart: unless-stopped
+    # MP_WEBROOT mounts the UI under /mail so Caddy can reverse-proxy it on
+    # the infra port without rewriting asset paths. Open the inbox at
+    # http://localhost:9001/mail/ (via Caddy) or http://localhost:8025/mail/
+    # (direct). Note the webroot means bare http://localhost:8025/ now 404s.
+    environment:
+      MP_WEBROOT: mail
+    ports:
+      - "8025:8025" # web UI
+      - "1025:1025" # SMTP
+    networks:
+      - theapp
+
   caddy:
     # Custom image: stock caddy:2-alpine lacks the caddy-ratelimit module
     # used by the perimeter rate limit in the Caddyfile. Built via xcaddy

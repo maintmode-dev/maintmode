@@ -248,8 +248,8 @@
                     "id": {
                         "type": "string"
                     },
-                    "invited_by": {
-                        "$ref": "#/components/schemas/apimodels.InvitedBy"
+                    "inviter": {
+                        "$ref": "#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_invitations_models.UserSummary"
                     },
                     "roles": {
                         "items": {
@@ -276,18 +276,6 @@
                         "type": "string"
                     },
                     "suggested_provider": {
-                        "type": "string"
-                    }
-                },
-                "type": "object"
-            },
-            "apimodels.InvitedBy": {
-                "properties": {
-                    "handle": {
-                        "example": "system",
-                        "type": "string"
-                    },
-                    "id": {
                         "type": "string"
                     }
                 },
@@ -525,6 +513,21 @@
                         "type": "string"
                     },
                     "y": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "github_com_ruko1202_maintmode_internal_app_api_public_invitations_models.UserSummary": {
+                "properties": {
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
                         "type": "string"
                     }
                 },
