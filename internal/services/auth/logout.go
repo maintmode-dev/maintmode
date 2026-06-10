@@ -70,7 +70,7 @@ func (s *Service) logout(
 
 	s.auditorSrv.LogLogout(ctx, entity.AuditEventLogoutSuccess, &entity.User{
 		ID:    uuid.MustParse(accessClaims.Subject),
-		Email: accessClaims.Email,
+		Email: accessClaims.UserEmail,
 	}, accessClaims.ID)
 	return nil
 }

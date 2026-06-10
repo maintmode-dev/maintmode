@@ -49,7 +49,7 @@ func TestExchangeIDToken(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, claims.Subject)
 		require.NotEqualValues(t, expClaims.Subject, claims.Subject)
-		require.Equal(t, expClaims.Email, claims.Email)
+		require.Equal(t, expClaims.Email, claims.UserEmail)
 		require.True(t, claims.IssuedAt.After(xtime.UTCNow().Add(-time.Minute)))
 	})
 

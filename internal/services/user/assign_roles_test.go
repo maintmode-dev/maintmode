@@ -15,14 +15,15 @@ func TestAssignRoles(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
+	srv := initService(t)
+	actor := makeUser(ctx, t, srv)
+
 	t.Run("ok single", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv)
 		updated, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{entity.RoleEditor},
 			UserID: user.ID,
 		})
@@ -37,11 +38,9 @@ func TestAssignRoles(t *testing.T) {
 	t.Run("ok multiple in one call", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv)
 		updated, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{entity.RoleEditor, entity.RoleReviewer},
 			UserID: user.ID,
 		})
@@ -53,12 +52,10 @@ func TestAssignRoles(t *testing.T) {
 	t.Run("already assigned is a no-op and returns the user", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv, entity.RoleEditor)
 
 		updated, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{entity.RoleEditor},
 			UserID: user.ID,
 		})
@@ -70,12 +67,10 @@ func TestAssignRoles(t *testing.T) {
 	t.Run("union keeps existing roles", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv, entity.RoleEditor)
 
 		updated, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{entity.RoleReviewer},
 			UserID: user.ID,
 		})
@@ -87,12 +82,10 @@ func TestAssignRoles(t *testing.T) {
 	t.Run("invalid role", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv)
 
 		_, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{"superuser"},
 			UserID: user.ID,
 		})
@@ -102,10 +95,8 @@ func TestAssignRoles(t *testing.T) {
 	t.Run("user not found", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		_, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			Roles:  []entity.Role{entity.RoleAdmin},
 			UserID: uuid.New(),
 		})

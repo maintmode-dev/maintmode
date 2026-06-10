@@ -110,7 +110,7 @@ func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.R
 
 	if uniqRoles := lo.Uniq(roles); len(uniqRoles) > 0 {
 		err = srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
-			Actor:  &entity.User{},
+			Actor:  entity.SystemUser,
 			UserID: created.ID,
 			Roles:  uniqRoles,
 		})

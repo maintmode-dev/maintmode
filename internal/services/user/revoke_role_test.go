@@ -16,15 +16,16 @@ func TestRemoveRole(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
+	srv := initService(t)
+	actor := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
+
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
-
-		srv := initService(t)
 
 		user := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
 
 		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			UserID: user.ID,
 			Role:   entity.RoleEditor,
 		})
@@ -41,12 +42,10 @@ func TestRemoveRole(t *testing.T) {
 	t.Run("not present", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv, entity.RoleEditor)
 
 		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			UserID: user.ID,
 			Role:   entity.RoleAdmin,
 		})
@@ -61,12 +60,10 @@ func TestRemoveRole(t *testing.T) {
 	t.Run("invalid role", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		user := makeUser(ctx, t, srv)
 
 		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			UserID: user.ID,
 			Role:   "superuser",
 		})
@@ -76,10 +73,8 @@ func TestRemoveRole(t *testing.T) {
 	t.Run("user not found", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			UserID: uuid.New(),
 			Role:   entity.RoleAdmin,
 		})
@@ -89,15 +84,13 @@ func TestRemoveRole(t *testing.T) {
 	t.Run("revoking admin from a non-last admin is allowed", func(t *testing.T) {
 		t.Parallel()
 
-		srv := initService(t)
-
 		// Ensure more than one active admin exists so the last-admin guard does
 		// not trip (the shared DB already carries many admins).
 		_ = makeUser(ctx, t, srv, entity.RoleAdmin)
 		user := makeUser(ctx, t, srv, entity.RoleEditor, entity.RoleAdmin)
 
 		err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
-			Actor:  &entity.User{},
+			Actor:  actor,
 			UserID: user.ID,
 			Role:   entity.RoleAdmin,
 		})

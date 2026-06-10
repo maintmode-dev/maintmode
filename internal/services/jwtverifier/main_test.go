@@ -100,8 +100,8 @@ func signTestToken(t *testing.T, key *ecdsa.PrivateKey, kid, issuer string, expi
 	t.Helper()
 
 	claims := entity.AccessClaims{
-		Email: "alice@example.com",
-		Roles: roles,
+		UserEmail: "alice@example.com",
+		UserRoles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewString(),
 			Subject:   uuid.NewString(),

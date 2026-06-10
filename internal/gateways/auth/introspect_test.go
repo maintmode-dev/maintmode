@@ -49,8 +49,8 @@ func TestIntrospect_Active(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(gotBody), &sent))
 	require.Equal(t, "the-access-token", sent.AccessToken)
 
-	require.Equal(t, "alice@e.com", claims.Email)
-	require.ElementsMatch(t, []entity.Role{entity.RoleEditor, entity.RoleAdmin}, claims.Roles)
+	require.Equal(t, "alice@e.com", claims.UserEmail)
+	require.ElementsMatch(t, []entity.Role{entity.RoleEditor, entity.RoleAdmin}, claims.UserRoles)
 	require.Equal(t, "jti-123", claims.ID)
 	require.Equal(t, "user-1", claims.Subject)
 	require.Equal(t, time.Unix(exp, 0), claims.ExpiresAt.Time)

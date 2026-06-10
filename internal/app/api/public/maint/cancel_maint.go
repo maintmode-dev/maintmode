@@ -75,6 +75,5 @@ func (i *Implementation) CancelMaint(c *echo.Context) error {
 func validateCancelRequest(req *apimodels.CancelMaintRequest) error {
 	return validation.ValidateStruct(req,
 		validation.Field(&req.Reason, validation.Required),
-		validation.Field(&req.Comment, validation.Required),
 	)
 }

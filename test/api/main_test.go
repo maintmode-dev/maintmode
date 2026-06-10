@@ -208,8 +208,9 @@ func mustTestAccessTokenForUser(subject string, roles ...entity.Role) string {
 	key := config.JWT{PrivateKey: testAPIJWTPrivateKey}.GeneratePrivateKey()
 	now := xtime.UTCNow()
 	claims := entity.AccessClaims{
-		Email: "api-test@example.com",
-		Roles: roles,
+		UserName:  fmt.Sprintf("api-test-%s", subject),
+		UserEmail: "api-test@example.com",
+		UserRoles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        xuuid.NewString(),
 			Subject:   subject,

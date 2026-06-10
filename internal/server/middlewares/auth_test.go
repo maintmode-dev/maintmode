@@ -27,6 +27,7 @@ func TestRequireAccessToken(t *testing.T) {
 
 	user := &entity.User{
 		ID:    xuuid.New(),
+		Name:  t.Name(),
 		Roles: []entity.Role{entity.RoleEditor},
 		Email: "alice@example.com",
 	}
@@ -95,7 +96,7 @@ func TestRequireAccessToken(t *testing.T) {
 		}, {
 			name:         "missing email claim",
 			authHeader:   "Bearer valid",
-			mutateClaims: func(claims *entity.AccessClaims) { claims.Email = "" },
+			mutateClaims: func(claims *entity.AccessClaims) { claims.UserEmail = "" },
 			prepareMock: func(verifier *mock_middlewares.MockTokenVerifier, claims *entity.AccessClaims) {
 				verifier.EXPECT().
 					VerifyAccessToken(gomock.Any(), gomock.Any()).
@@ -105,7 +106,17 @@ func TestRequireAccessToken(t *testing.T) {
 		}, {
 			name:         "missing roles claim",
 			authHeader:   "Bearer valid",
-			mutateClaims: func(claims *entity.AccessClaims) { claims.Roles = nil },
+			mutateClaims: func(claims *entity.AccessClaims) { claims.UserRoles = nil },
+			prepareMock: func(verifier *mock_middlewares.MockTokenVerifier, claims *entity.AccessClaims) {
+				verifier.EXPECT().
+					VerifyAccessToken(gomock.Any(), gomock.Any()).
+					Return(claims, nil)
+			},
+			expectedStatus: http.StatusUnauthorized,
+		}, {
+			name:         "missing name claim",
+			authHeader:   "Bearer valid",
+			mutateClaims: func(claims *entity.AccessClaims) { claims.UserName = "" },
 			prepareMock: func(verifier *mock_middlewares.MockTokenVerifier, claims *entity.AccessClaims) {
 				verifier.EXPECT().
 					VerifyAccessToken(gomock.Any(), gomock.Any()).
@@ -121,8 +132,9 @@ func TestRequireAccessToken(t *testing.T) {
 			ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 			claims := &entity.AccessClaims{
-				Email: user.Email,
-				Roles: user.Roles,
+				UserName:  user.Name,
+				UserEmail: user.Email,
+				UserRoles: user.Roles,
 				RegisteredClaims: jwt.RegisteredClaims{
 					ID:        xuuid.NewString(),
 					Subject:   user.ID.String(),

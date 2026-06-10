@@ -138,32 +138,5 @@ func TestCancelMaint(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, http.StatusBadRequest, rec.Code)
 		})
-
-		t.Run("missing comment", func(t *testing.T) {
-			t.Parallel()
-
-			draft := createDraftMaintenance(ctx, t, impl)
-
-			cancelReq := &apimodels.CancelMaintRequest{
-				Reason: apimodels.MaintenanceCancelReasonBusinessDecision,
-			}
-
-			c, rec := echotest.ContextConfig{
-				JSONBody: testjsonudils.AnyToJSONBytes(t, cancelReq),
-			}.ToContextRecorder(t)
-			c.SetPathValues(echo.PathValues{
-				{Name: "id", Value: draft.ID.String()},
-			})
-
-			err := impl.CancelMaint(c)
-			require.NoError(t, err)
-			require.Equal(t, http.StatusBadRequest, rec.Code)
-
-			maint := getMaintByID(t, impl, draft.ID)
-			requireMaintStillMatchesDraft(t, draft, maint)
-			require.Equal(t, string(entity.MaintenanceStatusDraft), maint.Status)
-			require.Empty(t, maint.CancelReason)
-			require.Empty(t, maint.CancelReasonComment)
-		})
 	})
 }

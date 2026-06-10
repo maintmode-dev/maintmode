@@ -1,6 +1,7 @@
 package maint
 
 import (
+	"cmp"
 	"context"
 
 	"github.com/ruko1202/xlog"
@@ -34,6 +35,7 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 			return apperr.ErrMaintenanceHasUnfinishedSteps
 		}
 
+		maint.ActualPeriod = cmp.Or(maint.ActualPeriod, &maint.PlannedPeriod)
 		maint.ActualPeriod.End = lo.ToPtr(xtime.UTCNow())
 		maint.Status = entity.MaintenanceStatusCompleted
 		return nil

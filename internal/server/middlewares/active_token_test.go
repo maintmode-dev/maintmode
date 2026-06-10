@@ -25,8 +25,8 @@ func TestRequireActiveToken(t *testing.T) {
 	t.Parallel()
 
 	activeClaims := &entity.AccessClaims{
-		Email: "alice@example.com",
-		Roles: []entity.Role{entity.RoleEditor},
+		UserEmail: "alice@example.com",
+		UserRoles: []entity.Role{entity.RoleEditor},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        xuuid.NewString(),
 			Subject:   xuuid.NewString(),

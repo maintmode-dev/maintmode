@@ -44,8 +44,8 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 		Active:  true,
 		JTI:     claims.ID,
 		Subject: claims.Subject,
-		Email:   claims.Email,
-		Roles:   claims.Roles,
+		Email:   claims.UserEmail,
+		Roles:   claims.UserRoles,
 		Exp:     claims.ExpiresAt.Unix(),
 	}, nil
 }

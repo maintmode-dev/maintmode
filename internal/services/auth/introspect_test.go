@@ -42,9 +42,9 @@ func TestIntrospect(t *testing.T) {
 		require.NotNil(t, claims)
 		require.Equal(t, claims.ID, instrospectResp.JTI)
 		require.Equal(t, claims.Subject, instrospectResp.Subject)
-		require.Equal(t, claims.Email, instrospectResp.Email)
+		require.Equal(t, claims.UserEmail, instrospectResp.Email)
 		require.Equal(t, claims.ExpiresAt.Unix(), instrospectResp.Exp)
-		require.Equal(t, claims.Roles, instrospectResp.Roles)
+		require.Equal(t, claims.UserRoles, instrospectResp.Roles)
 	})
 
 	t.Run("blacklisted", func(t *testing.T) {

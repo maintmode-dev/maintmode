@@ -25,9 +25,9 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
 		require.NoError(t, err)
 		require.Equal(t, user.ID.String(), claims.Subject)
-		require.Equal(t, user.Email, claims.Email)
+		require.Equal(t, user.Email, claims.UserEmail)
 		require.Equal(t, srv.issuer, claims.Issuer)
-		require.Equal(t, user.Roles, claims.Roles)
+		require.Equal(t, user.Roles, claims.UserRoles)
 		require.NotEmpty(t, claims.ID)
 		require.NotNil(t, claims.ExpiresAt)
 		ttl := claims.ExpiresAt.Sub(xtime.UTCNow())
@@ -36,6 +36,30 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 
 		require.NotNil(t, claims.IssuedAt)
 		require.True(t, claims.IssuedAt.After(xtime.UTCNow().Add(-time.Minute)))
+	})
+
+	t.Run("name from user", func(t *testing.T) {
+		user := testUser(t)
+		user.Name = "Alice Liddell"
+
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		require.NoError(t, err)
+
+		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
+		require.NoError(t, err)
+		require.Equal(t, "Alice Liddell", claims.UserName)
+	})
+
+	t.Run("empty name falls back to email", func(t *testing.T) {
+		user := testUser(t)
+		user.Name = ""
+
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		require.NoError(t, err)
+
+		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
+		require.NoError(t, err)
+		require.Equal(t, user.Email, claims.UserName)
 	})
 
 	t.Run("has kid", func(t *testing.T) {

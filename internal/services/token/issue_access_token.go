@@ -1,6 +1,7 @@
 package token
 
 import (
+	"cmp"
 	"context"
 	"time"
 
@@ -17,9 +18,14 @@ func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Dura
 	defer span.End()
 
 	now := s.getNowF()
+
+	// OIDC-провайдеры (напр. Google) не гарантируют claim `name`, а users.name —
+	// NOT NULL DEFAULT ''. Без фолбэка такой юзер получил бы токен с пустым
+	// user_name, который RequireAccessToken зарубит как невалидный (вечный 401).
 	claims := entity.AccessClaims{
-		Email: user.Email,
-		Roles: user.Roles,
+		UserName:  cmp.Or(user.Name, user.Email, "unknown"),
+		UserEmail: user.Email,
+		UserRoles: user.Roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        xuuid.NewString(), // jti — для blacklist при logout
 			Subject:   user.ID.String(),

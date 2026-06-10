@@ -411,8 +411,9 @@
 
             const fields = {
                 'Subject (sub)': payload.sub,
-                'Email': payload.email,
-                'Roles': (payload.roles || []).join(', '),
+                'Name': payload.user_name,
+                'Email': payload.user_email,
+                'Roles': (payload.user_roles || []).join(', '),
                 'JTI': payload.jti,
                 'Issuer': payload.iss,
                 'Issued At': payload.iat ? new Date(payload.iat * 1000).toLocaleString() : '-',

@@ -47,8 +47,8 @@ func fromIntrospectResponse(body *authclient.ApiauthmodelsIntrospectResponse) *e
 	})
 
 	return &entity.AccessClaims{
-		Email: lo.FromPtr(body.Email),
-		Roles: roles,
+		UserEmail: lo.FromPtr(body.Email),
+		UserRoles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        lo.FromPtr(body.Jti),
 			Subject:   lo.FromPtr(body.Sub),

@@ -47,8 +47,8 @@ func TestHandleCallback(t *testing.T) {
 		require.Equal(t, tokenIssuer, claims.Issuer)
 		require.True(t, claims.IssuedAt.After(xtime.UTCNow().Add(-time.Minute)))
 		require.True(t, claims.ExpiresAt.After(xtime.UTCNow().Add(cfg.JWT.AccessTokenTTL-time.Minute)))
-		require.Equal(t, oauthUser.Email, claims.Email)
-		require.Equal(t, append(entity.DefaultRoles, entity.RoleAdmin), claims.Roles)
+		require.Equal(t, oauthUser.Email, claims.UserEmail)
+		require.Equal(t, append(entity.DefaultRoles, entity.RoleAdmin), claims.UserRoles)
 	})
 
 	t.Run("existingUser", func(t *testing.T) {

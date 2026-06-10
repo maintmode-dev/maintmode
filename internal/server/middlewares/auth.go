@@ -60,8 +60,9 @@ func RequireAccessToken(tokenSrv TokenVerifier) echo.MiddlewareFunc {
 func userFromAccessClaims(ctx context.Context, claims *entity.AccessClaims) (*entity.User, error) {
 	err := validation.ValidateStructWithContext(ctx, claims,
 		validation.Field(&claims.Subject, validation.Required, validation.By(xvalidation.UUIDNotNil)),
-		validation.Field(&claims.Email, validation.Required),
-		validation.Field(&claims.Roles, validation.Required, validation.Each(validation.Required)),
+		validation.Field(&claims.UserName, validation.Required),
+		validation.Field(&claims.UserEmail, validation.Required),
+		validation.Field(&claims.UserRoles, validation.Required, validation.Each(validation.Required)),
 	)
 	if err != nil {
 		return nil, err
@@ -74,7 +75,8 @@ func userFromAccessClaims(ctx context.Context, claims *entity.AccessClaims) (*en
 
 	return &entity.User{
 		ID:    userID,
-		Email: claims.Email,
-		Roles: claims.Roles,
+		Name:  claims.UserName,
+		Email: claims.UserEmail,
+		Roles: claims.UserRoles,
 	}, nil
 }

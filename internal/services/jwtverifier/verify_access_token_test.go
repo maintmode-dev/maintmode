@@ -37,8 +37,8 @@ func TestVerifyAccessToken(t *testing.T) {
 
 		claims, err := verifier.VerifyAccessToken(ctx, token)
 		require.NoError(t, err)
-		require.Equal(t, "alice@example.com", claims.Email)
-		require.Equal(t, []entity.Role{entity.RoleEditor}, claims.Roles)
+		require.Equal(t, "alice@example.com", claims.UserEmail)
+		require.Equal(t, []entity.Role{entity.RoleEditor}, claims.UserRoles)
 		require.NotEmpty(t, claims.Subject)
 	})
 
@@ -60,7 +60,7 @@ func TestVerifyAccessToken(t *testing.T) {
 
 		claims, err := verifier.VerifyAccessToken(ctx, token)
 		require.NoError(t, err)
-		require.Equal(t, []entity.Role{entity.RoleReviewer}, claims.Roles)
+		require.Equal(t, []entity.Role{entity.RoleReviewer}, claims.UserRoles)
 		require.GreaterOrEqual(t, state.requests.Load(), int64(2))
 	})
 
