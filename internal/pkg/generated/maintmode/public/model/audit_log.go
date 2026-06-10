@@ -13,13 +13,16 @@ import (
 )
 
 type AuditLog struct {
-	ID         uuid.UUID `sql:"primary_key" db:"audit_log.id"`
-	Action     string    `db:"audit_log.action"`
-	Actor      string    `db:"audit_log.actor"`
-	EntityID   string    `db:"audit_log.entity_id"`
-	EntityType string    `db:"audit_log.entity_type"`
-	TargetID   string    `db:"audit_log.target_id"`
-	TargetType string    `db:"audit_log.target_type"`
-	Details    string    `db:"audit_log.details"`
-	CreatedAt  time.Time `db:"audit_log.created_at"`
+	ID               uuid.UUID `sql:"primary_key" db:"audit_log.id"`
+	Action           string    `db:"audit_log.action"`
+	Actor            string    `db:"audit_log.actor"`
+	EntityID         string    `db:"audit_log.entity_id"`
+	EntityType       string    `db:"audit_log.entity_type"`
+	TargetID         string    `db:"audit_log.target_id"`
+	TargetType       string    `db:"audit_log.target_type"`
+	Details          string    `db:"audit_log.details"`
+	CreatedAt        time.Time `db:"audit_log.created_at"`
+	ActorID          string    `db:"audit_log.actor_id"`
+	ActorDisplayName string    `db:"audit_log.actor_display_name"`
+	Metadata         string    `db:"audit_log.metadata"`
 }

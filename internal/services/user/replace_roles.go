@@ -26,6 +26,7 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 		return apperr.ErrSelfRevoke
 	}
 
+	var oldRoles []entity.Role
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		newRoles := lo.FilterMap(cmd.Roles, func(item entity.Role, _ int) (entity.Role, bool) {
 			return item, item.Valid(ctx)
@@ -35,6 +36,7 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 
 		slices.Sort(user.Roles)
 		slices.Sort(newRoles)
+		oldRoles = slices.Clone(user.Roles)
 
 		if slices.Equal(user.Roles, newRoles) {
 			xlog.Warn(ctx, "roles not changed",
@@ -56,7 +58,11 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 		return err
 	}
 
-	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleReplaced, cmd.Actor, user, cmd.Roles)
+	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleReplaced, cmd.Actor, user, entity.AuditRolesChange{
+		Roles:   user.Roles,
+		Added:   lo.Without(user.Roles, oldRoles...),
+		Removed: lo.Without(oldRoles, user.Roles...),
+	})
 
 	return nil
 }

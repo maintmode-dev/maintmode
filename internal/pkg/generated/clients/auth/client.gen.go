@@ -22,6 +22,24 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
+// Defines values for ApiauthmodelsAuditLogMetadataLogoutKind.
+const (
+	Auto   ApiauthmodelsAuditLogMetadataLogoutKind = "auto"
+	Manual ApiauthmodelsAuditLogMetadataLogoutKind = "manual"
+)
+
+// Valid indicates whether the value is a known member of the ApiauthmodelsAuditLogMetadataLogoutKind enum.
+func (e ApiauthmodelsAuditLogMetadataLogoutKind) Valid() bool {
+	switch e {
+	case Auto:
+		return true
+	case Manual:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApimodelsRole.
 const (
 	RoleAdmin    ApimodelsRole = "admin"
@@ -138,16 +156,50 @@ func (e DeleteApiV1MeProvidersProviderDisconnectParamsProvider) Valid() bool {
 
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.
 type ApiauthmodelsAuditLog struct {
-	Action     *EntityAuditAction `json:"action,omitempty"`
-	Actor      *string            `json:"actor,omitempty"`
-	CreatedAt  *string            `json:"created_at,omitempty"`
-	Details    *string            `json:"details,omitempty"`
-	EntityId   *string            `json:"entity_id,omitempty"`
-	EntityType *string            `json:"entity_type,omitempty"`
-	Id         *string            `json:"id,omitempty"`
-	TargetId   *string            `json:"target_id,omitempty"`
-	TargetType *string            `json:"target_type,omitempty"`
+	Action *EntityAuditAction `json:"action,omitempty"`
+
+	// Actor Actor — email актора (для system-событий — системный email).
+	Actor *string `json:"actor,omitempty"`
+
+	// ActorDisplayName ActorDisplayName — имя актора на момент события (снапшот, не резолвится
+	// заново на чтении). Пуст у записей, созданных до введения поля.
+	ActorDisplayName *string `json:"actor_display_name,omitempty"`
+
+	// ActorId ActorID — стабильный ID актора (user UUID); пуст для system-актора и
+	// неопознанных пользователей (login_failed по неизвестному email).
+	ActorId   *string `json:"actor_id,omitempty"`
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// Details Details — человекочитаемое описание события (legacy/fallback-строка).
+	Details    *string `json:"details,omitempty"`
+	EntityId   *string `json:"entity_id,omitempty"`
+	EntityType *string `json:"entity_type,omitempty"`
+	Id         *string `json:"id,omitempty"`
+
+	// Metadata Metadata — структурированный action-specific payload для expand-грида.
+	Metadata *ApiauthmodelsAuditLogMetadata `json:"metadata,omitempty"`
+
+	// TargetId TargetID — стабильный ID целевой сущности (для user-целей — user UUID).
+	TargetId   *string `json:"target_id,omitempty"`
+	TargetType *string `json:"target_type,omitempty"`
 }
+
+// ApiauthmodelsAuditLogMetadata Metadata — структурированный action-specific payload для expand-грида.
+type ApiauthmodelsAuditLogMetadata struct {
+	FailureReason     *string                                  `json:"failure_reason,omitempty"`
+	Ip                *string                                  `json:"ip,omitempty"`
+	LogoutKind        *ApiauthmodelsAuditLogMetadataLogoutKind `json:"logout_kind,omitempty"`
+	Roles             *[]string                                `json:"roles,omitempty"`
+	RolesAdded        *[]string                                `json:"roles_added,omitempty"`
+	RolesRemoved      *[]string                                `json:"roles_removed,omitempty"`
+	SessionId         *string                                  `json:"session_id,omitempty"`
+	TargetDisplayName *string                                  `json:"target_display_name,omitempty"`
+	TargetEmail       *string                                  `json:"target_email,omitempty"`
+	UserAgent         *string                                  `json:"user_agent,omitempty"`
+}
+
+// ApiauthmodelsAuditLogMetadataLogoutKind defines model for ApiauthmodelsAuditLogMetadata.LogoutKind.
+type ApiauthmodelsAuditLogMetadataLogoutKind string
 
 // ApiauthmodelsAuditLogResponse defines model for apiauthmodels.AuditLogResponse.
 type ApiauthmodelsAuditLogResponse struct {

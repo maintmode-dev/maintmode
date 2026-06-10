@@ -173,12 +173,14 @@ type HandleOAuthCallbackCmd struct {
 	Provider     OAuthProvider
 	CallbackCode string
 	ClientIP     string
+	UserAgent    string
 }
 
 type ExchangeIDTokenCmd struct {
-	Provider OAuthProvider
-	IDToken  string
-	ClientIP string
+	Provider  OAuthProvider
+	IDToken   string
+	ClientIP  string
+	UserAgent string
 }
 
 type ConnectProviderCmd struct {

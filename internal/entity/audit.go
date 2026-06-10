@@ -64,15 +64,53 @@ var (
 //   - EntityID хранится как string (не UUID) — чтобы не ломаться при удалении сущности
 //     и поддерживать разные типы ID (UUID, string name, int).
 type AuditEntry struct {
-	ID         uuid.UUID
-	Action     AuditAction
-	Actor      string          // кто совершил действие
-	EntityType AuditEntityType // тип основной сущности: user, article, role, policy
-	EntityID   string          // ID основной сущности (string, не FK)
-	TargetType AuditEntityType // тип второй сущности (опционально)
-	TargetID   string          // ID второй сущности (опционально)
-	Details    string          // человекочитаемое описание
-	CreatedAt  time.Time
+	ID               uuid.UUID
+	Action           AuditAction
+	Actor            string          // кто совершил действие (email)
+	ActorID          string          // стабильный ID актора (user UUID, string — не FK); пустой для system
+	ActorDisplayName string          // снапшот имени актора на момент события (не резолвится на чтении)
+	EntityType       AuditEntityType // тип основной сущности: user, article, role, policy
+	EntityID         string          // ID основной сущности (string, не FK)
+	TargetType       AuditEntityType // тип второй сущности (опционально)
+	TargetID         string          // ID второй сущности (опционально)
+	Details          string          // человекочитаемое описание
+	Metadata         *AuditMetadata  // структурированный action-specific payload (опционально)
+	CreatedAt        time.Time
+}
+
+// AuditMetadata — структурированный, action-specific payload записи аудита.
+// Строго whitelist безопасных полей: IP, user agent, session id, имена ролей.
+// НИКОГДА не класть сюда токены, куки, секреты или сырые payload'ы (см. RUK-81).
+//
+// Заполненность зависит от action:
+//   - login_success / login_failed: IP, UserAgent, SessionID (+FailureReason для failed);
+//   - logout_success: SessionID, LogoutKind;
+//   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
+//   - replaced: Roles (итоговый набор), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
+//   - blocked / unblocked: TargetEmail, TargetDisplayName.
+type AuditMetadata struct {
+	IP                string   `json:"ip,omitempty"`
+	UserAgent         string   `json:"user_agent,omitempty"`
+	SessionID         string   `json:"session_id,omitempty"`
+	FailureReason     string   `json:"failure_reason,omitempty"`
+	LogoutKind        string   `json:"logout_kind,omitempty"` // auto | manual
+	Roles             []string `json:"roles,omitempty"`
+	RolesAdded        []string `json:"roles_added,omitempty"`
+	RolesRemoved      []string `json:"roles_removed,omitempty"`
+	TargetEmail       string   `json:"target_email,omitempty"`
+	TargetDisplayName string   `json:"target_display_name,omitempty"`
+}
+
+const (
+	AuditLogoutKindManual = "manual"
+	AuditLogoutKindAuto   = "auto"
+)
+
+// AuditRolesChange описывает изменение ролей для аудита.
+type AuditRolesChange struct {
+	Roles   []Role // роли, затронутые действием (assigned/revoked) или итоговый набор (replaced)
+	Added   []Role // только для replaced
+	Removed []Role // только для replaced
 }
 
 // AuditFilter is a read-time filter for audit log entries.

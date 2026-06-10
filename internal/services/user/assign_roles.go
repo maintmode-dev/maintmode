@@ -54,7 +54,7 @@ func (s *Service) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (
 		return nil, err
 	}
 
-	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleAssigned, cmd.Actor, user, added)
+	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleAssigned, cmd.Actor, user, entity.AuditRolesChange{Roles: added})
 
 	return user, nil
 }

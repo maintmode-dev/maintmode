@@ -19,7 +19,7 @@ func (s *Store) AddLog(ctx context.Context, entry *entity.AuditEntry) error {
 				table.AuditLog.CreatedAt,
 			),
 		).
-		MODEL(toDBEntry(entry))
+		MODEL(toDBEntry(ctx, entry))
 
 	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))
 	if err != nil {

@@ -7,12 +7,22 @@
                         "$ref": "#/components/schemas/entity.AuditAction"
                     },
                     "actor": {
+                        "description": "Actor — email актора (для system-событий — системный email).",
+                        "type": "string"
+                    },
+                    "actor_display_name": {
+                        "description": "ActorDisplayName — имя актора на момент события (снапшот, не резолвится\nзаново на чтении). Пуст у записей, созданных до введения поля.",
+                        "type": "string"
+                    },
+                    "actor_id": {
+                        "description": "ActorID — стабильный ID актора (user UUID); пуст для system-актора и\nнеопознанных пользователей (login_failed по неизвестному email).",
                         "type": "string"
                     },
                     "created_at": {
                         "type": "string"
                     },
                     "details": {
+                        "description": "Details — человекочитаемое описание события (legacy/fallback-строка).",
                         "type": "string"
                     },
                     "entity_id": {
@@ -24,10 +34,66 @@
                     "id": {
                         "type": "string"
                     },
+                    "metadata": {
+                        "$ref": "#/components/schemas/apiauthmodels.AuditLogMetadata"
+                    },
                     "target_id": {
+                        "description": "TargetID — стабильный ID целевой сущности (для user-целей — user UUID).",
                         "type": "string"
                     },
                     "target_type": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "apiauthmodels.AuditLogMetadata": {
+                "description": "Metadata — структурированный action-specific payload для expand-грида.",
+                "properties": {
+                    "failure_reason": {
+                        "type": "string"
+                    },
+                    "ip": {
+                        "type": "string"
+                    },
+                    "logout_kind": {
+                        "enum": [
+                            "auto",
+                            "manual"
+                        ],
+                        "type": "string"
+                    },
+                    "roles": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "roles_added": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "roles_removed": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "session_id": {
+                        "type": "string"
+                    },
+                    "target_display_name": {
+                        "type": "string"
+                    },
+                    "target_email": {
+                        "type": "string"
+                    },
+                    "user_agent": {
                         "type": "string"
                     }
                 },
@@ -597,7 +663,7 @@
         },
         "/api/v1/audit/log": {
             "get": {
-                "description": "Returns audit log entries ordered by created_at DESC.\nSupports optional filtering by action, actor, and created_at range, plus offset/limit pagination.",
+                "description": "Returns audit log entries ordered by created_at DESC.\nSupports optional filtering by action, actor, and created_at range, plus offset/limit pagination.\nEach entry carries actor_id / actor_display_name (write-time snapshot), a stable target_id,\nand a structured action-specific metadata object (see AuditLogMetadata for which fields are set per action).",
                 "parameters": [
                     {
                         "description": "Number of entries to return (max 100)",

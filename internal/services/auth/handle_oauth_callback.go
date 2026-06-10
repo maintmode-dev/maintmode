@@ -22,7 +22,11 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
 
-	s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user)
+	s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{
+		IP:        cmd.ClientIP,
+		UserAgent: cmd.UserAgent,
+		SessionID: pair.SessionID.String(),
+	})
 
 	return pair, nil
 }
@@ -39,6 +43,10 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
 			Email: providerUserInfo.Email,
 			Name:  providerUserInfo.Name,
+		}, &entity.AuditMetadata{
+			IP:            cmd.ClientIP,
+			UserAgent:     cmd.UserAgent,
+			FailureReason: auditFailureUserProvisioning,
 		})
 
 		xlog.Error(ctx, "failed to get or create user", xfield.Error(err))
@@ -47,7 +55,11 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
-		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user)
+		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user, &entity.AuditMetadata{
+			IP:            cmd.ClientIP,
+			UserAgent:     cmd.UserAgent,
+			FailureReason: auditFailureTokenIssuance,
+		})
 
 		xlog.Error(ctx, "failed to issue token pair", xfield.Error(err))
 		return nil, nil, fmt.Errorf("issue token pair: %w", err)

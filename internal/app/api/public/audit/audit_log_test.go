@@ -30,7 +30,7 @@ func TestAuditLog(t *testing.T) {
 		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, &entity.User{
 			ID:    xuuid.New(),
 			Email: t.Name() + "@example.com",
-		})
+		}, nil)
 	}
 
 	t.Run("ok", func(t *testing.T) {
@@ -76,6 +76,89 @@ func TestAuditLog(t *testing.T) {
 				require.LessOrEqual(t, len(resp.Logs), tc.maxLogsCount)
 			})
 		}
+	})
+
+	t.Run("structured login entry", func(t *testing.T) {
+		t.Parallel()
+
+		// Email уникален на каждый прогон: тестовая БД общая, и фильтр по actor
+		// не должен цеплять записи предыдущих прогонов (-count 2 в make tloc).
+		user := &entity.User{
+			ID:    xuuid.New(),
+			Email: xuuid.NewString() + "@example.com",
+			Name:  "Audit Tester",
+		}
+		sessionID := xuuid.NewString()
+		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{
+			IP:        "203.0.113.7",
+			UserAgent: "audit-test-agent/1.0",
+			SessionID: sessionID,
+		})
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{"actor": {user.Email}},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		resp := new(apiauthmodels.AuditLogResponse)
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(resp))
+		require.Len(t, resp.Logs, 1)
+
+		log := resp.Logs[0]
+		require.Equal(t, user.Email, log.Actor)
+		require.Equal(t, user.ID.String(), log.ActorID)
+		require.Equal(t, user.Name, log.ActorDisplayName)
+		require.Equal(t, user.ID.String(), log.EntityID)
+		require.NotNil(t, log.Metadata)
+		require.Equal(t, "203.0.113.7", log.Metadata.IP)
+		require.Equal(t, "audit-test-agent/1.0", log.Metadata.UserAgent)
+		require.Equal(t, sessionID, log.Metadata.SessionID)
+	})
+
+	t.Run("structured roles entry", func(t *testing.T) {
+		t.Parallel()
+
+		actor := &entity.User{
+			ID:    xuuid.New(),
+			Email: xuuid.NewString() + "+actor@example.com",
+			Name:  "Roles Admin",
+		}
+		target := &entity.User{
+			ID:    xuuid.New(),
+			Email: xuuid.NewString() + "+target@example.com",
+			Name:  "Roles Target",
+		}
+		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleReplaced, actor, target, entity.AuditRolesChange{
+			Roles:   []entity.Role{entity.RoleEditor},
+			Added:   []entity.Role{entity.RoleEditor},
+			Removed: []entity.Role{entity.RoleAdmin},
+		})
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{"actor": {actor.Email}},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		resp := new(apiauthmodels.AuditLogResponse)
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(resp))
+		require.Len(t, resp.Logs, 1)
+
+		log := resp.Logs[0]
+		require.Equal(t, actor.ID.String(), log.ActorID)
+		require.Equal(t, actor.Name, log.ActorDisplayName)
+		require.Equal(t, target.ID.String(), log.EntityID)
+		require.NotNil(t, log.Metadata)
+		require.Equal(t, []string{string(entity.RoleEditor)}, log.Metadata.Roles)
+		require.Equal(t, []string{string(entity.RoleEditor)}, log.Metadata.RolesAdded)
+		require.Equal(t, []string{string(entity.RoleAdmin)}, log.Metadata.RolesRemoved)
+		require.Equal(t, target.Email, log.Metadata.TargetEmail)
+		require.Equal(t, target.Name, log.Metadata.TargetDisplayName)
 	})
 
 	t.Run("limit is not a digit", func(t *testing.T) {

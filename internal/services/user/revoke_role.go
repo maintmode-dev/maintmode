@@ -58,7 +58,7 @@ func (s *Service) RevokeRole(ctx context.Context, cmd *entity.RevokeRoleCmd) err
 		return err
 	}
 
-	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleRevoked, cmd.Actor, user, []entity.Role{cmd.Role})
+	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleRevoked, cmd.Actor, user, entity.AuditRolesChange{Roles: []entity.Role{cmd.Role}})
 
 	return nil
 }

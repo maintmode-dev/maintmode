@@ -1,6 +1,9 @@
 package entity
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
 
 type AccessClaims struct {
 	Email string `json:"email"`
@@ -37,4 +40,8 @@ type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
 	ExpiresIn    int
+	// SessionID — family выпущенного refresh-токена: стабильный идентификатор
+	// сессии, переживающий ротацию. Заполняется при первичном логине
+	// (IssueTokenPair) и используется аудитом; в API-ответ не попадает.
+	SessionID uuid.UUID
 }

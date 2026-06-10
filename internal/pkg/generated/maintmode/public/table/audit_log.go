@@ -17,15 +17,18 @@ type auditLogTable struct {
 	postgres.Table
 
 	// Columns
-	ID         postgres.ColumnString
-	Action     postgres.ColumnString
-	Actor      postgres.ColumnString
-	EntityID   postgres.ColumnString
-	EntityType postgres.ColumnString
-	TargetID   postgres.ColumnString
-	TargetType postgres.ColumnString
-	Details    postgres.ColumnString
-	CreatedAt  postgres.ColumnTimestampz
+	ID               postgres.ColumnString
+	Action           postgres.ColumnString
+	Actor            postgres.ColumnString
+	EntityID         postgres.ColumnString
+	EntityType       postgres.ColumnString
+	TargetID         postgres.ColumnString
+	TargetType       postgres.ColumnString
+	Details          postgres.ColumnString
+	CreatedAt        postgres.ColumnTimestampz
+	ActorID          postgres.ColumnString
+	ActorDisplayName postgres.ColumnString
+	Metadata         postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -67,33 +70,39 @@ func newAuditLogTable(schemaName, tableName, alias string) *AuditLogTable {
 
 func newAuditLogTableImpl(schemaName, tableName, alias string) auditLogTable {
 	var (
-		IDColumn         = postgres.StringColumn("id")
-		ActionColumn     = postgres.StringColumn("action")
-		ActorColumn      = postgres.StringColumn("actor")
-		EntityIDColumn   = postgres.StringColumn("entity_id")
-		EntityTypeColumn = postgres.StringColumn("entity_type")
-		TargetIDColumn   = postgres.StringColumn("target_id")
-		TargetTypeColumn = postgres.StringColumn("target_type")
-		DetailsColumn    = postgres.StringColumn("details")
-		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
-		allColumns       = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn}
-		mutableColumns   = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn}
-		defaultColumns   = postgres.ColumnList{IDColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn}
+		IDColumn               = postgres.StringColumn("id")
+		ActionColumn           = postgres.StringColumn("action")
+		ActorColumn            = postgres.StringColumn("actor")
+		EntityIDColumn         = postgres.StringColumn("entity_id")
+		EntityTypeColumn       = postgres.StringColumn("entity_type")
+		TargetIDColumn         = postgres.StringColumn("target_id")
+		TargetTypeColumn       = postgres.StringColumn("target_type")
+		DetailsColumn          = postgres.StringColumn("details")
+		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
+		ActorIDColumn          = postgres.StringColumn("actor_id")
+		ActorDisplayNameColumn = postgres.StringColumn("actor_display_name")
+		MetadataColumn         = postgres.StringColumn("metadata")
+		allColumns             = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		mutableColumns         = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		defaultColumns         = postgres.ColumnList{IDColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
 	)
 
 	return auditLogTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:         IDColumn,
-		Action:     ActionColumn,
-		Actor:      ActorColumn,
-		EntityID:   EntityIDColumn,
-		EntityType: EntityTypeColumn,
-		TargetID:   TargetIDColumn,
-		TargetType: TargetTypeColumn,
-		Details:    DetailsColumn,
-		CreatedAt:  CreatedAtColumn,
+		ID:               IDColumn,
+		Action:           ActionColumn,
+		Actor:            ActorColumn,
+		EntityID:         EntityIDColumn,
+		EntityType:       EntityTypeColumn,
+		TargetID:         TargetIDColumn,
+		TargetType:       TargetTypeColumn,
+		Details:          DetailsColumn,
+		CreatedAt:        CreatedAtColumn,
+		ActorID:          ActorIDColumn,
+		ActorDisplayName: ActorDisplayNameColumn,
+		Metadata:         MetadataColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

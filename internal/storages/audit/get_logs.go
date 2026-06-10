@@ -30,7 +30,7 @@ func (s *Store) GetLogs(ctx context.Context, cmd *entity.GetAuditLogsCmd) ([]*en
 	}
 
 	return lo.Map(logs, func(item *model.AuditLog, _ int) *entity.AuditEntry {
-		return fromDBEntry(item)
+		return fromDBEntry(ctx, item)
 	}), nil
 }
 

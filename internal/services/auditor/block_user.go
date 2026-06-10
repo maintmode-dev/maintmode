@@ -17,14 +17,18 @@ func (a *Auditor) LogBlockUser(ctx context.Context, event entity.AuditActionEven
 	defer span.End()
 
 	a.log(ctx, &entity.AuditEntry{
-		ID:         xuuid.New(),
-		Action:     event.Action,
-		Actor:      actor.Email,
-		EntityType: event.EntityType,
-		EntityID:   target.ID.String(),
-		TargetType: event.TargetType,
-		TargetID:   target.Email,
-		Details:    fmt.Sprintf("user %s %s by %s", target.Email, event.Action, actor.Email),
-		CreatedAt:  xtime.UTCNow(),
+		ID:               xuuid.New(),
+		Action:           event.Action,
+		Actor:            actor.Email,
+		ActorID:          actor.ID.String(),
+		ActorDisplayName: actor.Name,
+		EntityType:       event.EntityType,
+		EntityID:         target.ID.String(),
+		Details:          fmt.Sprintf("user %s %s by %s", target.Email, event.Action, actor.Email),
+		Metadata: &entity.AuditMetadata{
+			TargetEmail:       target.Email,
+			TargetDisplayName: target.Name,
+		},
+		CreatedAt: xtime.UTCNow(),
 	})
 }

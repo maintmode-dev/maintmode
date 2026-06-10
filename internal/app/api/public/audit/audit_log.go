@@ -26,6 +26,8 @@ const (
 // @Summary Get audit log
 // @Description Returns audit log entries ordered by created_at DESC.
 // @Description Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
+// @Description Each entry carries actor_id / actor_display_name (write-time snapshot), a stable target_id,
+// @Description and a structured action-specific metadata object (see AuditLogMetadata for which fields are set per action).
 // @Tags Audit
 // @Produce json
 // @Param limit query int false "Number of entries to return (max 100)" default(100)

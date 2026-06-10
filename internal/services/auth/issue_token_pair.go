@@ -27,10 +27,11 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
+	family := xuuid.New()
 	err = s.tokenSrv.SaveRefreshToken(ctx, &entity.RefreshToken{
 		Token:     hashed,
 		UserID:    user.ID,
-		Family:    xuuid.New(),
+		Family:    family,
 		ExpiresAt: s.getNowF().Add(s.cfg.RefreshTokenTTL),
 		BoundIP:   clientIP,
 	})
@@ -43,5 +44,6 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		AccessToken:  accessToken,
 		RefreshToken: raw,
 		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
+		SessionID:    family,
 	}, nil
 }

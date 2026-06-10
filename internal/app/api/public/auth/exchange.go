@@ -44,9 +44,10 @@ func (i *Implementation) exchange(c *echo.Context, provider entity.OAuthProvider
 	}
 
 	cmd := &entity.ExchangeIDTokenCmd{
-		Provider: provider,
-		IDToken:  body.IDToken,
-		ClientIP: c.RealIP(),
+		Provider:  provider,
+		IDToken:   body.IDToken,
+		ClientIP:  c.RealIP(),
+		UserAgent: c.Request().UserAgent(),
 	}
 
 	if err := validateExchangeIDTokenCmd(ctx, cmd); err != nil {

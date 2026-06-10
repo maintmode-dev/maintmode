@@ -110,6 +110,7 @@ func (i *Implementation) oauthCallback(c *echo.Context, provider entity.OAuthPro
 		Provider:     provider,
 		CallbackCode: c.QueryParam("code"),
 		ClientIP:     c.RealIP(),
+		UserAgent:    c.Request().UserAgent(),
 	})
 	if err != nil {
 		xlog.Error(ctx, "authentication failed", xfield.Error(err))

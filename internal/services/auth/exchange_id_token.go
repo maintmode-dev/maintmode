@@ -27,7 +27,11 @@ func (s *Service) ExchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 		return nil, err
 	}
 
-	s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user)
+	s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{
+		IP:        cmd.ClientIP,
+		UserAgent: cmd.UserAgent,
+		SessionID: pair.SessionID.String(),
+	})
 	return pair, nil
 }
 
@@ -51,13 +55,21 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
 			Email: claims.Email,
 			Name:  claims.Name,
+		}, &entity.AuditMetadata{
+			IP:            cmd.ClientIP,
+			UserAgent:     cmd.UserAgent,
+			FailureReason: auditFailureUserProvisioning,
 		})
 		return nil, nil, fmt.Errorf("get or create user: %w", err)
 	}
 
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
-		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user)
+		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user, &entity.AuditMetadata{
+			IP:            cmd.ClientIP,
+			UserAgent:     cmd.UserAgent,
+			FailureReason: auditFailureTokenIssuance,
+		})
 		return nil, nil, fmt.Errorf("issue token pair: %w", err)
 	}
 
