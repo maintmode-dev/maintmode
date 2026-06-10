@@ -1,5 +1,20 @@
 components:
     schemas:
+        apiauthmodels.AuditFacets:
+            properties:
+                all:
+                    example: 123
+                    type: integer
+                auth:
+                    example: 42
+                    type: integer
+                block:
+                    example: 1
+                    type: integer
+                roles:
+                    example: 8
+                    type: integer
+            type: object
         apiauthmodels.AuditLog:
             properties:
                 action:
@@ -74,11 +89,16 @@ components:
             type: object
         apiauthmodels.AuditLogResponse:
             properties:
+                facets:
+                    $ref: '#/components/schemas/apiauthmodels.AuditFacets'
                 logs:
                     items:
                         $ref: '#/components/schemas/apiauthmodels.AuditLog'
                     type: array
                     uniqueItems: false
+                total:
+                    example: 123
+                    type: integer
             type: object
         apiauthmodels.ConnectProviderRequest:
             properties:
@@ -470,7 +490,9 @@ paths:
     /api/v1/audit/log:
         get:
             description: |-
-                Returns audit log entries ordered by created_at DESC.
+                Returns one page of audit log entries ordered by created_at DESC,
+                plus the total count under the current filter and facet counts per
+                category (computed in the actor/date window, without the action filter).
                 Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
                 Each entry carries actor_id / actor_display_name (write-time snapshot), a stable target_id,
                 and a structured action-specific metadata object (see AuditLogMetadata for which fields are set per action).
@@ -487,7 +509,7 @@ paths:
                   schema:
                     default: 0
                     type: integer
-                - description: Filter by audit action (e.g. assigned, revoked, login_success)
+                - description: Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)
                   in: query
                   name: action
                   schema:

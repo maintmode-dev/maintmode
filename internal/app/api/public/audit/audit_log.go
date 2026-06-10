@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -24,7 +25,9 @@ const (
 
 // AuditLog godoc
 // @Summary Get audit log
-// @Description Returns audit log entries ordered by created_at DESC.
+// @Description Returns one page of audit log entries ordered by created_at DESC,
+// @Description plus the total count under the current filter and facet counts per
+// @Description category (computed in the actor/date window, without the action filter).
 // @Description Supports optional filtering by action, actor, and created_at range, plus offset/limit pagination.
 // @Description Each entry carries actor_id / actor_display_name (write-time snapshot), a stable target_id,
 // @Description and a structured action-specific metadata object (see AuditLogMetadata for which fields are set per action).
@@ -32,7 +35,7 @@ const (
 // @Produce json
 // @Param limit query int false "Number of entries to return (max 100)" default(100)
 // @Param offset query int false "Pagination offset" default(0)
-// @Param action query string false "Filter by audit action (e.g. assigned, revoked, login_success)"
+// @Param action query string false "Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)"
 // @Param actor query string false "Filter by actor (exact match)"
 // @Param created_from query string false "Filter by created_at >= this RFC3339 timestamp"
 // @Param created_to query string false "Filter by created_at <= this RFC3339 timestamp"
@@ -54,13 +57,13 @@ func (i *Implementation) AuditLog(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
-	logs, err := i.auditSrv.GetLogs(ctx, cmd)
+	page, err := i.auditSrv.GetLogs(ctx, cmd)
 	if err != nil {
 		xlog.Error(ctx, "get audit log failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apiauthmodels.ToAPIAuditLogResponse(logs))
+	return c.JSON(http.StatusOK, apiauthmodels.ToAPIAuditLogResponse(page))
 }
 
 func queryToGetAuditLogsCmd(ctx context.Context, c *echo.Context) (*entity.GetAuditLogsCmd, error) {
@@ -94,16 +97,42 @@ func queryToGetAuditLogsCmd(ctx context.Context, c *echo.Context) (*entity.GetAu
 		return nil, fmt.Errorf("invalid created_to")
 	}
 
+	actions, err := parseActionsQuery(c.QueryParam("action"))
+	if err != nil {
+		xlog.Error(ctx, "parse action failed", xfield.Error(err))
+		return nil, err
+	}
+
 	return &entity.GetAuditLogsCmd{
 		Limit:  limit,
 		Offset: offset,
 		Filter: &entity.AuditFilter{
 			CreatedFrom: from,
 			CreatedTo:   to,
-			Action:      xlo.ToPtrOrNil(entity.AuditAction(c.QueryParam("action"))),
+			Actions:     actions,
 			Actor:       xlo.ToPtrOrNil(c.QueryParam("actor")),
 		},
 	}, nil
+}
+
+// parseActionsQuery parses the "action" query param as a CSV of audit
+// actions, so one FE category chip can expand into several enum values.
+func parseActionsQuery(actionsQuery string) ([]entity.AuditAction, error) {
+	if actionsQuery == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(actionsQuery, ",")
+	actions := make([]entity.AuditAction, 0, len(parts))
+	for _, part := range parts {
+		action := entity.AuditAction(strings.TrimSpace(part))
+		if !action.IsValid() {
+			return nil, fmt.Errorf("invalid action %q", action)
+		}
+		actions = append(actions, action)
+	}
+
+	return actions, nil
 }
 
 func parseTimeQuery(c *echo.Context, name string) (*time.Time, error) {

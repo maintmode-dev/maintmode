@@ -161,6 +161,109 @@ func TestAuditLog(t *testing.T) {
 		require.Equal(t, target.Name, log.Metadata.TargetDisplayName)
 	})
 
+	t.Run("total and facets with action filter", func(t *testing.T) {
+		t.Parallel()
+
+		// Unique actor isolates this subtest's entries from the shared test DB.
+		actor := xuuid.New().String() + "@example.com"
+		user := &entity.User{ID: xuuid.New(), Email: actor}
+		target := &entity.User{ID: xuuid.New(), Email: "target-" + actor}
+
+		for range 3 {
+			impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{})
+		}
+		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user, &entity.AuditMetadata{})
+		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleAssigned, user, target, entity.AuditRolesChange{
+			Roles: []entity.Role{entity.RoleAdmin},
+		})
+		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleRevoked, user, target, entity.AuditRolesChange{
+			Roles: []entity.Role{entity.RoleAdmin},
+		})
+		impl.auditSrv.LogBlockUser(ctx, entity.AuditEventUserBlocked, user, target)
+
+		wantFacets := apiauthmodels.AuditFacets{All: 7, Auth: 4, Roles: 2, Block: 1}
+
+		for _, tc := range []struct {
+			name        string
+			queryValues url.Values
+			wantLogs    int
+			wantTotal   int64
+		}{
+			{
+				name:        "no action filter",
+				queryValues: url.Values{"actor": {actor}},
+				wantLogs:    7,
+				wantTotal:   7,
+			}, {
+				name:        "single action",
+				queryValues: url.Values{"actor": {actor}, "action": {"assigned"}},
+				wantLogs:    1,
+				wantTotal:   1,
+			}, {
+				name:        "csv actions",
+				queryValues: url.Values{"actor": {actor}, "action": {"login_success,login_failed"}},
+				wantLogs:    4,
+				wantTotal:   4,
+			}, {
+				name:        "csv actions with spaces",
+				queryValues: url.Values{"actor": {actor}, "action": {"assigned, blocked"}},
+				wantLogs:    2,
+				wantTotal:   2,
+			}, {
+				name:        "paginated page keeps full total",
+				queryValues: url.Values{"actor": {actor}, "limit": {"2"}, "offset": {"5"}},
+				wantLogs:    2,
+				wantTotal:   7,
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				c, rec := echotest.ContextConfig{
+					QueryValues: tc.queryValues,
+				}.ToContextRecorder(t)
+
+				err := impl.AuditLog(c)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+				resp := new(apiauthmodels.AuditLogResponse)
+				err = json.NewDecoder(rec.Body).Decode(resp)
+				require.NoError(t, err)
+				require.Len(t, resp.Logs, tc.wantLogs)
+				require.Equal(t, tc.wantTotal, resp.Total)
+				// Facets ignore the action filter: chips keep counts of the
+				// whole actor/date window.
+				require.Equal(t, wantFacets, resp.Facets)
+			})
+		}
+	})
+
+	t.Run("invalid action", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tc := range []struct {
+			name   string
+			action string
+		}{
+			{name: "unknown action", action: "login_success,bogus"},
+			{name: "commas only", action: ", ,"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				c, rec := echotest.ContextConfig{
+					QueryValues: url.Values{"action": {tc.action}},
+				}.ToContextRecorder(t)
+
+				err := impl.AuditLog(c)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+				require.Contains(t, rec.Body.String(), "invalid action")
+			})
+		}
+	})
+
 	t.Run("limit is not a digit", func(t *testing.T) {
 		t.Parallel()
 

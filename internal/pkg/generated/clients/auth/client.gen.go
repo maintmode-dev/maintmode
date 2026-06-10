@@ -154,6 +154,14 @@ func (e DeleteApiV1MeProvidersProviderDisconnectParamsProvider) Valid() bool {
 	}
 }
 
+// ApiauthmodelsAuditFacets defines model for apiauthmodels.AuditFacets.
+type ApiauthmodelsAuditFacets struct {
+	All   *int `json:"all,omitempty"`
+	Auth  *int `json:"auth,omitempty"`
+	Block *int `json:"block,omitempty"`
+	Roles *int `json:"roles,omitempty"`
+}
+
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.
 type ApiauthmodelsAuditLog struct {
 	Action *EntityAuditAction `json:"action,omitempty"`
@@ -203,7 +211,9 @@ type ApiauthmodelsAuditLogMetadataLogoutKind string
 
 // ApiauthmodelsAuditLogResponse defines model for apiauthmodels.AuditLogResponse.
 type ApiauthmodelsAuditLogResponse struct {
-	Logs *[]ApiauthmodelsAuditLog `json:"logs,omitempty"`
+	Facets *ApiauthmodelsAuditFacets `json:"facets,omitempty"`
+	Logs   *[]ApiauthmodelsAuditLog  `json:"logs,omitempty"`
+	Total  *int                      `json:"total,omitempty"`
 }
 
 // ApiauthmodelsConnectProviderRequest defines model for apiauthmodels.ConnectProviderRequest.
@@ -411,7 +421,7 @@ type GetApiV1AuditLogParams struct {
 	// Offset Pagination offset
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 
-	// Action Filter by audit action (e.g. assigned, revoked, login_success)
+	// Action Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)
 	Action *string `form:"action,omitempty" json:"action,omitempty"`
 
 	// Actor Filter by actor (exact match)

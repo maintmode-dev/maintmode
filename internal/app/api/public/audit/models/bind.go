@@ -40,10 +40,17 @@ func toAPIAuditLogMetadata(m *entity.AuditMetadata) *AuditLogMetadata {
 		TargetDisplayName: m.TargetDisplayName,
 	}
 }
-func ToAPIAuditLogResponse(logs []*entity.AuditEntry) *AuditLogResponse {
+func ToAPIAuditLogResponse(page *entity.AuditLogsPage) *AuditLogResponse {
 	return &AuditLogResponse{
-		Logs: lo.Map(logs, func(log *entity.AuditEntry, _ int) *AuditLog {
+		Logs: lo.Map(page.Logs, func(log *entity.AuditEntry, _ int) *AuditLog {
 			return ToAPIAuditLog(log)
 		}),
+		Total: page.Total,
+		Facets: AuditFacets{
+			All:   page.Facets.All,
+			Auth:  page.Facets.Auth,
+			Roles: page.Facets.Roles,
+			Block: page.Facets.Block,
+		},
 	}
 }

@@ -51,6 +51,17 @@ type AuditLogMetadata struct {
 	TargetDisplayName string   `json:"target_display_name,omitempty"`
 }
 
+// AuditFacets carries per-category entry counts computed in the current
+// actor/date filter window (without the action filter).
+type AuditFacets struct {
+	All   int64 `json:"all" example:"123"`
+	Auth  int64 `json:"auth" example:"42"`
+	Roles int64 `json:"roles" example:"8"`
+	Block int64 `json:"block" example:"1"`
+}
+
 type AuditLogResponse struct {
-	Logs []*AuditLog `json:"logs,omitempty"`
+	Logs   []*AuditLog `json:"logs"`
+	Total  int64       `json:"total" example:"123"`
+	Facets AuditFacets `json:"facets"`
 }

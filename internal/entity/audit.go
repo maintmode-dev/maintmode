@@ -22,6 +22,22 @@ const (
 	AuditActionUserUnblocked AuditAction = "unblocked"
 )
 
+func (a AuditAction) IsValid() bool {
+	switch a {
+	case AuditActionLoginSuccess,
+		AuditActionLoginFailed,
+		AuditActionLogoutSuccess,
+		AuditActionRoleAssigned,
+		AuditActionRoleRevoked,
+		AuditActionRolesReplaced,
+		AuditActionUserBlocked,
+		AuditActionUserUnblocked:
+		return true
+	default:
+		return false
+	}
+}
+
 type AuditEntityType string
 
 const (
@@ -113,11 +129,72 @@ type AuditRolesChange struct {
 	Removed []Role // только для replaced
 }
 
+// AuditCategory groups audit actions into the FE filter chips
+// (Auth / Roles / Block). The category -> actions mapping is owned by the
+// backend so facet counts and category expansion stay consistent.
+type AuditCategory string
+
+const (
+	AuditCategoryAuth  AuditCategory = "auth"
+	AuditCategoryRoles AuditCategory = "roles"
+	AuditCategoryBlock AuditCategory = "block"
+)
+
+var auditActionCategories = map[AuditAction]AuditCategory{
+	AuditActionLoginSuccess:  AuditCategoryAuth,
+	AuditActionLoginFailed:   AuditCategoryAuth,
+	AuditActionLogoutSuccess: AuditCategoryAuth,
+
+	AuditActionRoleAssigned:  AuditCategoryRoles,
+	AuditActionRoleRevoked:   AuditCategoryRoles,
+	AuditActionRolesReplaced: AuditCategoryRoles,
+
+	AuditActionUserBlocked:   AuditCategoryBlock,
+	AuditActionUserUnblocked: AuditCategoryBlock,
+}
+
+// AuditActionCategory returns the facet category of action.
+// ok is false for actions outside the known set.
+func AuditActionCategory(action AuditAction) (AuditCategory, bool) {
+	category, ok := auditActionCategories[action]
+	return category, ok
+}
+
 // AuditFilter is a read-time filter for audit log entries.
-// All fields are optional; a nil pointer means "do not filter by this field".
+// All fields are optional; a nil pointer / empty slice means
+// "do not filter by this field".
 type AuditFilter struct {
-	Action      *AuditAction
+	Actions     []AuditAction
 	Actor       *string
 	CreatedFrom *time.Time
 	CreatedTo   *time.Time
+}
+
+// WithoutActions returns a copy of the filter with the action filter dropped.
+// Facet counts are computed in the actor/date window regardless of the
+// selected category, so the chips keep wayfinding numbers.
+func (f *AuditFilter) WithoutActions() *AuditFilter {
+	if f == nil {
+		return nil
+	}
+	clone := *f
+	clone.Actions = nil
+	return &clone
+}
+
+// AuditFacets carries per-category entry counts within the current
+// actor/date filter window. All is the count across every action.
+type AuditFacets struct {
+	All   int64
+	Auth  int64
+	Roles int64
+	Block int64
+}
+
+// AuditLogsPage is one page of audit log entries plus pagination/facet
+// metadata computed under the same filter.
+type AuditLogsPage struct {
+	Logs   []*AuditEntry
+	Total  int64
+	Facets AuditFacets
 }
