@@ -94,6 +94,7 @@ func NewServices(ctx context.Context,
 		Calendar: calendar.NewService(
 			stores.Maintenances,
 			stores.Resources,
+			stores.NotifyTargets,
 			conflictsService,
 		),
 		Resources: resourcesSrv.NewService(

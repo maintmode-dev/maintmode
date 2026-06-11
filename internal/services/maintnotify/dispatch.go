@@ -24,13 +24,13 @@ import (
 // a tx. dispatchSync inherits that guard transitively.
 func (n *Service) dispatchSync(ctx context.Context, event entity.NotifyEvent) error {
 	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
-		return n.sender.Send(ctx, target.Transport, target.ChannelID, msg)
+		return n.sender.Send(ctx, target.Transport, target.TransportChannelID, msg)
 	})
 }
 
 func (n *Service) dispatchAsync(ctx context.Context, event entity.NotifyEvent) error {
 	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
-		return n.sender.SendAsync(ctx, entity.ProcessorTaskMessagingSend, target.Transport, target.ChannelID, msg,
+		return n.sender.SendAsync(ctx, entity.ProcessorTaskMessagingSend, target.Transport, target.TransportChannelID, msg,
 			idempotencyKey(event, target),
 		)
 	})
@@ -69,7 +69,8 @@ func (n *Service) dispatch(
 		if err := senderF(ctx, msg, notifyTarget); err != nil {
 			xlog.Error(ctx, "notification delivery failed",
 				xfield.String("transport", string(notifyTarget.Transport)),
-				xfield.String("channel", notifyTarget.ChannelID),
+				xfield.String("channel_id", notifyTarget.ChannelID.String()),
+				xfield.String("channel", notifyTarget.TransportChannelID),
 				xfield.Error(err))
 		}
 	}
@@ -92,10 +93,12 @@ func (n *Service) fillEvent(evt entity.NotifyEvent) entity.NotifyEvent {
 }
 
 // idempotencyKey makes goque's unique (type, external_id) index collapse
-// retries of the same (event, maint, step, route) tuple.
-func idempotencyKey(evt entity.NotifyEvent, targets *entity.NotifyTarget) string {
+// retries of the same (event, maint, step, channel) tuple. Keyed by the
+// catalog channel uuid — not the delivery address — so editing a channel's
+// transport_channel_id between retries cannot double-send the same event.
+func idempotencyKey(evt entity.NotifyEvent, target *entity.NotifyTarget) string {
 	return xhash.HashSha256(fmt.Appendf(nil,
-		"maint|%s|%s|%s|%s|%s",
-		evt.Kind, evt.MaintID, evt.StepID, targets.Transport, targets.ChannelID,
+		"maint|%s|%s|%s|%s",
+		evt.Kind, evt.MaintID, evt.StepID, target.ChannelID,
 	))
 }

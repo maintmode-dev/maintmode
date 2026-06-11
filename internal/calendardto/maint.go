@@ -13,6 +13,15 @@ type MaintenanceResource struct {
 	Name string
 }
 
+// MaintenanceNotifyTarget is one notify channel of the maintenance view: the
+// catalog channel's id + name with its transport, resolved from the channel
+// catalog (targets reference channels by FK).
+type MaintenanceNotifyTarget struct {
+	ID        uuid.UUID
+	Name      string
+	Transport entity.NotifyTransport
+}
+
 type MaintenanceStep struct {
 	ID                  uuid.UUID
 	Order               int32
@@ -40,6 +49,7 @@ type Maintenance struct {
 	CreatedByUserID     uuid.UUID
 	ApproverUserID      uuid.UUID
 	Steps               []*MaintenanceStep
+	NotifyTargets       []*MaintenanceNotifyTarget
 }
 
 type MaintenancesMeta struct {

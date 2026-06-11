@@ -15,6 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
+	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
@@ -50,12 +51,28 @@ func makeMaint(ctx context.Context, t *testing.T) *entity.Maintenance {
 	return maint
 }
 
+// makeChannel seeds one catalog channel. Targets reference channels by FK, so
+// every target a test creates needs a real catalog row.
+func makeChannel(ctx context.Context, t *testing.T, transport entity.NotifyTransport) *entity.NotifyChannel {
+	t.Helper()
+
+	channel, err := notifychannel.NewStore(db).Create(ctx, &entity.NotifyChannel{
+		Transport:          transport,
+		TransportChannelID: t.Name() + "-" + uuid.NewString(),
+		Name:               "chan-" + uuid.NewString(),
+		Description:        "test channel",
+	})
+	require.NoError(t, err)
+
+	return channel
+}
+
 func makeNotifyTargets(ctx context.Context, t *testing.T, store *Store, maintID uuid.UUID) []*entity.NotifyTarget {
 	t.Helper()
 
 	notifyTargets, err := store.CreateMany(ctx, maintID, []*entity.NotifyTarget{
-		{Transport: entity.NotifyTransportSlack, ChannelID: t.Name() + uuid.NewString()},
-		{Transport: entity.NotifyTransportTelegram, ChannelID: t.Name() + uuid.NewString()},
+		{ChannelID: makeChannel(ctx, t, entity.NotifyTransportSlack).ID},
+		{ChannelID: makeChannel(ctx, t, entity.NotifyTransportTelegram).ID},
 	})
 	require.NoError(t, err)
 

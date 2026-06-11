@@ -17,6 +17,15 @@ type MaintenanceViewResource struct {
 	Name string    `json:"name"`
 }
 
+// NotifyTargetView is one notify-channel chip of the maintenance view: the
+// catalog channel's uuid and human name plus the delivery transport, resolved
+// from the channel catalog (targets reference channels by FK).
+type NotifyTargetView struct {
+	ID        uuid.UUID `json:"id" format:"uuid"`
+	Name      string    `json:"name" example:"Platform alerts"`
+	Transport string    `json:"transport" example:"slack"`
+}
+
 type MaintenanceStep struct {
 	ID                  uuid.UUID `json:"id" format:"uuid"`
 	Order               int32     `json:"order"`
@@ -61,6 +70,9 @@ type MaintenanceView struct {
 	CreatedBy *UserSummary       `json:"created_by"`
 	Approver  *UserSummary       `json:"approver"`
 	Steps     []*MaintenanceStep `json:"steps"`
+	// NotifyTargets lists the maintenance's notify channels resolved from the
+	// catalog, for the read-only Notify channels section (transport glyph + name).
+	NotifyTargets []*NotifyTargetView `json:"notify_targets"`
 }
 
 type ConflictView struct {

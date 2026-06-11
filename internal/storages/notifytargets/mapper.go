@@ -10,16 +10,17 @@ import (
 func toDB(maintID uuid.UUID, sub *entity.NotifyTarget) *model.MaintenanceNotifyTargets {
 	return &model.MaintenanceNotifyTargets{
 		MaintenanceID: maintID,
-		Transport:     string(sub.Transport),
 		ChannelID:     sub.ChannelID,
 	}
 }
 
+// fromDB maps the persisted columns only; the catalog-resolved fields
+// (Transport, TransportChannelID, ChannelName) are filled by read paths that
+// join the catalog (ListByMaint).
 func fromDB(m *model.MaintenanceNotifyTargets) *entity.NotifyTarget {
 	return &entity.NotifyTarget{
 		ID:        m.ID,
 		MaintID:   m.MaintenanceID,
-		Transport: entity.NotifyTransport(m.Transport),
 		ChannelID: m.ChannelID,
 		CreatedAt: m.CreatedAt,
 	}

@@ -34,6 +34,12 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		return nil, err
 	}
 
+	notifyTargets, err := s.notifyTargetsStore.ListByMaint(ctx, maint.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to get maint notify targets", xfield.Error(err))
+		return nil, err
+	}
+
 	return &calendardto.Maintenance{
 		ID:                  maint.ID,
 		Title:               maint.Title,
@@ -59,6 +65,13 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 				RollbackDescription: item.RollbackDescription,
 				DurationMinutes:     item.DurationMinutes,
 				Status:              item.Status,
+			}
+		}),
+		NotifyTargets: lo.Map(notifyTargets, func(item *entity.NotifyTarget, _ int) *calendardto.MaintenanceNotifyTarget {
+			return &calendardto.MaintenanceNotifyTarget{
+				ID:        item.ChannelID,
+				Name:      item.ChannelName,
+				Transport: item.Transport,
 			}
 		}),
 	}, nil

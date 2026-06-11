@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	"github.com/ruko1202/maintmode/internal/entity"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
 
@@ -45,6 +47,18 @@ func TestGetMaint(t *testing.T) {
 		require.NotNil(t, resp.CreatedBy)
 		require.Equal(t, draft.CreatedBy.ID, resp.CreatedBy.ID)
 		require.NotEmpty(t, resp.CreatedBy.DisplayName)
+
+		// notify_targets carries the catalog-resolved chips (id + name +
+		// transport) for the read-only Notify channels section. The id is the
+		// catalog channel uuid the draft was created with (round-trip with the
+		// create request's channel_ids); the draft used one telegram channel
+		// named after the test (see makeNotifyChannel).
+		require.Len(t, resp.NotifyTargets, 1)
+		require.Len(t, draft.NotifyTargets.ChannelIDs, 1)
+		require.Equal(t, draft.NotifyTargets.ChannelIDs[0], resp.NotifyTargets[0].ID.String())
+		require.NotEqual(t, uuid.Nil, resp.NotifyTargets[0].ID)
+		require.Equal(t, t.Name(), resp.NotifyTargets[0].Name)
+		require.Equal(t, string(entity.NotifyTransportTelegram), resp.NotifyTargets[0].Transport)
 	})
 
 	t.Run("invalid uuid", func(t *testing.T) {

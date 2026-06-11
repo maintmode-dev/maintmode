@@ -66,6 +66,13 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance, author, approver 
 		CreatedBy:           ToAPIUserSummary(author),
 		Approver:            ToAPIUserSummary(approver),
 		Steps:               toAPISteps(maintEvent),
+		NotifyTargets: lo.Map(maintEvent.NotifyTargets, func(item *calendardto.MaintenanceNotifyTarget, _ int) *NotifyTargetView {
+			return &NotifyTargetView{
+				ID:        item.ID,
+				Name:      item.Name,
+				Transport: string(item.Transport),
+			}
+		}),
 	}
 
 	if maintEvent.ActualPeriod != nil {

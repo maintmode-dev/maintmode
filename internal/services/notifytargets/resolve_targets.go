@@ -38,9 +38,11 @@ func (s *Service) ResolveNotifyTarget(ctx context.Context, maintID uuid.UUID, in
 		}
 
 		notifyTargets = append(notifyTargets, &entity.NotifyTarget{
-			MaintID:   maintID,
-			ChannelID: channel.TransportChannelID,
-			Transport: channel.Transport,
+			MaintID:            maintID,
+			ChannelID:          channel.ID,
+			Transport:          channel.Transport,
+			TransportChannelID: channel.TransportChannelID,
+			ChannelName:        channel.Name,
 		})
 	}
 

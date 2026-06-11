@@ -57,8 +57,20 @@ const (
 	MaintenanceCancelReasonMistake          MaintenanceCancelReason = "mistake"
 )
 
+// NotifyTargets carries catalog channel uuids: requests subscribe a
+// maintenance to channels by id, and create/update responses echo the same
+// ids back.
 type NotifyTargets struct {
-	ChannelIDs []string `json:"channel_ids" example:"slack:stub-alerts"`
+	ChannelIDs []string `json:"channel_ids" example:"0197a3c1-7a2b-7c3d-9e4f-5a6b7c8d9e0f"`
+}
+
+// NotifyTargetView is one notify-channel chip of the maintenance detail view:
+// the catalog channel's uuid and human name plus the delivery transport,
+// resolved from the channel catalog (targets reference channels by FK).
+type NotifyTargetView struct {
+	ID        uuid.UUID `json:"id" format:"uuid"`
+	Name      string    `json:"name" example:"Platform alerts"`
+	Transport string    `json:"transport" example:"slack"`
 }
 
 // DeferredNotification is one entry of the deferred_notifications array: a
@@ -100,9 +112,13 @@ type Maintenance struct {
 	// Approver is the assigned approver resolved from the auth service, or null
 	// when no approver is set (e.g. a draft). When set but unresolvable it
 	// degrades to the "Unknown user" label like CreatedBy.
-	Approver              *UserSummary            `json:"approver"`
-	Steps                 []*MaintenanceStep      `json:"steps"`
-	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
+	Approver *UserSummary       `json:"approver"`
+	Steps    []*MaintenanceStep `json:"steps"`
+	// NotifyTargets lists the maintenance's notify channels resolved from the
+	// catalog for read-only rendering. Unlike the create/update requests (which
+	// take channel uuids via channel_ids), the detail view carries the full chip
+	// data: id + name + transport.
+	NotifyTargets         []*NotifyTargetView     `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
 }
 

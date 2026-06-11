@@ -24,9 +24,10 @@ func TestNotifyMaintReminder(t *testing.T) {
 		mocks.notifyTarget.EXPECT().
 			ListByMaint(gomock.Any(), gomock.Any()).
 			Return([]*entity.NotifyTarget{{
-				ID:        uuid.New(),
-				Transport: entity.NotifyTransportSlack,
-				ChannelID: t.Name(),
+				ID:                 uuid.New(),
+				ChannelID:          uuid.New(),
+				Transport:          entity.NotifyTransportSlack,
+				TransportChannelID: t.Name(),
 			}}, nil)
 
 		mocks.sender.EXPECT().

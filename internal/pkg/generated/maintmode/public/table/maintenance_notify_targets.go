@@ -19,7 +19,6 @@ type maintenanceNotifyTargetsTable struct {
 	// Columns
 	ID            postgres.ColumnString
 	MaintenanceID postgres.ColumnString
-	Transport     postgres.ColumnString
 	ChannelID     postgres.ColumnString
 	CreatedAt     postgres.ColumnTimestampz
 
@@ -65,11 +64,10 @@ func newMaintenanceNotifyTargetsTableImpl(schemaName, tableName, alias string) m
 	var (
 		IDColumn            = postgres.StringColumn("id")
 		MaintenanceIDColumn = postgres.StringColumn("maintenance_id")
-		TransportColumn     = postgres.StringColumn("transport")
 		ChannelIDColumn     = postgres.StringColumn("channel_id")
 		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
-		allColumns          = postgres.ColumnList{IDColumn, MaintenanceIDColumn, TransportColumn, ChannelIDColumn, CreatedAtColumn}
-		mutableColumns      = postgres.ColumnList{MaintenanceIDColumn, TransportColumn, ChannelIDColumn, CreatedAtColumn}
+		allColumns          = postgres.ColumnList{IDColumn, MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn}
+		mutableColumns      = postgres.ColumnList{MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn}
 		defaultColumns      = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -79,7 +77,6 @@ func newMaintenanceNotifyTargetsTableImpl(schemaName, tableName, alias string) m
 		//Columns
 		ID:            IDColumn,
 		MaintenanceID: MaintenanceIDColumn,
-		Transport:     TransportColumn,
 		ChannelID:     ChannelIDColumn,
 		CreatedAt:     CreatedAtColumn,
 

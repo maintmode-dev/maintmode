@@ -21,10 +21,12 @@ func TestCreateMany(t *testing.T) {
 		t.Parallel()
 
 		maint := makeMaint(ctx, t)
+		slackChan := makeChannel(ctx, t, entity.NotifyTransportSlack)
+		telegramChan := makeChannel(ctx, t, entity.NotifyTransportTelegram)
 
 		targets, err := store.CreateMany(ctx, maint.ID, []*entity.NotifyTarget{
-			{Transport: entity.NotifyTransportSlack, ChannelID: "C123"},
-			{Transport: entity.NotifyTransportTelegram, ChannelID: "-1001"},
+			{ChannelID: slackChan.ID},
+			{ChannelID: telegramChan.ID},
 		})
 		require.NoError(t, err)
 		require.Len(t, targets, 2)
@@ -37,11 +39,26 @@ func TestCreateMany(t *testing.T) {
 			return item.ID, item
 		})
 
+		// ListByMaint enriches targets with catalog data while CreateMany
+		// returns the persisted columns only — compare those.
 		for _, dbTarget := range dbTargets {
 			actual, ok := actualTargets[dbTarget.ID]
 			require.True(t, ok, "not found")
-			require.Equal(t, dbTarget, actual)
+			require.Equal(t, dbTarget.MaintID, actual.MaintID)
+			require.Equal(t, dbTarget.ChannelID, actual.ChannelID)
+			require.Equal(t, dbTarget.CreatedAt, actual.CreatedAt)
 		}
+	})
+
+	t.Run("unknown channel violates the catalog FK", func(t *testing.T) {
+		t.Parallel()
+
+		maint := makeMaint(ctx, t)
+
+		_, err := store.CreateMany(ctx, maint.ID, []*entity.NotifyTarget{
+			{ChannelID: uuid.New()},
+		})
+		require.Error(t, err)
 	})
 
 	t.Run("duplicate", func(t *testing.T) {

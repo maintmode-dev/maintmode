@@ -142,9 +142,11 @@ func TestUpdateDraft(t *testing.T) {
 				assertNewMaint: func(t *testing.T, _ *entity.Maintenance, _ *entity.UpdateMaintenanceCmd, newMaint *entity.Maintenance) {
 					t.Helper()
 					require.Len(t, newMaint.NotifyTargets, 1)
-					targets := newMaint.NotifyTargets[0]
-					require.Equal(t, notifyChannel.Transport, targets.Transport)
-					require.Equal(t, notifyChannel.TransportChannelID, targets.ChannelID)
+					target := newMaint.NotifyTargets[0]
+					require.Equal(t, notifyChannel.ID, target.ChannelID)
+					require.Equal(t, notifyChannel.Transport, target.Transport)
+					require.Equal(t, notifyChannel.TransportChannelID, target.TransportChannelID)
+					require.Equal(t, notifyChannel.Name, target.ChannelName)
 				},
 			},
 		} {

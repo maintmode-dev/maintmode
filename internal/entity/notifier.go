@@ -82,12 +82,25 @@ type NotifyEvent struct {
 	CancelReasonComment string
 }
 
+// NotifyTarget is a maintenance's subscription to a catalog notify channel.
+// The row persists only the channel reference (ChannelID, an FK to
+// messenger_channels); Transport, TransportChannelID and ChannelName are
+// resolved from the catalog on read (store ListByMaint joins it), so the
+// delivery address always reflects the channel's current state — editing a
+// channel in the catalog redirects notifications of every subscribed
+// maintenance. Archiving a channel does not unsubscribe: the subscription
+// stays live and keeps delivering.
 type NotifyTarget struct {
 	ID        uuid.UUID
 	MaintID   uuid.UUID
-	Transport NotifyTransport
-	ChannelID string
+	ChannelID uuid.UUID
 	CreatedAt time.Time
+
+	// Resolved from the catalog on read paths; zero-valued on instances that
+	// only carry the persisted columns (e.g. CreateMany results).
+	Transport          NotifyTransport
+	TransportChannelID string
+	ChannelName        string
 }
 
 type MessageMIME string

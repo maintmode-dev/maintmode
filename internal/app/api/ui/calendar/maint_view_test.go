@@ -117,6 +117,14 @@ func TestMaintView(t *testing.T) {
 				require.NotNil(t, resp.Maintenance.CreatedBy)
 				require.Equal(t, maint.CreatedBy.ID, resp.Maintenance.CreatedBy.ID)
 				require.NotEmpty(t, resp.Maintenance.CreatedBy.DisplayName)
+
+				// notify_targets carries the catalog-resolved chips (id + name +
+				// transport) for the read-only Notify channels section. makeMaint
+				// subscribes one telegram channel named after the test.
+				require.Len(t, resp.Maintenance.NotifyTargets, 1)
+				require.NotEqual(t, uuid.Nil, resp.Maintenance.NotifyTargets[0].ID)
+				require.Equal(t, t.Name(), resp.Maintenance.NotifyTargets[0].Name)
+				require.Equal(t, string(entity.NotifyTransportTelegram), resp.Maintenance.NotifyTargets[0].Transport)
 			})
 		}
 	})

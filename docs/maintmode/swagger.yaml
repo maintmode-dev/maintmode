@@ -257,7 +257,15 @@ components:
                 impact:
                     $ref: '#/components/schemas/apimodels.MaintenanceImpact'
                 notify_targets:
-                    $ref: '#/components/schemas/apimodels.NotifyTargets'
+                    description: |-
+                        NotifyTargets lists the maintenance's notify channels resolved from the
+                        catalog for read-only rendering. Unlike the create/update requests (which
+                        take channel uuids via channel_ids), the detail view carries the full chip
+                        data: id + name + transport.
+                    items:
+                        $ref: '#/components/schemas/apimodels.NotifyTargetView'
+                    type: array
+                    uniqueItems: false
                 planned_period:
                     $ref: '#/components/schemas/apimodels.Period'
                 resources:
@@ -355,11 +363,23 @@ components:
                 - MaintenanceStepStatusStarted
                 - MaintenanceStepStatusCompleted
                 - MaintenanceStepStatusCanceled
+        apimodels.NotifyTargetView:
+            properties:
+                id:
+                    format: uuid
+                    type: string
+                name:
+                    example: Platform alerts
+                    type: string
+                transport:
+                    example: slack
+                    type: string
+            type: object
         apimodels.NotifyTargets:
             properties:
                 channel_ids:
                     example:
-                        - slack:stub-alerts
+                        - 0197a3c1-7a2b-7c3d-9e4f-5a6b7c8d9e0f
                     items:
                         type: string
                     type: array
@@ -673,6 +693,14 @@ components:
                     type: string
                 impact:
                     type: string
+                notify_targets:
+                    description: |-
+                        NotifyTargets lists the maintenance's notify channels resolved from the
+                        catalog, for the read-only Notify channels section (transport glyph + name).
+                    items:
+                        $ref: '#/components/schemas/uimodels.NotifyTargetView'
+                    type: array
+                    uniqueItems: false
                 planned_time_end:
                     format: date-time
                     type: string
@@ -720,6 +748,18 @@ components:
                     uniqueItems: false
                 maintenance:
                     $ref: '#/components/schemas/uimodels.MaintenanceView'
+            type: object
+        uimodels.NotifyTargetView:
+            properties:
+                id:
+                    format: uuid
+                    type: string
+                name:
+                    example: Platform alerts
+                    type: string
+                transport:
+                    example: slack
+                    type: string
             type: object
         uimodels.UserSummary:
             description: |-

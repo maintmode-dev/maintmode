@@ -53,6 +53,43 @@ func TestCalendarView(t *testing.T) {
 		require.Equal(t, maint.Status, string(event.Status))
 	})
 
+	t.Run("filters by notify channel", func(t *testing.T) {
+		t.Parallel()
+
+		// Each makeMaint subscribes its maintenance to its own fresh catalog
+		// channel; the create response echoes the catalog channel uuid in
+		// channel_ids, which is exactly what the calendar filter takes.
+		maint := makeMaint(ctx, t)
+		other := makeMaint(ctx, t)
+
+		require.Len(t, maint.NotifyTargets.ChannelIDs, 1)
+		channelID := maint.NotifyTargets.ChannelIDs[0]
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{
+				"from":        []string{maint.PlannedPeriod.Start.Add(-time.Hour).Format(time.DateOnly)},
+				"to":          []string{maint.PlannedPeriod.End.Add(24 * time.Hour).Format(time.DateOnly)},
+				"channel_ids": []string{channelID},
+			},
+		}.ToContextRecorder(t)
+
+		err := impl.CalendarView(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		resp := testjsonudils.JSONToAny[uimodels.CalendarViewResponse](t, rec.Body)
+
+		_, foundMaint := lo.Find(resp.Events, func(item *uimodels.CalendarEvent) bool {
+			return item.ID == maint.ID
+		})
+		require.True(t, foundMaint, "subscribed maintenance must match the channel filter")
+
+		_, foundOther := lo.Find(resp.Events, func(item *uimodels.CalendarEvent) bool {
+			return item.ID == other.ID
+		})
+		require.False(t, foundOther, "maintenance subscribed to another channel must be filtered out")
+	})
+
 	t.Run("error", func(t *testing.T) {
 		t.Parallel()
 		now := xtime.UTCNow()

@@ -78,20 +78,15 @@ func filterToWhereExpr(f *calendardto.GetMaintsFilter) postgres.BoolExpression {
 	}
 
 	if len(f.ChannelIDs) > 0 {
-		// notify targets store the transport-specific channel id, not the
-		// catalog uuid, so resolve the catalog channels and match on the
-		// (transport, transport_channel_id) pair they were saved under.
-		// Archived channels are matched on purpose: the channel's Related
-		// section is a history view and must still surface past maintenances.
+		// notify targets reference catalog channels by uuid (FK), so the filter
+		// matches the stored channel_id directly. Archived channels are matched
+		// on purpose: the channel's Related section is a history view and must
+		// still surface past maintenances.
 		expr = expr.AND(
 			table.Maintenances.ID.IN(
 				table.MaintenanceNotifyTargets.
-					INNER_JOIN(table.MessengerChannels,
-						table.MessengerChannels.Transport.EQ(table.MaintenanceNotifyTargets.Transport).
-							AND(table.MessengerChannels.TransportChannelID.EQ(table.MaintenanceNotifyTargets.ChannelID)),
-					).
 					SELECT(table.MaintenanceNotifyTargets.MaintenanceID).
-					WHERE(table.MessengerChannels.ID.EQ(
+					WHERE(table.MaintenanceNotifyTargets.ChannelID.EQ(
 						postgres.ANY(postgres.ARRAY(uuidsToPgUUID(f.ChannelIDs)...)),
 					)),
 			),

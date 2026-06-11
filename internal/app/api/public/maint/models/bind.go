@@ -160,12 +160,26 @@ func FromAPINotifyTargets(notification *NotifyTargets) ([]*entity.NotifyTargetIn
 	return targets, nil
 }
 
+// ToAPINotifyTargets maps targets to the create/update response shape: the
+// catalog channel uuids, round-trippable with the channel_ids request field.
 func ToAPINotifyTargets(targets []*entity.NotifyTarget) *NotifyTargets {
 	return &NotifyTargets{
 		ChannelIDs: lo.Map(targets, func(item *entity.NotifyTarget, _ int) string {
-			return item.ID.String()
+			return item.ChannelID.String()
 		}),
 	}
+}
+
+// ToAPINotifyTargetViews maps catalog-resolved notify targets to detail-view
+// chips.
+func ToAPINotifyTargetViews(targets []*entity.NotifyTarget) []*NotifyTargetView {
+	return lo.Map(targets, func(item *entity.NotifyTarget, _ int) *NotifyTargetView {
+		return &NotifyTargetView{
+			ID:        item.ChannelID,
+			Name:      item.ChannelName,
+			Transport: string(item.Transport),
+		}
+	})
 }
 
 // FromAPIDeferredNotifications maps the contract's deferred_notifications to
@@ -211,7 +225,7 @@ func ToAPIMaintenance(m *entity.Maintenance, author, approver *entity.UserSummar
 		CreatedBy:             ToAPIUserSummaryFromSummary(author),
 		Approver:              ToAPIUserSummaryFromSummary(approver),
 		Steps:                 ToAPISteps(m.Steps),
-		NotifyTargets:         ToAPINotifyTargets(m.NotifyTargets),
+		NotifyTargets:         ToAPINotifyTargetViews(m.NotifyTargets),
 		DeferredNotifications: ToAPIDeferredNotifications(m.DeferredNotifications),
 	}
 

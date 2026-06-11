@@ -25,9 +25,10 @@ func TestNotifyMaintLifecycle(t *testing.T) {
 		mocks.notifyTarget.EXPECT().
 			ListByMaint(gomock.Any(), gomock.Any()).
 			Return([]*entity.NotifyTarget{{
-				ID:        uuid.New(),
-				Transport: entity.NotifyTransportSlack,
-				ChannelID: t.Name(),
+				ID:                 uuid.New(),
+				ChannelID:          uuid.New(),
+				Transport:          entity.NotifyTransportSlack,
+				TransportChannelID: t.Name(),
 			}}, nil)
 
 		mocks.sender.EXPECT().
@@ -84,9 +85,9 @@ func TestIdempotencyKey(t *testing.T) {
 			Kind:    entity.NotifyEventMaintStarted,
 			MaintID: xuuid.New(),
 		}
-		targets := &entity.NotifyTarget{Transport: entity.NotifyTransportSlack, ChannelID: t.Name()}
+		target := &entity.NotifyTarget{ChannelID: xuuid.New()}
 
-		require.Equal(t, idempotencyKey(event, targets), idempotencyKey(event, targets))
+		require.Equal(t, idempotencyKey(event, target), idempotencyKey(event, target))
 	})
 
 	t.Run("different", func(t *testing.T) {
@@ -100,8 +101,8 @@ func TestIdempotencyKey(t *testing.T) {
 				MaintID: xuuid.New(),
 			}
 
-			slack := &entity.NotifyTarget{Transport: entity.NotifyTransportSlack, ChannelID: "#x"}
-			telegram := &entity.NotifyTarget{Transport: entity.NotifyTransportTelegram, ChannelID: "42"}
+			slack := &entity.NotifyTarget{ChannelID: xuuid.New()}
+			telegram := &entity.NotifyTarget{ChannelID: xuuid.New()}
 
 			require.NotEqual(t, idempotencyKey(event, slack), idempotencyKey(event, telegram))
 		})
@@ -109,7 +110,7 @@ func TestIdempotencyKey(t *testing.T) {
 		t.Run("different events", func(t *testing.T) {
 			t.Parallel()
 			maintID := uuid.New()
-			target := &entity.NotifyTarget{Transport: entity.NotifyTransportSlack, ChannelID: t.Name()}
+			target := &entity.NotifyTarget{ChannelID: xuuid.New()}
 
 			started := idempotencyKey(entity.NotifyEvent{Kind: entity.NotifyEventMaintStarted, MaintID: maintID}, target)
 			completed := idempotencyKey(entity.NotifyEvent{Kind: entity.NotifyEventMaintCompleted, MaintID: maintID}, target)

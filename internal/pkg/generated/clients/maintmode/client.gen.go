@@ -320,14 +320,19 @@ type ApimodelsMaintenance struct {
 	Description           *string                                                               `json:"description,omitempty"`
 	Id                    *openapi_types.UUID                                                   `json:"id,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact                                           `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets                                               `json:"notify_targets,omitempty"`
-	PlannedPeriod         *ApimodelsPeriod                                                      `json:"planned_period,omitempty"`
-	Resources             *[]ApimodelsResourceRef                                               `json:"resources,omitempty"`
-	Scope                 *ApimodelsMaintenanceScope                                            `json:"scope,omitempty"`
-	Status                *string                                                               `json:"status,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStep                                           `json:"steps,omitempty"`
-	Title                 *string                                                               `json:"title,omitempty"`
-	UpdatedAt             *time.Time                                                            `json:"updated_at,omitempty"`
+
+	// NotifyTargets NotifyTargets lists the maintenance's notify channels resolved from the
+	// catalog for read-only rendering. Unlike the create/update requests (which
+	// take channel uuids via channel_ids), the detail view carries the full chip
+	// data: id + name + transport.
+	NotifyTargets *[]ApimodelsNotifyTargetView `json:"notify_targets,omitempty"`
+	PlannedPeriod *ApimodelsPeriod             `json:"planned_period,omitempty"`
+	Resources     *[]ApimodelsResourceRef      `json:"resources,omitempty"`
+	Scope         *ApimodelsMaintenanceScope   `json:"scope,omitempty"`
+	Status        *string                      `json:"status,omitempty"`
+	Steps         *[]ApimodelsMaintenanceStep  `json:"steps,omitempty"`
+	Title         *string                      `json:"title,omitempty"`
+	UpdatedAt     *time.Time                   `json:"updated_at,omitempty"`
 }
 
 // ApimodelsMaintenanceCancelReason defines model for apimodels.MaintenanceCancelReason.
@@ -359,6 +364,13 @@ type ApimodelsMaintenanceStepInput struct {
 
 // ApimodelsMaintenanceStepStatus defines model for apimodels.MaintenanceStepStatus.
 type ApimodelsMaintenanceStepStatus string
+
+// ApimodelsNotifyTargetView defines model for apimodels.NotifyTargetView.
+type ApimodelsNotifyTargetView struct {
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	Name      *string             `json:"name,omitempty"`
+	Transport *string             `json:"transport,omitempty"`
+}
 
 // ApimodelsNotifyTargets defines model for apimodels.NotifyTargets.
 type ApimodelsNotifyTargets struct {
@@ -549,10 +561,14 @@ type UimodelsMaintenanceView struct {
 	// CreatedBy CreatedBy is the author resolved from auth; always present (degrades to the
 	// "Unknown user" label when unresolvable). Approver is the assigned approver,
 	// or null when none is set (e.g. a draft).
-	CreatedBy        *UimodelsUserSummary               `json:"created_by,omitempty"`
-	Description      *string                            `json:"description,omitempty"`
-	Id               *openapi_types.UUID                `json:"id,omitempty"`
-	Impact           *string                            `json:"impact,omitempty"`
+	CreatedBy   *UimodelsUserSummary `json:"created_by,omitempty"`
+	Description *string              `json:"description,omitempty"`
+	Id          *openapi_types.UUID  `json:"id,omitempty"`
+	Impact      *string              `json:"impact,omitempty"`
+
+	// NotifyTargets NotifyTargets lists the maintenance's notify channels resolved from the
+	// catalog, for the read-only Notify channels section (transport glyph + name).
+	NotifyTargets    *[]UimodelsNotifyTargetView        `json:"notify_targets,omitempty"`
 	PlannedTimeEnd   *time.Time                         `json:"planned_time_end,omitempty"`
 	PlannedTimeStart *time.Time                         `json:"planned_time_start,omitempty"`
 	Resources        *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
@@ -575,6 +591,13 @@ type UimodelsMaintenanceViewResponse struct {
 	Actions     *UimodelsMaintenanceActions `json:"actions,omitempty"`
 	Conflicts   *[]UimodelsConflictView     `json:"conflicts,omitempty"`
 	Maintenance *UimodelsMaintenanceView    `json:"maintenance,omitempty"`
+}
+
+// UimodelsNotifyTargetView defines model for uimodels.NotifyTargetView.
+type UimodelsNotifyTargetView struct {
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	Name      *string             `json:"name,omitempty"`
+	Transport *string             `json:"transport,omitempty"`
 }
 
 // UimodelsUserSummary CreatedBy is the author resolved from auth; always present (degrades to the
