@@ -14,6 +14,8 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
 
+	"github.com/ruko1202/maintmode/internal/eventbus"
+	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -62,7 +64,7 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
 		useridentities.NewStore(db),
-		auditor.NewAuditor(audit.NewStore(db)),
+		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
 		revoker,
 	)
 	return srv, revoker
@@ -93,7 +95,7 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 		dbtx.NewTxManager(db),
 		store,
 		useridentities.NewStore(db),
-		auditor.NewAuditor(audit.NewStore(db)),
+		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
 		&fakeTokenRevoker{},
 	)
 }

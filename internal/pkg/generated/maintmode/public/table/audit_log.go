@@ -22,8 +22,6 @@ type auditLogTable struct {
 	Actor            postgres.ColumnString
 	EntityID         postgres.ColumnString
 	EntityType       postgres.ColumnString
-	TargetID         postgres.ColumnString
-	TargetType       postgres.ColumnString
 	Details          postgres.ColumnString
 	CreatedAt        postgres.ColumnTimestampz
 	ActorID          postgres.ColumnString
@@ -75,16 +73,14 @@ func newAuditLogTableImpl(schemaName, tableName, alias string) auditLogTable {
 		ActorColumn            = postgres.StringColumn("actor")
 		EntityIDColumn         = postgres.StringColumn("entity_id")
 		EntityTypeColumn       = postgres.StringColumn("entity_type")
-		TargetIDColumn         = postgres.StringColumn("target_id")
-		TargetTypeColumn       = postgres.StringColumn("target_type")
 		DetailsColumn          = postgres.StringColumn("details")
 		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
 		ActorIDColumn          = postgres.StringColumn("actor_id")
 		ActorDisplayNameColumn = postgres.StringColumn("actor_display_name")
 		MetadataColumn         = postgres.StringColumn("metadata")
-		allColumns             = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
-		mutableColumns         = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
-		defaultColumns         = postgres.ColumnList{IDColumn, EntityIDColumn, EntityTypeColumn, TargetIDColumn, TargetTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		allColumns             = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		mutableColumns         = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		defaultColumns         = postgres.ColumnList{IDColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
 	)
 
 	return auditLogTable{
@@ -96,8 +92,6 @@ func newAuditLogTableImpl(schemaName, tableName, alias string) auditLogTable {
 		Actor:            ActorColumn,
 		EntityID:         EntityIDColumn,
 		EntityType:       EntityTypeColumn,
-		TargetID:         TargetIDColumn,
-		TargetType:       TargetTypeColumn,
 		Details:          DetailsColumn,
 		CreatedAt:        CreatedAtColumn,
 		ActorID:          ActorIDColumn,

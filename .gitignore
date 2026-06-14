@@ -1,6 +1,10 @@
 .idea/
 
 bin/
+
+# Compiled service binaries from `go build ./cmd/...`
+/auth
+/maintmode
 # Added by goreleaser init:
 dist/
 

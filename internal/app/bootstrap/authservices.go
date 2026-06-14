@@ -7,6 +7,8 @@ import (
 	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/eventbus"
+	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
@@ -28,6 +30,9 @@ type AuthServices struct {
 	Audit      *auditor.Auditor
 	RBAC       *authz.CasbinAuthorizer
 	StateCodec *statecodec.Service
+	// Dispatcher owns the async listener goroutines; Stop it on shutdown so
+	// in-flight audit writes drain before the process exits.
+	Dispatcher *eventbus.Dispatcher
 }
 
 func NewAuthServices(
@@ -36,9 +41,12 @@ func NewAuthServices(
 	stores *AuthStores,
 	gateways *AuthGateways,
 ) (*AuthServices, error) {
+	// Auditor выступает в двух ролях: read-сторона (api/public/audit читает логи
+	// через AuthServices.Audit) и write-сторона (аудит-листенер диспетчера).
 	auditorSrv := auditor.NewAuditor(
 		stores.Audit,
 	)
+	dispatcher := eventbus.NewDispatcher(auditorlistener.NewListener(auditorSrv))
 
 	// tokenSrv is built before userSrv: blocking a user revokes their refresh
 	// tokens, so the user service depends on the token service.
@@ -55,7 +63,7 @@ func NewAuthServices(
 		stores.TxManager,
 		stores.Users,
 		stores.UserIdentities,
-		auditorSrv,
+		dispatcher,
 		tokenSrv,
 	)
 
@@ -83,7 +91,7 @@ func NewAuthServices(
 		stores.TokenBlackList,
 		oauthProviders,
 		tokenSrv,
-		auditorSrv,
+		dispatcher,
 	)
 
 	return &AuthServices{
@@ -105,6 +113,7 @@ func NewAuthServices(
 		Audit:      auditorSrv,
 		RBAC:       authorizer,
 		StateCodec: stateCodec,
+		Dispatcher: dispatcher,
 	}, nil
 }
 

@@ -7,6 +7,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -32,7 +34,7 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		Token:     hashed,
 		UserID:    user.ID,
 		Family:    family,
-		ExpiresAt: s.getNowF().Add(s.cfg.RefreshTokenTTL),
+		ExpiresAt: xtime.UTCNow().Add(s.cfg.RefreshTokenTTL),
 		BoundIP:   clientIP,
 	})
 	if err != nil {

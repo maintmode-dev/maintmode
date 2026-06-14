@@ -230,6 +230,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/notifytransport/service.go -source ./internal/gateways/notifytransport/transports.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/userpicker/service.go -source ./internal/services/userpicker/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/eventbus/dispatcher.go -source ./internal/eventbus/dispatcher.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/app/bootstrap/gateways.go -source ./internal/app/bootstrap/gateways.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go

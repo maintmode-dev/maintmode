@@ -1,17 +1,14 @@
 package auth
 
 import (
-	"time"
-
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/eventbus"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 type Service struct {
@@ -22,8 +19,7 @@ type Service struct {
 	oauthProviders *oauthprovider.Providers
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
-	auditorSrv     *auditor.Auditor
-	getNowF        func() time.Time
+	dispatcher     *eventbus.Dispatcher
 }
 
 func NewService(
@@ -34,7 +30,7 @@ func NewService(
 	blacklistStore *blacklisttoken.Store,
 	oauthProviders *oauthprovider.Providers,
 	tokenSvc *token.Service,
-	auditorSrv *auditor.Auditor,
+	dispatcher *eventbus.Dispatcher,
 ) *Service {
 	return &Service{
 		cfg:            cfg,
@@ -44,7 +40,6 @@ func NewService(
 		blacklistStore: blacklistStore,
 		oauthProviders: oauthProviders,
 		tokenSrv:       tokenSvc,
-		auditorSrv:     auditorSrv,
-		getNowF:        xtime.UTCNow,
+		dispatcher:     dispatcher,
 	}
 }

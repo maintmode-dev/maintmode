@@ -21,8 +21,6 @@ func toDBEntry(ctx context.Context, e *entity.AuditEntry) *model.AuditLog {
 		ActorDisplayName: e.ActorDisplayName,
 		EntityType:       string(e.EntityType),
 		EntityID:         e.EntityID,
-		TargetType:       string(e.TargetType),
-		TargetID:         e.TargetID,
 		Details:          e.Details,
 		Metadata:         metadataToJSON(ctx, e.Metadata),
 	}
@@ -37,8 +35,6 @@ func fromDBEntry(ctx context.Context, e *model.AuditLog) *entity.AuditEntry {
 		ActorDisplayName: e.ActorDisplayName,
 		EntityType:       entity.AuditEntityType(e.EntityType),
 		EntityID:         e.EntityID,
-		TargetType:       entity.AuditEntityType(e.TargetType),
-		TargetID:         e.TargetID,
 		Details:          e.Details,
 		Metadata:         metadataFromJSON(ctx, e.Metadata),
 		CreatedAt:        e.CreatedAt,

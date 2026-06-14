@@ -9,6 +9,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/eventbus/events"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -68,10 +70,13 @@ func (s *Service) logout(
 		xlog.Error(ctx, "failed to blacklist access token", xfield.Error(err))
 	}
 
-	s.auditorSrv.LogLogout(ctx, entity.AuditEventLogoutSuccess, &entity.User{
-		ID:    uuid.MustParse(accessClaims.Subject),
-		Email: accessClaims.UserEmail,
-	}, accessClaims.ID)
+	s.dispatcher.AsyncDispatch(ctx, events.UserLogoutSuccess{
+		User: &entity.User{
+			ID:    uuid.MustParse(accessClaims.Subject),
+			Email: accessClaims.UserEmail,
+		},
+		SessionID: accessClaims.ID,
+	})
 	return nil
 }
 

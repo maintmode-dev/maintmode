@@ -18,6 +18,8 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
 
+	"github.com/ruko1202/maintmode/internal/eventbus"
+	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 
 	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
@@ -95,14 +97,14 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),
-			auditor.NewAuditor(audit.NewStore(db)),
+			eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
 			tokenSrv,
 		),
 		distributedlock.NewStore(redis),
 		blacklisttoken.NewStore(redis),
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		tokenSrv,
-		auditor.NewAuditor(audit.NewStore(db)),
+		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
 	), mocks
 }
 

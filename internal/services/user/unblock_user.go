@@ -9,6 +9,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/eventbus/events"
 )
 
 // UnblockUser clears blocked_at. Roles are preserved on block, so unblocking
@@ -34,7 +35,10 @@ func (s *Service) UnblockUser(ctx context.Context, cmd *entity.UnblockUserCmd) e
 		return err
 	}
 
-	s.auditorSrv.LogBlockUser(ctx, entity.AuditEventUserUnblocked, cmd.Actor, user)
+	s.dispatcher.AsyncDispatch(ctx, events.UserUnblocked{
+		Actor:  cmd.Actor,
+		Target: user,
+	})
 
 	return nil
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
+	"github.com/ruko1202/maintmode/internal/eventbus/events"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -54,7 +56,12 @@ func (s *Service) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (
 		return nil, err
 	}
 
-	s.auditorSrv.LogChangeRoles(ctx, entity.AuditEventRoleAssigned, cmd.Actor, user, entity.AuditRolesChange{Roles: added})
+	s.dispatcher.AsyncDispatch(ctx, events.UserRolesChanged{
+		Actor:  cmd.Actor,
+		Target: user,
+		Kind:   events.RolesAssigned,
+		Change: events.AuditRolesChange{Roles: added},
+	})
 
 	return user, nil
 }

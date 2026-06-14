@@ -16,6 +16,7 @@ import (
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/audit/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/eventbus/events"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -24,13 +25,15 @@ func TestAuditLog(t *testing.T) {
 
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	impl := initImpl(t)
+	impl, dispatcher := initImpl(t)
 
 	for range defaultMaxLogsCount + 1 {
-		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, &entity.User{
-			ID:    xuuid.New(),
-			Email: t.Name() + "@example.com",
-		}, nil)
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+			User: &entity.User{
+				ID:    xuuid.New(),
+				Email: t.Name() + "@example.com",
+			},
+		}))
 	}
 
 	t.Run("ok", func(t *testing.T) {
@@ -89,11 +92,14 @@ func TestAuditLog(t *testing.T) {
 			Name:  "Audit Tester",
 		}
 		sessionID := xuuid.NewString()
-		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{
-			IP:        "203.0.113.7",
-			UserAgent: "audit-test-agent/1.0",
-			SessionID: sessionID,
-		})
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+			User: user,
+			Meta: &entity.AuditMetadata{
+				IP:        "203.0.113.7",
+				UserAgent: "audit-test-agent/1.0",
+				SessionID: sessionID,
+			},
+		}))
 
 		c, rec := echotest.ContextConfig{
 			QueryValues: url.Values{"actor": {user.Email}},
@@ -131,11 +137,16 @@ func TestAuditLog(t *testing.T) {
 			Email: xuuid.NewString() + "+target@example.com",
 			Name:  "Roles Target",
 		}
-		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleReplaced, actor, target, entity.AuditRolesChange{
-			Roles:   []entity.Role{entity.RoleEditor},
-			Added:   []entity.Role{entity.RoleEditor},
-			Removed: []entity.Role{entity.RoleAdmin},
-		})
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
+			Actor:  actor,
+			Target: target,
+			Kind:   events.RolesReplaced,
+			Change: events.AuditRolesChange{
+				Roles:   []entity.Role{entity.RoleEditor},
+				Added:   []entity.Role{entity.RoleEditor},
+				Removed: []entity.Role{entity.RoleAdmin},
+			},
+		}))
 
 		c, rec := echotest.ContextConfig{
 			QueryValues: url.Values{"actor": {actor.Email}},
@@ -170,16 +181,24 @@ func TestAuditLog(t *testing.T) {
 		target := &entity.User{ID: xuuid.New(), Email: "target-" + actor}
 
 		for range 3 {
-			impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{})
+			require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+				User: user, Meta: &entity.AuditMetadata{},
+			}))
 		}
-		impl.auditSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user, &entity.AuditMetadata{})
-		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleAssigned, user, target, entity.AuditRolesChange{
-			Roles: []entity.Role{entity.RoleAdmin},
-		})
-		impl.auditSrv.LogChangeRoles(ctx, entity.AuditEventRoleRevoked, user, target, entity.AuditRolesChange{
-			Roles: []entity.Role{entity.RoleAdmin},
-		})
-		impl.auditSrv.LogBlockUser(ctx, entity.AuditEventUserBlocked, user, target)
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginFailed{
+			User: user, Meta: &entity.AuditMetadata{},
+		}))
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
+			Actor: user, Target: target, Kind: events.RolesAssigned,
+			Change: events.AuditRolesChange{Roles: []entity.Role{entity.RoleAdmin}},
+		}))
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
+			Actor: user, Target: target, Kind: events.RolesRevoked,
+			Change: events.AuditRolesChange{Roles: []entity.Role{entity.RoleAdmin}},
+		}))
+		require.NoError(t, dispatcher.Dispatch(ctx, events.UserBlocked{
+			Actor: user, Target: target,
+		}))
 
 		wantFacets := apiauthmodels.AuditFacets{All: 7, Auth: 4, Roles: 2, Block: 1}
 
@@ -196,19 +215,19 @@ func TestAuditLog(t *testing.T) {
 				wantTotal:   7,
 			}, {
 				name:        "single action",
-				queryValues: url.Values{"actor": {actor}, "action": {"assigned"}},
+				queryValues: url.Values{"actor": {actor}, "action": {"user.blocked"}},
 				wantLogs:    1,
 				wantTotal:   1,
 			}, {
 				name:        "csv actions",
-				queryValues: url.Values{"actor": {actor}, "action": {"login_success,login_failed"}},
+				queryValues: url.Values{"actor": {actor}, "action": {"login.success,login.failed"}},
 				wantLogs:    4,
 				wantTotal:   4,
 			}, {
 				name:        "csv actions with spaces",
-				queryValues: url.Values{"actor": {actor}, "action": {"assigned, blocked"}},
-				wantLogs:    2,
-				wantTotal:   2,
+				queryValues: url.Values{"actor": {actor}, "action": {"roles.changed, user.blocked"}},
+				wantLogs:    3,
+				wantTotal:   3,
 			}, {
 				name:        "paginated page keeps full total",
 				queryValues: url.Values{"actor": {actor}, "limit": {"2"}, "offset": {"5"}},

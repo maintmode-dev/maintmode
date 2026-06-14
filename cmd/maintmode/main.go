@@ -106,7 +106,9 @@ func main() {
 				xlog.Fatal(ctx, "api server failed", xfield.Error(err))
 			}
 		}()
-		closer.AddWithName("api server", func() error { return s.Stop(context.Background()) })
+		closer.AddWithName("api server", closer.NoCtxCloseFunc(func() error {
+			return s.Stop(context.Background())
+		}))
 	}
 
 	// Owns the drain signal: main flips it on shutdown, the readiness handler
@@ -128,7 +130,9 @@ func main() {
 			}
 		}()
 
-		closer.AddWithName("status server", func() error { return s.Stop(context.Background()) })
+		closer.AddWithName("status server", closer.NoCtxCloseFunc(func() error {
+			return s.Stop(context.Background())
+		}))
 	}
 
 	<-ctx.Done()

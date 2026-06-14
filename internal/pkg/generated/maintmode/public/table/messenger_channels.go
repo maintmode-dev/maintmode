@@ -23,10 +23,10 @@ type messengerChannelsTable struct {
 	Name               postgres.ColumnString
 	Description        postgres.ColumnString
 	CreatedAt          postgres.ColumnTimestampz
-	CreatedByUserID    postgres.ColumnString
-	UpdatedAt          postgres.ColumnTimestampz
-	UpdatedByUserID    postgres.ColumnString
 	ArchivedAt         postgres.ColumnTimestampz
+	CreatedByUserID    postgres.ColumnString // Author of the channel: the authenticated user who created it (token subject).
+	UpdatedByUserID    postgres.ColumnString // Last editor of the channel: the authenticated user of the most recent edit.
+	UpdatedAt          postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -74,12 +74,12 @@ func newMessengerChannelsTableImpl(schemaName, tableName, alias string) messenge
 		NameColumn               = postgres.StringColumn("name")
 		DescriptionColumn        = postgres.StringColumn("description")
 		CreatedAtColumn          = postgres.TimestampzColumn("created_at")
-		CreatedByUserIDColumn    = postgres.StringColumn("created_by_user_id")
-		UpdatedAtColumn          = postgres.TimestampzColumn("updated_at")
-		UpdatedByUserIDColumn    = postgres.StringColumn("updated_by_user_id")
 		ArchivedAtColumn         = postgres.TimestampzColumn("archived_at")
-		allColumns               = postgres.ColumnList{IDColumn, TransportColumn, TransportChannelIDColumn, NameColumn, DescriptionColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, ArchivedAtColumn}
-		mutableColumns           = postgres.ColumnList{TransportColumn, TransportChannelIDColumn, NameColumn, DescriptionColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, ArchivedAtColumn}
+		CreatedByUserIDColumn    = postgres.StringColumn("created_by_user_id")
+		UpdatedByUserIDColumn    = postgres.StringColumn("updated_by_user_id")
+		UpdatedAtColumn          = postgres.TimestampzColumn("updated_at")
+		allColumns               = postgres.ColumnList{IDColumn, TransportColumn, TransportChannelIDColumn, NameColumn, DescriptionColumn, CreatedAtColumn, ArchivedAtColumn, CreatedByUserIDColumn, UpdatedByUserIDColumn, UpdatedAtColumn}
+		mutableColumns           = postgres.ColumnList{TransportColumn, TransportChannelIDColumn, NameColumn, DescriptionColumn, CreatedAtColumn, ArchivedAtColumn, CreatedByUserIDColumn, UpdatedByUserIDColumn, UpdatedAtColumn}
 		defaultColumns           = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -93,10 +93,10 @@ func newMessengerChannelsTableImpl(schemaName, tableName, alias string) messenge
 		Name:               NameColumn,
 		Description:        DescriptionColumn,
 		CreatedAt:          CreatedAtColumn,
-		CreatedByUserID:    CreatedByUserIDColumn,
-		UpdatedAt:          UpdatedAtColumn,
-		UpdatedByUserID:    UpdatedByUserIDColumn,
 		ArchivedAt:         ArchivedAtColumn,
+		CreatedByUserID:    CreatedByUserIDColumn,
+		UpdatedByUserID:    UpdatedByUserIDColumn,
+		UpdatedAt:          UpdatedAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

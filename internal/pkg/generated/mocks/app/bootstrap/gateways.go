@@ -18,32 +18,32 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockAuthGateway is a mock of AuthGateway interface.
-type MockAuthGateway struct {
+// MockAuthServiceGateway is a mock of AuthServiceGateway interface.
+type MockAuthServiceGateway struct {
 	ctrl     *gomock.Controller
-	recorder *MockAuthGatewayMockRecorder
+	recorder *MockAuthServiceGatewayMockRecorder
 	isgomock struct{}
 }
 
-// MockAuthGatewayMockRecorder is the mock recorder for MockAuthGateway.
-type MockAuthGatewayMockRecorder struct {
-	mock *MockAuthGateway
+// MockAuthServiceGatewayMockRecorder is the mock recorder for MockAuthServiceGateway.
+type MockAuthServiceGatewayMockRecorder struct {
+	mock *MockAuthServiceGateway
 }
 
-// NewMockAuthGateway creates a new mock instance.
-func NewMockAuthGateway(ctrl *gomock.Controller) *MockAuthGateway {
-	mock := &MockAuthGateway{ctrl: ctrl}
-	mock.recorder = &MockAuthGatewayMockRecorder{mock}
+// NewMockAuthServiceGateway creates a new mock instance.
+func NewMockAuthServiceGateway(ctrl *gomock.Controller) *MockAuthServiceGateway {
+	mock := &MockAuthServiceGateway{ctrl: ctrl}
+	mock.recorder = &MockAuthServiceGatewayMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockAuthGateway) EXPECT() *MockAuthGatewayMockRecorder {
+func (m *MockAuthServiceGateway) EXPECT() *MockAuthServiceGatewayMockRecorder {
 	return m.recorder
 }
 
 // GetUsersByIDs mocks base method.
-func (m *MockAuthGateway) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*entity.User, error) {
+func (m *MockAuthServiceGateway) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*entity.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUsersByIDs", ctx, ids)
 	ret0, _ := ret[0].(map[uuid.UUID]*entity.User)
@@ -52,37 +52,37 @@ func (m *MockAuthGateway) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (m
 }
 
 // GetUsersByIDs indicates an expected call of GetUsersByIDs.
-func (mr *MockAuthGatewayMockRecorder) GetUsersByIDs(ctx, ids any) *MockAuthGatewayGetUsersByIDsCall {
+func (mr *MockAuthServiceGatewayMockRecorder) GetUsersByIDs(ctx, ids any) *MockAuthServiceGatewayGetUsersByIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsersByIDs", reflect.TypeOf((*MockAuthGateway)(nil).GetUsersByIDs), ctx, ids)
-	return &MockAuthGatewayGetUsersByIDsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsersByIDs", reflect.TypeOf((*MockAuthServiceGateway)(nil).GetUsersByIDs), ctx, ids)
+	return &MockAuthServiceGatewayGetUsersByIDsCall{Call: call}
 }
 
-// MockAuthGatewayGetUsersByIDsCall wrap *gomock.Call
-type MockAuthGatewayGetUsersByIDsCall struct {
+// MockAuthServiceGatewayGetUsersByIDsCall wrap *gomock.Call
+type MockAuthServiceGatewayGetUsersByIDsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAuthGatewayGetUsersByIDsCall) Return(arg0 map[uuid.UUID]*entity.User, arg1 error) *MockAuthGatewayGetUsersByIDsCall {
+func (c *MockAuthServiceGatewayGetUsersByIDsCall) Return(arg0 map[uuid.UUID]*entity.User, arg1 error) *MockAuthServiceGatewayGetUsersByIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthGatewayGetUsersByIDsCall) Do(f func(context.Context, []uuid.UUID) (map[uuid.UUID]*entity.User, error)) *MockAuthGatewayGetUsersByIDsCall {
+func (c *MockAuthServiceGatewayGetUsersByIDsCall) Do(f func(context.Context, []uuid.UUID) (map[uuid.UUID]*entity.User, error)) *MockAuthServiceGatewayGetUsersByIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthGatewayGetUsersByIDsCall) DoAndReturn(f func(context.Context, []uuid.UUID) (map[uuid.UUID]*entity.User, error)) *MockAuthGatewayGetUsersByIDsCall {
+func (c *MockAuthServiceGatewayGetUsersByIDsCall) DoAndReturn(f func(context.Context, []uuid.UUID) (map[uuid.UUID]*entity.User, error)) *MockAuthServiceGatewayGetUsersByIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Introspect mocks base method.
-func (m *MockAuthGateway) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
+func (m *MockAuthServiceGateway) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Introspect", ctx, tokenString)
 	ret0, _ := ret[0].(*entity.AccessClaims)
@@ -91,37 +91,37 @@ func (m *MockAuthGateway) Introspect(ctx context.Context, tokenString string) (*
 }
 
 // Introspect indicates an expected call of Introspect.
-func (mr *MockAuthGatewayMockRecorder) Introspect(ctx, tokenString any) *MockAuthGatewayIntrospectCall {
+func (mr *MockAuthServiceGatewayMockRecorder) Introspect(ctx, tokenString any) *MockAuthServiceGatewayIntrospectCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Introspect", reflect.TypeOf((*MockAuthGateway)(nil).Introspect), ctx, tokenString)
-	return &MockAuthGatewayIntrospectCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Introspect", reflect.TypeOf((*MockAuthServiceGateway)(nil).Introspect), ctx, tokenString)
+	return &MockAuthServiceGatewayIntrospectCall{Call: call}
 }
 
-// MockAuthGatewayIntrospectCall wrap *gomock.Call
-type MockAuthGatewayIntrospectCall struct {
+// MockAuthServiceGatewayIntrospectCall wrap *gomock.Call
+type MockAuthServiceGatewayIntrospectCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAuthGatewayIntrospectCall) Return(arg0 *entity.AccessClaims, arg1 error) *MockAuthGatewayIntrospectCall {
+func (c *MockAuthServiceGatewayIntrospectCall) Return(arg0 *entity.AccessClaims, arg1 error) *MockAuthServiceGatewayIntrospectCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthGatewayIntrospectCall) Do(f func(context.Context, string) (*entity.AccessClaims, error)) *MockAuthGatewayIntrospectCall {
+func (c *MockAuthServiceGatewayIntrospectCall) Do(f func(context.Context, string) (*entity.AccessClaims, error)) *MockAuthServiceGatewayIntrospectCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthGatewayIntrospectCall) DoAndReturn(f func(context.Context, string) (*entity.AccessClaims, error)) *MockAuthGatewayIntrospectCall {
+func (c *MockAuthServiceGatewayIntrospectCall) DoAndReturn(f func(context.Context, string) (*entity.AccessClaims, error)) *MockAuthServiceGatewayIntrospectCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsEligibleApprover mocks base method.
-func (m *MockAuthGateway) IsEligibleApprover(ctx context.Context, id uuid.UUID) (bool, error) {
+func (m *MockAuthServiceGateway) IsEligibleApprover(ctx context.Context, id uuid.UUID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsEligibleApprover", ctx, id)
 	ret0, _ := ret[0].(bool)
@@ -130,37 +130,37 @@ func (m *MockAuthGateway) IsEligibleApprover(ctx context.Context, id uuid.UUID) 
 }
 
 // IsEligibleApprover indicates an expected call of IsEligibleApprover.
-func (mr *MockAuthGatewayMockRecorder) IsEligibleApprover(ctx, id any) *MockAuthGatewayIsEligibleApproverCall {
+func (mr *MockAuthServiceGatewayMockRecorder) IsEligibleApprover(ctx, id any) *MockAuthServiceGatewayIsEligibleApproverCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEligibleApprover", reflect.TypeOf((*MockAuthGateway)(nil).IsEligibleApprover), ctx, id)
-	return &MockAuthGatewayIsEligibleApproverCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEligibleApprover", reflect.TypeOf((*MockAuthServiceGateway)(nil).IsEligibleApprover), ctx, id)
+	return &MockAuthServiceGatewayIsEligibleApproverCall{Call: call}
 }
 
-// MockAuthGatewayIsEligibleApproverCall wrap *gomock.Call
-type MockAuthGatewayIsEligibleApproverCall struct {
+// MockAuthServiceGatewayIsEligibleApproverCall wrap *gomock.Call
+type MockAuthServiceGatewayIsEligibleApproverCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAuthGatewayIsEligibleApproverCall) Return(arg0 bool, arg1 error) *MockAuthGatewayIsEligibleApproverCall {
+func (c *MockAuthServiceGatewayIsEligibleApproverCall) Return(arg0 bool, arg1 error) *MockAuthServiceGatewayIsEligibleApproverCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthGatewayIsEligibleApproverCall) Do(f func(context.Context, uuid.UUID) (bool, error)) *MockAuthGatewayIsEligibleApproverCall {
+func (c *MockAuthServiceGatewayIsEligibleApproverCall) Do(f func(context.Context, uuid.UUID) (bool, error)) *MockAuthServiceGatewayIsEligibleApproverCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthGatewayIsEligibleApproverCall) DoAndReturn(f func(context.Context, uuid.UUID) (bool, error)) *MockAuthGatewayIsEligibleApproverCall {
+func (c *MockAuthServiceGatewayIsEligibleApproverCall) DoAndReturn(f func(context.Context, uuid.UUID) (bool, error)) *MockAuthServiceGatewayIsEligibleApproverCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ListActiveUsers mocks base method.
-func (m *MockAuthGateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error) {
+func (m *MockAuthServiceGateway) ListActiveUsers(ctx context.Context, q *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListActiveUsers", ctx, q)
 	ret0, _ := ret[0].(*entity.ListAssignableUsersResult)
@@ -169,31 +169,31 @@ func (m *MockAuthGateway) ListActiveUsers(ctx context.Context, q *entity.ListAss
 }
 
 // ListActiveUsers indicates an expected call of ListActiveUsers.
-func (mr *MockAuthGatewayMockRecorder) ListActiveUsers(ctx, q any) *MockAuthGatewayListActiveUsersCall {
+func (mr *MockAuthServiceGatewayMockRecorder) ListActiveUsers(ctx, q any) *MockAuthServiceGatewayListActiveUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveUsers", reflect.TypeOf((*MockAuthGateway)(nil).ListActiveUsers), ctx, q)
-	return &MockAuthGatewayListActiveUsersCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveUsers", reflect.TypeOf((*MockAuthServiceGateway)(nil).ListActiveUsers), ctx, q)
+	return &MockAuthServiceGatewayListActiveUsersCall{Call: call}
 }
 
-// MockAuthGatewayListActiveUsersCall wrap *gomock.Call
-type MockAuthGatewayListActiveUsersCall struct {
+// MockAuthServiceGatewayListActiveUsersCall wrap *gomock.Call
+type MockAuthServiceGatewayListActiveUsersCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAuthGatewayListActiveUsersCall) Return(arg0 *entity.ListAssignableUsersResult, arg1 error) *MockAuthGatewayListActiveUsersCall {
+func (c *MockAuthServiceGatewayListActiveUsersCall) Return(arg0 *entity.ListAssignableUsersResult, arg1 error) *MockAuthServiceGatewayListActiveUsersCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthGatewayListActiveUsersCall) Do(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockAuthGatewayListActiveUsersCall {
+func (c *MockAuthServiceGatewayListActiveUsersCall) Do(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockAuthServiceGatewayListActiveUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthGatewayListActiveUsersCall) DoAndReturn(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockAuthGatewayListActiveUsersCall {
+func (c *MockAuthServiceGatewayListActiveUsersCall) DoAndReturn(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockAuthServiceGatewayListActiveUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

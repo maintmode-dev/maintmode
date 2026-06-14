@@ -20,6 +20,6 @@ type Resources struct {
 	CreatedAt       time.Time  `db:"resources.created_at"`
 	UpdatedAt       *time.Time `db:"resources.updated_at"`
 	Status          string     `db:"resources.status"`
-	CreatedByUserID *uuid.UUID `db:"resources.created_by_user_id"`
-	UpdatedByUserID *uuid.UUID `db:"resources.updated_by_user_id"`
+	CreatedByUserID *uuid.UUID `db:"resources.created_by_user_id"` // Author of the resource: the authenticated user who created it (token subject).
+	UpdatedByUserID *uuid.UUID `db:"resources.updated_by_user_id"` // Last editor of the resource: the authenticated user of the most recent edit.
 }

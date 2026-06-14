@@ -24,8 +24,8 @@ type resourcesTable struct {
 	CreatedAt       postgres.ColumnTimestampz
 	UpdatedAt       postgres.ColumnTimestampz
 	Status          postgres.ColumnString
-	CreatedByUserID postgres.ColumnString
-	UpdatedByUserID postgres.ColumnString
+	CreatedByUserID postgres.ColumnString // Author of the resource: the authenticated user who created it (token subject).
+	UpdatedByUserID postgres.ColumnString // Last editor of the resource: the authenticated user of the most recent edit.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList

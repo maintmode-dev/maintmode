@@ -11,7 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
 
-	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/eventbus"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -43,7 +43,7 @@ type Service struct {
 	txManager       *dbtx.TxManager
 	usersStore      UsersStore
 	identitiesStore *useridentities.Store
-	auditorSrv      *auditor.Auditor
+	dispatcher      *eventbus.Dispatcher
 	tokenRevoker    TokenRevoker
 }
 
@@ -52,12 +52,12 @@ func NewService(
 	txManager *dbtx.TxManager,
 	usersStore UsersStore,
 	identitiesStore *useridentities.Store,
-	auditorSrv *auditor.Auditor,
+	dispatcher *eventbus.Dispatcher,
 	tokenRevoker TokenRevoker,
 ) *Service {
 	return &Service{
 		env:             env,
-		auditorSrv:      auditorSrv,
+		dispatcher:      dispatcher,
 		txManager:       txManager,
 		usersStore:      usersStore,
 		identitiesStore: identitiesStore,

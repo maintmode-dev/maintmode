@@ -9,7 +9,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	mock_maintnotify "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/maintnotify"
-	mock_messagesender "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/messagesender"
 )
 
 func TestMain(m *testing.M) {
@@ -19,7 +18,7 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	sender       *mock_messagesender.MockSender
+	sender       *mock_maintnotify.MockMessageSender
 	notifyTarget *mock_maintnotify.MockNotifyTargetsStore
 }
 
@@ -28,7 +27,7 @@ func initNotifier(t *testing.T) (*Service, *serviceMocks) {
 	ctrl := gomock.NewController(t)
 
 	mocks := &serviceMocks{
-		sender:       mock_messagesender.NewMockSender(ctrl),
+		sender:       mock_maintnotify.NewMockMessageSender(ctrl),
 		notifyTarget: mock_maintnotify.NewMockNotifyTargetsStore(ctrl),
 	}
 

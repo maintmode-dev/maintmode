@@ -21,9 +21,6 @@ type AuditLog struct {
 	ActorDisplayName string                 `json:"actor_display_name,omitempty"`
 	EntityType       entity.AuditEntityType `json:"entity_type,omitempty"`
 	EntityID         string                 `json:"entity_id,omitempty"`
-	TargetType       entity.AuditEntityType `json:"target_type,omitempty"`
-	// TargetID — стабильный ID целевой сущности (для user-целей — user UUID).
-	TargetID string `json:"target_id,omitempty"`
 	// Details — человекочитаемое описание события (legacy/fallback-строка).
 	Details string `json:"details,omitempty"`
 	// Metadata — структурированный action-specific payload для expand-грида.

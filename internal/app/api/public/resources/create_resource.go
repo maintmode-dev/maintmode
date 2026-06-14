@@ -82,6 +82,5 @@ func (i *Implementation) CreateResource(c *echo.Context) error {
 func validateCreateResourceRequest(ctx context.Context, req *apimodels.CreateResourceRequest) error {
 	return validation.ValidateStructWithContext(ctx, req,
 		validation.Field(&req.Name, validation.Required),
-		validation.Field(&req.Description, validation.Required),
 	)
 }

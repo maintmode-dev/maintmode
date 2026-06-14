@@ -20,7 +20,7 @@ type userIdentitiesTable struct {
 	ID        postgres.ColumnString
 	UserID    postgres.ColumnString
 	Provider  postgres.ColumnString
-	Subject   postgres.ColumnString
+	Subject   postgres.ColumnString // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
 	Email     postgres.ColumnString
 	CreatedAt postgres.ColumnTimestampz
 

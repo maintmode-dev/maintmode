@@ -14,7 +14,7 @@ import (
 
 type closeFunc struct {
 	name   string
-	f      func() error
+	f      func(context.Context) error
 	closed bool
 }
 
@@ -39,13 +39,25 @@ func NoErrCloseFunc(f func()) func() error {
 	}
 }
 
+// NoCtxCloseFunc wraps a no-ctx cleanup function
+func NoCtxCloseFunc(f func() error) func(ctx context.Context) error {
+	return func(_ context.Context) error {
+		return f()
+	}
+}
+
 // Add registers a cleanup function to be called on shutdown using the function's name.
 func Add(f func() error) {
+	AddWithName(getFuncName(f), NoCtxCloseFunc(f))
+}
+
+// AddWithCtx registers a cleanup function to be called on shutdown using the function's name.
+func AddWithCtx(f func(ctx context.Context) error) {
 	AddWithName(getFuncName(f), f)
 }
 
 // AddWithName registers a cleanup function with a custom name to be called on shutdown.
-func AddWithName(name string, f func() error) {
+func AddWithName(name string, f func(ctx context.Context) error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -79,7 +91,7 @@ func doClose(ctx context.Context, closeFunc *closeFunc) {
 		}
 	}()
 
-	err := closeFunc.f()
+	err := closeFunc.f(ctx)
 	if err != nil {
 		xlog.Error(ctx, "close handler failed", xfield.Error(err))
 		return

@@ -10,13 +10,15 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
 func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*entity.TokenPair, error) {
-	now := s.getNowF()
+	now := xtime.UTCNow()
 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Refresh",
 		xfield.Time("now", now),

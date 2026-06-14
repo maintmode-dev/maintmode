@@ -16,7 +16,7 @@ type UserIdentities struct {
 	ID        uuid.UUID `sql:"primary_key" db:"user_identities.id"`
 	UserID    uuid.UUID `db:"user_identities.user_id"`
 	Provider  string    `db:"user_identities.provider"`
-	Subject   string    `db:"user_identities.subject"`
+	Subject   string    `db:"user_identities.subject"` // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
 	Email     string    `db:"user_identities.email"`
 	CreatedAt time.Time `db:"user_identities.created_at"`
 }

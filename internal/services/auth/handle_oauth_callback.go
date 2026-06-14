@@ -7,6 +7,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/eventbus/events"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -22,10 +24,13 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
 
-	s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginSuccess, user, &entity.AuditMetadata{
-		IP:        cmd.ClientIP,
-		UserAgent: cmd.UserAgent,
-		SessionID: pair.SessionID.String(),
+	s.dispatcher.AsyncDispatch(ctx, events.UserLoginSuccess{
+		User: user,
+		Meta: &entity.AuditMetadata{
+			IP:        cmd.ClientIP,
+			UserAgent: cmd.UserAgent,
+			SessionID: pair.SessionID.String(),
+		},
 	})
 
 	return pair, nil
@@ -40,13 +45,20 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, providerUserInfo)
 	if err != nil {
-		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, &entity.User{
-			Email: providerUserInfo.Email,
-			Name:  providerUserInfo.Name,
-		}, &entity.AuditMetadata{
-			IP:            cmd.ClientIP,
-			UserAgent:     cmd.UserAgent,
-			FailureReason: auditFailureUserProvisioning,
+		// login_failed is dispatched synchronously: a failed sign-in is a
+		// security-relevant record that must be persisted before we return.
+		// Dispatch is best-effort (listener errors are swallowed inside), so the
+		// returned error cannot fail the request — ignore it deliberately.
+		_ = s.dispatcher.Dispatch(ctx, events.UserLoginFailed{
+			User: &entity.User{
+				Email: providerUserInfo.Email,
+				Name:  providerUserInfo.Name,
+			},
+			Meta: &entity.AuditMetadata{
+				IP:            cmd.ClientIP,
+				UserAgent:     cmd.UserAgent,
+				FailureReason: entity.AuditFailureUserProvisioning,
+			},
 		})
 
 		xlog.Error(ctx, "failed to get or create user", xfield.Error(err))
@@ -55,10 +67,13 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
-		s.auditorSrv.LogLogin(ctx, entity.AuditEventLoginFailed, user, &entity.AuditMetadata{
-			IP:            cmd.ClientIP,
-			UserAgent:     cmd.UserAgent,
-			FailureReason: auditFailureTokenIssuance,
+		_ = s.dispatcher.Dispatch(ctx, events.UserLoginFailed{
+			User: user,
+			Meta: &entity.AuditMetadata{
+				IP:            cmd.ClientIP,
+				UserAgent:     cmd.UserAgent,
+				FailureReason: entity.AuditFailureTokenIssuance,
+			},
 		})
 
 		xlog.Error(ctx, "failed to issue token pair", xfield.Error(err))
