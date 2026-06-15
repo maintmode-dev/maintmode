@@ -51,8 +51,10 @@ func TestGoogleOAuthLogin(t *testing.T) {
 		query := u.Query()
 		b64State := query.Get("state")
 		assertState(t, impl, &entity.OAuthState{
-			Nonce:       cookieNonce.Value,
-			OriginalURI: "",
+			Nonce: cookieNonce.Value,
+			// No original_uri supplied → normalized to the default landing path
+			// at entry by safeOriginalURI.
+			OriginalURI: "/",
 		}, b64State)
 	})
 
@@ -94,6 +96,38 @@ func TestGoogleOAuthLogin(t *testing.T) {
 			Nonce:       cookieNonce.Value,
 			OriginalURI: "/calendar",
 		}, b64State)
+	})
+
+	t.Run("sanitizes unsafe original_uri before it enters the signed state", func(t *testing.T) {
+		t.Parallel()
+
+		// A scheme-relative URI is an open-redirect vector; it must be reduced to a
+		// same-origin path before being baked into the signed state, so the callback
+		// can never hand the frontend "//evil.com" as a navigation target.
+		request := httptest.NewRequest(http.MethodGet, "/auth/login/oauth/google?original_uri=//evil.com", http.NoBody)
+		c, rec := echotest.ContextConfig{
+			Request: request,
+			QueryValues: url.Values{
+				"original_uri": {"//evil.com"},
+			},
+		}.ToContextRecorder(t)
+
+		err := impl.GoogleOAuthLogin(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusTemporaryRedirect, rec.Code)
+
+		cookieNonce, ok := lo.Find(rec.Result().Cookies(), func(c *http.Cookie) bool {
+			return c.Name == cookieNonceName
+		})
+		require.True(t, ok)
+
+		u, err := url.Parse(rec.Header().Get("Location"))
+		require.NoError(t, err)
+
+		assertState(t, impl, &entity.OAuthState{
+			Nonce:       cookieNonce.Value,
+			OriginalURI: "/",
+		}, u.Query().Get("state"))
 	})
 }
 

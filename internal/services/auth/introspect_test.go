@@ -72,6 +72,39 @@ func TestIntrospect(t *testing.T) {
 		require.False(t, resp.Active)
 	})
 
+	t.Run("blocked user", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+
+		handleCallbackMock(mocks, 1)
+
+		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
+			Provider:     entity.OAuthProviderGoogle,
+			CallbackCode: "code-1",
+			ClientIP:     "10.0.0.1",
+		})
+		require.NoError(t, err)
+
+		// Token is active before the block.
+		resp, err := srv.Introspect(ctx, pair.AccessToken)
+		require.NoError(t, err)
+		require.True(t, resp.Active)
+
+		// Block the token's subject; a live access token must become inactive on
+		// the next introspect, not only after expiry.
+		userID, err := uuid.Parse(resp.Subject)
+		require.NoError(t, err)
+		require.NoError(t, srv.usersSrv.BlockUser(ctx, &entity.BlockUserCmd{
+			Actor:  &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleAdmin}},
+			UserID: userID,
+		}))
+
+		resp, err = srv.Introspect(ctx, pair.AccessToken)
+		require.NoError(t, err)
+		require.False(t, resp.Active)
+	})
+
 	t.Run("invalid token", func(t *testing.T) {
 		srv, _ := initService(t)
 

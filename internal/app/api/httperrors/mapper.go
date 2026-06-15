@@ -26,6 +26,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrForbiddenMaintStatusTransition),
 		errors.Is(err, apperr.ErrConflictsChangedSincePreview),
 		errors.Is(err, apperr.ErrMaintChangedSincePreview),
+		errors.Is(err, apperr.ErrConcurrentModification),
 		errors.Is(err, apperr.ErrResourceAlreadyExists),
 		errors.Is(err, apperr.ErrNotifyChannelAlreadyExists),
 		errors.Is(err, apperr.ErrNotifyChannelNotFound),
@@ -44,6 +45,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrSuspiciousActivity),
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
+		errors.Is(err, apperr.ErrUserBlocked),
 		errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrInvalidOAuthState),
 		errors.Is(err, apperr.ErrOAuthStateExpired),
@@ -108,6 +110,9 @@ func mapError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrMaintChangedSincePreview):
 		return http.StatusConflict, NewErrorResponse(ErrMaintChangedSincePreview, err.Error())
 
+	case errors.Is(err, apperr.ErrConcurrentModification):
+		return http.StatusConflict, NewErrorResponse(ErrConcurrentModification, err.Error())
+
 	case errors.Is(err, apperr.ErrResourceAlreadyExists):
 		return http.StatusConflict, NewErrorResponse(ErrResourceAlreadyExists, err.Error())
 
@@ -148,6 +153,7 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrRefreshTokenNotFound),
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
+		errors.Is(err, apperr.ErrUserBlocked),
 		errors.Is(err, apperr.ErrSuspiciousActivity):
 		return http.StatusUnauthorized, NewErrorResponse(ErrUnauthorized, err.Error())
 	case errors.Is(err, apperr.ErrLockBusy):

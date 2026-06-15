@@ -20,6 +20,11 @@ var (
 	ErrLogoutAlready        = errors.New("logout already")
 	ErrUnsupportedProvider  = errors.New("unsupported provider")
 	ErrAuthUnavailable      = errors.New("auth unavailable")
+	// ErrUserBlocked marks a blocked user trying to obtain or use an access
+	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
+	// so blocking a user cuts off both new tokens and live ones on the next
+	// introspected (critical-mutation) request.
+	ErrUserBlocked = errors.New("user is blocked")
 )
 
 // OAuth provider connect/disconnect errors.

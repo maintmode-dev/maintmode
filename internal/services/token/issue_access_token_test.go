@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
@@ -60,6 +61,15 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
 		require.NoError(t, err)
 		require.Equal(t, user.Email, claims.UserName)
+	})
+
+	t.Run("blocked user is rejected", func(t *testing.T) {
+		user := testUser(t)
+		blockedAt := xtime.UTCNow()
+		user.BlockedAt = &blockedAt
+
+		_, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		require.ErrorIs(t, err, apperr.ErrUserBlocked)
 	})
 
 	t.Run("has kid", func(t *testing.T) {

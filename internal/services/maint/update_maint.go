@@ -206,11 +206,33 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApply")
 	defer span.End()
 
+	return s.runUpdateWithApply(ctx, func(ctx context.Context, fn func(context.Context) error) error {
+		return s.txManager.WithinTx(ctx, fn)
+	}, maintID, apply)
+}
+
+// updateWithApplySerializable is updateWithApply on a SERIALIZABLE transaction
+// with retry on serialization conflicts. Use it for transitions whose
+// correctness depends on a stable read of *other* rows inside the tx (approve,
+// which recomputes the conflict set), not just a lock on this maintenance.
+func (s *Service) updateWithApplySerializable(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApplySerializable")
+	defer span.End()
+
+	return s.runUpdateWithApply(ctx, s.txManager.WithinSerializableTx, maintID, apply)
+}
+
+func (s *Service) runUpdateWithApply(
+	ctx context.Context,
+	withinTx func(context.Context, func(context.Context) error) error,
+	maintID uuid.UUID,
+	apply func(ctx context.Context, maint *entity.Maintenance) error,
+) error {
 	var (
 		prev    *entity.Maintenance
 		current *entity.Maintenance
 	)
-	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
+	err := withinTx(ctx, func(ctx context.Context) error {
 		maint, err := s.maintStore.GetMaintForUpdate(ctx, maintID)
 		if err != nil {
 			xlog.Error(ctx, "failed to get maint for update", xfield.Error(err))

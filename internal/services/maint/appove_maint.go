@@ -4,24 +4,27 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
 func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenanceCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Approve")
 	defer span.End()
 
-	err := s.checkConflicts(ctx, cmd)
-	if err != nil {
-		xlog.Error(ctx, "failed to check conflicts", xfield.Error(err))
-		return fmt.Errorf("checkConflicts: %w", err)
-	}
-
-	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	// Approve runs in one SERIALIZABLE transaction: the conflict set is
+	// recomputed *inside* the tx, after the maintenance row is locked, so a
+	// concurrent approval that would change that set forces a serialization
+	// abort and a retry instead of letting both windows snapshot a stale,
+	// mutually-incomplete view. FOR UPDATE alone is not enough — it locks only
+	// this row, not the conflicting maintenances or new inserts.
+	err := s.updateWithApplySerializable(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if !entity.CanMaintTransition(maint.Status, entity.MaintenanceStatusPlanned) {
 			return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusPlanned)
 		}
@@ -39,6 +42,19 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 				cmd.ObservedMaintRevision,
 				maint.Revision(),
 			)
+		}
+
+		// GetMaintForUpdate locks and loads the row only; the conflict query
+		// needs the maintenance's resources, so load them inside the tx (part of
+		// the same stable serializable view).
+		if err := s.loadResources(ctx, maint); err != nil {
+			xlog.Error(ctx, "failed to load maint resources", xfield.Error(err))
+			return err
+		}
+
+		if err := s.checkConflicts(ctx, maint, cmd.ConflictSnapshot); err != nil {
+			xlog.Error(ctx, "failed to check conflicts", xfield.Error(err))
+			return err
 		}
 
 		if err := s.conflictsSrv.SaveSnapshot(ctx, &entity.SaveConflictsSnapshotCmd{
@@ -62,16 +78,40 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 
 		return nil
 	})
+
+	// Retries were exhausted under contention: hand the client a clean,
+	// retryable domain error instead of leaking the raw serialization failure
+	// (which would map to 500).
+	if dbtx.ErrorIs(err, dbtx.ErrPGSerializationFailure) {
+		xlog.Warn(ctx, "approve exhausted serialization retries", xfield.Error(err))
+		return apperr.ErrConcurrentModification
+	}
+
+	return err
 }
 
-func (s *Service) checkConflicts(ctx context.Context, cmd *entity.ApproveMaintenanceCmd) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.checkConflicts")
-	defer span.End()
-
-	maint, err := s.GetMaint(ctx, cmd.MaintID)
+// loadResources fills maint.Resources from the join table. GetMaintForUpdate
+// returns only the maintenance row, so callers that need the resource set (the
+// conflict query) must load it explicitly.
+func (s *Service) loadResources(ctx context.Context, maint *entity.Maintenance) error {
+	resources, err := s.maintStore.GetMaintResources(ctx, []uuid.UUID{maint.ID})
 	if err != nil {
 		return err
 	}
+
+	maint.Resources = lo.Map(resources[maint.ID], func(r *entity.ResourceDetails, _ int) uuid.UUID {
+		return r.ID
+	})
+	return nil
+}
+
+// checkConflicts recomputes the live conflict set for the (already locked)
+// maintenance and rejects the approval when it no longer matches the set the
+// approver previewed. Run inside the SERIALIZABLE approve transaction so the
+// recomputed set is a stable, current view.
+func (s *Service) checkConflicts(ctx context.Context, maint *entity.Maintenance, snapshot entity.ConflictsSnapshot) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.checkConflicts")
+	defer span.End()
 
 	conflicts, err := s.conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
 		MaintID:       maint.ID,
@@ -84,7 +124,7 @@ func (s *Service) checkConflicts(ctx context.Context, cmd *entity.ApproveMainten
 	}
 
 	conflictsFingerprint := entity.ConflictFingerprint(conflicts)
-	actualFingerprint := entity.ConflictFingerprint(cmd.ConflictSnapshot.Conflicts)
+	actualFingerprint := entity.ConflictFingerprint(snapshot.Conflicts)
 	if actualFingerprint != conflictsFingerprint {
 		return fmt.Errorf("%w: preview '%s', actual '%s'",
 			apperr.ErrConflictsChangedSincePreview,

@@ -14,20 +14,23 @@ import (
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	"github.com/ruko1202/maintmode/internal/storages/users"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
 func TestIntrospect(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	user := &entity.User{
-		ID:    xuuid.New(),
-		Roles: entity.DefaultRoles,
-		Email: t.Name() + "@example.com",
-	}
-
 	impl := initImpl(t)
+
+	// Persist the user: Introspect resolves the token subject and rejects tokens
+	// whose subject is not an active user (see auth.Introspect block check), so a
+	// realistic "active token" test needs a real row, not a synthetic in-memory
+	// user.
+	// MakeUser defaults to a uuid-unique email/name; keep it (shared DB → emails
+	// must be unique per run, see test-data-unique-per-run).
+	user := testdbutils.MakeUser(ctx, t, users.NewStore(db))
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()

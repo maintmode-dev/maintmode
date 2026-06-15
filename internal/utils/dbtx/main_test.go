@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/mock/gomock"
@@ -47,6 +48,7 @@ func initTxManagerWithMock(t *testing.T) (*TxManager, *mngrMocks) {
 	mngr := NewTxManager(db)
 	mngr.commit = mocks.dbtx.Commit
 	mngr.rollback = mocks.dbtx.Rollback
+	mngr.sleep = func(time.Duration) {} // don't burn wall-clock on retry backoff
 
 	return mngr, mocks
 }

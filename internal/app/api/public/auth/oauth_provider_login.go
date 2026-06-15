@@ -61,9 +61,13 @@ func (i *Implementation) oauthLogin(c *echo.Context, provider entity.OAuthProvid
 	nonce := generateNonce(ctx)
 	setCookieNonce(c, nonce)
 
+	// Validate original_uri at entry, before it is baked into the signed state:
+	// the callback later uses it for both the HTML redirect and the JSON nav
+	// target, so an unsafe value is an open-redirect vector. Sanitize once here
+	// so neither callback path can ever see a poisoned URI.
 	encodedState, err := i.stateCodec.Encode(ctx, &entity.OAuthState{
 		Nonce:             nonce,
-		OriginalURI:       c.QueryParam("original_uri"),
+		OriginalURI:       safeOriginalURI(c.QueryParam("original_uri")),
 		OAuthCallbackType: entity.ToOAuthCallbackType(c.QueryParam("oauth_callback_type")),
 	})
 	if err != nil {

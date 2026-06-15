@@ -16,6 +16,11 @@ func (s *Store) UpdateMaint(ctx context.Context, maint *entity.Maintenance) erro
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Maintenances.UpdateMaint")
 	defer span.End()
 
+	// updated_at doubles as the optimistic-concurrency token (Maintenance.Revision)
+	// compared on approve. The approve path runs under FOR UPDATE + SERIALIZABLE,
+	// so two writes to the same row are serialized with real time between them —
+	// the previous microsecond-collision concern on UnixMicro() is not reachable
+	// there. Set it here so every update advances the token.
 	maint.UpdatedAt = lo.ToPtr(xtime.UTCNow())
 
 	stmt := table.Maintenances.

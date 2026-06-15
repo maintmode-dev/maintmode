@@ -9,6 +9,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -16,6 +17,13 @@ import (
 func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Duration, user *entity.User) (string, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.IssueAccessToken")
 	defer span.End()
+
+	// A blocked user must not obtain an access token through any path — initial
+	// login, refresh-token rotation, and grace-period re-issue all funnel here.
+	if user.IsBlocked() {
+		xlog.Warn(ctx, "refusing to issue access token for blocked user", xfield.Any("user", user.ID))
+		return "", apperr.ErrUserBlocked
+	}
 
 	now := s.getNowF()
 

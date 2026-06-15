@@ -143,7 +143,10 @@ func (i *Implementation) callbackHTML(ctx context.Context, c *echo.Context, acce
 	if originalURI == "" {
 		originalURI = "/"
 	}
-	redirectURL, err := url.JoinPath(i.frontendURL, originalURI)
+	// original_uri is already normalized to a safe relative path at login entry
+	// (safeOriginalURI), and url.JoinPath keeps the result on frontendURL's origin
+	// regardless — so no extra validation is needed here.
+	redirectURL, err := url.JoinPath(i.frontendURL, safeOriginalURI(originalURI))
 	if err != nil {
 		xlog.Error(ctx, "failed to join frontend URL", xfield.Error(err))
 		return err

@@ -188,6 +188,7 @@ func TestApprove(t *testing.T) {
 		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
+			ActorUserID:           maint.ApproverUserID,
 			ConflictSnapshot: entity.ConflictsSnapshot{
 				Conflicts: actualConflicts,
 			},

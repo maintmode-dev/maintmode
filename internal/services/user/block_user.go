@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -49,11 +50,15 @@ func (s *Service) BlockUser(ctx context.Context, cmd *entity.BlockUserCmd) error
 		return err
 	}
 
-	// Revoke the target's sessions after the block commits. Best-effort: a failure
-	// here is logged but does not fail the block — the user is already blocked and
-	// can no longer authenticate new access tokens via the RBAC layer.
+	// Revoke the target's refresh tokens after the block commits. This is the
+	// only thing that stops a blocked user from minting fresh access tokens via
+	// /refresh, so a failure must fail the request — the caller retries rather
+	// than walking away believing the user was cut off. Live access tokens are
+	// handled separately: issuance and introspection both reject blocked users
+	// (token.IssueAccessToken / auth.Introspect).
 	if err := s.tokenRevoker.RevokeRefreshTokenByUserID(ctx, cmd.UserID); err != nil {
 		xlog.Error(ctx, "failed to revoke refresh tokens on block", xfield.Error(err))
+		return fmt.Errorf("revoke refresh tokens on block: %w", err)
 	}
 
 	s.dispatcher.AsyncDispatch(ctx, events.UserBlocked{

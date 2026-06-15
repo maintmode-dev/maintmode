@@ -23,6 +23,7 @@ var (
 	ErrForbiddenStatusTransition    ErrorCode = "forbidden status"
 	ErrStepsNotTerminal             ErrorCode = "steps not terminal"
 	ErrConflict                     ErrorCode = "conflict"
+	ErrConcurrentModification       ErrorCode = "concurrent modification"
 
 	// Invitation accept codes. The accept endpoint must not leak which
 	// precondition failed (privacy), so these are returned with no message.

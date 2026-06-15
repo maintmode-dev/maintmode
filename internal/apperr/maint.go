@@ -14,6 +14,11 @@ var (
 	ErrConflictsChangedSincePreview = errors.New("conflicts changed since preview")
 	ErrMaintChangedSincePreview     = errors.New("maintenance changed since preview")
 
+	// ErrConcurrentModification means a serializable transaction kept losing to
+	// concurrent writers and exhausted its retries. It is safe (and expected) for
+	// the client to retry the whole operation. Mapped to HTTP 409.
+	ErrConcurrentModification = errors.New("concurrent modification, please retry")
+
 	ErrInvalidPeriodStartOrEnd        = fmt.Errorf("%w: invalid period: start > end or start == end", ErrValidation)
 	ErrInvalidPeriodInterval          = fmt.Errorf("%w: invalid period interval", ErrValidation)
 	ErrForbiddenMaintStatusTransition = fmt.Errorf("%w: forbidden maint status", ErrValidation)
