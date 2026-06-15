@@ -118,3 +118,11 @@ task_processor:
   messaging:
     workers: 10
     max_attempts: 5
+  audit_prune:
+    # Audit-log retention sweep. 5-field cron: "minute hour day-of-month month
+    # day-of-week". "0 3 * * *" = daily at 03:00. The task is day-bucketed, so a
+    # finer schedule still prunes at most once per day.
+    cron_spec: "0 3 * * *"
+    # 365 days. Rows older than this are deleted in batches.
+    retention: 8760h
+    batch_limit: 1000

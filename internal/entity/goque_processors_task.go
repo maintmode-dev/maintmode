@@ -29,6 +29,14 @@ const (
 	// the auth binary.
 	ProcessorTaskMaintAutoCancel     = "maint.auto.cancel"
 	ProcessorTaskMaintAutoCancelCron = "maint.auto.cancel.cron"
+	// ProcessorTaskAuditPrune is the goque task type produced by the audit-retention
+	// periodic job. Its processor deletes audit_log rows older than the retention
+	// window in bounded batches. The payload carries the retention window and batch
+	// limit (from config). auth-binary-only: the auth binary owns the audit store
+	// (read + write), so it also owns the retention prune — not registered by
+	// maintmode.
+	ProcessorTaskAuditPrune     = "audit.prune"
+	ProcessorTaskAuditPruneCron = "audit.prune.cron"
 )
 
 // ProcessorTaskPayloadEventNotify is the typed payload stored in each goque task.
@@ -55,4 +63,13 @@ type ProcessorTaskPayloadMaintReminder struct {
 type ProcessorTaskPayloadMaintAutoCancel struct {
 	Threshold time.Duration `json:"threshold"`
 	Limit     int64         `json:"limit"`
+}
+
+// ProcessorTaskPayloadAuditPrune is the payload of an audit-retention sweep task.
+// The cron job stamps the tunables (from config) into each task so the processor
+// stays config-free: Retention is the age threshold past which a row is deleted,
+// BatchLimit bounds how many rows one DELETE statement removes.
+type ProcessorTaskPayloadAuditPrune struct {
+	Retention  time.Duration `json:"retention"`
+	BatchLimit int64         `json:"batch_limit"`
 }

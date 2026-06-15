@@ -184,6 +184,7 @@ type NotifyTransportConfig struct {
 type TaskProcessorConfig struct {
 	Messaging       TaskProcessorMessagingConfig       `mapstructure:"messaging"`
 	MaintAutoCancel TaskProcessorMaintAutoCancelConfig `mapstructure:"maint_auto_cancel"`
+	AuditPrune      TaskProcessorAuditPruneConfig      `mapstructure:"audit_prune"`
 }
 
 type TaskProcessorMessagingConfig struct {
@@ -200,6 +201,22 @@ type TaskProcessorMaintAutoCancelConfig struct {
 	// is auto-canceled.
 	Threshold time.Duration `mapstructure:"threshold"`
 	// BatchLimit bounds how many overdue maintenances one sweep cancels.
+	BatchLimit int64 `mapstructure:"batch_limit"`
+}
+
+// TaskProcessorAuditPruneConfig tunes the audit-log retention sweep (see
+// services/auditor.Auditor.Prune). Owned by the auth binary, which owns the audit
+// store.
+type TaskProcessorAuditPruneConfig struct {
+	// CronSpec is the 5-field schedule for the producer job (e.g. "0 3 * * *" =
+	// daily at 03:00). The task is day-bucketed, so firing more often than daily
+	// just dedupes to one prune per day.
+	CronSpec string `mapstructure:"cron_spec"`
+	// Retention is the age threshold: audit rows whose created_at is older than
+	// now-Retention are deleted (e.g. 8760h = 365 days).
+	Retention time.Duration `mapstructure:"retention"`
+	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
+	// batches until the table is drained for the cutoff.
 	BatchLimit int64 `mapstructure:"batch_limit"`
 }
 

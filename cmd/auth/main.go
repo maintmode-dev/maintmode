@@ -80,17 +80,9 @@ func main() {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
 	}
 
-	// start async task processor: drains invitation-email outbox tasks and
-	// performs the real SMTP delivery off the request path.
-	{
-		taskProcessors := bootstrap.NewAuthTaskProcessors(cfg.TaskProcessor, stores, gateways)
-		closer.Add(closer.NoErrCloseFunc(taskProcessors.Stop))
-		go func() {
-			if err := taskProcessors.Run(ctx); err != nil {
-				xlog.Fatal(ctx, "auth messaging goque exited with error", xfield.Error(err))
-			}
-		}()
-	}
+	// start async task processor: drains invitation-email outbox tasks (real SMTP
+	// delivery off the request path) and runs the daily audit-retention prune.
+	startAuthTaskProcessors(ctx, cfg, stores, services, gateways)
 
 	// Drain in-flight async event handlers (audit writes) on shutdown. This is
 	// the same dispatcher the auth/user services publish to.
@@ -160,6 +152,28 @@ func main() {
 
 	<-ctx.Done()
 	shutdown(context.WithoutCancel(ctx), drainer, cfg.Shutdown.DrainTimeoutOrDefault())
+}
+
+// startAuthTaskProcessors builds the auth goque worker and runs it in the
+// background, registering its Stop on the closer so in-flight tasks drain on
+// shutdown. A build failure (e.g. a bad cron spec) panics at startup.
+func startAuthTaskProcessors(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	stores *bootstrap.AuthStores,
+	services *bootstrap.AuthServices,
+	gateways *bootstrap.AuthGateways,
+) {
+	taskProcessors, err := bootstrap.NewAuthTaskProcessors(cfg.TaskProcessor, stores, services, gateways)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init auth task processors", xfield.Error(err))
+	}
+	closer.Add(closer.NoErrCloseFunc(taskProcessors.Stop))
+	go func() {
+		if err := taskProcessors.Run(ctx); err != nil {
+			xlog.Fatal(ctx, "auth messaging goque exited with error", xfield.Error(err))
+		}
+	}()
 }
 
 // shutdown drains the replica before tearing it down: it first flips
