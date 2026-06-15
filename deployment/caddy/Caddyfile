@@ -65,12 +65,16 @@
 # /login/oauth is rare; one ceiling covers them all and the precise per-IP
 # login limit stays in the app (Redis, 30 RPM). Over the limit → HTTP 429
 # (the module sets Retry-After automatically).
+# events/window are env-overridable so the e2e test stack — which drives the
+# whole /auth surface from a single IP, doubled via tloc-api's -count=2 — can
+# lift this coarse ceiling without weakening prod. Defaults match the original
+# prod values, so prod behaviour is unchanged when the env vars are unset.
 (auth_ratelimit) {
 	rate_limit {
 		zone auth_perimeter {
 			key {http.request.remote.host}
-			events 100
-			window 10s
+			events {$AUTH_RATELIMIT_EVENTS:100}
+			window {$AUTH_RATELIMIT_WINDOW:10s}
 		}
 	}
 }

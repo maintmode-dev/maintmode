@@ -17,9 +17,13 @@ api_server:
   name: api
   host: 0.0.0.0
   port: 8000
+  # The api e2e suite drives all /login/oauth/* endpoints from a single IP and,
+  # via tloc-api's -count=2, runs each twice — well past the prod-shaped 30 RPM
+  # cap, which surfaces as spurious 429s. This is the test-only config (prod uses
+  # its own), so raise the ceiling far clear of the suite's burst.
   rate_limiter:
-    requests_per_minute: 30
-    burst: 30
+    requests_per_minute: 100000
+    burst: 100000
     expires_in: 3m
     timeout: 200ms
 

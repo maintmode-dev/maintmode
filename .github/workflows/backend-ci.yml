@@ -94,23 +94,8 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
       - run: make docker-up
       - run: make tloc
-      - name: Collect backend logs
-        if: failure()
-        run: |
-          mkdir -p tmp
-          docker-compose --profile storages logs --no-color > tmp/backend-compose.log || true
-          docker-compose --profile storages ps -a > tmp/backend-compose-ps.log || true
       - run: make docker-down
         if: always()
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: backend-logs
-          path: |
-            tmp/backend-compose.log
-            tmp/backend-compose-ps.log
-          if-no-files-found: ignore
-          retention-days: 1
 
   image-maintmode:
     name: Build image (maintmode)
@@ -142,35 +127,17 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=sha-
+      # Push straight to GHCR. api-test pulls the sha-tagged image from there,
+      # so no tar artifact is saved (avoids the Actions artifact storage quota).
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: deployment/maintmode/.build/Dockerfile
-          load: true
-          push: false
-          tags: |
-            maintmode-ci-maintmode:${{ github.sha }}
-            ${{ steps.meta.outputs.tags }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=maintmode
           cache-to: type=gha,mode=max,scope=maintmode
-      - name: Push image
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              docker push "$tag"
-            fi
-          done <<< "$TAGS"
-      - run: mkdir -p tmp/images
-      - run: docker save maintmode-ci-maintmode:${{ github.sha }} -o tmp/images/maintmode.tar
-      - uses: actions/upload-artifact@v4
-        with:
-          name: maintmode-image
-          path: tmp/images/maintmode.tar
-          if-no-files-found: error
-          retention-days: 1
 
   image-auth:
     name: Build image (auth)
@@ -200,35 +167,16 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=sha-
+      # Push straight to GHCR (no tar artifact — see image-maintmode).
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: deployment/auth/.build/Dockerfile
-          load: true
-          push: false
-          tags: |
-            maintmode-ci-auth:${{ github.sha }}
-            ${{ steps.meta.outputs.tags }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=auth
           cache-to: type=gha,mode=max,scope=auth
-      - name: Push image
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-        run: |
-          while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              docker push "$tag"
-            fi
-          done <<< "$TAGS"
-      - run: mkdir -p tmp/images
-      - run: docker save maintmode-ci-auth:${{ github.sha }} -o tmp/images/auth.tar
-      - uses: actions/upload-artifact@v4
-        with:
-          name: auth-image
-          path: tmp/images/auth.tar
-          if-no-files-found: error
-          retention-days: 1
 
   image-migrations:
     name: Build image (migrations)
@@ -285,16 +233,21 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - uses: actions/download-artifact@v4
+      # Pull the just-published images from GHCR and retag to the local CI tag
+      # that compose.app.ci.yaml references. (Replaces the old tar artifact
+      # hand-off, which hit the Actions artifact storage quota.)
+      - uses: docker/login-action@v3
         with:
-          name: maintmode-image
-          path: tmp/images
-      - uses: actions/download-artifact@v4
-        with:
-          name: auth-image
-          path: tmp/images
-      - run: docker load -i tmp/images/maintmode.tar
-      - run: docker load -i tmp/images/auth.tar
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull + retag app images from GHCR
+        run: |
+          SHA_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          docker pull "ghcr.io/${{ github.repository }}/maintmode:${SHA_TAG}"
+          docker pull "ghcr.io/${{ github.repository }}/auth:${SHA_TAG}"
+          docker tag "ghcr.io/${{ github.repository }}/maintmode:${SHA_TAG}" "maintmode-ci-maintmode:${{ github.sha }}"
+          docker tag "ghcr.io/${{ github.repository }}/auth:${SHA_TAG}" "maintmode-ci-auth:${{ github.sha }}"
       - uses: docker/setup-buildx-action@v3
       - name: Build custom Caddy image (xcaddy + ratelimit)
         # Prebuild with a persistent GHA layer cache so the slow xcaddy
@@ -319,50 +272,5 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
       - run: make app-up
       - run: make tloc-api
-      - name: Collect API logs
-        if: failure()
-        run: |
-          mkdir -p tmp
-          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ${{ env.COMPOSE_PROFILES_FLAGS }} ps -a > tmp/api-compose-ps.log || true
-          docker-compose ${{ env.DOCKER_COMPOSE_APP_CONFIGS }} ${{ env.COMPOSE_PROFILES_FLAGS }} logs --no-color > tmp/api-compose.log || true
       - run: make app-down
         if: always()
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: backend-api-e2e-logs
-          path: |
-            tmp/api-compose.log
-            tmp/api-compose-ps.log
-          if-no-files-found: ignore
-          retention-days: 1
-
-  # Notify the deploy repo to roll the dev VM with the freshly published
-  # maintmode/auth/migrations images. Runs only after images are published and
-  # e2e passes. Requires a repo secret DEPLOY_DISPATCH_TOKEN: a PAT with `repo`
-  # scope on maintmode-deploy (the default GITHUB_TOKEN can't dispatch across
-  # repos). Skipped automatically if the secret is absent.
-  trigger-deploy:
-    name: Trigger dev deploy
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs:
-      - image-maintmode
-      - image-auth
-      - image-migrations
-      - api-test
-    steps:
-      - name: repository_dispatch -> maintmode-deploy
-        env:
-          TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "DEPLOY_DISPATCH_TOKEN not set — skipping cross-repo deploy trigger."
-            exit 0
-          fi
-          TAG="sha-${GITHUB_SHA::7}"
-          curl -fsSL -X POST \
-            -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/ruko1202/maintmode-deploy/dispatches \
-            -d "{\"event_type\":\"deploy-dev\",\"client_payload\":{\"maintmode_tag\":\"${TAG}\",\"auth_tag\":\"${TAG}\",\"migrations_tag\":\"${TAG}\"}}"

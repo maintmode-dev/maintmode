@@ -71,8 +71,71 @@ func TestMain(m *testing.M) {
 		xlog.Panic(ctx, "Failed to wait for API health check", xfield.Error(err))
 	}
 
+	// Seed at least one eligible (admin) approver in the auth users table.
+	// The suite mints synthetic JWTs locally and never completes a real login,
+	// so without this the users table is empty and every maintenance-create
+	// helper fails at resolveEligibleApprover ("no eligible approver in auth").
+	if err := seedEligibleApprover(ctx); err != nil {
+		xlog.Panic(ctx, "Failed to seed eligible approver", xfield.Error(err))
+	}
+
 	code := m.Run()
 	os.Exit(code)
+}
+
+// seededUserID is the id of the persisted admin user provisioned in TestMain.
+// The default test clients act as this user so that introspected critical
+// mutations (start/approve/complete/steps) pass the auth service's
+// isSubjectActive check, which requires the token subject to be a real,
+// non-blocked user. Tests that must act as a different identity (e.g. the
+// assigned approver) still mint a token via mustTestAccessTokenForUser.
+var seededUserID string
+
+// seedEligibleApprover provisions a persisted, active admin user by driving the
+// public OAuth token-exchange endpoint and records its id in seededUserID. In
+// the dev/test environment the auth service routes every provider to the stub
+// verifier (use_stub: true), which accepts any non-sentinel id_token and returns
+// synthetic claims; the resulting user is auto-granted the admin role
+// (assignAdminRoleBySystem). That makes the user show up in the assignable-users
+// picker that resolveEligibleApprover reads, and makes it a valid token subject
+// for introspect.
+func seedEligibleApprover(ctx context.Context) error {
+	client := newAuthTestClient("")
+
+	resp, err := client.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
+			IdToken: lo.ToPtr("api-test-seed-approver"),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("exchange id token: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return fmt.Errorf("seed approver exchange returned %d: %s", resp.StatusCode(), resp.Body)
+	}
+
+	subject, err := subjectFromAccessToken(lo.FromPtr(resp.JSON200.AccessToken))
+	if err != nil {
+		return fmt.Errorf("extract seeded user id: %w", err)
+	}
+	seededUserID = subject
+	return nil
+}
+
+// subjectFromAccessToken parses the (already-trusted, just-minted) access token
+// without signature verification to read its subject — the persisted user id.
+func subjectFromAccessToken(token string) (string, error) {
+	if token == "" {
+		return "", fmt.Errorf("empty access token")
+	}
+	var claims jwt.RegisteredClaims
+	if _, _, err := jwt.NewParser().ParseUnverified(token, &claims); err != nil {
+		return "", err
+	}
+	if claims.Subject == "" {
+		return "", fmt.Errorf("access token has no subject")
+	}
+	return claims.Subject, nil
 }
 
 //nolint:unparam,prealloc // by design
@@ -193,8 +256,17 @@ func newAuthTestClient(token string) *authclient.ClientWithResponses {
 	return c
 }
 
+// mustTestAccessToken mints a token for the seeded, persisted admin user. Using
+// the seeded subject (rather than a fresh random uuid) lets introspected
+// critical mutations pass the auth isSubjectActive check. seededUserID is set in
+// TestMain before any test runs; fall back to a random subject only if seeding
+// was skipped, so read-only suites still work.
 func mustTestAccessToken(roles ...entity.Role) string {
-	return mustTestAccessTokenForUser(xuuid.NewString(), roles...)
+	subject := seededUserID
+	if subject == "" {
+		subject = xuuid.NewString()
+	}
+	return mustTestAccessTokenForUser(subject, roles...)
 }
 
 // mustTestAccessTokenForUser mints a signed access token for a specific subject

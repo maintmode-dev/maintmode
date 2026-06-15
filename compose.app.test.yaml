@@ -19,3 +19,14 @@ services:
       - ./deployment/auth/test/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/auth/test/app.secrets.yaml:/app/app.secrets.yaml:ro
       - ./deployment/auth/authz:/app/authz:ro
+
+  # The e2e suite drives the whole /auth surface from one IP and, via tloc-api's
+  # -count=2, twice — past Caddy's coarse perimeter cap (100/10s). That cap is an
+  # external anti-flood, not a contract under test, so lift it well clear of the
+  # suite here. The Caddyfile reads these via env with prod-matching defaults, so
+  # prod stays at 100/10s. (The app-level business limiter is raised separately
+  # in deployment/auth/test/app.config.yaml.)
+  caddy:
+    environment:
+      AUTH_RATELIMIT_EVENTS: "1000000"
+      AUTH_RATELIMIT_WINDOW: "10s"
