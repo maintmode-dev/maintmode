@@ -117,12 +117,13 @@ UI ориентирован на:
 
 ## Operations
 
-For deploying MaintMode to a single VM with HTTPS, monitoring, backup
-runbooks, and the production smoke-test checklist, see the
-**maintmode-docs/ops/** directory in the separate
-[`maintmode-docs`](../maintmode-docs/ops/README.md) repository. The
-backend repo holds the compose files and Caddy configuration; the
-docs repo is the canonical source for operator procedures.
+Deploy orchestration (single-VM Docker Compose, HTTPS via Caddy, monitoring,
+rolling deploy) lives in the separate **[`maintmode-deploy`](../maintmode-deploy/README.md)**
+repository — it pulls the images this repo's CI publishes to GHCR. This repo
+keeps only what's needed for local dev and CI (`compose.yaml`, the dev Caddy
+image/config, app configs). Operator runbooks, backup procedures, and the
+smoke-test checklist are in **maintmode-docs/ops/**
+([`maintmode-docs`](../maintmode-docs/ops/README.md)).
 
 ### Scaling
 
@@ -151,10 +152,10 @@ How it works:
 - Prometheus discovers every replica via Docker SD; Loki/Promtail
   labels logs by `container_name` so replica logs are easy to filter.
 
-Deploys are rolling and zero-downtime: `make prod-deploy` rolls the new
-image through one replica at a time, leaning on the in-app drain (Readiness
-→ 503 on SIGTERM) and Caddy's active `/readiness` health check so the pool
-never drops below its healthy count. See
+Deploys are rolling and zero-downtime: the deploy repo's `make deploy` rolls
+the new image through one replica at a time, leaning on the in-app drain
+(Readiness → 503 on SIGTERM) and Caddy's active `/readiness` health check so
+the pool never drops below its healthy count. See
 [rolling-deploy.md](../maintmode-docs/ops/rolling-deploy.md).
 
 Known limitations on a single VM:

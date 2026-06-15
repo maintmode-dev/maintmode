@@ -230,6 +230,48 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  image-migrations:
+    name: Build image (migrations)
+    runs-on: ubuntu-latest
+    # Same gate as the app images: publish only on main/tag pushes, not PRs.
+    if: github.event_name != 'pull_request'
+    needs:
+      - lint
+      - test
+      - build-maintmode
+      - build-auth
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/migrations
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-
+      # The migrations image is tiny (goose base + *.sql), no app source build,
+      # and no e2e consumer — so push directly rather than load+save+tar like
+      # the app images do.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/migrations/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=migrations
+          cache-to: type=gha,mode=max,scope=migrations
+
   api-test:
     name: API e2e tests
     runs-on: ubuntu-22.04
@@ -294,3 +336,33 @@ jobs:
             tmp/api-compose-ps.log
           if-no-files-found: ignore
           retention-days: 1
+
+  # Notify the deploy repo to roll the dev VM with the freshly published
+  # maintmode/auth/migrations images. Runs only after images are published and
+  # e2e passes. Requires a repo secret DEPLOY_DISPATCH_TOKEN: a PAT with `repo`
+  # scope on maintmode-deploy (the default GITHUB_TOKEN can't dispatch across
+  # repos). Skipped automatically if the secret is absent.
+  trigger-deploy:
+    name: Trigger dev deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - image-maintmode
+      - image-auth
+      - image-migrations
+      - api-test
+    steps:
+      - name: repository_dispatch -> maintmode-deploy
+        env:
+          TOKEN: ${{ secrets.DEPLOY_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "DEPLOY_DISPATCH_TOKEN not set — skipping cross-repo deploy trigger."
+            exit 0
+          fi
+          TAG="sha-${GITHUB_SHA::7}"
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ruko1202/maintmode-deploy/dispatches \
+            -d "{\"event_type\":\"deploy-dev\",\"client_payload\":{\"maintmode_tag\":\"${TAG}\",\"auth_tag\":\"${TAG}\",\"migrations_tag\":\"${TAG}\"}}"

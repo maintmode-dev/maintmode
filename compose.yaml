@@ -13,15 +13,15 @@
 #   docker compose --profile storages --profile app --profile monitoring up -d
 #
 # Or use the convenience Makefile targets: `make app-up` (full), `make docker-up`
-# (storages only), `make prod-up` (prod overlay).
+# (storages only).
 #
 # Overlays:
 #   compose.app.test.yaml   — test env configs for `make test-api`
 #   compose.app.ci.yaml     — pre-built images for CI
-#   compose.app.prod.yaml   — production: HTTPS via Caddy, prod app configs
 #   compose.k6.yaml         — k6 load testing
 #
-# Operator docs: maintmode-docs/ops/
+# Production/dev VM deploy orchestration lives in the separate maintmode-deploy
+# repo (pulls images from GHCR). Operator docs: maintmode-docs/ops/
 
 services:
   # -----------------------------------------------------------------

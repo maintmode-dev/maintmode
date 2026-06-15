@@ -1,11 +1,4 @@
 # -------------------------------------
-# Production single-VM deployment
-# -------------------------------------
-# prod-up / prod-down / prod-logs / prod-ps live in makefile.prod.mk
-# so the root Makefile stays focused on dev workflows.
--include makefile.prod.mk
-
-# -------------------------------------
 # Shared Configuration
 # -------------------------------------
 # This file contains common configuration variables shared across all Makefiles.
