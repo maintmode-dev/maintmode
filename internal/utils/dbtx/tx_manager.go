@@ -115,7 +115,8 @@ func (m *TxManager) WithinSerializableTx(ctx context.Context, fn func(ctx contex
 // [0, cap] so concurrent retries spread out instead of re-colliding.
 func serializableRetryDelay(attempt int) time.Duration {
 	backoff := min(serializableRetryBaseDelay<<(attempt-1), serializableRetryMaxDelay)
-	return time.Duration(rand.Int64N(int64(backoff) + 1))
+	// Backoff jitter is not security-sensitive; a weak PRNG is fine here.
+	return time.Duration(rand.Int64N(int64(backoff) + 1)) //nolint:gosec // non-crypto retry jitter
 }
 
 func (m *TxManager) WithinTx(ctx context.Context, fn func(ctx context.Context) error, opts ...TxOption) (err error) {

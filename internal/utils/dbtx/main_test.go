@@ -46,8 +46,21 @@ func initTxManagerWithMock(t *testing.T) (*TxManager, *mngrMocks) {
 	}
 
 	mngr := NewTxManager(db)
-	mngr.commit = mocks.dbtx.Commit
-	mngr.rollback = mocks.dbtx.Rollback
+	// The mock records and asserts commit/rollback calls, but each call must also
+	// finalize the REAL transaction WithinTx opened via BeginTxx — otherwise every
+	// attempt leaks a pooled connection and a -count>1 run exhausts the pool and
+	// hangs on the next BeginTxx. So wrap the mock: invoke it for the assertion,
+	// then close the real tx (the mock's return value stays the result).
+	mngr.commit = func(ctx context.Context, tx *sqlx.Tx) error {
+		mockErr := mocks.dbtx.Commit(ctx, tx)
+		_ = tx.Commit()
+		return mockErr
+	}
+	mngr.rollback = func(ctx context.Context, tx *sqlx.Tx) error {
+		mockErr := mocks.dbtx.Rollback(ctx, tx)
+		_ = tx.Rollback()
+		return mockErr
+	}
 	mngr.sleep = func(time.Duration) {} // don't burn wall-clock on retry backoff
 
 	return mngr, mocks

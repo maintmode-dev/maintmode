@@ -102,3 +102,9 @@ task_processor:
   messaging:
     workers: 10
     max_attempts: 5
+  maint_auto_cancel:
+    # 5-field cron: "minute hour day-of-month month day-of-week".
+    # "* * * * *" = every minute (every value in every field).
+    cron_spec: "* * * * *"
+    threshold: 15m
+    batch_limit: 100

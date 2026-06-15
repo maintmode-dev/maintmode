@@ -72,7 +72,10 @@ func main() {
 
 	// start async task processor
 	{
-		taskProcessors := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services, gateways)
+		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services, gateways)
+		if err != nil {
+			xlog.Panic(ctx, "failed to init task processors", xfield.Error(err))
+		}
 		closer.Add(closer.NoErrCloseFunc(taskProcessors.Stop))
 		go func() {
 			if err := taskProcessors.Run(ctx); err != nil {

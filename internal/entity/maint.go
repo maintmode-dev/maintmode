@@ -66,6 +66,11 @@ const (
 	MaintenanceCancelReasonBusinessDecision MaintenanceCancelReason = "business_decision"
 	MaintenanceCancelReasonRescheduled      MaintenanceCancelReason = "rescheduled"
 	MaintenanceCancelReasonMistake          MaintenanceCancelReason = "mistake"
+	// MaintenanceCancelReasonNotStarted is set by the automatic overdue-cancel
+	// job when a planned maintenance is not started within the grace window after
+	// its planned start. It is system-only: it is never accepted on the public
+	// cancel endpoint (see FromAPIMaintenanceCancelReason), only surfaced on read.
+	MaintenanceCancelReasonNotStarted MaintenanceCancelReason = "not_started"
 )
 
 // Maintenance is a planned work window over one or more resources (or the whole

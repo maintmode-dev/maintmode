@@ -3,6 +3,7 @@ package maint
 import (
 	"cmp"
 	"context"
+	"errors"
 
 	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
@@ -17,9 +18,10 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Complete")
 	defer span.End()
 
-	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	err := s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+		// Already completed: idempotent no-op.
 		if maint.Status == entity.MaintenanceStatusCompleted {
-			return nil
+			return errSkipUpdate
 		}
 
 		if !entity.CanMaintTransition(maint.Status, entity.MaintenanceStatusCompleted) {
@@ -40,6 +42,11 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 		maint.Status = entity.MaintenanceStatusCompleted
 		return nil
 	})
+	if errors.Is(err, errSkipUpdate) {
+		return nil
+	}
+
+	return err
 }
 
 func allStepsTerminal(steps []*entity.MaintenanceStep) bool {

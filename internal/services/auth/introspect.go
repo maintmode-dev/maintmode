@@ -79,7 +79,9 @@ func (s *Service) isSubjectActive(ctx context.Context, subject string) (bool, er
 	userID, err := uuid.Parse(subject)
 	if err != nil {
 		xlog.Warn(ctx, "access token subject is not a valid uuid", xfield.String("subject", subject))
-		return false, nil
+		// Fail closed: a malformed subject is not a transient failure to surface,
+		// it means the token is not trustworthy — report inactive, not an error.
+		return false, nil //nolint:nilerr // intentional fail-closed, see func doc
 	}
 
 	user, err := s.usersSrv.GetByID(ctx, userID)

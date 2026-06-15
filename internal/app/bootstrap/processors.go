@@ -1,12 +1,17 @@
 package bootstrap
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/ruko1202/goque"
+
+	"github.com/ruko1202/maintmode/internal/goque_processors/asyncsenderprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/autocancelprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/messaging/goque_processors/asyncsenderprocessor"
-	"github.com/ruko1202/maintmode/internal/services/messaging/goque_processors/reminderprocessor"
 )
 
 func NewTaskProcessors(
@@ -14,7 +19,7 @@ func NewTaskProcessors(
 	stores *Stores,
 	services *Services,
 	gateways *Gateways,
-) *goque.Goque {
+) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
 	goq.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
@@ -33,7 +38,40 @@ func NewTaskProcessors(
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)
 
-	return goq
+	// maint.auto.cancel: a periodic cron job enqueues one task per tick (carrying
+	// the grace threshold + batch limit from config) and this processor sweeps
+	// not-started maintenances (draft or planned) overdue past the grace window. One
+	// worker is enough — the sweep is a single bounded batch and must not run
+	// concurrently with itself.
+	//
+	// On multi-replica deploys (the Caddyfile supports `--scale maintmode=N`) every
+	// replica ticks the schedule, but the minute-bucketed external id (see
+	// autocancelprocessor.NewTaskFactory) collapses them to one *enqueued* task per
+	// minute via the goque (type, external_id) unique constraint. NOTE: goque
+	// v0.8.9 logs each losing insert at ERROR ("failed to add task" /
+	// "failed to add periodic job task to queue") and does not retry — so with N
+	// replicas expect ~2×(N-1) benign duplicate-key ERROR lines per minute. They are
+	// correctness-neutral; suppressing them requires an upstream goque change.
+	autoCancelCfg := cfg.MaintAutoCancel
+	goq.RegisterProcessor(
+		entity.ProcessorTaskMaintAutoCancel,
+		autocancelprocessor.NewTaskProcessor(services.Maint),
+		goque.WithWorkersCount(1),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	autoCancelJob, err := goque.NewCronJob(
+		entity.ProcessorTaskMaintAutoCancelCron,
+		autoCancelCfg.CronSpec,
+		time.UTC,
+		autocancelprocessor.NewTaskFactory(autoCancelCfg.Threshold, autoCancelCfg.BatchLimit),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build maint-auto-cancel cron job: %w", err)
+	}
+	goq.RegisterPeriodicJob(autoCancelJob)
+
+	return goq, nil
 }
 
 // NewAuthTaskProcessors builds the goque worker for the auth binary. It drains

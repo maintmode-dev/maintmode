@@ -63,4 +63,19 @@ func TestCancel(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, entity.MaintenanceStatusCompleted, actualMaint.Status)
 	})
+
+	t.Run("idempotent on already canceled", func(t *testing.T) {
+		t.Parallel()
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore, entity.NewPeriod(now, now.Add(time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusCancelled),
+		)
+
+		// Canceling an already-canceled maintenance is a no-op, not an error.
+		err := service.CancelMaint(ctx, &entity.CancelMaintenanceCmd{MaintID: maint.ID})
+		require.NoError(t, err)
+
+		actualMaint, err := service.GetMaint(ctx, maint.ID)
+		require.NoError(t, err)
+		require.Equal(t, entity.MaintenanceStatusCancelled, actualMaint.Status)
+	})
 }

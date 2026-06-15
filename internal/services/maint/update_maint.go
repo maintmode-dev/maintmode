@@ -2,6 +2,7 @@ package maint
 
 import (
 	"context"
+	"errors"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
@@ -222,6 +223,13 @@ func (s *Service) updateWithApplySerializable(ctx context.Context, maintID uuid.
 	return s.runUpdateWithApply(ctx, s.txManager.WithinSerializableTx, maintID, apply)
 }
 
+// errSkipUpdate is a sentinel an apply func may return to abort the update as a
+// deliberate no-op: the row read under the lock did not warrant a change. The tx
+// is rolled back (so no write, no lifecycle dispatch) and the sentinel is
+// propagated to the caller, but it is NOT logged as a failure. Callers should
+// treat it as "nothing to do", typically with errors.Is.
+var errSkipUpdate = errors.New("maint update skipped: precondition not met")
+
 func (s *Service) runUpdateWithApply(
 	ctx context.Context,
 	withinTx func(context.Context, func(context.Context) error) error,
@@ -243,7 +251,6 @@ func (s *Service) runUpdateWithApply(
 
 		err = apply(ctx, maint)
 		if err != nil {
-			xlog.Error(ctx, "apply failed", xfield.Error(err))
 			return err
 		}
 
@@ -256,7 +263,11 @@ func (s *Service) runUpdateWithApply(
 		return nil
 	})
 	if err != nil {
-		xlog.Error(ctx, "failed to update maint", xfield.Error(err))
+		// errSkipUpdate is a deliberate no-op, not a failure: pass it through
+		// unlogged so the caller can recognize the skip.
+		if !errors.Is(err, errSkipUpdate) {
+			xlog.Error(ctx, "failed to update maint", xfield.Error(err))
+		}
 		return err
 	}
 
@@ -265,17 +276,36 @@ func (s *Service) runUpdateWithApply(
 }
 
 func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *entity.Maintenance) {
-	var eventType entity.NotifyEventKind
-	switch {
-	case prev.Status == entity.MaintenanceStatusPlanned && current.Status == entity.MaintenanceStatusInProgress:
-		eventType = entity.NotifyEventMaintStarted
-	case prev.Status == entity.MaintenanceStatusInProgress && current.Status == entity.MaintenanceStatusCancelled:
-		eventType = entity.NotifyEventMaintCancelled
-	case prev.Status == entity.MaintenanceStatusInProgress && current.Status == entity.MaintenanceStatusCompleted:
-		eventType = entity.NotifyEventMaintCompleted
-	default:
+	eventType, ok := maintLifecycleEvent(prev.Status, current.Status)
+	if !ok {
 		return
 	}
 
+	if eventType == entity.NotifyEventMaintCancelled {
+		// Stop any pending reminders for the now-canceled maintenance (best-effort,
+		// post-commit). A draft has none, but the call is a harmless no-op then.
+		_ = s.deferred.Cancel(ctx, current.ID)
+	}
+
 	s.notifier.NotifyMaintLifecycle(ctx, eventType, current)
+}
+
+// maintLifecycleEvent maps a status transition to the lifecycle notification it
+// should emit. The bool is false when the transition has no associated
+// notification (draft edits, approve, draft->canceled). draft->canceled is silent
+// on purpose: a draft was never announced to notify targets. Kept pure so the
+// transition matrix is unit-testable without a notifier.
+func maintLifecycleEvent(from, to entity.MaintenanceStatus) (entity.NotifyEventKind, bool) {
+	switch {
+	case from == entity.MaintenanceStatusPlanned && to == entity.MaintenanceStatusInProgress:
+		return entity.NotifyEventMaintStarted, true
+	case from == entity.MaintenanceStatusPlanned && to == entity.MaintenanceStatusCancelled:
+		return entity.NotifyEventMaintCancelled, true
+	case from == entity.MaintenanceStatusInProgress && to == entity.MaintenanceStatusCancelled:
+		return entity.NotifyEventMaintCancelled, true
+	case from == entity.MaintenanceStatusInProgress && to == entity.MaintenanceStatusCompleted:
+		return entity.NotifyEventMaintCompleted, true
+	default:
+		return "", false
+	}
 }

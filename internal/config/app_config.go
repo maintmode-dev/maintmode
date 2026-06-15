@@ -182,12 +182,25 @@ type NotifyTransportConfig struct {
 }
 
 type TaskProcessorConfig struct {
-	Messaging TaskProcessorMessagingConfig `mapstructure:"messaging"`
+	Messaging       TaskProcessorMessagingConfig       `mapstructure:"messaging"`
+	MaintAutoCancel TaskProcessorMaintAutoCancelConfig `mapstructure:"maint_auto_cancel"`
 }
 
 type TaskProcessorMessagingConfig struct {
 	Workers     int   `mapstructure:"workers"`
 	MaxAttempts int32 `mapstructure:"max_attempts"`
+}
+
+// TaskProcessorMaintAutoCancelConfig tunes the auto-cancel sweep of overdue
+// not-started maintenances (see services/maint.Service.CancelUnStarted).
+type TaskProcessorMaintAutoCancelConfig struct {
+	// CronSpec is the 5-field schedule for the producer job (e.g. "* * * * *").
+	CronSpec string `mapstructure:"cron_spec"`
+	// Threshold is the grace window after a maintenance's planned start before it
+	// is auto-canceled.
+	Threshold time.Duration `mapstructure:"threshold"`
+	// BatchLimit bounds how many overdue maintenances one sweep cancels.
+	BatchLimit int64 `mapstructure:"batch_limit"`
 }
 
 type JWTVerifierConfig struct {

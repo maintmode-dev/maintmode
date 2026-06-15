@@ -2,6 +2,7 @@ package maint
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -18,8 +19,10 @@ func (s *Service) CancelMaint(ctx context.Context, cmd *entity.CancelMaintenance
 	defer span.End()
 
 	err := s.updateWithApply(ctx, cmd.MaintID, func(_ context.Context, maint *entity.Maintenance) error {
+		// Already canceled: idempotent no-op (errSkipUpdate rolls the tx back
+		// without a write or a duplicate cancellation notification).
 		if maint.Status == entity.MaintenanceStatusCancelled {
-			return nil
+			return errSkipUpdate
 		}
 
 		if !entity.CanMaintTransition(maint.Status, entity.MaintenanceStatusCancelled) {
@@ -34,14 +37,13 @@ func (s *Service) CancelMaint(ctx context.Context, cmd *entity.CancelMaintenance
 		maint.CancelReasonComment = cmd.ReasonComment
 		return nil
 	})
+	if errors.Is(err, errSkipUpdate) {
+		return nil
+	}
 	if err != nil {
 		xlog.Error(ctx, "failed to cancel maint", xfield.Error(err))
 		return err
 	}
-
-	// Canceled maintenance must not blast its reminders — best-effort cancel
-	// any pending deferred tasks. Done post-commit; failures are logged inside.
-	_ = s.deferred.Cancel(ctx, cmd.MaintID)
 
 	return nil
 }
