@@ -29,9 +29,10 @@ func TestMain(m *testing.M) {
 }
 
 // insertLogAt inserts one audit row with an explicit created_at so retention
-// tests can backdate rows. AddLog always stamps NOW(), so the prune tests bypass
-// it and write created_at directly. The action carries a per-run unique marker so
-// concurrent tests on the shared DB never count each other's rows.
+// tests can backdate rows far into the past. (AddLog now also writes created_at
+// from the entry, but this helper keeps the prune tests independent of the
+// entity mapping.) The action carries a per-run unique marker so concurrent
+// tests on the shared DB never count each other's rows.
 func insertLogAt(ctx context.Context, t *testing.T, marker string, createdAt time.Time) {
 	t.Helper()
 

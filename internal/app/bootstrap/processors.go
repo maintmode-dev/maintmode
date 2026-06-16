@@ -7,6 +7,7 @@ import (
 	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/goque_processors/asyncsenderprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/auditprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/auditpruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/autocancelprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
@@ -22,7 +23,8 @@ func NewTaskProcessors(
 	gateways *Gateways,
 ) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
-	goq.RegisterProcessor(
+	reg := newProcessorRegistrar(goq, entity.ProcessorBinaryMaintmode)
+	reg.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
 		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
@@ -32,7 +34,7 @@ func NewTaskProcessors(
 	// maint.reminder tasks resolve the maintenance's current notify targets and
 	// render the reminder at fire time, so they share the maint store + notifier
 	// rather than carrying a pre-rendered payload.
-	goq.RegisterProcessor(
+	reg.RegisterProcessor(
 		entity.ProcessorTaskMaintReminder,
 		reminderprocessor.NewTaskProcessor(stores.Maintenances, services.Notifier),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
@@ -54,7 +56,7 @@ func NewTaskProcessors(
 	// replicas expect ~2×(N-1) benign duplicate-key ERROR lines per minute. They are
 	// correctness-neutral; suppressing them requires an upstream goque change.
 	autoCancelCfg := cfg.MaintAutoCancel
-	goq.RegisterProcessor(
+	reg.RegisterProcessor(
 		entity.ProcessorTaskMaintAutoCancel,
 		autocancelprocessor.NewTaskProcessor(services.Maint),
 		goque.WithWorkersCount(1),
@@ -70,7 +72,11 @@ func NewTaskProcessors(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build maint-auto-cancel cron job: %w", err)
 	}
-	goq.RegisterPeriodicJob(autoCancelJob)
+	reg.RegisterPeriodicJob(autoCancelJob)
+
+	if err := reg.verify(); err != nil {
+		return nil, err
+	}
 
 	return goq, nil
 }
@@ -92,9 +98,21 @@ func NewAuthTaskProcessors(
 	gateways *AuthGateways,
 ) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
-	goq.RegisterProcessor(
+	reg := newProcessorRegistrar(goq, entity.ProcessorBinaryAuth)
+	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
+		goque.WithWorkersCount(cfg.Messaging.Workers),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	// audit.write: domain events published via auditpublisher.Publish land here as
+	// rendered audit snapshots (RUK-179). The processor writes audit_log after
+	// commit, outside any tx. auth-binary-only — the auth binary owns the audit
+	// store. An idempotent INSERT (ON CONFLICT event_id) makes retries safe.
+	reg.RegisterProcessor(
+		entity.ProcessorTaskAuditWrite,
+		auditprocessor.NewTaskProcessor(services.Audit),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)
@@ -110,7 +128,7 @@ func NewAuthTaskProcessors(
 	// constraint. As with maint.auto.cancel, goque v0.8.9 logs each losing insert at
 	// ERROR and does not retry; the duplicates are correctness-neutral.
 	auditPruneCfg := cfg.AuditPrune
-	goq.RegisterProcessor(
+	reg.RegisterProcessor(
 		entity.ProcessorTaskAuditPrune,
 		auditpruneprocessor.NewTaskProcessor(services.Audit),
 		goque.WithWorkersCount(1),
@@ -126,7 +144,11 @@ func NewAuthTaskProcessors(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build audit-prune cron job: %w", err)
 	}
-	goq.RegisterPeriodicJob(auditPruneJob)
+	reg.RegisterPeriodicJob(auditPruneJob)
+
+	if err := reg.verify(); err != nil {
+		return nil, err
+	}
 
 	return goq, nil
 }

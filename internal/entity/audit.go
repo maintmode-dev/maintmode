@@ -50,6 +50,7 @@ const (
 //     и поддерживать разные типы ID (UUID, string name, int).
 type AuditEntry struct {
 	ID               uuid.UUID
+	EventID          uuid.UUID // per-event idempotency key (RUK-179); uuid.Nil for legacy/non-outbox writes
 	Action           AuditAction
 	Actor            string          // кто совершил действие (email)
 	ActorID          string          // стабильный ID актора (user UUID, string — не FK); пустой для system

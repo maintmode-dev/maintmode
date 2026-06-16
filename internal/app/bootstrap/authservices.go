@@ -7,9 +7,8 @@ import (
 	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/eventbus"
-	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/invitation"
@@ -30,9 +29,11 @@ type AuthServices struct {
 	Audit      *auditor.Auditor
 	RBAC       *authz.CasbinAuthorizer
 	StateCodec *statecodec.Service
-	// Dispatcher owns the async listener goroutines; Stop it on shutdown so
-	// in-flight audit writes drain before the process exits.
-	Dispatcher *eventbus.Dispatcher
+	// AuditPublisher enqueues audit events to the durable goque outbox; the
+	// audit-write processor drains them after commit. There are no in-process
+	// goroutines to drain, so no Stop is needed on shutdown — the goque runtime
+	// owns the drain lifecycle.
+	AuditPublisher *auditpublisher.Publisher
 }
 
 func NewAuthServices(
@@ -42,11 +43,16 @@ func NewAuthServices(
 	gateways *AuthGateways,
 ) (*AuthServices, error) {
 	// Auditor выступает в двух ролях: read-сторона (api/public/audit читает логи
-	// через AuthServices.Audit) и write-сторона (аудит-листенер диспетчера).
+	// через AuthServices.Audit) и write-сторона (audit-write goque processor,
+	// зарегистрированный в processors.go, пишет лог после коммита).
 	auditorSrv := auditor.NewAuditor(
 		stores.Audit,
 	)
-	dispatcher := eventbus.NewDispatcher(auditorlistener.NewListener(auditorSrv))
+	// The audit publisher enqueues audit events to the goque outbox. It shares the
+	// same queue manager as the messaging scheduler below (one connection per
+	// queue), and the audit-write processor (processors.go) drains them.
+	queue := goque.NewTaskQueueManager(stores.taskStorage)
+	auditPublisher := auditpublisher.New(queue)
 
 	// tokenSrv is built before userSrv: blocking a user revokes their refresh
 	// tokens, so the user service depends on the token service.
@@ -63,7 +69,7 @@ func NewAuthServices(
 		stores.TxManager,
 		stores.Users,
 		stores.UserIdentities,
-		dispatcher,
+		auditPublisher,
 		tokenSrv,
 	)
 
@@ -91,7 +97,7 @@ func NewAuthServices(
 		stores.TokenBlackList,
 		oauthProviders,
 		tokenSrv,
-		dispatcher,
+		auditPublisher,
 	)
 
 	return &AuthServices{
@@ -107,13 +113,13 @@ func NewAuthServices(
 			oauthProviders,
 			messagesender.NewService(
 				gateways.NotifyTransportRegistry,
-				scheduler.NewService(goque.NewTaskQueueManager(stores.taskStorage)),
+				scheduler.NewService(queue),
 			),
 		),
-		Audit:      auditorSrv,
-		RBAC:       authorizer,
-		StateCodec: stateCodec,
-		Dispatcher: dispatcher,
+		Audit:          auditorSrv,
+		RBAC:           authorizer,
+		StateCodec:     stateCodec,
+		AuditPublisher: auditPublisher,
 	}, nil
 }
 

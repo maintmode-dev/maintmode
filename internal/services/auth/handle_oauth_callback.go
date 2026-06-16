@@ -7,7 +7,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/eventbus/events"
+	"github.com/ruko1202/maintmode/internal/audit"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -24,7 +24,7 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
 
-	s.dispatcher.AsyncDispatch(ctx, events.UserLoginSuccess{
+	s.publishAudit(ctx, audit.LoginSuccess{
 		User: user,
 		Meta: &entity.AuditMetadata{
 			IP:        cmd.ClientIP,
@@ -45,11 +45,10 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, providerUserInfo)
 	if err != nil {
-		// login_failed is dispatched synchronously: a failed sign-in is a
-		// security-relevant record that must be persisted before we return.
-		// Dispatch is best-effort (listener errors are swallowed inside), so the
-		// returned error cannot fail the request — ignore it deliberately.
-		_ = s.dispatcher.Dispatch(ctx, events.UserLoginFailed{
+		// login_failed is a security-relevant record. It is published to the
+		// durable audit outbox (RUK-179): the write survives a crash, at the cost
+		// of being eventually-consistent rather than persisted before we return.
+		s.publishAudit(ctx, audit.LoginFailed{
 			User: &entity.User{
 				Email: providerUserInfo.Email,
 				Name:  providerUserInfo.Name,
@@ -67,7 +66,7 @@ func (s *Service) handleOAuthCallback(ctx context.Context, cmd *entity.HandleOAu
 
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
-		_ = s.dispatcher.Dispatch(ctx, events.UserLoginFailed{
+		s.publishAudit(ctx, audit.LoginFailed{
 			User: user,
 			Meta: &entity.AuditMetadata{
 				IP:            cmd.ClientIP,

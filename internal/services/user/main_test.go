@@ -10,13 +10,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/goque"
+
 	"github.com/ruko1202/maintmode/internal/config"
 
-	"github.com/ruko1202/maintmode/internal/storages/audit"
-
-	"github.com/ruko1202/maintmode/internal/eventbus"
-	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
-	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -49,6 +47,17 @@ func (f *fakeTokenRevoker) RevokeRefreshTokenByUserID(_ context.Context, userID 
 	return nil
 }
 
+// newTestAuditPublisher builds the audit publisher backed by the test DB's goque
+// queue. These tests exercise the user operations, not the audit drain, so
+// events enqueue durably and nothing processes them — which is fine, the tests
+// below don't assert on audit_log rows.
+func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
+	t.Helper()
+	storage, err := goque.NewStorage(db)
+	require.NoError(t, err)
+	return auditpublisher.New(goque.NewTaskQueueManager(storage))
+}
+
 func initService(t *testing.T) *Service {
 	t.Helper()
 	srv, _ := initServiceWithRevoker(t)
@@ -64,7 +73,7 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
 		useridentities.NewStore(db),
-		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
+		newTestAuditPublisher(t),
 		revoker,
 	)
 	return srv, revoker
@@ -95,7 +104,7 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 		dbtx.NewTxManager(db),
 		store,
 		useridentities.NewStore(db),
-		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
+		newTestAuditPublisher(t),
 		&fakeTokenRevoker{},
 	)
 }

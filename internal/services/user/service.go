@@ -9,9 +9,8 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
-
-	"github.com/ruko1202/maintmode/internal/eventbus"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -37,13 +36,20 @@ type UsersStore interface {
 	CountActiveAdmins(ctx context.Context) (int64, error)
 }
 
+// AuditPublisher enqueues an audited action to the durable outbox. Defined
+// consumer-side so the user service depends only on the publish capability and
+// can be tested with a fake.
+type AuditPublisher interface {
+	Publish(ctx context.Context, action audit.Action) error
+}
+
 // Service manages user-related operations including role management.
 type Service struct {
 	env             config.Environment
 	txManager       *dbtx.TxManager
 	usersStore      UsersStore
 	identitiesStore *useridentities.Store
-	dispatcher      *eventbus.Dispatcher
+	auditPublisher  AuditPublisher
 	tokenRevoker    TokenRevoker
 }
 
@@ -52,16 +58,29 @@ func NewService(
 	txManager *dbtx.TxManager,
 	usersStore UsersStore,
 	identitiesStore *useridentities.Store,
-	dispatcher *eventbus.Dispatcher,
+	auditPublisher AuditPublisher,
 	tokenRevoker TokenRevoker,
 ) *Service {
 	return &Service{
 		env:             env,
-		dispatcher:      dispatcher,
+		auditPublisher:  auditPublisher,
 		txManager:       txManager,
 		usersStore:      usersStore,
 		identitiesStore: identitiesStore,
 		tokenRevoker:    tokenRevoker,
+	}
+}
+
+// publishAudit publishes an audited action to the durable outbox. A failed
+// enqueue is logged, not propagated: the user-management action already
+// committed, and must not be reported as failed because the audit publish
+// hiccuped. The durability guarantee is "once enqueued, it survives a crash".
+func (s *Service) publishAudit(ctx context.Context, action audit.Action) {
+	if err := s.auditPublisher.Publish(ctx, action); err != nil {
+		xlog.Error(ctx, "failed to publish audit action",
+			xfield.String("action", fmt.Sprintf("%T", action)),
+			xfield.Error(err),
+		)
 	}
 }
 

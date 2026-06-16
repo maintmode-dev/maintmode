@@ -27,6 +27,7 @@ type auditLogTable struct {
 	ActorID          postgres.ColumnString
 	ActorDisplayName postgres.ColumnString
 	Metadata         postgres.ColumnString
+	EventID          postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -78,8 +79,9 @@ func newAuditLogTableImpl(schemaName, tableName, alias string) auditLogTable {
 		ActorIDColumn          = postgres.StringColumn("actor_id")
 		ActorDisplayNameColumn = postgres.StringColumn("actor_display_name")
 		MetadataColumn         = postgres.StringColumn("metadata")
-		allColumns             = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
-		mutableColumns         = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
+		EventIDColumn          = postgres.StringColumn("event_id")
+		allColumns             = postgres.ColumnList{IDColumn, ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn, EventIDColumn}
+		mutableColumns         = postgres.ColumnList{ActionColumn, ActorColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn, EventIDColumn}
 		defaultColumns         = postgres.ColumnList{IDColumn, EntityIDColumn, EntityTypeColumn, DetailsColumn, CreatedAtColumn, ActorIDColumn, ActorDisplayNameColumn, MetadataColumn}
 	)
 
@@ -97,6 +99,7 @@ func newAuditLogTableImpl(schemaName, tableName, alias string) auditLogTable {
 		ActorID:          ActorIDColumn,
 		ActorDisplayName: ActorDisplayNameColumn,
 		Metadata:         MetadataColumn,
+		EventID:          EventIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -28,7 +28,10 @@ func (s *Store) GetLogs(ctx context.Context, cmd *entity.GetAuditLogsCmd) ([]*en
 	stmt := table.AuditLog.
 		SELECT(table.AuditLog.AllColumns).
 		WHERE(where).
-		ORDER_BY(table.AuditLog.CreatedAt.DESC()).
+		// id (uuidv7) breaks created_at ties so ordering is deterministic and
+		// pagination is stable: two events with the same occurred_at (stamped at
+		// publish time, RUK-179) would otherwise come back in index-scan order.
+		ORDER_BY(table.AuditLog.CreatedAt.DESC(), table.AuditLog.ID.DESC()).
 		LIMIT(cmd.Limit).
 		OFFSET(cmd.Offset)
 

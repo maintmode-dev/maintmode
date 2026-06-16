@@ -9,8 +9,8 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/eventbus/events"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
@@ -61,7 +61,7 @@ func (s *Service) BlockUser(ctx context.Context, cmd *entity.BlockUserCmd) error
 		return fmt.Errorf("revoke refresh tokens on block: %w", err)
 	}
 
-	s.dispatcher.AsyncDispatch(ctx, events.UserBlocked{
+	s.publishAudit(ctx, audit.UserBlocked{
 		Actor:  cmd.Actor,
 		Target: user,
 	})

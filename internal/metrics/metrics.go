@@ -67,6 +67,27 @@ func MaintNotifyDispatchRenderError(ctx context.Context) {
 	))
 }
 
+// auditWriteErrors counts audit_log write failures in the audit-write goque
+// processor (RUK-179). The processor returns the error so goque retries, but a
+// sustained rate>0 means the audit trail is falling behind or a write is
+// permanently failing — for a compliance log that must be visible. Alert on
+// rate>0.
+var auditWriteErrors = mustInt64Counter(
+	"audit_write_errors_total",
+	"Audit log write failures in the audit-write processor (task will be retried).",
+)
+
+// AuditWriteError records one failed audit_log write.
+func AuditWriteError(ctx context.Context) {
+	auditWriteErrors.Add(ctx, 1)
+}
+
+// Note on M4 (goque payload-decode-cancel visibility): goque already exports
+// goque_payload_decode_errors_total (a Prometheus CounterVec labeled by
+// task_type) on the same /metrics endpoint, so no app-level counter is needed.
+// The remaining gap — an alert — is closed by the GoquePayloadDecodeErrors rule
+// in monitoring/config/alerts.yml.
+
 // mustInt64Counter registers a counter or returns a no-op one. The
 // instrument name is a compile-time constant, so the only error path
 // is a programmer typo; degrading to no-op keeps startup safe.

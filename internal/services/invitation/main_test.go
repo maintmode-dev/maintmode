@@ -16,15 +16,14 @@ import (
 	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
 	mock_user "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/user"
 
+	"github.com/ruko1202/goque"
+
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/eventbus"
-	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
 	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
-	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/user"
-	"github.com/ruko1202/maintmode/internal/storages/audit"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
 	"github.com/ruko1202/maintmode/internal/storages/users"
@@ -105,13 +104,23 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),
-			eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
+			newTestAuditPublisher(t),
 			mocks.tokenRevoker,
 		),
 		mocks.tokenIssuer,
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		mocks.sender,
 	), mocks
+}
+
+// newTestAuditPublisher builds the audit publisher backed by the test DB's goque
+// queue. Invitation tests don't assert on audit_log, so events just enqueue
+// durably with nothing draining them.
+func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
+	t.Helper()
+	storage, err := goque.NewStorage(db)
+	require.NoError(t, err)
+	return auditpublisher.New(goque.NewTaskQueueManager(storage))
 }
 
 // uniqueEmail returns a per-test-unique email so the shared dev DB stays clean

@@ -81,12 +81,14 @@ func main() {
 	}
 
 	// start async task processor: drains invitation-email outbox tasks (real SMTP
-	// delivery off the request path) and runs the daily audit-retention prune.
+	// delivery off the request path), the audit-write outbox (RUK-179), and runs
+	// the daily audit-retention prune.
 	startAuthTaskProcessors(ctx, cfg, stores, services, gateways)
 
-	// Drain in-flight async event handlers (audit writes) on shutdown. This is
-	// the same dispatcher the auth/user services publish to.
-	closer.AddWithCtx(services.Dispatcher.Stop)
+	// No dispatcher drain on shutdown: audit events are published to the durable
+	// goque outbox, not handled on in-process goroutines, so there is nothing to
+	// wait on here. The goque processor lifecycle owns the drain (with its own
+	// bounded shutdown).
 
 	// start api server
 	{

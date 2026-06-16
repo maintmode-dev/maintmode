@@ -16,11 +16,9 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 
-	"github.com/ruko1202/maintmode/internal/storages/audit"
+	"github.com/ruko1202/goque"
 
-	"github.com/ruko1202/maintmode/internal/eventbus"
-	auditorlistener "github.com/ruko1202/maintmode/internal/eventbus/listeners/auditor"
-	"github.com/ruko1202/maintmode/internal/services/auditor"
+	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 
 	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
 
@@ -97,15 +95,26 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),
-			eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
+			newTestAuditPublisher(t),
 			tokenSrv,
 		),
 		distributedlock.NewStore(redis),
 		blacklisttoken.NewStore(redis),
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		tokenSrv,
-		eventbus.NewDispatcher(auditorlistener.NewListener(auditor.NewAuditor(audit.NewStore(db)))),
+		newTestAuditPublisher(t),
 	), mocks
+}
+
+// newTestAuditPublisher builds the audit publisher backed by the test DB's goque
+// queue. These tests exercise auth flows, not the audit drain, so events enqueue
+// durably and nothing processes them — the tests here don't assert on audit_log
+// rows.
+func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
+	t.Helper()
+	storage, err := goque.NewStorage(db)
+	require.NoError(t, err)
+	return auditpublisher.New(goque.NewTaskQueueManager(storage))
 }
 
 func handleCallbackMock(mocks *serviceMocks, times int) *entity.OAuthProviderUserInfo {

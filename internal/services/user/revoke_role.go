@@ -8,7 +8,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/eventbus/events"
+	"github.com/ruko1202/maintmode/internal/audit"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -60,11 +60,11 @@ func (s *Service) RevokeRole(ctx context.Context, cmd *entity.RevokeRoleCmd) err
 		return err
 	}
 
-	s.dispatcher.AsyncDispatch(ctx, events.UserRolesChanged{
+	s.publishAudit(ctx, audit.RolesChanged{
 		Actor:  cmd.Actor,
 		Target: user,
-		Kind:   events.RolesRevoked,
-		Change: events.AuditRolesChange{Roles: []entity.Role{cmd.Role}},
+		Kind:   audit.RolesRevoked,
+		Change: audit.RolesChange{Roles: []entity.Role{cmd.Role}},
 	})
 
 	return nil

@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/audit/models"
+	auditaction "github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/eventbus/events"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -25,15 +25,15 @@ func TestAuditLog(t *testing.T) {
 
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	impl, dispatcher := initImpl(t)
+	impl, seed := initImpl(t)
 
 	for range defaultMaxLogsCount + 1 {
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+		seed(ctx, auditaction.LoginSuccess{
 			User: &entity.User{
 				ID:    xuuid.New(),
 				Email: t.Name() + "@example.com",
 			},
-		}))
+		})
 	}
 
 	t.Run("ok", func(t *testing.T) {
@@ -92,14 +92,14 @@ func TestAuditLog(t *testing.T) {
 			Name:  "Audit Tester",
 		}
 		sessionID := xuuid.NewString()
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+		seed(ctx, auditaction.LoginSuccess{
 			User: user,
 			Meta: &entity.AuditMetadata{
 				IP:        "203.0.113.7",
 				UserAgent: "audit-test-agent/1.0",
 				SessionID: sessionID,
 			},
-		}))
+		})
 
 		c, rec := echotest.ContextConfig{
 			QueryValues: url.Values{"actor": {user.Email}},
@@ -137,16 +137,16 @@ func TestAuditLog(t *testing.T) {
 			Email: xuuid.NewString() + "+target@example.com",
 			Name:  "Roles Target",
 		}
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
+		seed(ctx, auditaction.RolesChanged{
 			Actor:  actor,
 			Target: target,
-			Kind:   events.RolesReplaced,
-			Change: events.AuditRolesChange{
+			Kind:   auditaction.RolesReplaced,
+			Change: auditaction.RolesChange{
 				Roles:   []entity.Role{entity.RoleEditor},
 				Added:   []entity.Role{entity.RoleEditor},
 				Removed: []entity.Role{entity.RoleAdmin},
 			},
-		}))
+		})
 
 		c, rec := echotest.ContextConfig{
 			QueryValues: url.Values{"actor": {actor.Email}},
@@ -181,24 +181,24 @@ func TestAuditLog(t *testing.T) {
 		target := &entity.User{ID: xuuid.New(), Email: "target-" + actor}
 
 		for range 3 {
-			require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginSuccess{
+			seed(ctx, auditaction.LoginSuccess{
 				User: user, Meta: &entity.AuditMetadata{},
-			}))
+			})
 		}
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserLoginFailed{
+		seed(ctx, auditaction.LoginFailed{
 			User: user, Meta: &entity.AuditMetadata{},
-		}))
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
-			Actor: user, Target: target, Kind: events.RolesAssigned,
-			Change: events.AuditRolesChange{Roles: []entity.Role{entity.RoleAdmin}},
-		}))
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserRolesChanged{
-			Actor: user, Target: target, Kind: events.RolesRevoked,
-			Change: events.AuditRolesChange{Roles: []entity.Role{entity.RoleAdmin}},
-		}))
-		require.NoError(t, dispatcher.Dispatch(ctx, events.UserBlocked{
+		})
+		seed(ctx, auditaction.RolesChanged{
+			Actor: user, Target: target, Kind: auditaction.RolesAssigned,
+			Change: auditaction.RolesChange{Roles: []entity.Role{entity.RoleAdmin}},
+		})
+		seed(ctx, auditaction.RolesChanged{
+			Actor: user, Target: target, Kind: auditaction.RolesRevoked,
+			Change: auditaction.RolesChange{Roles: []entity.Role{entity.RoleAdmin}},
+		})
+		seed(ctx, auditaction.UserBlocked{
 			Actor: user, Target: target,
-		}))
+		})
 
 		wantFacets := apiauthmodels.AuditFacets{All: 7, Auth: 4, Roles: 2, Block: 1}
 
