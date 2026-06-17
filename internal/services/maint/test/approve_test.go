@@ -47,7 +47,7 @@ func TestApprove(t *testing.T) {
 			),
 		}
 		for _, m := range conflictedMaints {
-			err := s.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: m.ID})
+			err := s.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: m.ID, Actor: testActor()})
 			require.NoError(t, err)
 		}
 
@@ -72,6 +72,7 @@ func TestApprove(t *testing.T) {
 			MaintID:               maint.ID,
 			ObservedMaintRevision: maint.Revision(),
 			ActorUserID:           maint.ApproverUserID,
+			Actor:                 &entity.User{ID: maint.ApproverUserID, Email: "approver@example.com", Name: "Approver"},
 			ConflictSnapshot: entity.ConflictsSnapshot{
 				Conflicts: actualConflicts,
 			},

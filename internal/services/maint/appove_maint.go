@@ -10,6 +10,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
@@ -24,7 +25,7 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 	// abort and a retry instead of letting both windows snapshot a stale,
 	// mutually-incomplete view. FOR UPDATE alone is not enough — it locks only
 	// this row, not the conflicting maintenances or new inserts.
-	err := s.updateWithApplySerializable(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	_, current, err := s.updateWithApplySerializable(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if !entity.CanMaintTransition(maint.Status, entity.MaintenanceStatusPlanned) {
 			return apperr.ForbiddenMaintStatusTransition(maint.Status, entity.MaintenanceStatusPlanned)
 		}
@@ -79,15 +80,19 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 		return nil
 	})
 
-	// Retries were exhausted under contention: hand the client a clean,
-	// retryable domain error instead of leaking the raw serialization failure
-	// (which would map to 500).
-	if dbtx.ErrorIs(err, dbtx.ErrPGSerializationFailure) {
-		xlog.Warn(ctx, "approve exhausted serialization retries", xfield.Error(err))
-		return apperr.ErrConcurrentModification
+	if err != nil {
+		// Retries were exhausted under contention: hand the client a clean,
+		// retryable domain error instead of leaking the raw serialization failure
+		// (which would map to 500).
+		if dbtx.ErrorIs(err, dbtx.ErrPGSerializationFailure) {
+			xlog.Warn(ctx, "approve exhausted serialization retries", xfield.Error(err))
+			return apperr.ErrConcurrentModification
+		}
+		return err
 	}
 
-	return err
+	s.publishAudit(ctx, audit.MaintApproved{Actor: cmd.Actor, Maint: current})
+	return nil
 }
 
 // loadResources fills maint.Resources from the join table. GetMaintForUpdate

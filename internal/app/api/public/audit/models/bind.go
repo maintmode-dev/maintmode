@@ -36,8 +36,17 @@ func toAPIAuditLogMetadata(m *entity.AuditMetadata) *AuditLogMetadata {
 		RolesRemoved:      m.RolesRemoved,
 		TargetEmail:       m.TargetEmail,
 		TargetDisplayName: m.TargetDisplayName,
+		MaintTitle:        m.MaintTitle,
+		Changes:           toAPIAuditLogChanges(m.Changes),
 	}
 }
+
+func toAPIAuditLogChanges(changes []entity.AuditFieldChange) []AuditLogFieldChange {
+	return lo.Map(changes, func(c entity.AuditFieldChange, _ int) AuditLogFieldChange {
+		return AuditLogFieldChange{Field: c.Field, Old: c.Old, New: c.New}
+	})
+}
+
 func ToAPIAuditLogResponse(page *entity.AuditLogsPage) *AuditLogResponse {
 	return &AuditLogResponse{
 		Logs: lo.Map(page.Logs, func(log *entity.AuditEntry, _ int) *AuditLog {
@@ -45,10 +54,11 @@ func ToAPIAuditLogResponse(page *entity.AuditLogsPage) *AuditLogResponse {
 		}),
 		Total: page.Total,
 		Facets: AuditFacets{
-			All:   page.Facets.All,
-			Auth:  page.Facets.Auth,
-			Roles: page.Facets.Roles,
-			Block: page.Facets.Block,
+			All:         page.Facets.All,
+			Auth:        page.Facets.Auth,
+			Roles:       page.Facets.Roles,
+			Block:       page.Facets.Block,
+			Maintenance: page.Facets.Maintenance,
 		},
 	}
 }

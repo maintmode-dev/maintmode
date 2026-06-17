@@ -7,6 +7,7 @@ import (
 	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
@@ -62,9 +63,20 @@ func NewServices(ctx context.Context,
 		stores.NotifyTargets,
 	)
 
+	// queue is the goque task-queue manager for this binary. The scheduler wraps
+	// it for delivery/reminder enqueue; the audit publisher (RUK-182) enqueues
+	// audit.write tasks through it directly (drained on the auth binary).
+	queue := goque.NewTaskQueueManager(stores.taskStorage)
+
 	// scheduler owns all goque enqueue/cancel plumbing. The message sender
 	// (delivery) and deferred reminders both schedule through it.
-	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(stores.taskStorage))
+	taskScheduler := scheduler.NewService(queue)
+
+	// auditPublisher enqueues maintenance audit events to the durable outbox.
+	// audit.write is registered auth-drain in ProcessorTaskOwner, so this binary
+	// only publishes — it must NOT register the audit-write processor (the
+	// startup processorRegistrar.verify() guard enforces this).
+	auditPublisher := auditpublisher.New(queue)
 
 	messageSender := messagesender.NewService(gateways.NotifyTransportRegistry, taskScheduler)
 
@@ -89,6 +101,7 @@ func NewServices(ctx context.Context,
 			notifier,
 			deferred,
 			gateways.Auth,
+			auditPublisher,
 		),
 		Conflicts: conflictsService,
 		Calendar: calendar.NewService(

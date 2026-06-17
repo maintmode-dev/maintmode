@@ -66,14 +66,21 @@ func (e ApimodelsRole) Valid() bool {
 
 // Defines values for EntityAuditAction.
 const (
-	AuditActionLoginFailed   EntityAuditAction = "login_failed"
-	AuditActionLoginSuccess  EntityAuditAction = "login_success"
-	AuditActionLogoutSuccess EntityAuditAction = "logout_success"
-	AuditActionRoleAssigned  EntityAuditAction = "assigned"
-	AuditActionRoleRevoked   EntityAuditAction = "revoked"
-	AuditActionRolesReplaced EntityAuditAction = "replaced"
-	AuditActionUserBlocked   EntityAuditAction = "blocked"
-	AuditActionUserUnblocked EntityAuditAction = "unblocked"
+	AuditActionLoginFailed        EntityAuditAction = "login.failed"
+	AuditActionLoginSuccess       EntityAuditAction = "login.success"
+	AuditActionLogoutSuccess      EntityAuditAction = "logout.success"
+	AuditActionMaintApproved      EntityAuditAction = "maintenance.approved"
+	AuditActionMaintCanceled      EntityAuditAction = "maintenance.canceled"
+	AuditActionMaintCompleted     EntityAuditAction = "maintenance.completed"
+	AuditActionMaintCreated       EntityAuditAction = "maintenance.created"
+	AuditActionMaintStarted       EntityAuditAction = "maintenance.started"
+	AuditActionMaintStepCanceled  EntityAuditAction = "maintenance_step.canceled"
+	AuditActionMaintStepCompleted EntityAuditAction = "maintenance_step.completed"
+	AuditActionMaintStepStarted   EntityAuditAction = "maintenance_step.started"
+	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
+	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
+	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
+	AuditActionUserUnblocked      EntityAuditAction = "user.unblocked"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
@@ -85,15 +92,47 @@ func (e EntityAuditAction) Valid() bool {
 		return true
 	case AuditActionLogoutSuccess:
 		return true
-	case AuditActionRoleAssigned:
+	case AuditActionMaintApproved:
 		return true
-	case AuditActionRoleRevoked:
+	case AuditActionMaintCanceled:
 		return true
-	case AuditActionRolesReplaced:
+	case AuditActionMaintCompleted:
+		return true
+	case AuditActionMaintCreated:
+		return true
+	case AuditActionMaintStarted:
+		return true
+	case AuditActionMaintStepCanceled:
+		return true
+	case AuditActionMaintStepCompleted:
+		return true
+	case AuditActionMaintStepStarted:
+		return true
+	case AuditActionMaintUpdated:
+		return true
+	case AuditActionRolesChanged:
 		return true
 	case AuditActionUserBlocked:
 		return true
 	case AuditActionUserUnblocked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EntityAuditEntityType.
+const (
+	AuditEntityTypeMaintenance EntityAuditEntityType = "maintenance"
+	AuditEntityTypeUser        EntityAuditEntityType = "user"
+)
+
+// Valid indicates whether the value is a known member of the EntityAuditEntityType enum.
+func (e EntityAuditEntityType) Valid() bool {
+	switch e {
+	case AuditEntityTypeMaintenance:
+		return true
+	case AuditEntityTypeUser:
 		return true
 	default:
 		return false
@@ -156,10 +195,11 @@ func (e DeleteApiV1MeProvidersProviderDisconnectParamsProvider) Valid() bool {
 
 // ApiauthmodelsAuditFacets defines model for apiauthmodels.AuditFacets.
 type ApiauthmodelsAuditFacets struct {
-	All   *int `json:"all,omitempty"`
-	Auth  *int `json:"auth,omitempty"`
-	Block *int `json:"block,omitempty"`
-	Roles *int `json:"roles,omitempty"`
+	All         *int `json:"all,omitempty"`
+	Auth        *int `json:"auth,omitempty"`
+	Block       *int `json:"block,omitempty"`
+	Maintenance *int `json:"maintenance,omitempty"`
+	Roles       *int `json:"roles,omitempty"`
 }
 
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.
@@ -179,31 +219,42 @@ type ApiauthmodelsAuditLog struct {
 	CreatedAt *string `json:"created_at,omitempty"`
 
 	// Details Details — человекочитаемое описание события (legacy/fallback-строка).
-	Details    *string `json:"details,omitempty"`
-	EntityId   *string `json:"entity_id,omitempty"`
-	EntityType *string `json:"entity_type,omitempty"`
-	Id         *string `json:"id,omitempty"`
+	Details    *string                `json:"details,omitempty"`
+	EntityId   *string                `json:"entity_id,omitempty"`
+	EntityType *EntityAuditEntityType `json:"entity_type,omitempty"`
+	Id         *string                `json:"id,omitempty"`
 
 	// Metadata Metadata — структурированный action-specific payload для expand-грида.
 	Metadata *ApiauthmodelsAuditLogMetadata `json:"metadata,omitempty"`
+}
 
-	// TargetId TargetID — стабильный ID целевой сущности (для user-целей — user UUID).
-	TargetId   *string `json:"target_id,omitempty"`
-	TargetType *string `json:"target_type,omitempty"`
+// ApiauthmodelsAuditLogFieldChange defines model for apiauthmodels.AuditLogFieldChange.
+type ApiauthmodelsAuditLogFieldChange struct {
+	Field *string `json:"field,omitempty"`
+	New   *string `json:"new,omitempty"`
+	Old   *string `json:"old,omitempty"`
 }
 
 // ApiauthmodelsAuditLogMetadata Metadata — структурированный action-specific payload для expand-грида.
 type ApiauthmodelsAuditLogMetadata struct {
-	FailureReason     *string                                  `json:"failure_reason,omitempty"`
-	Ip                *string                                  `json:"ip,omitempty"`
-	LogoutKind        *ApiauthmodelsAuditLogMetadataLogoutKind `json:"logout_kind,omitempty"`
-	Roles             *[]string                                `json:"roles,omitempty"`
-	RolesAdded        *[]string                                `json:"roles_added,omitempty"`
-	RolesRemoved      *[]string                                `json:"roles_removed,omitempty"`
-	SessionId         *string                                  `json:"session_id,omitempty"`
-	TargetDisplayName *string                                  `json:"target_display_name,omitempty"`
-	TargetEmail       *string                                  `json:"target_email,omitempty"`
-	UserAgent         *string                                  `json:"user_agent,omitempty"`
+	Changes       *[]ApiauthmodelsAuditLogFieldChange      `json:"changes,omitempty"`
+	FailureReason *string                                  `json:"failure_reason,omitempty"`
+	Ip            *string                                  `json:"ip,omitempty"`
+	LogoutKind    *ApiauthmodelsAuditLogMetadataLogoutKind `json:"logout_kind,omitempty"`
+
+	// MaintTitle Maintenance action fields (RUK-182). Populated for maintenance.* /
+	// maintenance_step.* actions:
+	//   - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);
+	//   - maintenance.updated: changes (before/after per changed scalar);
+	//   - maintenance_step.*: maint_title, step_id, step_status.
+	MaintTitle        *string   `json:"maint_title,omitempty"`
+	Roles             *[]string `json:"roles,omitempty"`
+	RolesAdded        *[]string `json:"roles_added,omitempty"`
+	RolesRemoved      *[]string `json:"roles_removed,omitempty"`
+	SessionId         *string   `json:"session_id,omitempty"`
+	TargetDisplayName *string   `json:"target_display_name,omitempty"`
+	TargetEmail       *string   `json:"target_email,omitempty"`
+	UserAgent         *string   `json:"user_agent,omitempty"`
 }
 
 // ApiauthmodelsAuditLogMetadataLogoutKind defines model for ApiauthmodelsAuditLogMetadata.LogoutKind.
@@ -385,6 +436,9 @@ type AuthRefreshTokenJSONRequest struct {
 
 // EntityAuditAction defines model for entity.AuditAction.
 type EntityAuditAction string
+
+// EntityAuditEntityType defines model for entity.AuditEntityType.
+type EntityAuditEntityType string
 
 // EntityJWK defines model for entity.JWK.
 type EntityJWK struct {

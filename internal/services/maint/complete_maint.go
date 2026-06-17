@@ -9,6 +9,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -18,7 +19,7 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Complete")
 	defer span.End()
 
-	err := s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	_, current, err := s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		// Already completed: idempotent no-op.
 		if maint.Status == entity.MaintenanceStatusCompleted {
 			return errSkipUpdate
@@ -42,11 +43,15 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 		maint.Status = entity.MaintenanceStatusCompleted
 		return nil
 	})
-	if errors.Is(err, errSkipUpdate) {
-		return nil
+	if err != nil {
+		if errors.Is(err, errSkipUpdate) {
+			return nil
+		}
+		return err
 	}
 
-	return err
+	s.publishAudit(ctx, audit.MaintCompleted{Actor: cmd.Actor, Maint: current})
+	return nil
 }
 
 func allStepsTerminal(steps []*entity.MaintenanceStep) bool {

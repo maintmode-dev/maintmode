@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 )
@@ -35,6 +36,7 @@ func TestFullStepLifecycle(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: stepID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartStep(c)
 		require.NoError(t, err)
@@ -61,6 +63,7 @@ func TestFullStepLifecycle(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: stepID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)
@@ -87,6 +90,7 @@ func TestFullStepLifecycle(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: stepID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CancelStep(c)
 		require.NoError(t, err)
@@ -112,6 +116,7 @@ func TestStartStep(t *testing.T) {
 			{Name: "id", Value: "invalid-uuid"},
 			{Name: "step_id", Value: "00000000-0000-0000-0000-000000000000"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartStep(c)
 		require.NoError(t, err)
@@ -128,6 +133,7 @@ func TestStartStep(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: "invalid-uuid"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartStep(c)
 		require.NoError(t, err)
@@ -149,6 +155,7 @@ func TestCompleteStep(t *testing.T) {
 			{Name: "id", Value: "invalid-uuid"},
 			{Name: "step_id", Value: "00000000-0000-0000-0000-000000000000"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)
@@ -165,6 +172,7 @@ func TestCompleteStep(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: "invalid-uuid"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)
@@ -186,6 +194,7 @@ func TestCancelStep(t *testing.T) {
 			{Name: "id", Value: "invalid-uuid"},
 			{Name: "step_id", Value: "00000000-0000-0000-0000-000000000000"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CancelStep(c)
 		require.NoError(t, err)
@@ -202,6 +211,7 @@ func TestCancelStep(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: "invalid-uuid"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CancelStep(c)
 		require.NoError(t, err)
@@ -231,6 +241,7 @@ func TestStartStep_DomainRejections(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[0].ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartStep(c)
 		require.NoError(t, err)
@@ -252,6 +263,7 @@ func TestStartStep_DomainRejections(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[1].ID.String()}, // step order 2
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartStep(c)
 		require.NoError(t, err)
@@ -280,6 +292,7 @@ func TestCompleteStep_DomainRejections(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[0].ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)
@@ -302,6 +315,7 @@ func TestCompleteStep_DomainRejections(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[0].ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 		require.NoError(t, impl.CancelStep(c))
 		require.Equal(t, http.StatusNoContent, rec.Code)
 
@@ -310,6 +324,7 @@ func TestCompleteStep_DomainRejections(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[0].ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)

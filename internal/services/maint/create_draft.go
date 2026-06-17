@@ -12,6 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -98,6 +99,8 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		xlog.Error(ctx, "create maint failed", xfield.Error(err))
 		return nil, err
 	}
+
+	s.publishAudit(ctx, audit.MaintCreated{Actor: cmd.Actor, Maint: maint})
 
 	return maint, nil
 }

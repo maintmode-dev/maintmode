@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 func TestCompleteMaint(t *testing.T) {
@@ -33,6 +34,7 @@ func TestCompleteMaint(t *testing.T) {
 			{Name: "id", Value: draft.ID.String()},
 			{Name: "step_id", Value: draft.Steps[0].ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteStep(c)
 		require.NoError(t, err)
@@ -42,6 +44,7 @@ func TestCompleteMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err = impl.CompleteMaint(c)
 		require.NoError(t, err)
@@ -63,6 +66,7 @@ func TestCompleteMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: "invalid-uuid"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteMaint(c)
 		require.NoError(t, err)
@@ -78,6 +82,7 @@ func TestCompleteMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteMaint(c)
 		require.NoError(t, err)
@@ -99,6 +104,7 @@ func TestCompleteMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CompleteMaint(c)
 		require.NoError(t, err)

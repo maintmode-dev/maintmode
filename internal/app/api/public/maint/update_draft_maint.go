@@ -61,6 +61,12 @@ func (i *Implementation) UpdateDraftMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+	cmd.Actor = actor
+
 	if err := i.maintSrv.UpdateMaint(ctx, cmd); err != nil {
 		xlog.Error(ctx, "update maintenance failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)

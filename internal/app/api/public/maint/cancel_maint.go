@@ -59,10 +59,16 @@ func (i *Implementation) CancelMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
 	err = i.maintSrv.CancelMaint(ctx, &entity.CancelMaintenanceCmd{
 		MaintID:       maintID,
 		Reason:        reason,
 		ReasonComment: req.Comment,
+		Actor:         actor,
 	})
 	if err != nil {
 		xlog.Error(ctx, "cancel maintenance failed", xfield.Error(err))

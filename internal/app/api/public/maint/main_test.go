@@ -153,6 +153,7 @@ func startMaint(t *testing.T, impl *Implementation, maint *apimodels.CreateDraft
 	c.SetPathValues(echo.PathValues{
 		{Name: "id", Value: maint.ID.String()},
 	})
+	xecho.UserToEchoCtx(c, makeUser(t))
 
 	err := impl.StartMaint(c)
 	require.NoError(t, err)
@@ -167,6 +168,7 @@ func startStep(t *testing.T, impl *Implementation, maintID, stepID uuid.UUID) {
 		{Name: "id", Value: maintID.String()},
 		{Name: "step_id", Value: stepID.String()},
 	})
+	xecho.UserToEchoCtx(c, makeUser(t))
 
 	err := impl.StartStep(c)
 	require.NoError(t, err)

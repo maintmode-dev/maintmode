@@ -48,6 +48,26 @@ func (r *Renderer) Render(action Action) (entity.ProcessorTaskPayloadAuditWrite,
 // fillPayload maps the action-specific fields onto payload. EntityType, EventID,
 // OccurredAt and Action are already set by the caller.
 func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	category, ok := entity.AuditActionCategory(action.auditAction())
+	if !ok {
+		return fmt.Errorf("%w: action %T", apperr.ErrUnsupportedEvent, action.auditAction())
+	}
+
+	switch category {
+	case entity.AuditCategoryAuth:
+		return fillAuthPayload(payload, action)
+	case entity.AuditCategoryRoles:
+		return fillRolesPayload(payload, action)
+	case entity.AuditCategoryBlock:
+		return fillBlockedPayload(payload, action)
+	case entity.AuditCategoryMaintenance:
+		return fillMaintPayload(payload, action)
+	default:
+		return fmt.Errorf("%w: category %T", apperr.ErrUnsupportedEvent, category)
+	}
+}
+
+func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case LoginSuccess:
 		setActor(payload, a.User)
@@ -67,6 +87,15 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 			SessionID:  a.SessionID,
 			LogoutKind: entity.AuditLogoutKindManual,
 		}
+	default:
+		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
+	}
+
+	return nil
+}
+
+func fillRolesPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	switch a := action.(type) {
 	case RolesChanged:
 		setActor(payload, a.Actor)
 		payload.EntityID = a.Target.ID.String()
@@ -78,6 +107,15 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 			TargetEmail:       a.Target.Email,
 			TargetDisplayName: a.Target.Name,
 		}
+	default:
+		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
+	}
+
+	return nil
+}
+
+func fillBlockedPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	switch a := action.(type) {
 	case UserBlocked:
 		setActor(payload, a.Actor)
 		payload.EntityID = a.Target.ID.String()
@@ -99,6 +137,74 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 	}
 
 	return nil
+}
+
+// fillMaintPayload handles the maintenance (RUK-182) action cases, split out of
+// fillPayload to keep each switch's cyclomatic complexity in check. It dispatches
+// to the lifecycle/CRUD or the per-step sub-handler; an unknown action returns
+// ErrUnsupportedEvent.
+func fillMaintPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	switch a := action.(type) {
+	case MaintCreated:
+		fillMaintAction(payload, a.Actor, a.Maint, "created", nil)
+	case MaintUpdated:
+		fillMaintAction(payload, a.Actor, a.Maint, "updated", a.Changes)
+	case MaintApproved:
+		fillMaintAction(payload, a.Actor, a.Maint, "approved", nil)
+	case MaintStarted:
+		fillMaintAction(payload, a.Actor, a.Maint, "started", nil)
+	case MaintCompleted:
+		fillMaintAction(payload, a.Actor, a.Maint, "completed", nil)
+	case MaintCancelled:
+		fillMaintAction(payload, a.Actor, a.Maint, "canceled", nil)
+	case MaintStepStarted:
+		fillMaintStepAction(payload, a.Actor, a.Maint, a.Step, "started")
+	case MaintStepCompleted:
+		fillMaintStepAction(payload, a.Actor, a.Maint, a.Step, "completed")
+	case MaintStepCancelled:
+		fillMaintStepAction(payload, a.Actor, a.Maint, a.Step, "canceled")
+	default:
+		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
+	}
+
+	return nil
+}
+
+// fillMaintAction renders a human-initiated maintenance lifecycle/CRUD action:
+// it requires an actor, stamps the snapshot, writes a "<verb> by <actor>"
+// details line, and lets the caller add action-specific metadata via extra.
+func fillMaintAction(
+	payload *entity.ProcessorTaskPayloadAuditWrite,
+	actor *entity.User,
+	maint *entity.Maintenance,
+	verb string,
+	changes []entity.AuditFieldChange,
+) {
+	setActor(payload, actor)
+	payload.Details = fmt.Sprintf("maintenance %q %s by %s", maint.Title, verb, actor.Email)
+	payload.EntityType = entity.AuditEntityTypeMaintenance
+	payload.EntityID = maint.ID.String()
+	payload.Metadata = &entity.AuditMetadata{
+		MaintTitle: maint.Title,
+		Changes:    changes,
+	}
+}
+
+// fillMaintStepAction renders a human-initiated maintenance step action.
+func fillMaintStepAction(
+	payload *entity.ProcessorTaskPayloadAuditWrite,
+	actor *entity.User,
+	maint *entity.Maintenance,
+	step *entity.MaintenanceStep,
+	verb string,
+) {
+	setActor(payload, actor)
+	payload.Details = fmt.Sprintf("step %d of maintenance %q %s", step.Order, maint.Title, verb)
+	payload.EntityType = entity.AuditEntityTypeMaintenance
+	payload.EntityID = maint.ID.String()
+	payload.Metadata = &entity.AuditMetadata{
+		MaintTitle: maint.Title,
+	}
 }
 
 // setActor fills the actor identity fields from the user who performed the

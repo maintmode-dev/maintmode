@@ -61,6 +61,8 @@ func facetsFromActionCounts(ctx context.Context, counts map[entity.AuditAction]i
 			facets.Roles += count
 		case entity.AuditCategoryBlock:
 			facets.Block += count
+		case entity.AuditCategoryMaintenance:
+			facets.Maintenance += count
 		default:
 			xlog.Warn(ctx, "unknown action category")
 		}

@@ -46,7 +46,12 @@ func (i *Implementation) StartStep(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	err = i.maintSrv.StartStep(ctx, &entity.StartMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
+	err = i.maintSrv.StartStep(ctx, &entity.StartMaintenanceStepCmd{MaintID: maintID, StepID: stepID, Actor: actor})
 	if err != nil {
 		xlog.Error(ctx, "start maintenance step failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
@@ -88,7 +93,12 @@ func (i *Implementation) CompleteStep(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	err = i.maintSrv.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
+	err = i.maintSrv.CompleteStep(ctx, &entity.CompleteMaintenanceStepCmd{MaintID: maintID, StepID: stepID, Actor: actor})
 	if err != nil {
 		xlog.Error(ctx, "complete maintenance step failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
@@ -130,7 +140,12 @@ func (i *Implementation) CancelStep(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	err = i.maintSrv.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{MaintID: maintID, StepID: stepID})
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
+	err = i.maintSrv.CancelStep(ctx, &entity.CancelMaintenanceStepCmd{MaintID: maintID, StepID: stepID, Actor: actor})
 	if err != nil {
 		xlog.Error(ctx, "cancel maintenance step failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)

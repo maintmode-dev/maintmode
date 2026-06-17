@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
 
@@ -51,6 +52,7 @@ func TestUpdateDraftMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.UpdateDraftMaint(c)
 		require.NoError(t, err)
@@ -114,6 +116,7 @@ func TestUpdateDraftMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: "invalid-uuid"},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.UpdateDraftMaint(c)
 		require.NoError(t, err)
@@ -146,6 +149,7 @@ func TestUpdateDraftMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.UpdateDraftMaint(c)
 		require.NoError(t, err)
@@ -172,6 +176,7 @@ func TestUpdateDraftMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.UpdateDraftMaint(c)
 		require.NoError(t, err)

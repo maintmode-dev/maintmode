@@ -41,6 +41,11 @@ type CreateMaintenanceCmd struct {
 	DeferredNotifications []*DeferredNotificationInput
 	ApproverUserID        uuid.UUID
 	CreatedByUserID       uuid.UUID
+	// Actor is the authenticated user creating the draft, resolved at the API
+	// boundary. Carries the identity (email/name) the audit snapshot records;
+	// CreatedByUserID stays the persisted author id. Always set on the public
+	// path (RUK-182).
+	Actor *User
 }
 
 type UpdateMaintenanceCmd struct {
@@ -55,19 +60,26 @@ type UpdateMaintenanceCmd struct {
 	NotifyTargets         []*NotifyTargetInput         // empty = unchanged
 	DeferredNotifications []*DeferredNotificationInput // empty = unchanged
 	ApproverUserID        *uuid.UUID                   // nil = unchanged (no clear-to-null)
+	// Actor is the authenticated user performing the mutation, resolved at the
+	// API boundary for the audit snapshot. Always set on the public path
+	// (RUK-182).
+	Actor *User
 }
 type StartMaintenanceCmd struct {
 	MaintID uuid.UUID
+	Actor   *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 type CancelMaintenanceCmd struct {
 	MaintID       uuid.UUID
 	Reason        MaintenanceCancelReason
 	ReasonComment string
+	Actor         *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 type CompleteMaintenanceCmd struct {
 	MaintID uuid.UUID
+	Actor   *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 type ApproveMaintenanceCmd struct {
@@ -77,6 +89,9 @@ type ApproveMaintenanceCmd struct {
 	// ActorUserID is the authenticated user performing the approve. Only the
 	// user assigned as the maintenance approver may approve it.
 	ActorUserID uuid.UUID
+	// Actor is the same authenticated user, carrying the identity (email/name)
+	// the audit snapshot records. ActorUserID stays the authz key (RUK-182).
+	Actor *User
 }
 
 // --- Steps commands ---
@@ -84,16 +99,19 @@ type ApproveMaintenanceCmd struct {
 type StartMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
+	Actor   *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 type CompleteMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
+	Actor   *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 type CancelMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
+	Actor   *User // audit actor (RUK-182), resolved at the API boundary
 }
 
 // --- Conflicts commands ---

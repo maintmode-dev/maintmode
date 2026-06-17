@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/services/conflicts"
 	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
@@ -21,6 +22,14 @@ type ApproverValidator interface {
 	IsEligibleApprover(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
+// AuditPublisher enqueues an audited action to the durable outbox (RUK-179/182).
+// Defined consumer-side so the maint service depends only on the publish
+// capability and can be tested with a fake. Backed by auditpublisher.Publisher;
+// the audit.write task it enqueues is drained on the auth binary.
+type AuditPublisher interface {
+	Publish(ctx context.Context, action audit.Action) error
+}
+
 type Service struct {
 	txManager      *dbtx.TxManager
 	maintStore     *maintenances.Store
@@ -31,6 +40,7 @@ type Service struct {
 	notifier          *maintnotify.Service
 	deferred          *deferrednotifications.Service
 	approverValidator ApproverValidator
+	auditPublisher    AuditPublisher
 }
 
 func NewService(
@@ -42,6 +52,7 @@ func NewService(
 	notifier *maintnotify.Service,
 	deferred *deferrednotifications.Service,
 	approverValidator ApproverValidator,
+	auditPublisher AuditPublisher,
 ) *Service {
 	return &Service{
 		txManager:         txManager,
@@ -52,5 +63,6 @@ func NewService(
 		notifier:          notifier,
 		deferred:          deferred,
 		approverValidator: approverValidator,
+		auditPublisher:    auditPublisher,
 	}
 }

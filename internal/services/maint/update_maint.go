@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
@@ -37,9 +38,21 @@ func (s *Service) UpdateMaint(ctx context.Context, cmd *entity.UpdateMaintenance
 		return err
 	}
 
-	return s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	prev, current, err := s.updateWithApply(ctx, cmd.MaintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		return s.applyUpdate(ctx, maint, notifyTargets, cmd)
 	})
+	if err != nil {
+		xlog.Error(ctx, "failed to update maint", xfield.Error(err))
+		return err
+	}
+
+	// Audit only a material change: an update whose diff is empty (e.g.
+	// collections re-supplied identically) is not worth a row.
+	if changes := maintUpdateChanges(prev, current, cmd); len(changes) > 0 {
+		s.publishAudit(ctx, audit.MaintUpdated{Actor: cmd.Actor, Maint: current, Changes: changes})
+	}
+
+	return nil
 }
 
 // applyUpdate mutates and re-persists a draft maintenance's child collections
@@ -203,7 +216,7 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 	)
 }
 
-func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) error {
+func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) (prev, current *entity.Maintenance, err error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApply")
 	defer span.End()
 
@@ -216,7 +229,7 @@ func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply 
 // with retry on serialization conflicts. Use it for transitions whose
 // correctness depends on a stable read of *other* rows inside the tx (approve,
 // which recomputes the conflict set), not just a lock on this maintenance.
-func (s *Service) updateWithApplySerializable(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) error {
+func (s *Service) updateWithApplySerializable(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) (prev, current *entity.Maintenance, err error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateWithApplySerializable")
 	defer span.End()
 
@@ -230,17 +243,19 @@ func (s *Service) updateWithApplySerializable(ctx context.Context, maintID uuid.
 // treat it as "nothing to do", typically with errors.Is.
 var errSkipUpdate = errors.New("maint update skipped: precondition not met")
 
+// runUpdateWithApply runs apply against the locked maintenance inside withinTx,
+// persists it, and on success dispatches the lifecycle notification (derived
+// from the status transition — it needs no caller input). It returns the pre-
+// and post-mutation snapshots so the caller can publish its own audit action
+// explicitly; this keeps the transactional helper free of any audit knowledge.
+// On error (including errSkipUpdate) prev/current are nil and no dispatch runs.
 func (s *Service) runUpdateWithApply(
 	ctx context.Context,
 	withinTx func(context.Context, func(context.Context) error) error,
 	maintID uuid.UUID,
 	apply func(ctx context.Context, maint *entity.Maintenance) error,
-) error {
-	var (
-		prev    *entity.Maintenance
-		current *entity.Maintenance
-	)
-	err := withinTx(ctx, func(ctx context.Context) error {
+) (prev, current *entity.Maintenance, err error) {
+	err = withinTx(ctx, func(ctx context.Context) error {
 		maint, err := s.maintStore.GetMaintForUpdate(ctx, maintID)
 		if err != nil {
 			xlog.Error(ctx, "failed to get maint for update", xfield.Error(err))
@@ -249,13 +264,11 @@ func (s *Service) runUpdateWithApply(
 		prev = maint.Clone()
 		current = maint
 
-		err = apply(ctx, maint)
-		if err != nil {
+		if err := apply(ctx, maint); err != nil {
 			return err
 		}
 
-		err = s.maintStore.UpdateMaint(ctx, maint)
-		if err != nil {
+		if err := s.maintStore.UpdateMaint(ctx, maint); err != nil {
 			xlog.Error(ctx, "failed to update maint", xfield.Error(err))
 			return err
 		}
@@ -268,11 +281,14 @@ func (s *Service) runUpdateWithApply(
 		if !errors.Is(err, errSkipUpdate) {
 			xlog.Error(ctx, "failed to update maint", xfield.Error(err))
 		}
-		return err
+		return nil, nil, err
 	}
 
+	// Notify is derived from the status transition, so the helper owns it (no
+	// caller input needed). Audit, by contrast, is an explicit per-mutation
+	// action: the caller publishes it from the returned prev/current.
 	s.dispatchMaintLifecycle(ctx, prev, current)
-	return nil
+	return prev, current, nil
 }
 
 func (s *Service) dispatchMaintLifecycle(ctx context.Context, prev, current *entity.Maintenance) {
@@ -308,4 +324,46 @@ func maintLifecycleEvent(from, to entity.MaintenanceStatus) (entity.NotifyEventK
 	default:
 		return "", false
 	}
+}
+
+// maintUpdateChanges diffs the pre- and post-update maintenance into the
+// structured before/after entries the audit metadata carries (RUK-182). Scalar
+// fields record old → new; collection fields (steps, targets) record only a
+// changed flag (empty old/new) since element-level diffs are noisy.
+//
+// Scalars are diffed prev→current (those columns are loaded by
+// GetMaintForUpdate). Collections (steps/resources/notify_targets) are NOT
+// loaded onto prev, so they cannot be diffed by content here; instead the
+// changed flag mirrors the update's own replace rule — a collection is recorded
+// as changed exactly when the command supplied a replacement set (the same
+// `len(cmd.X) > 0` condition applyUpdate uses to replace it). This avoids an
+// extra hydrating read on every draft edit and reports "the update replaced this
+// collection", which is what applyUpdate actually did.
+func maintUpdateChanges(prev, current *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd) []entity.AuditFieldChange {
+	var changes []entity.AuditFieldChange
+
+	addScalar := func(field, old, neu string) {
+		if old != neu {
+			changes = append(changes, entity.AuditFieldChange{Field: field, Old: old, New: neu})
+		}
+	}
+
+	addScalar("title", prev.Title, current.Title)
+	addScalar("description", prev.Description, current.Description)
+	addScalar("planned_period", prev.PlannedPeriod.String(), current.PlannedPeriod.String())
+	addScalar("scope", string(prev.Scope), string(current.Scope))
+	addScalar("impact", string(prev.Impact), string(current.Impact))
+	addScalar("approver", prev.ApproverUserID.String(), current.ApproverUserID.String())
+
+	addCollection := func(field string, supplied bool) {
+		if supplied {
+			changes = append(changes, entity.AuditFieldChange{Field: field})
+		}
+	}
+	addCollection("steps", len(cmd.Steps) > 0)
+	addCollection("resources", len(cmd.Resources) > 0 || lo.FromPtr(cmd.Scope) == entity.MaintenanceScopeGlobal)
+	addCollection("notify_targets", len(cmd.NotifyTargets) > 0)
+	addCollection("deferred_notifications", len(cmd.DeferredNotifications) > 0)
+
+	return changes
 }

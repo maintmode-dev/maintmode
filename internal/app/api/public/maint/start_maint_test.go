@@ -8,6 +8,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 func TestStartMaint(t *testing.T) {
@@ -28,6 +30,7 @@ func TestStartMaint(t *testing.T) {
 		c2.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c2, makeUser(t))
 
 		err := impl.StartMaint(c2)
 		require.NoError(t, err)
@@ -63,6 +66,7 @@ func TestStartMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.StartMaint(c)
 		require.NoError(t, err)

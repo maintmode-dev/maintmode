@@ -15,6 +15,10 @@
                         "example": 1,
                         "type": "integer"
                     },
+                    "maintenance": {
+                        "example": 17,
+                        "type": "integer"
+                    },
                     "roles": {
                         "example": 8,
                         "type": "integer"
@@ -50,19 +54,26 @@
                         "type": "string"
                     },
                     "entity_type": {
-                        "type": "string"
+                        "$ref": "#/components/schemas/entity.AuditEntityType"
                     },
                     "id": {
                         "type": "string"
                     },
                     "metadata": {
                         "$ref": "#/components/schemas/apiauthmodels.AuditLogMetadata"
-                    },
-                    "target_id": {
-                        "description": "TargetID — стабильный ID целевой сущности (для user-целей — user UUID).",
+                    }
+                },
+                "type": "object"
+            },
+            "apiauthmodels.AuditLogFieldChange": {
+                "properties": {
+                    "field": {
                         "type": "string"
                     },
-                    "target_type": {
+                    "new": {
+                        "type": "string"
+                    },
+                    "old": {
                         "type": "string"
                     }
                 },
@@ -71,6 +82,13 @@
             "apiauthmodels.AuditLogMetadata": {
                 "description": "Metadata — структурированный action-specific payload для expand-грида.",
                 "properties": {
+                    "changes": {
+                        "items": {
+                            "$ref": "#/components/schemas/apiauthmodels.AuditLogFieldChange"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "failure_reason": {
                         "type": "string"
                     },
@@ -82,6 +100,10 @@
                             "auto",
                             "manual"
                         ],
+                        "type": "string"
+                    },
+                    "maint_title": {
+                        "description": "Maintenance action fields (RUK-182). Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);\n  - maintenance.updated: changes (before/after per changed scalar);\n  - maintenance_step.*: maint_title, step_id, step_status.",
                         "type": "string"
                     },
                     "roles": {
@@ -565,25 +587,50 @@
             },
             "entity.AuditAction": {
                 "enum": [
-                    "login_success",
-                    "login_failed",
-                    "logout_success",
-                    "assigned",
-                    "revoked",
-                    "replaced",
-                    "blocked",
-                    "unblocked"
+                    "login.success",
+                    "login.failed",
+                    "logout.success",
+                    "roles.changed",
+                    "user.blocked",
+                    "user.unblocked",
+                    "maintenance.created",
+                    "maintenance.updated",
+                    "maintenance.approved",
+                    "maintenance.started",
+                    "maintenance.completed",
+                    "maintenance.canceled",
+                    "maintenance_step.started",
+                    "maintenance_step.completed",
+                    "maintenance_step.canceled"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
                     "AuditActionLoginSuccess",
                     "AuditActionLoginFailed",
                     "AuditActionLogoutSuccess",
-                    "AuditActionRoleAssigned",
-                    "AuditActionRoleRevoked",
-                    "AuditActionRolesReplaced",
+                    "AuditActionRolesChanged",
                     "AuditActionUserBlocked",
-                    "AuditActionUserUnblocked"
+                    "AuditActionUserUnblocked",
+                    "AuditActionMaintCreated",
+                    "AuditActionMaintUpdated",
+                    "AuditActionMaintApproved",
+                    "AuditActionMaintStarted",
+                    "AuditActionMaintCompleted",
+                    "AuditActionMaintCanceled",
+                    "AuditActionMaintStepStarted",
+                    "AuditActionMaintStepCompleted",
+                    "AuditActionMaintStepCanceled"
+                ]
+            },
+            "entity.AuditEntityType": {
+                "enum": [
+                    "user",
+                    "maintenance"
+                ],
+                "type": "string",
+                "x-enum-varnames": [
+                    "AuditEntityTypeUser",
+                    "AuditEntityTypeMaintenance"
                 ]
             },
             "entity.JWK": {

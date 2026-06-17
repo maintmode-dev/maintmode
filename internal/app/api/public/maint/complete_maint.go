@@ -39,7 +39,12 @@ func (i *Implementation) CompleteMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	err = i.maintSrv.CompleteMaint(ctx, &entity.CompleteMaintenanceCmd{MaintID: maintID})
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
+	err = i.maintSrv.CompleteMaint(ctx, &entity.CompleteMaintenanceCmd{MaintID: maintID, Actor: actor})
 	if err != nil {
 		xlog.Error(ctx, "complete maintenance failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)

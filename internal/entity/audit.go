@@ -18,6 +18,20 @@ const (
 
 	AuditActionUserBlocked   AuditAction = "user.blocked"
 	AuditActionUserUnblocked AuditAction = "user.unblocked"
+
+	// Maintenance lifecycle/CRUD actions (RUK-182). AuditActionMaintAutoCanceled
+	// is the automatic overdue-cancel path (RUK-181) — system actor, no human.
+	// Values use the project's "canceled" spelling (matches MaintenanceStatusCancelled = "canceled").
+	AuditActionMaintCreated   AuditAction = "maintenance.created"
+	AuditActionMaintUpdated   AuditAction = "maintenance.updated"
+	AuditActionMaintApproved  AuditAction = "maintenance.approved"
+	AuditActionMaintStarted   AuditAction = "maintenance.started"
+	AuditActionMaintCompleted AuditAction = "maintenance.completed"
+	AuditActionMaintCanceled  AuditAction = "maintenance.canceled"
+
+	AuditActionMaintStepStarted   AuditAction = "maintenance_step.started"
+	AuditActionMaintStepCompleted AuditAction = "maintenance_step.completed"
+	AuditActionMaintStepCanceled  AuditAction = "maintenance_step.canceled"
 )
 
 func (a AuditAction) IsValid() bool {
@@ -27,7 +41,16 @@ func (a AuditAction) IsValid() bool {
 		AuditActionLogoutSuccess,
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
-		AuditActionUserUnblocked:
+		AuditActionUserUnblocked,
+		AuditActionMaintCreated,
+		AuditActionMaintUpdated,
+		AuditActionMaintApproved,
+		AuditActionMaintStarted,
+		AuditActionMaintCompleted,
+		AuditActionMaintCanceled,
+		AuditActionMaintStepStarted,
+		AuditActionMaintStepCompleted,
+		AuditActionMaintStepCanceled:
 		return true
 	default:
 		return false
@@ -100,17 +123,36 @@ type AuditMetadata struct {
 	RolesRemoved      []string           `json:"roles_removed,omitempty"`
 	TargetEmail       string             `json:"target_email,omitempty"`
 	TargetDisplayName string             `json:"target_display_name,omitempty"`
+
+	// Maintenance action fields (RUK-182). All omitempty; populated only for
+	// maintenance.* / maintenance_step.* actions:
+	//   - maintenance.*: MaintTitle, MaintStatus (+CancelReason for cancel/auto_cancel);
+	//   - maintenance.updated: Changes (before/after per changed scalar);
+	//   - maintenance_step.*: MaintTitle, StepOrder, StepStatus.
+	MaintTitle string             `json:"maint_title,omitempty"`
+	Changes    []AuditFieldChange `json:"changes,omitempty"`
+}
+
+// AuditFieldChange is one before/after entry in a maintenance.updated diff.
+// Old/New are rendered string snapshots of a scalar field (title, planned
+// window, scope, impact, approver). Collection fields (steps, targets) record a
+// changed flag via Field with empty Old/New rather than noisy element diffs.
+type AuditFieldChange struct {
+	Field string `json:"field"`
+	Old   string `json:"old,omitempty"`
+	New   string `json:"new,omitempty"`
 }
 
 // AuditCategory groups audit actions into the FE filter chips
-// (Auth / Roles / Block). The category -> actions mapping is owned by the
-// backend so facet counts and category expansion stay consistent.
+// (Auth / Roles / Block / Maintenance). The category -> actions mapping is owned
+// by the backend so facet counts and category expansion stay consistent.
 type AuditCategory string
 
 const (
-	AuditCategoryAuth  AuditCategory = "auth"
-	AuditCategoryRoles AuditCategory = "roles"
-	AuditCategoryBlock AuditCategory = "block"
+	AuditCategoryAuth        AuditCategory = "auth"
+	AuditCategoryRoles       AuditCategory = "roles"
+	AuditCategoryBlock       AuditCategory = "block"
+	AuditCategoryMaintenance AuditCategory = "maintenance"
 )
 
 var auditActionCategories = map[AuditAction]AuditCategory{
@@ -122,6 +164,18 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 
 	AuditActionUserBlocked:   AuditCategoryBlock,
 	AuditActionUserUnblocked: AuditCategoryBlock,
+
+	// Maintenance lifecycle/CRUD + steps all share one FE category chip; steps
+	// belong to a maintenance and are not split out (RUK-182).
+	AuditActionMaintCreated:       AuditCategoryMaintenance,
+	AuditActionMaintUpdated:       AuditCategoryMaintenance,
+	AuditActionMaintApproved:      AuditCategoryMaintenance,
+	AuditActionMaintStarted:       AuditCategoryMaintenance,
+	AuditActionMaintCompleted:     AuditCategoryMaintenance,
+	AuditActionMaintCanceled:      AuditCategoryMaintenance,
+	AuditActionMaintStepStarted:   AuditCategoryMaintenance,
+	AuditActionMaintStepCompleted: AuditCategoryMaintenance,
+	AuditActionMaintStepCanceled:  AuditCategoryMaintenance,
 }
 
 // AuditActionCategory returns the facet category of action.
@@ -156,10 +210,11 @@ func (f *AuditFilter) WithoutActions() *AuditFilter {
 // AuditFacets carries per-category entry counts within the current
 // actor/date filter window. All is the count across every action.
 type AuditFacets struct {
-	All   int64
-	Auth  int64
-	Roles int64
-	Block int64
+	All         int64
+	Auth        int64
+	Roles       int64
+	Block       int64
+	Maintenance int64
 }
 
 // AuditLogsPage is one page of audit log entries plus pagination/facet

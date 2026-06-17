@@ -59,6 +59,11 @@ func TestMain(m *testing.M) {
 
 type serviceMocks struct {
 	approverValidator *mock_maint.MockApproverValidator
+	auditPublisher    *mock_maint.MockAuditPublisher
+	// audit records every published audit action so a test can assert which
+	// action (and actor) a mutation produced. Always wired (publish is
+	// fire-and-forget for most flows) — audit-focused tests read mocks.audit.
+	audit *capturedAudit
 }
 
 func initService(t *testing.T) (*Service, serviceMocks) {
@@ -67,7 +72,15 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 	ctrl := gomock.NewController(t)
 	mocks := serviceMocks{
 		approverValidator: mock_maint.NewMockApproverValidator(ctrl),
+		auditPublisher:    mock_maint.NewMockAuditPublisher(ctrl),
+		audit:             &capturedAudit{},
 	}
+	// Default: accept any publish, record it, succeed. One expectation, so the
+	// recorder sees every call (a second AnyTimes stub would shadow this one).
+	mocks.auditPublisher.EXPECT().
+		Publish(gomock.Any(), gomock.Any()).
+		DoAndReturn(mocks.audit.record).
+		AnyTimes()
 
 	txManager := dbtx.NewTxManager(db)
 	notifyTargetsStore := notifytargetsstore.NewStore(db)
@@ -103,6 +116,7 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 			taskScheduler,
 		),
 		mocks.approverValidator,
+		mocks.auditPublisher,
 	), mocks
 }
 

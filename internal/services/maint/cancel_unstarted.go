@@ -9,6 +9,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -50,11 +51,24 @@ func (s *Service) CancelUnStarted(ctx context.Context, cutoff time.Time, limit i
 
 	var errs error
 	for _, maint := range overdue {
-		if cancelErr := s.cancelOneUnStarted(ctx, maint.ID); cancelErr != nil {
-			xlog.Error(ctx, "failed to auto-cancel overdue maint",
-				xfield.String("maintID", maint.ID.String()),
-				xfield.Error(cancelErr),
-			)
+		cmd := &entity.CancelMaintenanceCmd{
+			MaintID:       maint.ID,
+			Reason:        entity.MaintenanceCancelReasonNotStarted,
+			ReasonComment: cancelUnStartedReasonComment,
+			Actor:         entity.SystemUser,
+		}
+		cancelErr := s.cancelMaint(ctx, cmd, func(maint *entity.Maintenance) error {
+			if maint.Status != entity.MaintenanceStatusDraft && maint.Status != entity.MaintenanceStatusPlanned {
+				xlog.Warn(ctx, "auto-cancel skipped: maintenance already started or finished",
+					xfield.String("maintID", maint.ID.String()),
+					xfield.String("status", string(maint.Status)),
+				)
+				return errSkipUpdate
+			}
+
+			return nil
+		})
+		if cancelErr != nil {
 			errs = errors.Join(errs, cancelErr)
 		}
 	}
@@ -74,7 +88,7 @@ func (s *Service) CancelUnStarted(ctx context.Context, cutoff time.Time, limit i
 // shared dispatchMaintLifecycle: planned->canceled notifies, while draft->canceled
 // stays silent (a draft was never approved or announced to notify targets).
 func (s *Service) cancelOneUnStarted(ctx context.Context, maintID uuid.UUID) error {
-	err := s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
+	_, current, err := s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		// Re-check under the lock: skip anything that is no longer not-started
 		// (started, completed, or already canceled between the snapshot and now).
 		if maint.Status != entity.MaintenanceStatusDraft && maint.Status != entity.MaintenanceStatusPlanned {
@@ -94,8 +108,12 @@ func (s *Service) cancelOneUnStarted(ctx context.Context, maintID uuid.UUID) err
 		if errors.Is(err, errSkipUpdate) {
 			return nil
 		}
+		xlog.Error(ctx, "failed to cancel maint", xfield.Error(err))
 		return err
 	}
 
+	// No human actor: the sweep is automated, so the audited actor is the
+	// synthetic entity.SystemUser (RUK-182).
+	s.publishAudit(ctx, audit.MaintCancelled{Actor: entity.SystemUser, Maint: current})
 	return nil
 }

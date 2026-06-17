@@ -15,7 +15,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
@@ -50,11 +49,9 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
-	author, ok := xecho.UserFromEchoCtx(c)
-	if !ok {
-		err := fmt.Errorf("author not found")
-		xlog.Error(ctx, "author user not found in echo context", xfield.Error(err))
-		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
 	}
 
 	cmd, err := toCreateMaintenanceCmd(ctx, req)
@@ -62,7 +59,8 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		xlog.Error(ctx, "to create maintenance command failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
-	cmd.CreatedByUserID = author.ID
+	cmd.CreatedByUserID = actor.ID
+	cmd.Actor = actor
 
 	maint, err := i.maintSrv.CreateDraft(ctx, cmd)
 	if err != nil {
@@ -79,7 +77,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		Scope:         string(maint.Scope),
 		Impact:        string(maint.Impact),
 		Status:        string(maint.Status),
-		CreatedBy:     apimodels.ToAPIUserSummary(author),
+		CreatedBy:     apimodels.ToAPIUserSummary(actor),
 		ApproverUserID: apimodels.ToAPIUserSummary(&entity.User{
 			ID:    maint.ApproverUserID,
 			Name:  "unknown user name",

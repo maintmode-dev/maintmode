@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
@@ -37,6 +38,7 @@ func TestCancelMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CancelMaint(c)
 		require.NoError(t, err)
@@ -67,6 +69,7 @@ func TestCancelMaint(t *testing.T) {
 		c.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c, makeUser(t))
 
 		err := impl.CancelMaint(c)
 		require.NoError(t, err)
@@ -84,6 +87,7 @@ func TestCancelMaint(t *testing.T) {
 		c2.SetPathValues(echo.PathValues{
 			{Name: "id", Value: draft.ID.String()},
 		})
+		xecho.UserToEchoCtx(c2, makeUser(t))
 
 		err = impl.CancelMaint(c2)
 		require.NoError(t, err)
@@ -112,6 +116,7 @@ func TestCancelMaint(t *testing.T) {
 			c.SetPathValues(echo.PathValues{
 				{Name: "id", Value: "invalid-uuid"},
 			})
+			xecho.UserToEchoCtx(c, makeUser(t))
 
 			err := impl.CancelMaint(c)
 			require.NoError(t, err)
@@ -133,6 +138,7 @@ func TestCancelMaint(t *testing.T) {
 			c.SetPathValues(echo.PathValues{
 				{Name: "id", Value: draft.ID.String()},
 			})
+			xecho.UserToEchoCtx(c, makeUser(t))
 
 			err := impl.CancelMaint(c)
 			require.NoError(t, err)

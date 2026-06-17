@@ -46,15 +46,31 @@ type AuditLogMetadata struct {
 	RolesRemoved      []string `json:"roles_removed,omitempty"`
 	TargetEmail       string   `json:"target_email,omitempty"`
 	TargetDisplayName string   `json:"target_display_name,omitempty"`
+
+	// Maintenance action fields (RUK-182). Populated for maintenance.* /
+	// maintenance_step.* actions:
+	//   - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);
+	//   - maintenance.updated: changes (before/after per changed scalar);
+	//   - maintenance_step.*: maint_title, step_id, step_status.
+	MaintTitle string                `json:"maint_title,omitempty"`
+	Changes    []AuditLogFieldChange `json:"changes,omitempty"`
+}
+
+// AuditLogFieldChange is one before/after entry in a maintenance.updated diff.
+type AuditLogFieldChange struct {
+	Field string `json:"field"`
+	Old   string `json:"old,omitempty"`
+	New   string `json:"new,omitempty"`
 }
 
 // AuditFacets carries per-category entry counts computed in the current
 // actor/date filter window (without the action filter).
 type AuditFacets struct {
-	All   int64 `json:"all" example:"123"`
-	Auth  int64 `json:"auth" example:"42"`
-	Roles int64 `json:"roles" example:"8"`
-	Block int64 `json:"block" example:"1"`
+	All         int64 `json:"all" example:"123"`
+	Auth        int64 `json:"auth" example:"42"`
+	Roles       int64 `json:"roles" example:"8"`
+	Block       int64 `json:"block" example:"1"`
+	Maintenance int64 `json:"maintenance" example:"17"`
 }
 
 type AuditLogResponse struct {

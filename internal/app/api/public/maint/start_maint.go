@@ -39,7 +39,12 @@ func (i *Implementation) StartMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
 	}
 
-	err = i.maintSrv.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: maintID})
+	actor, actorErr := i.actorFromCtx(c, op)
+	if actorErr != nil {
+		return actorErr
+	}
+
+	err = i.maintSrv.StartMaint(ctx, &entity.StartMaintenanceCmd{MaintID: maintID, Actor: actor})
 	if err != nil {
 		xlog.Error(ctx, "start maintenance failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)

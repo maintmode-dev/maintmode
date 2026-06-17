@@ -12,75 +12,118 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
+// StartStep transitions a maintenance step to "started".
+//
+//nolint:dupl // start/complete/cancel step intentionally share one shape; each sets a distinct status + audit action.
 func (s *Service) StartStep(ctx context.Context, cmd *entity.StartMaintenanceStepCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.StartStep")
 	defer span.End()
 
-	return s.updateStepWithApply(ctx, cmd.MaintID, func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
-		step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusStarted)
-		if err != nil {
-			return nil, err
-		}
+	maint, curr, err := s.updateStepWithApply(ctx, cmd.MaintID,
+		func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
+			step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusStarted)
+			if err != nil {
+				return nil, err
+			}
 
-		step.ActualStartedAt = lo.ToPtr(xtime.UTCNow())
-		step.Status = entity.MaintenanceStepStatusStarted
+			step.ActualStartedAt = lo.ToPtr(xtime.UTCNow())
+			step.Status = entity.MaintenanceStepStatusStarted
 
-		return []*entity.MaintenanceStep{step}, nil
+			return []*entity.MaintenanceStep{step}, nil
+		},
+	)
+	if err != nil {
+		xlog.Error(ctx, "failed to start step", xfield.Error(err))
+		return err
+	}
+
+	lo.ForEach(curr, func(item *entity.MaintenanceStep, _ int) {
+		s.publishAudit(ctx, audit.MaintStepStarted{Actor: cmd.Actor, Maint: maint, Step: item})
 	})
+
+	return nil
 }
 
+// CompleteStep transitions a maintenance step to "completed".
+//
+//nolint:dupl // see StartStep — same intentional shape, distinct status/action.
 func (s *Service) CompleteStep(ctx context.Context, cmd *entity.CompleteMaintenanceStepCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.CompleteStep")
 	defer span.End()
 
-	return s.updateStepWithApply(ctx, cmd.MaintID, func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
-		step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusCompleted)
-		if err != nil {
-			return nil, err
-		}
+	maint, curr, err := s.updateStepWithApply(ctx, cmd.MaintID,
+		func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
+			step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusCompleted)
+			if err != nil {
+				return nil, err
+			}
 
-		step.ActualCompletedAt = lo.ToPtr(xtime.UTCNow())
-		step.Status = entity.MaintenanceStepStatusCompleted
+			step.ActualCompletedAt = lo.ToPtr(xtime.UTCNow())
+			step.Status = entity.MaintenanceStepStatusCompleted
 
-		return []*entity.MaintenanceStep{step}, nil
+			return []*entity.MaintenanceStep{step}, nil
+		},
+	)
+	if err != nil {
+		xlog.Error(ctx, "failed to complete step", xfield.Error(err))
+		return err
+	}
+
+	lo.ForEach(curr, func(item *entity.MaintenanceStep, _ int) {
+		s.publishAudit(ctx, audit.MaintStepCompleted{Actor: cmd.Actor, Maint: maint, Step: item})
 	})
+
+	return nil
 }
 
+// CancelStep transitions a maintenance step to "canceled".
+//
+//nolint:dupl // see StartStep — same intentional shape, distinct status/action.
 func (s *Service) CancelStep(ctx context.Context, cmd *entity.CancelMaintenanceStepCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.CancelStep")
 	defer span.End()
 
-	return s.updateStepWithApply(ctx, cmd.MaintID, func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
-		step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusCanceled)
-		if err != nil {
-			return nil, err
-		}
+	maint, curr, err := s.updateStepWithApply(ctx, cmd.MaintID,
+		func(_ context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error) {
+			step, err := canChangeStepStatusTo(steps, cmd.StepID, entity.MaintenanceStepStatusCanceled)
+			if err != nil {
+				return nil, err
+			}
 
-		step.ActualCompletedAt = lo.ToPtr(xtime.UTCNow())
-		step.Status = entity.MaintenanceStepStatusCanceled
+			step.ActualCompletedAt = lo.ToPtr(xtime.UTCNow())
+			step.Status = entity.MaintenanceStepStatusCanceled
 
-		return []*entity.MaintenanceStep{step}, nil
+			return []*entity.MaintenanceStep{step}, nil
+		},
+	)
+	if err != nil {
+		xlog.Error(ctx, "failed to cancel step", xfield.Error(err))
+		return err
+	}
+
+	lo.ForEach(curr, func(item *entity.MaintenanceStep, _ int) {
+		s.publishAudit(ctx, audit.MaintStepCancelled{Actor: cmd.Actor, Maint: maint, Step: item})
 	})
+
+	return nil
 }
 
 func (s *Service) updateStepWithApply(
 	ctx context.Context, maintID uuid.UUID,
 	applyF func(ctx context.Context, steps []*entity.MaintenanceStep) ([]*entity.MaintenanceStep, error),
-) error {
+) (current *entity.Maintenance, currSteps []*entity.MaintenanceStep, err error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.updateStepWithApply")
 	defer span.End()
 
-	var (
-		currMaint *entity.Maintenance
-		currSteps []*entity.MaintenanceStep
-	)
-	err := s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
-		currMaint = maint
-
+	// currSteps is captured from the apply closure (the step set isn't part of
+	// the maintenance snapshot updateWithApply returns); the maintenance itself
+	// comes back as `current`.
+	_, current, err = s.updateWithApply(ctx, maintID, func(ctx context.Context, maint *entity.Maintenance) error {
 		if maint.Status != entity.MaintenanceStatusInProgress {
 			err := fmt.Errorf("%w: maint is not in %s status",
 				apperr.ErrForbiddenStepStatusTransition,
@@ -101,6 +144,7 @@ func (s *Service) updateStepWithApply(
 			xlog.Error(ctx, "failed to apply step transition", xfield.Error(err))
 			return err
 		}
+
 		currSteps = stepsForUpdate
 
 		for _, step := range stepsForUpdate {
@@ -114,13 +158,15 @@ func (s *Service) updateStepWithApply(
 	})
 	if err != nil {
 		xlog.Error(ctx, "failed to update maint", xfield.Error(err))
-		return err
+		return nil, nil, err
 	}
 
+	// A step transition doesn't change maint status, so updateWithApply's own
+	// lifecycle dispatch is a no-op here; notify is per-step.
 	lo.ForEach(currSteps, func(item *entity.MaintenanceStep, _ int) {
-		s.dispatchStepLifecycle(ctx, currMaint, item)
+		s.dispatchStepLifecycle(ctx, current, item)
 	})
-	return nil
+	return current, currSteps, nil
 }
 
 func canChangeStepStatusTo(steps []*entity.MaintenanceStep, stepID uuid.UUID, newStatus entity.MaintenanceStepStatus) (*entity.MaintenanceStep, error) {

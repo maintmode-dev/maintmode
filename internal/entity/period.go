@@ -1,6 +1,11 @@
 package entity
 
-import "time"
+import (
+	"fmt"
+	"time"
+
+	"github.com/samber/lo"
+)
 
 type Period struct {
 	Start time.Time
@@ -27,4 +32,10 @@ func (p Period) IsOpen() bool {
 
 func (p Period) Duration() time.Duration {
 	return p.End.Sub(p.Start)
+}
+
+func (p Period) String() string {
+	start := p.Start
+	end := lo.Ternary(p.IsOpen(), "open ended", lo.FromPtr(p.End).String())
+	return fmt.Sprintf("%s - %s", start, end)
 }
