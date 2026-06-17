@@ -49,9 +49,8 @@ type AuditLogMetadata struct {
 
 	// Maintenance action fields (RUK-182). Populated for maintenance.* /
 	// maintenance_step.* actions:
-	//   - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);
-	//   - maintenance.updated: changes (before/after per changed scalar);
-	//   - maintenance_step.*: maint_title, step_id, step_status.
+	//   - maintenance.* / maintenance_step.*: maint_title;
+	//   - maintenance.updated: changes (before/after per changed scalar).
 	MaintTitle string                `json:"maint_title,omitempty"`
 	Changes    []AuditLogFieldChange `json:"changes,omitempty"`
 }

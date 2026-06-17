@@ -34,8 +34,12 @@ func (p Period) Duration() time.Duration {
 	return p.End.Sub(p.Start)
 }
 
+// String renders the period as a stable, human-readable UTC range. It uses
+// RFC3339 in UTC (not time.Time's default String, which leaks the server
+// location and a monotonic-clock suffix and would produce noisy/unstable diffs
+// in the audit trail).
 func (p Period) String() string {
-	start := p.Start
-	end := lo.Ternary(p.IsOpen(), "open ended", lo.FromPtr(p.End).String())
+	start := p.Start.UTC().Format(time.RFC3339)
+	end := lo.Ternary(p.IsOpen(), "open ended", lo.FromPtr(p.End).UTC().Format(time.RFC3339))
 	return fmt.Sprintf("%s - %s", start, end)
 }

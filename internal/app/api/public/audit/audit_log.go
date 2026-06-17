@@ -35,7 +35,7 @@ const (
 // @Produce json
 // @Param limit query int false "Number of entries to return (max 100)" default(100)
 // @Param offset query int false "Pagination offset" default(0)
-// @Param action query string false "Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)"
+// @Param action query string false "Filter by audit actions. CSV of one or more of the listed values (e.g. login.success,maintenance.canceled)" Enums(login.success, login.failed, logout.success, roles.changed, user.blocked, user.unblocked, maintenance.created, maintenance.updated, maintenance.approved, maintenance.started, maintenance.completed, maintenance.canceled, maintenance_step.started, maintenance_step.completed, maintenance_step.canceled)
 // @Param actor query string false "Filter by actor (exact match)"
 // @Param created_from query string false "Filter by created_at >= this RFC3339 timestamp"
 // @Param created_to query string false "Filter by created_at <= this RFC3339 timestamp"

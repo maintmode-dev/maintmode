@@ -20,7 +20,7 @@ func TestCancelUnStarted(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 
-	service, _ := initService(t)
+	service, mocks := initService(t)
 
 	// Overdue planned and overdue draft both start far in the past (> 15 min
 	// grace) → both must be canceled. The very old start makes them sort among the
@@ -51,6 +51,12 @@ func TestCancelUnStarted(t *testing.T) {
 	require.Equal(t, entity.MaintenanceCancelReasonNotStarted, gotPlanned.CancelReason)
 	require.NotEmpty(t, gotPlanned.CancelReasonComment)
 
+	// The sweep is automated: it audits the cancel with the synthetic system
+	// actor (not a human). Assert the published action for our overdue planned
+	// maint carries entity.SystemUser.
+	audited := findAuditCancel(t, mocks.audit, overduePlanned.ID)
+	require.Equal(t, entity.SystemUser.Email, audited.Actor.Email)
+
 	gotDraft, err := service.GetMaint(ctx, overdueDraft.ID)
 	require.NoError(t, err)
 	require.Equal(t, entity.MaintenanceStatusCancelled, gotDraft.Status)
@@ -61,14 +67,13 @@ func TestCancelUnStarted(t *testing.T) {
 	require.Equal(t, entity.MaintenanceStatusPlanned, gotFresh.Status)
 }
 
-// TestCancelOneUnStarted_SkipsStartedOrFinished guards the TOCTOU window: a
-// maintenance that was listed as not-started but has changed status by the time
-// the per-row cancel runs must be left untouched. in_progress is a valid source
-// for a manual cancel, so canceling it here would kill running work and mislabel
-// it "not_started". Exercising the per-row helper directly is the faithful test:
-// the status the helper observes under the lock stands in for the racing
-// transition, since ListOverdueNotStarted only ever returns draft/planned.
-func TestCancelOneUnStarted_SkipsStartedOrFinished(t *testing.T) {
+// TestCancelUnStarted_SkipsStartedOrFinished guards the TOCTOU window through the
+// production sweep: a maintenance whose start is overdue but whose status is no
+// longer not-started (raced into in_progress/completed/canceled) must be left
+// untouched. Canceling an in_progress maintenance would kill running work and
+// mislabel it "not_started". The sweep's own status guard is what protects these,
+// so assert via CancelUnStarted — the real path — not a per-row helper.
+func TestCancelUnStarted_SkipsStartedOrFinished(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow()
 
@@ -87,8 +92,7 @@ func TestCancelOneUnStarted_SkipsStartedOrFinished(t *testing.T) {
 				testdbutils.WithStatus(status),
 			)
 
-			err := service.cancelOneUnStarted(ctx, maint.ID)
-			require.NoError(t, err)
+			require.NoError(t, service.CancelUnStarted(ctx, now.Add(-15*time.Minute), 100_000))
 
 			got, err := service.GetMaint(ctx, maint.ID)
 			require.NoError(t, err)

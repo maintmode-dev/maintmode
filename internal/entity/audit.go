@@ -126,9 +126,10 @@ type AuditMetadata struct {
 
 	// Maintenance action fields (RUK-182). All omitempty; populated only for
 	// maintenance.* / maintenance_step.* actions:
-	//   - maintenance.*: MaintTitle, MaintStatus (+CancelReason for cancel/auto_cancel);
-	//   - maintenance.updated: Changes (before/after per changed scalar);
-	//   - maintenance_step.*: MaintTitle, StepOrder, StepStatus.
+	//   - maintenance.* / maintenance_step.*: MaintTitle;
+	//   - maintenance.updated: Changes (before/after per changed scalar).
+	// The cancel reason is not duplicated here — it lives on the maintenance's own
+	// cancel_reason column; the audit row carries it only in the Details string.
 	MaintTitle string             `json:"maint_title,omitempty"`
 	Changes    []AuditFieldChange `json:"changes,omitempty"`
 }

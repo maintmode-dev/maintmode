@@ -139,6 +139,63 @@ func (e EntityAuditEntityType) Valid() bool {
 	}
 }
 
+// Defines values for GetApiV1AuditLogParamsAction.
+const (
+	LoginFailed              GetApiV1AuditLogParamsAction = "login.failed"
+	LoginSuccess             GetApiV1AuditLogParamsAction = "login.success"
+	LogoutSuccess            GetApiV1AuditLogParamsAction = "logout.success"
+	MaintenanceApproved      GetApiV1AuditLogParamsAction = "maintenance.approved"
+	MaintenanceCanceled      GetApiV1AuditLogParamsAction = "maintenance.canceled"
+	MaintenanceCompleted     GetApiV1AuditLogParamsAction = "maintenance.completed"
+	MaintenanceCreated       GetApiV1AuditLogParamsAction = "maintenance.created"
+	MaintenanceStarted       GetApiV1AuditLogParamsAction = "maintenance.started"
+	MaintenanceStepCanceled  GetApiV1AuditLogParamsAction = "maintenance_step.canceled"
+	MaintenanceStepCompleted GetApiV1AuditLogParamsAction = "maintenance_step.completed"
+	MaintenanceStepStarted   GetApiV1AuditLogParamsAction = "maintenance_step.started"
+	MaintenanceUpdated       GetApiV1AuditLogParamsAction = "maintenance.updated"
+	RolesChanged             GetApiV1AuditLogParamsAction = "roles.changed"
+	UserBlocked              GetApiV1AuditLogParamsAction = "user.blocked"
+	UserUnblocked            GetApiV1AuditLogParamsAction = "user.unblocked"
+)
+
+// Valid indicates whether the value is a known member of the GetApiV1AuditLogParamsAction enum.
+func (e GetApiV1AuditLogParamsAction) Valid() bool {
+	switch e {
+	case LoginFailed:
+		return true
+	case LoginSuccess:
+		return true
+	case LogoutSuccess:
+		return true
+	case MaintenanceApproved:
+		return true
+	case MaintenanceCanceled:
+		return true
+	case MaintenanceCompleted:
+		return true
+	case MaintenanceCreated:
+		return true
+	case MaintenanceStarted:
+		return true
+	case MaintenanceStepCanceled:
+		return true
+	case MaintenanceStepCompleted:
+		return true
+	case MaintenanceStepStarted:
+		return true
+	case MaintenanceUpdated:
+		return true
+	case RolesChanged:
+		return true
+	case UserBlocked:
+		return true
+	case UserUnblocked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetApiV1LoginOauthGoogleParamsOauthCallbackType.
 const (
 	Html GetApiV1LoginOauthGoogleParamsOauthCallbackType = "html"
@@ -244,9 +301,8 @@ type ApiauthmodelsAuditLogMetadata struct {
 
 	// MaintTitle Maintenance action fields (RUK-182). Populated for maintenance.* /
 	// maintenance_step.* actions:
-	//   - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);
-	//   - maintenance.updated: changes (before/after per changed scalar);
-	//   - maintenance_step.*: maint_title, step_id, step_status.
+	//   - maintenance.* / maintenance_step.*: maint_title;
+	//   - maintenance.updated: changes (before/after per changed scalar).
 	MaintTitle        *string   `json:"maint_title,omitempty"`
 	Roles             *[]string `json:"roles,omitempty"`
 	RolesAdded        *[]string `json:"roles_added,omitempty"`
@@ -475,8 +531,8 @@ type GetApiV1AuditLogParams struct {
 	// Offset Pagination offset
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 
-	// Action Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)
-	Action *string `form:"action,omitempty" json:"action,omitempty"`
+	// Action Filter by audit actions. CSV of one or more of the listed values (e.g. login.success,maintenance.canceled)
+	Action *GetApiV1AuditLogParamsAction `form:"action,omitempty" json:"action,omitempty"`
 
 	// Actor Filter by actor (exact match)
 	Actor *string `form:"actor,omitempty" json:"actor,omitempty"`
@@ -487,6 +543,9 @@ type GetApiV1AuditLogParams struct {
 	// CreatedTo Filter by created_at <= this RFC3339 timestamp
 	CreatedTo *string `form:"created_to,omitempty" json:"created_to,omitempty"`
 }
+
+// GetApiV1AuditLogParamsAction defines parameters for GetApiV1AuditLog.
+type GetApiV1AuditLogParamsAction string
 
 // GetApiV1LoginOauthGoogleParams defines parameters for GetApiV1LoginOauthGoogle.
 type GetApiV1LoginOauthGoogleParams struct {

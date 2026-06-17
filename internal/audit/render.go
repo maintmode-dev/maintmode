@@ -50,7 +50,7 @@ func (r *Renderer) Render(action Action) (entity.ProcessorTaskPayloadAuditWrite,
 func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	category, ok := entity.AuditActionCategory(action.auditAction())
 	if !ok {
-		return fmt.Errorf("%w: action %T", apperr.ErrUnsupportedEvent, action.auditAction())
+		return fmt.Errorf("%w: action %q", apperr.ErrUnsupportedEvent, action.auditAction())
 	}
 
 	switch category {
@@ -63,7 +63,8 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 	case entity.AuditCategoryMaintenance:
 		return fillMaintPayload(payload, action)
 	default:
-		return fmt.Errorf("%w: category %T", apperr.ErrUnsupportedEvent, category)
+		// Unreachable: every category in auditActionCategories has a case above.
+		return fmt.Errorf("%w: category %q", apperr.ErrUnsupportedEvent, category)
 	}
 }
 

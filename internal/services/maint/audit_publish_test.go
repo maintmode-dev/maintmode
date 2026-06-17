@@ -375,3 +375,17 @@ func lastAction[T audit.Action](t *testing.T, recorder *capturedAudit) T {
 	require.Failf(t, "no captured action of expected type", "%T not found in %d actions", zero, len(actions))
 	return zero
 }
+
+// findAuditCancel returns the MaintCancelled action published for the given
+// maintenance id. The auto-cancel sweep runs on the shared DB and may cancel
+// other tests' overdue maints too, so match by id rather than taking the last.
+func findAuditCancel(t *testing.T, recorder *capturedAudit, maintID uuid.UUID) audit.MaintCancelled {
+	t.Helper()
+	for _, a := range recorder.all() {
+		if mc, ok := a.(audit.MaintCancelled); ok && mc.Maint.ID == maintID {
+			return mc
+		}
+	}
+	require.Failf(t, "no MaintCancelled for maint", "maint %s not in captured actions", maintID)
+	return audit.MaintCancelled{}
+}

@@ -103,7 +103,7 @@
                         "type": "string"
                     },
                     "maint_title": {
-                        "description": "Maintenance action fields (RUK-182). Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.*: maint_title, maint_status (+cancel_reason for cancel/auto_cancel);\n  - maintenance.updated: changes (before/after per changed scalar);\n  - maintenance_step.*: maint_title, step_id, step_status.",
+                        "description": "Maintenance action fields (RUK-182). Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.* / maintenance_step.*: maint_title;\n  - maintenance.updated: changes (before/after per changed scalar).",
                         "type": "string"
                     },
                     "roles": {
@@ -759,10 +759,27 @@
                         }
                     },
                     {
-                        "description": "Filter by audit actions, CSV (e.g. login_success,login_failed,logout_success)",
+                        "description": "Filter by audit actions. CSV of one or more of the listed values (e.g. login.success,maintenance.canceled)",
                         "in": "query",
                         "name": "action",
                         "schema": {
+                            "enum": [
+                                "login.success",
+                                "login.failed",
+                                "logout.success",
+                                "roles.changed",
+                                "user.blocked",
+                                "user.unblocked",
+                                "maintenance.created",
+                                "maintenance.updated",
+                                "maintenance.approved",
+                                "maintenance.started",
+                                "maintenance.completed",
+                                "maintenance.canceled",
+                                "maintenance_step.started",
+                                "maintenance_step.completed",
+                                "maintenance_step.canceled"
+                            ],
                             "type": "string"
                         }
                     },
