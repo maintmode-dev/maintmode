@@ -47,6 +47,10 @@ datasources:
     editable: true
     version: 1
     jsonData:
+      # Service Graph: берём метрики рёбер, которые генератор Tempo пишет в VM.
+      serviceMap:
+        datasourceUid: vm_ds
+
       # Traces to Logs (Tempo использует схему tracesToLogsV2)
       tracesToLogsV2:
         datasourceUid: loki_ds

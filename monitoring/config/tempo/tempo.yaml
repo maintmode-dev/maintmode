@@ -32,3 +32,24 @@ storage:
 compactor:
   compaction:
     block_retention: 24h      # 1 день (RUK-189)
+
+# Service Graph: metrics-generator строит per-edge метрики (request/error/
+# duration) из спанов и remote-write'ит их в VictoriaMetrics (Prometheus-
+# совместимая). Grafana рисует граф из этих метрик. Включён ТОЛЬКО процессор
+# service-graphs (без span-metrics), чтобы кардинальность/место были минимальны.
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  storage:
+    path: /var/tempo/generator/wal   # свой небольшой WAL, отдельно от trace WAL
+    remote_write:
+      - url: http://victoria-metrics:8428/api/v1/write
+        send_exemplars: true
+
+# Генератор работает per-tenant; в single-binary процессоры включаются через
+# overrides для дефолтного (анонимного) тенанта.
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs]
