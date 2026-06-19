@@ -5,7 +5,8 @@ receivers:
         endpoint: 0.0.0.0:4317 # <-- ФИКС СЕТИ: Слушаем все интерфейсы, а не только localhost!
 
 processors:
-  # Копируем resource attributes в span attributes для совместимости с Jaeger
+  # Копируем resource attributes в span attributes (service.name/version
+  # на самих спанах удобны для поиска в Tempo).
   transform:
     trace_statements:
       - context: span
@@ -32,8 +33,8 @@ processors:
           sampling_percentage: 100
 
 exporters:
-  otlp_grpc/jaeger: # <-- ФИКС ВАРНИНГА: Используем явное имя otlp_grpc
-    endpoint: jaeger:4317
+  otlp_grpc/tempo: # явное имя otlp_grpc, чтобы не было варнинга
+    endpoint: tempo:4317
     tls:
       insecure: true
 
@@ -42,4 +43,4 @@ service:
     traces:
       receivers: [ otlp ]
       processors: [ transform, tail_sampling ] # transform должен быть первым!
-      exporters: [ otlp_grpc/jaeger ]
+      exporters: [ otlp_grpc/tempo ]

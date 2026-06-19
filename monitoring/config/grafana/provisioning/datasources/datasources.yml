@@ -13,7 +13,7 @@ datasources:
       timeInterval: "15s"
       httpMethod: POST
       exemplarTraceIdDestinations:
-        - datasourceUid: jaeger
+        - datasourceUid: tempo_ds
           name: trace_id
     version: 1
 
@@ -28,31 +28,32 @@ datasources:
     jsonData:
       maxLines: 1000
       derivedFields:
-        - datasourceUid: jaeger_ds
+        - datasourceUid: tempo_ds
           matcherRegex: "trace_id[=:]([0-9a-f]+)"
           name: TraceID
           url: "$${__value.raw}"
           urlDisplayLabel: "View Trace"
     version: 1
 
-  # Jaeger - Distributed Tracing datasource
-  - name: Jaeger
-    uid: jaeger_ds
-    type: jaeger
+  # Tempo - Distributed Tracing datasource.
+  # Запрашивается по HTTP API на :3200; спаны прилетают через
+  # otel-collector → tempo. Отдельного UI нет.
+  - name: Tempo
+    uid: tempo_ds
+    type: tempo
     access: proxy
-    url: http://jaeger:16686
+    url: http://tempo:3200
     isDefault: false
     editable: true
-    version: 4
+    version: 1
     jsonData:
-      # Traces to Logs
-      tracesToLogs:
+      # Traces to Logs (Tempo использует схему tracesToLogsV2)
+      tracesToLogsV2:
         datasourceUid: loki_ds
         spanStartTimeShift: '-5m'
         spanEndTimeShift: '5m'
         filterByTraceID: true
         filterBySpanID: false
-        customQuery: false
 
       # Traces to Metrics
       tracesToMetrics:

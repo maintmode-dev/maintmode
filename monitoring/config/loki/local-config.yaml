@@ -43,17 +43,18 @@ limits_config:
   max_streams_per_user: 0
   max_line_size: 256kb
 
-  # Время хранения логов (30 дней)
-  retention_period: 720h
+  # Время хранения логов (14 дней). Логи объёмнее метрик и нужны для разбора
+  # недавних инцидентов, а не истории — поэтому короче метрик (30d).
+  retention_period: 336h
 
-  # Пределы для запросов
+  # Пределы для запросов (чуть больше retention, чтобы покрыть весь период)
   split_queries_by_interval: 30m
-  max_query_length: 721h
+  max_query_length: 337h
   max_query_parallelism: 32
 
 table_manager:
   retention_deletes_enabled: true
-  retention_period: 720h
+  retention_period: 336h
 
 compactor:
   working_directory: /loki/compactor

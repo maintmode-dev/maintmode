@@ -6,7 +6,7 @@
 #   storages     postgres, pg_doorman, redis, apply-migrations
 #   app          maintmode, auth, caddy
 #   monitoring   victoria-metrics, grafana, loki, promtail, postgres-exporter,
-#                redis-exporter, jaeger, otel-collector, pyroscope, alloy,
+#                redis-exporter, tempo, otel-collector, pyroscope, alloy,
 #                vmalert, alertmanager
 #
 # Bring up the full local stack:
@@ -337,12 +337,21 @@ services:
     networks:
       - theapp
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
+  # Grafana Tempo — трейсинг-бэкенд. Локальный диск,
+  # retention 1 день (см. monitoring/config/tempo/tempo.yaml). Принимает OTLP от
+  # otel-collector, запрашивается датасорсом Grafana на :3200. Отдельного UI нет.
+  # Тег запиннен (в отличие от соседей на :latest): tempo:latest уехал на v3.0.0
+  # с несовместимой схемой конфига (ingester/compactor отвалились). 2.7.x —
+  # текущая рабочая линия; бампать осознанно.
+  tempo:
+    image: grafana/tempo:2.7.1
     profiles: ["monitoring"]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - tempo:/var/tempo
+      - ./monitoring/config/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
     ports:
-      - "16686:16686" # UI
-      - "4317"        # internal gRPC
+      - "3200" # query/API (internal)
     networks:
       - theapp
 
@@ -355,7 +364,7 @@ services:
     ports:
       - "4317:4317"
     depends_on:
-      - jaeger
+      - tempo
     networks:
       - theapp
 
@@ -442,6 +451,7 @@ volumes:
   grafana:
   loki:
   alertmanager:
+  tempo:
 
 networks:
   theapp:
