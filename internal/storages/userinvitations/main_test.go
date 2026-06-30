@@ -27,7 +27,7 @@ var (
 // userinvitations lives in the auth DB (users + user_invitations), so the tests
 // load the auth config like the users store tests do.
 func TestMain(m *testing.M) {
-	db = testdbconnutils.NewDB(config.LoadAuthAppConfig())
+	db = testdbconnutils.NewDB(config.LoadAppConfig())
 	closer.Add(db.Close)
 
 	store = NewStore(db)

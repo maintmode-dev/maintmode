@@ -27,7 +27,6 @@ env:
   # See Makefile (COMPOSE_PROFILES_FLAGS) for the local/prod default.
   COMPOSE_PROFILES_FLAGS: --profile storages --profile app
   MAINTMODE_IMAGE_TAG: ${{ github.sha }}
-  AUTH_IMAGE_TAG: ${{ github.sha }}
   CADDY_IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -61,21 +60,6 @@ jobs:
           version: v2.13.1
           args: build -f deployment/maintmode/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/maintmode
 
-  build-auth:
-    name: Build binary (auth)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - run: mkdir -p tmp/bin
-      - uses: goreleaser/goreleaser-action@v6.4.0
-        with:
-          version: v2.13.1
-          args: build -f deployment/auth/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/auth
-
   test:
     name: Backend tests
     runs-on: ubuntu-22.04
@@ -107,7 +91,6 @@ jobs:
       - lint
       - test
       - build-maintmode
-      - build-auth
     permissions:
       contents: read
       packages: write
@@ -139,45 +122,6 @@ jobs:
           cache-from: type=gha,scope=maintmode
           cache-to: type=gha,mode=max,scope=maintmode
 
-  image-auth:
-    name: Build image (auth)
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    needs:
-      - lint
-      - test
-      - build-maintmode
-      - build-auth
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository }}/auth
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix=sha-
-      # Push straight to GHCR (no tar artifact — see image-maintmode).
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: deployment/auth/.build/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=auth
-          cache-to: type=gha,mode=max,scope=auth
-
   image-migrations:
     name: Build image (migrations)
     runs-on: ubuntu-latest
@@ -187,7 +131,6 @@ jobs:
       - lint
       - test
       - build-maintmode
-      - build-auth
     permissions:
       contents: read
       packages: write
@@ -226,7 +169,6 @@ jobs:
     if: github.event_name != 'pull_request'
     needs:
       - image-maintmode
-      - image-auth
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -245,9 +187,7 @@ jobs:
         run: |
           SHA_TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
           docker pull "ghcr.io/${{ github.repository }}/maintmode:${SHA_TAG}"
-          docker pull "ghcr.io/${{ github.repository }}/auth:${SHA_TAG}"
           docker tag "ghcr.io/${{ github.repository }}/maintmode:${SHA_TAG}" "maintmode-ci-maintmode:${{ github.sha }}"
-          docker tag "ghcr.io/${{ github.repository }}/auth:${SHA_TAG}" "maintmode-ci-auth:${{ github.sha }}"
       - uses: docker/setup-buildx-action@v3
       - name: Build custom Caddy image (xcaddy + ratelimit)
         # Prebuild with a persistent GHA layer cache so the slow xcaddy

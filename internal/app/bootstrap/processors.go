@@ -16,6 +16,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
+// NewTaskProcessors builds the single goque worker for the maintmode process and
+// registers every task type the merged process owns (RUK-194): messaging.send,
+// maint.reminder, maint.auto.cancel (+ cron), invitation.email, audit.write and
+// audit.prune (+ cron). All eight are registered on one registrar, and verify()
+// runs once at the end to assert the registered set matches the canonical
+// entity.ActiveProcessorTaskTypes.
 func NewTaskProcessors(
 	cfg config.TaskProcessorConfig,
 	stores *Stores,
@@ -23,7 +29,8 @@ func NewTaskProcessors(
 	gateways *Gateways,
 ) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
-	reg := newProcessorRegistrar(goq, entity.ProcessorBinaryMaintmode)
+	reg := newProcessorRegistrar(goq)
+
 	reg.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
 		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
@@ -74,31 +81,12 @@ func NewTaskProcessors(
 	}
 	reg.RegisterPeriodicJob(autoCancelJob)
 
-	if err := reg.verify(); err != nil {
-		return nil, err
-	}
-
-	return goq, nil
-}
-
-// NewAuthTaskProcessors builds the goque worker for the auth binary. It drains
-// invitation.email tasks (invitation emails enqueued via the outbox) against the
-// email registry the invitation service targets, and runs the audit-retention
-// prune (the auth binary owns the audit store).
-//
-// It deliberately registers invitation.email, NOT messaging.send: the maintmode
-// binary also polls the shared goque_task table for messaging.send (Slack/Telegram
-// maint notifications) with a different registry, so invitation emails get their
-// own task type to guarantee only this binary delivers them. maint.reminder is
-// likewise maintmode-only and not registered here.
-func NewAuthTaskProcessors(
-	cfg config.TaskProcessorConfig,
-	stores *AuthStores,
-	services *AuthServices,
-	gateways *AuthGateways,
-) (*goque.Goque, error) {
-	goq := goque.NewGoque(stores.taskStorage)
-	reg := newProcessorRegistrar(goq, entity.ProcessorBinaryAuth)
+	// invitation.email: invitation emails enqueued via the outbox deliver through
+	// the same notify-transport registry the invitation service targets.
+	//
+	// It is a distinct task type from messaging.send on purpose: although both are
+	// now drained by this one process, keeping invitation emails on their own type
+	// preserves the registry-routing boundary and lets the owner map stay explicit.
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
@@ -108,8 +96,8 @@ func NewAuthTaskProcessors(
 
 	// audit.write: domain events published via auditpublisher.Publish land here as
 	// rendered audit snapshots (RUK-179). The processor writes audit_log after
-	// commit, outside any tx. auth-binary-only — the auth binary owns the audit
-	// store. An idempotent INSERT (ON CONFLICT event_id) makes retries safe.
+	// commit, outside any tx. An idempotent INSERT (ON CONFLICT event_id) makes
+	// retries safe.
 	reg.RegisterProcessor(
 		entity.ProcessorTaskAuditWrite,
 		auditprocessor.NewTaskProcessor(services.Audit),

@@ -14,13 +14,19 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
+// listUsersResult is a small helper: the resolver fetches a page of users and
+// reindexes it to a map by id, so the mocked ListUsers returns a slice.
+func listUsersResult(users ...*entity.User) *entity.ListUsersResult {
+	return &entity.ListUsersResult{Users: users, Total: int64(len(users))}
+}
+
 func TestResolveOne_NilID(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := initService(t)
 
 	// The zero id is the ONLY case that yields nil ("no author to render"); it
-	// never calls the gateway. A real-but-unresolved id degrades to Unknown
+	// never calls the user service. A real-but-unresolved id degrades to Unknown
 	// instead (see TestResolveOne_UnknownUserDegrades).
 	require.Nil(t, srv.ResolveOne(context.Background(), uuid.Nil))
 }
@@ -31,15 +37,23 @@ func TestResolveOne_Resolved(t *testing.T) {
 	srv, mocks := initService(t)
 
 	id := uuid.New()
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "Alice", Email: "alice@example.com"},
-		}, nil)
+	var gotCmd *entity.ListUsersCmd
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
+			gotCmd = cmd
+			return listUsersResult(&entity.User{ID: id, Name: "Alice", Email: "alice@example.com"}), nil
+		})
 
 	got := srv.ResolveOne(context.Background(), id)
 	require.NotNil(t, got)
 	require.Equal(t, &entity.UserSummary{ID: id, Name: "Alice", Email: "alice@example.com"}, got)
+
+	// Author resolution queries by id with a bounded Limit and does NOT exclude
+	// blocked users (a since-blocked author is still labeled).
+	require.Equal(t, []uuid.UUID{id}, gotCmd.IDs)
+	require.Equal(t, int64(1), gotCmd.Limit)
+	require.False(t, gotCmd.ExcludeBlocked)
 }
 
 // TestResolveOne_UnknownUserDegrades pins the invariant that distinguishes the
@@ -52,10 +66,10 @@ func TestResolveOne_UnknownUserDegrades(t *testing.T) {
 	srv, mocks := initService(t)
 
 	id := uuid.New()
-	// Auth responds without the requested id (user removed).
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{}, nil)
+	// The user service responds without the requested id (user removed).
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(), nil)
 
 	got := srv.ResolveOne(context.Background(), id)
 	require.NotNil(t, got, "unresolved real id must degrade to Unknown, not nil")
@@ -70,11 +84,9 @@ func TestResolveMany_Dedup(t *testing.T) {
 	id := uuid.New()
 	// The same id passed twice must be fetched once (deduped) and the zero id
 	// dropped entirely.
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "Bob", Email: "bob@example.com"},
-		}, nil).
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: id, Name: "Bob", Email: "bob@example.com"}), nil).
 		Times(1)
 
 	out := srv.ResolveMany(context.Background(), []uuid.UUID{id, id, uuid.Nil})
@@ -88,8 +100,8 @@ func TestResolveMany_AuthDownDegrades(t *testing.T) {
 	srv, mocks := initService(t)
 
 	id := uuid.New()
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), gomock.Any()).
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("boom: "+apperr.ErrAuthUnavailable.Error()))
 
 	out := srv.ResolveMany(context.Background(), []uuid.UUID{id})
@@ -106,13 +118,11 @@ func TestResolveMany_UnknownUserDegrades(t *testing.T) {
 
 	known := uuid.New()
 	missing := uuid.New()
-	// Auth responds but does not include `missing` (user removed): that id
-	// degrades to the labeled fallback while the known one resolves.
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), gomock.Any()).
-		Return(map[uuid.UUID]*entity.User{
-			known: {ID: known, Name: "Kate", Email: "kate@example.com"},
-		}, nil)
+	// The user service responds but does not include `missing` (user removed):
+	// that id degrades to the labeled fallback while the known one resolves.
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: known, Name: "Kate", Email: "kate@example.com"}), nil)
 
 	out := srv.ResolveMany(context.Background(), []uuid.UUID{known, missing})
 
@@ -126,13 +136,11 @@ func TestResolveMany_CacheHitAvoidsSecondCall(t *testing.T) {
 	srv, mocks := initService(t)
 
 	id := uuid.New()
-	// Gateway is hit exactly once; the second resolve (well within the 1-minute
-	// TTL) is served from cache.
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "Cached", Email: "c@example.com"},
-		}, nil).
+	// The user service is hit exactly once; the second resolve (well within the
+	// 1-minute TTL) is served from cache.
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: id, Name: "Cached", Email: "c@example.com"}), nil).
 		Times(1)
 
 	first := srv.ResolveOne(context.Background(), id)
@@ -150,17 +158,13 @@ func TestResolveMany_CacheExpiryRefetches(t *testing.T) {
 	srv, mocks := initServiceWithTTL(t, ttl)
 
 	id := uuid.New()
-	// After the TTL lapses the gateway is queried again.
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "First", Email: "f@example.com"},
-		}, nil)
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "Second", Email: "s@example.com"},
-		}, nil)
+	// After the TTL lapses the user service is queried again.
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: id, Name: "First", Email: "f@example.com"}), nil)
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: id, Name: "Second", Email: "s@example.com"}), nil)
 
 	require.Equal(t, "First", srv.ResolveOne(context.Background(), id).Name)
 
@@ -176,14 +180,12 @@ func TestResolveMany_DegradedNotCached(t *testing.T) {
 	id := uuid.New()
 	// First call: auth down → degraded, must NOT be cached. Second call: auth
 	// recovers and resolves the real profile.
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("auth down"))
-	mocks.gateway.EXPECT().
-		GetUsersByIDs(gomock.Any(), []uuid.UUID{id}).
-		Return(map[uuid.UUID]*entity.User{
-			id: {ID: id, Name: "Recovered", Email: "r@example.com"},
-		}, nil)
+	mocks.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		Return(listUsersResult(&entity.User{ID: id, Name: "Recovered", Email: "r@example.com"}), nil)
 
 	require.Equal(t, entity.UnknownUserName, srv.ResolveOne(context.Background(), id).Name)
 	require.Equal(t, "Recovered", srv.ResolveOne(context.Background(), id).Name)

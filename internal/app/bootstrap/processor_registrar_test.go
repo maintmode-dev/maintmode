@@ -13,20 +13,25 @@ import (
 // the registrar's coverage check without a DB.
 func newRegisterOnlyGoque() *goque.Goque { return goque.NewGoque(nil) }
 
-func TestProcessorRegistrar_VerifyPassesWhenBinaryRegistersExactlyItsTypes(t *testing.T) {
-	reg := newProcessorRegistrar(newRegisterOnlyGoque(), entity.ProcessorBinaryAuth)
-	for _, taskType := range entity.ProcessorTaskTypesFor(entity.ProcessorBinaryAuth) {
+func TestProcessorRegistrar_VerifyPassesWhenEveryTypeRegistered(t *testing.T) {
+	reg := newProcessorRegistrar(newRegisterOnlyGoque())
+	for taskType := range entity.ActiveProcessorTaskTypes {
 		reg.RegisterProcessor(taskType, goque.NoopTaskProcessor())
 	}
 	require.NoError(t, reg.verify())
 }
 
 func TestProcessorRegistrar_VerifyFailsOnMissingProcessor(t *testing.T) {
-	reg := newProcessorRegistrar(newRegisterOnlyGoque(), entity.ProcessorBinaryAuth)
-	// Register all but one of the auth-owned types.
-	owned := entity.ProcessorTaskTypesFor(entity.ProcessorBinaryAuth)
-	require.Greater(t, len(owned), 1)
-	for _, taskType := range owned[1:] {
+	require.Greater(t, len(entity.ActiveProcessorTaskTypes), 1)
+
+	reg := newProcessorRegistrar(newRegisterOnlyGoque())
+	// Register every active type except one — that one must be reported missing.
+	skipped := true
+	for taskType := range entity.ActiveProcessorTaskTypes {
+		if skipped {
+			skipped = false
+			continue
+		}
 		reg.RegisterProcessor(taskType, goque.NoopTaskProcessor())
 	}
 
@@ -35,14 +40,14 @@ func TestProcessorRegistrar_VerifyFailsOnMissingProcessor(t *testing.T) {
 	require.Contains(t, err.Error(), "missing")
 }
 
-func TestProcessorRegistrar_VerifyFailsOnTypeOwnedByOtherBinary(t *testing.T) {
-	// An auth binary that wrongly registers a maintmode-owned type (task-type
-	// isolation breach) must fail.
-	reg := newProcessorRegistrar(newRegisterOnlyGoque(), entity.ProcessorBinaryAuth)
-	for _, taskType := range entity.ProcessorTaskTypesFor(entity.ProcessorBinaryAuth) {
+func TestProcessorRegistrar_VerifyFailsOnUnknownType(t *testing.T) {
+	// Registering a processor for a task type absent from ActiveProcessorTaskTypes
+	// is a typo, an undeclared type, or a disabled processor left registered.
+	reg := newProcessorRegistrar(newRegisterOnlyGoque())
+	for taskType := range entity.ActiveProcessorTaskTypes {
 		reg.RegisterProcessor(taskType, goque.NoopTaskProcessor())
 	}
-	reg.RegisterProcessor(entity.ProcessorTaskMaintReminder, goque.NoopTaskProcessor()) // maintmode-owned
+	reg.RegisterProcessor("totally.unknown.type", goque.NoopTaskProcessor())
 
 	err := reg.verify()
 	require.Error(t, err)

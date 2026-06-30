@@ -199,9 +199,6 @@ Each service reads `app.config.yaml` and `app.secrets.yaml` from
 ```bash
 MAINTMODE_CONFIG_DIR=deployment/maintmode/prod
 MAINTMODE_AUTHZ_DIR=deployment/maintmode/authz
-
-AUTH_CONFIG_DIR=deployment/auth/prod
-AUTH_AUTHZ_DIR=deployment/auth/authz
 ```
 
 Production deploys should keep real values in the cloud secret manager, then mount or generate a read-only `/app.secrets.yaml` for each container. The app does not call cloud-specific secret APIs.

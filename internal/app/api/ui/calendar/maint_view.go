@@ -72,9 +72,10 @@ func (i *Implementation) MaintView(c *echo.Context) error {
 		user = &entity.User{}
 	}
 
-	// Resolve author and approver profiles from auth in one batch call (degrades
-	// to a labeled summary on failure; never errors the read). ResolveMany dedups
-	// and drops the zero id, so author==approver or an unset approver are safe.
+	// Resolve author and approver profiles in one batch user-service query
+	// (degrades to a labeled summary on failure; never errors the read).
+	// ResolveMany dedups and drops the zero id, so author==approver or an unset
+	// approver are safe.
 	summaries := i.userSummarySrv.ResolveMany(ctx, []uuid.UUID{maint.CreatedByUserID, maint.ApproverUserID})
 
 	return c.JSON(http.StatusOK, &uimodels.MaintenanceViewResponse{

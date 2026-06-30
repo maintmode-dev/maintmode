@@ -5,6 +5,8 @@ g, admin, reviewer
 p, guest, calendar.read, execute
 p, guest, maintenance.read, execute
 p, guest, resource.read, execute
+p, guest, auth.roles.read, execute
+p, guest, auth.user_roles.read, execute
 
 p, editor, maintenance.create, execute
 p, editor, maintenance.edit, execute
@@ -24,3 +26,8 @@ p, editor, notification.channel.archive, execute
 p, editor, notification.channel.unarchive, execute
 
 p, reviewer, maintenance.approve, execute
+
+p, admin, auth.roles.manage, execute
+p, admin, auth.audit.read, execute
+p, admin, auth.users.read, execute
+p, admin, auth.users.manage, execute

@@ -334,21 +334,6 @@ type ApiauthmodelsExchangeIDTokenRequest struct {
 	IdToken *string `json:"id_token,omitempty"`
 }
 
-// ApiauthmodelsIntrospectRequest defines model for apiauthmodels.IntrospectRequest.
-type ApiauthmodelsIntrospectRequest struct {
-	AccessToken *string `json:"access_token,omitempty"`
-}
-
-// ApiauthmodelsIntrospectResponse defines model for apiauthmodels.IntrospectResponse.
-type ApiauthmodelsIntrospectResponse struct {
-	Active *bool     `json:"active,omitempty"`
-	Email  *string   `json:"email,omitempty"`
-	Exp    *int      `json:"exp,omitempty"`
-	Jti    *string   `json:"jti,omitempty"`
-	Roles  *[]string `json:"roles,omitempty"`
-	Sub    *string   `json:"sub,omitempty"`
-}
-
 // ApiauthmodelsJWKSResponse defines model for apiauthmodels.JWKSResponse.
 type ApiauthmodelsJWKSResponse struct {
 	Keys *[]EntityJWK `json:"keys,omitempty"`
@@ -432,14 +417,6 @@ type ApimodelsListRolesResponse struct {
 	Roles *[]ApimodelsRole `json:"roles,omitempty"`
 }
 
-// ApimodelsListS2SUsersResponse defines model for apimodels.ListS2SUsersResponse.
-type ApimodelsListS2SUsersResponse struct {
-	Limit  *int                `json:"limit,omitempty"`
-	Offset *int                `json:"offset,omitempty"`
-	Total  *int                `json:"total,omitempty"`
-	Users  *[]ApimodelsS2SUser `json:"users,omitempty"`
-}
-
 // ApimodelsListUsersResponse defines model for apimodels.ListUsersResponse.
 type ApimodelsListUsersResponse struct {
 	Limit  *int             `json:"limit,omitempty"`
@@ -462,14 +439,6 @@ type ApimodelsRevokeRoleRequest struct {
 
 // ApimodelsRole defines model for apimodels.Role.
 type ApimodelsRole string
-
-// ApimodelsS2SUser defines model for apimodels.S2SUser.
-type ApimodelsS2SUser struct {
-	DisplayName *string   `json:"display_name,omitempty"`
-	Email       *string   `json:"email,omitempty"`
-	Id          *string   `json:"id,omitempty"`
-	Roles       *[]string `json:"roles,omitempty"`
-}
 
 // ApimodelsUser defines model for apimodels.User.
 type ApimodelsUser struct {
@@ -589,27 +558,6 @@ type PostApiV1MeProvidersProviderConnectParamsProvider string
 // DeleteApiV1MeProvidersProviderDisconnectParamsProvider defines parameters for DeleteApiV1MeProvidersProviderDisconnect.
 type DeleteApiV1MeProvidersProviderDisconnectParamsProvider string
 
-// GetApiV1S2sUsersParams defines parameters for GetApiV1S2sUsers.
-type GetApiV1S2sUsersParams struct {
-	// Search Case-insensitive partial match on display_name or email
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
-
-	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)
-	Roles *[]string `form:"roles,omitempty" json:"roles,omitempty"`
-
-	// Ids Resolve only these user ids (UUID); batch author lookup. When set, the page size is capped to the number of ids.
-	Ids *[]string `form:"ids,omitempty" json:"ids,omitempty"`
-
-	// Active When true, hide blocked users
-	Active *bool `form:"active,omitempty" json:"active,omitempty"`
-
-	// Limit Page size (max 200)
-	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Offset Pagination offset
-	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
-}
-
 // GetApiV1UsersInvitationsParams defines parameters for GetApiV1UsersInvitations.
 type GetApiV1UsersInvitationsParams struct {
 	// Status Filter by status (pending|expired|accepted|revoked)
@@ -657,9 +605,6 @@ type PostApiV1RolesAssignJSONRequestBody = ApimodelsAssignRoleRequest
 
 // PostApiV1RolesRevokeJSONRequestBody defines body for PostApiV1RolesRevoke for application/json ContentType.
 type PostApiV1RolesRevokeJSONRequestBody = ApimodelsRevokeRoleRequest
-
-// PostApiV1S2sIntrospectJSONRequestBody defines body for PostApiV1S2sIntrospect for application/json ContentType.
-type PostApiV1S2sIntrospectJSONRequestBody = ApiauthmodelsIntrospectRequest
 
 // PostApiV1UsersInvitationsAcceptJSONRequestBody defines body for PostApiV1UsersInvitationsAccept for application/json ContentType.
 type PostApiV1UsersInvitationsAcceptJSONRequestBody = ApimodelsAcceptInvitationRequest
@@ -793,14 +738,6 @@ type ClientInterface interface {
 	PostApiV1RolesRevokeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1RolesRevoke(ctx context.Context, body PostApiV1RolesRevokeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PostApiV1S2sIntrospectWithBody request with any body
-	PostApiV1S2sIntrospectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PostApiV1S2sIntrospect(ctx context.Context, body PostApiV1S2sIntrospectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetApiV1S2sUsers request
-	GetApiV1S2sUsers(ctx context.Context, params *GetApiV1S2sUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1UserIdRoles request
 	GetApiV1UserIdRoles(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1067,42 +1004,6 @@ func (c *Client) PostApiV1RolesRevokeWithBody(ctx context.Context, contentType s
 
 func (c *Client) PostApiV1RolesRevoke(ctx context.Context, body PostApiV1RolesRevokeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1RolesRevokeRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostApiV1S2sIntrospectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1S2sIntrospectRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostApiV1S2sIntrospect(ctx context.Context, body PostApiV1S2sIntrospectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1S2sIntrospectRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetApiV1S2sUsers(ctx context.Context, params *GetApiV1S2sUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1S2sUsersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1927,160 +1828,6 @@ func NewPostApiV1RolesRevokeRequestWithBody(server string, contentType string, b
 	return req, nil
 }
 
-// NewPostApiV1S2sIntrospectRequest calls the generic PostApiV1S2sIntrospect builder with application/json body
-func NewPostApiV1S2sIntrospectRequest(server string, body PostApiV1S2sIntrospectJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPostApiV1S2sIntrospectRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPostApiV1S2sIntrospectRequestWithBody generates requests for PostApiV1S2sIntrospect with any type of body
-func NewPostApiV1S2sIntrospectRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/s2s/introspect")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetApiV1S2sUsersRequest generates requests for GetApiV1S2sUsers
-func NewGetApiV1S2sUsersRequest(server string, params *GetApiV1S2sUsersParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/s2s/users")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Search != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Roles != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "roles", *params.Roles, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Ids != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ids", *params.Ids, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Active != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "active", *params.Active, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Offset != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetApiV1UserIdRolesRequest generates requests for GetApiV1UserIdRoles
 func NewGetApiV1UserIdRolesRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -2634,14 +2381,6 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1RolesRevokeWithResponse(ctx context.Context, body PostApiV1RolesRevokeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1RolesRevokeResponse, error)
 
-	// PostApiV1S2sIntrospectWithBodyWithResponse request with any body
-	PostApiV1S2sIntrospectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1S2sIntrospectResponse, error)
-
-	PostApiV1S2sIntrospectWithResponse(ctx context.Context, body PostApiV1S2sIntrospectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1S2sIntrospectResponse, error)
-
-	// GetApiV1S2sUsersWithResponse request
-	GetApiV1S2sUsersWithResponse(ctx context.Context, params *GetApiV1S2sUsersParams, reqEditors ...RequestEditorFn) (*GetApiV1S2sUsersResponse, error)
-
 	// GetApiV1UserIdRolesWithResponse request
 	GetApiV1UserIdRolesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiV1UserIdRolesResponse, error)
 
@@ -3119,72 +2858,6 @@ func (r PostApiV1RolesRevokeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1RolesRevokeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PostApiV1S2sIntrospectResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApiauthmodelsIntrospectResponse
-	JSON400      *HttperrorsErrorResponse
-	JSON401      *HttperrorsErrorResponse
-	JSON500      *HttperrorsErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PostApiV1S2sIntrospectResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1S2sIntrospectResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PostApiV1S2sIntrospectResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetApiV1S2sUsersResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApimodelsListS2SUsersResponse
-	JSON400      *HttperrorsErrorResponse
-	JSON401      *HttperrorsErrorResponse
-	JSON500      *HttperrorsErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetApiV1S2sUsersResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetApiV1S2sUsersResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetApiV1S2sUsersResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3700,32 +3373,6 @@ func (c *ClientWithResponses) PostApiV1RolesRevokeWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParsePostApiV1RolesRevokeResponse(rsp)
-}
-
-// PostApiV1S2sIntrospectWithBodyWithResponse request with arbitrary body returning *PostApiV1S2sIntrospectResponse
-func (c *ClientWithResponses) PostApiV1S2sIntrospectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1S2sIntrospectResponse, error) {
-	rsp, err := c.PostApiV1S2sIntrospectWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostApiV1S2sIntrospectResponse(rsp)
-}
-
-func (c *ClientWithResponses) PostApiV1S2sIntrospectWithResponse(ctx context.Context, body PostApiV1S2sIntrospectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1S2sIntrospectResponse, error) {
-	rsp, err := c.PostApiV1S2sIntrospect(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostApiV1S2sIntrospectResponse(rsp)
-}
-
-// GetApiV1S2sUsersWithResponse request returning *GetApiV1S2sUsersResponse
-func (c *ClientWithResponses) GetApiV1S2sUsersWithResponse(ctx context.Context, params *GetApiV1S2sUsersParams, reqEditors ...RequestEditorFn) (*GetApiV1S2sUsersResponse, error) {
-	rsp, err := c.GetApiV1S2sUsers(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetApiV1S2sUsersResponse(rsp)
 }
 
 // GetApiV1UserIdRolesWithResponse request returning *GetApiV1UserIdRolesResponse
@@ -4375,100 +4022,6 @@ func ParsePostApiV1RolesRevokeResponse(rsp *http.Response) (*PostApiV1RolesRevok
 			return nil, err
 		}
 		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePostApiV1S2sIntrospectResponse parses an HTTP response from a PostApiV1S2sIntrospectWithResponse call
-func ParsePostApiV1S2sIntrospectResponse(rsp *http.Response) (*PostApiV1S2sIntrospectResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostApiV1S2sIntrospectResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApiauthmodelsIntrospectResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetApiV1S2sUsersResponse parses an HTTP response from a GetApiV1S2sUsersWithResponse call
-func ParseGetApiV1S2sUsersResponse(rsp *http.Response) (*GetApiV1S2sUsersResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetApiV1S2sUsersResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApimodelsListS2SUsersResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest HttperrorsErrorResponse

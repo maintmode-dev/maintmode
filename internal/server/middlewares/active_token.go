@@ -7,33 +7,34 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
-type ActiveTokenIntrospector interface {
-	Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error)
+// ActiveTokenChecker verifies an access token is still active (not revoked by
+// logout, not belonging to a blocked user). It returns nil when active and an
+// error otherwise. Declared consumer-side; satisfied in-process by
+// *auth.Service.EnsureActiveToken. The middleware only needs the yes/no answer,
+// so no claims are returned.
+type ActiveTokenChecker interface {
+	EnsureActiveToken(ctx context.Context, tokenString string) error
 }
 
-// RequireActiveToken calls auth-gateway introspect to verify the token has not
-// been revoked (logout / logout-all). It must run AFTER RequireAccessToken,
-// which has already validated the JWT signature and claims locally.
+// RequireActiveToken verifies the token has not been revoked (logout /
+// logout-all) or blocked, by calling the auth service in-process. It must run
+// AFTER RequireAccessToken, which has already validated the JWT signature and
+// claims locally.
 //
 // Apply only to critical mutations. Read-only routes intentionally stay on
-// local JWT validation so they remain available when auth-gateway is down.
+// local JWT validation.
 //
-// Fail-closed: on network/5xx errors from auth-gateway the request is rejected
-// with 503 (via apperr.ErrAuthUnavailable) rather than allowed through.
+// Fail-closed: an inactive token is rejected with ErrInvalidAccessToken; a
+// transient store failure propagates as an error rather than being allowed
+// through.
 //
-// The introspect deadline is owned by the gateway's HTTP client (configured via
-// external_services.auth.timeout). This middleware adds no extra timeout layer
-// so that operators have a single tunable knob.
-//
-// Note on roles: introspect returns fresh roles/email from the auth service,
-// but we deliberately discard them. RBAC downstream uses the roles from the
-// JWT claims set by RequireAccessToken. Role changes therefore propagate only
-// at token rotation, not on every request — this is the documented contract.
-func RequireActiveToken(introspector ActiveTokenIntrospector) echo.MiddlewareFunc {
+// Note on roles: RBAC downstream uses the roles from the JWT claims set by
+// RequireAccessToken. Role changes therefore propagate only at token rotation,
+// not on every request — this is the documented contract.
+func RequireActiveToken(checker ActiveTokenChecker) echo.MiddlewareFunc {
 	op := "introspect"
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -45,7 +46,7 @@ func RequireActiveToken(introspector ActiveTokenIntrospector) echo.MiddlewareFun
 				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 			}
 
-			if _, err := introspector.Introspect(ctx, token); err != nil {
+			if err := checker.EnsureActiveToken(ctx, token); err != nil {
 				return httperrors.ToAPIError(c, op, err)
 			}
 

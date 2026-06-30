@@ -6,19 +6,27 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	redislib "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
+	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
+	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
+	apiroles "github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
+	apiusers "github.com/ruko1202/maintmode/internal/app/api/public/users"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config/pg"
+	"github.com/ruko1202/maintmode/internal/config/redis"
 	"github.com/ruko1202/maintmode/internal/lifecycle"
 	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
@@ -56,8 +64,14 @@ func main() {
 	}
 	closer.Add(db.Close)
 
+	redisClient, err := redis.NewRedis(ctx, &cfg.Redis)
+	if err != nil {
+		xlog.Panic(ctx, "failed to init redis client", xfield.Error(err))
+	}
+	closer.Add(redisClient.Close)
+
 	// Bootstrap application layers
-	stores, err := bootstrap.NewStores(db)
+	stores, err := bootstrap.NewStores(db, redisClient)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
@@ -84,62 +98,94 @@ func main() {
 		}()
 	}
 
-	// start api server
-	{
-		s := server.NewAPIServer(
-			cfg.APIServer,
-			server.APIServerHandlers{
-				Maint:         apimaint.New(services.Maint, services.UserSummary),
-				Resources:     resourcesapi.New(services.Resources, services.UserSummary),
-				Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
-				Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary),
-				UserPicker:    userpickerapi.New(services.UserPicker),
-			},
-			server.APIServerSecurity{
-				TokenVerifier: services.JWTVerifier,
-				Introspector:  gateways.Auth,
-				Authorizer:    services.RBAC,
-			},
-			server.WithLogger(logger),
-		)
-		s.BindRouters(cfg.Environment, meta)
-
-		go func() {
-			if err := s.Start(ctx); err != nil {
-				xlog.Fatal(ctx, "api server failed", xfield.Error(err))
-			}
-		}()
-		closer.AddWithName("api server", closer.NoCtxCloseFunc(func() error {
-			return s.Stop(context.Background())
-		}))
-	}
+	startAPIServer(ctx, cfg, meta, services, redisClient, logger)
 
 	// Owns the drain signal: main flips it on shutdown, the readiness handler
 	// only reads it. Keeps process-lifecycle state out of the HTTP layer.
 	drainer := lifecycle.NewDrainer()
 
-	// start infra server: healthcheck, metrics, etc.
-	{
-		s := server.NewInfraServer(
-			cfg.InfraServer,
-			infra.New(db, drainer),
-			server.WithLogger(logger),
-		)
-		s.BindRouters(cfg.Environment, meta.AppName)
-
-		go func() {
-			if err := s.Start(ctx); err != nil {
-				xlog.Fatal(ctx, "api server failed", xfield.Error(err))
-			}
-		}()
-
-		closer.AddWithName("status server", closer.NoCtxCloseFunc(func() error {
-			return s.Stop(context.Background())
-		}))
-	}
+	startInfraServer(ctx, cfg, db, drainer, logger)
 
 	<-ctx.Done()
 	shutdown(context.WithoutCancel(ctx), drainer, cfg.Shutdown.DrainTimeoutOrDefault())
+}
+
+// startAPIServer wires the per-domain handlers, starts the public API server in
+// a goroutine and registers its graceful stop with the closer.
+func startAPIServer(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	meta *buildmeta.AppBuildMeta,
+	services *bootstrap.Services,
+	redisClient *redislib.Client,
+	logger xlog.Logger,
+) {
+	s := server.NewAPIServer(
+		cfg.APIServer,
+		server.APIServerHandlers{
+			Maint:         apimaint.New(services.Maint, services.UserSummary),
+			Resources:     resourcesapi.New(services.Resources, services.UserSummary),
+			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
+			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary),
+			UserPicker:    userpickerapi.New(services.UserPicker),
+
+			Auth: apiauth.New(
+				services.Auth,
+				services.Token,
+				services.User,
+				services.StateCodec,
+				cfg.App.FrontendURL,
+			),
+			Roles:       apiroles.New(services.User),
+			Users:       apiusers.New(services.User),
+			Invitations: apiinvitations.New(services.Invitation),
+			Audit:       apiaudit.New(services.Audit),
+		},
+		server.APIServerSecurity{
+			TokenVerifier: services.JWTVerifier,
+			TokenChecker:  services.TokenChecker,
+			Authorizer:    services.RBAC,
+		},
+		redisClient,
+		server.WithLogger(logger),
+	)
+	s.BindRouters(cfg.Environment, meta)
+
+	go func() {
+		if err := s.Start(ctx); err != nil {
+			xlog.Fatal(ctx, "api server failed", xfield.Error(err))
+		}
+	}()
+	closer.AddWithName("api server", closer.NoCtxCloseFunc(func() error {
+		return s.Stop(context.Background())
+	}))
+}
+
+// startInfraServer starts the infra server (healthcheck, metrics) in a
+// goroutine and registers its graceful stop with the closer.
+func startInfraServer(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	db *sqlx.DB,
+	drainer *lifecycle.Drainer,
+	logger xlog.Logger,
+) {
+	s := server.NewInfraServer(
+		cfg.InfraServer,
+		infra.New(db, drainer),
+		server.WithLogger(logger),
+	)
+	s.BindRouters(cfg.Environment)
+
+	go func() {
+		if err := s.Start(ctx); err != nil {
+			xlog.Fatal(ctx, "infra server failed", xfield.Error(err))
+		}
+	}()
+
+	closer.AddWithName("status server", closer.NoCtxCloseFunc(func() error {
+		return s.Stop(context.Background())
+	}))
 }
 
 // shutdown drains the replica before tearing it down: it first flips

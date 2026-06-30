@@ -131,8 +131,6 @@ build-dev:
 tloc:
 	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
 	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
-	AUTH_CONFIG_DIR=$(PWD)/deployment/auth/local \
-	AUTH_AUTHZ_DIR=$(PWD)/deployment/auth/authz \
 		go test -p 2 -count 2 ./internal/...
 
 # tloc-cov - Run tests with coverage analysis
@@ -152,8 +150,6 @@ tloc:
 tloc-cov:
 	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
 	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
-	AUTH_CONFIG_DIR=$(PWD)/deployment/auth/local \
-	AUTH_AUTHZ_DIR=$(PWD)/deployment/auth/authz \
 		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
 	@grep -vE "mock|internal/pkg/generated" coverage.tmp > coverage.out
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
@@ -225,7 +221,6 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/autocancelprocessor/processor.go -source ./internal/goque_processors/autocancelprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/auditpruneprocessor/processor.go -source ./internal/goque_processors/auditpruneprocessor/processor.go
-	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/app/bootstrap/gateways.go -source ./internal/app/bootstrap/gateways.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
@@ -389,7 +384,7 @@ docker-ps: ## Show status of database containers
 #
 # Services activated by COMPOSE_PROFILES_FLAGS (default = all three):
 #   storages    postgres, pg_doorman, redis, apply-migrations
-#   app         maintmode, auth, caddy
+#   app         maintmode, caddy
 #   monitoring  VictoriaMetrics, Grafana, Loki, Promtail, exporters,
 #               Jaeger, OTEL, Pyroscope, Alloy, vmalert, alertmanager
 
@@ -398,20 +393,18 @@ docker-ps: ## Show status of database containers
 # Creates containers, networks, and volumes if they don't exist
 # Safe to run multiple times (idempotent)
 #
-# Replica count for the two scalable services defaults to 1 (current
+# Replica count for the scalable maintmode service defaults to 1 (current
 # behaviour). Override for multi-pod runs:
-#   make app-up MAINTMODE_REPLICAS=3 AUTH_REPLICAS=3
+#   make app-up MAINTMODE_REPLICAS=3
 # Restart caddy after changing the count so it re-resolves DNS.
 MAINTMODE_REPLICAS ?= 1
-AUTH_REPLICAS ?= 1
 .PHONY: app-up
 app-up: app-down
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
-	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS) auth=$(AUTH_REPLICAS)...)
+	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS)...)
 	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} up -d \
 		--scale maintmode=$(MAINTMODE_REPLICAS) \
-		--scale auth=$(AUTH_REPLICAS) \
 		${args}
 	make app-ps
 

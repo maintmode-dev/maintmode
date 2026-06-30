@@ -28,7 +28,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	db = testdbconnutils.NewDB(config.LoadAuthAppConfig())
+	db = testdbconnutils.NewDB(config.LoadAppConfig())
 	closer.Add(db.Close)
 
 	userStore = users.NewStore(db)

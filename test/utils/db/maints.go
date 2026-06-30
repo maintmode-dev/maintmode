@@ -43,6 +43,14 @@ func WithSteps(step []*entity.MaintenanceStep) MaintChanger {
 	}
 }
 
+// WithApprover pins the maintenance's approver to a specific user id (typically a
+// real, seeded eligible approver) instead of the random default.
+func WithApprover(approverID uuid.UUID) MaintChanger {
+	return func(m *entity.Maintenance) {
+		m.ApproverUserID = approverID
+	}
+}
+
 func MakeResource(ctx context.Context, t *testing.T, store *resources.Store) *entity.ResourceDetails {
 	t.Helper()
 

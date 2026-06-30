@@ -11,26 +11,36 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func TestListAssignableDelegatesToGateway(t *testing.T) {
+func TestListAssignableMapsQueryToListUsers(t *testing.T) {
 	t.Parallel()
 
 	srv, mocks := initService(t)
 
+	var gotCmd *entity.ListUsersCmd
 	mocks.users.EXPECT().
-		ListActiveUsers(gomock.Any(), gomock.Any()).
-		Return(&entity.ListAssignableUsersResult{
-			Users:  []*entity.User{{ID: uuid.New(), Name: "Active", Email: "a@e.com"}},
-			Total:  1,
-			Limit:  50,
-			Offset: 0,
-		}, nil)
+		ListUsers(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
+			gotCmd = cmd
+			return &entity.ListUsersResult{
+				Users: []*entity.User{{ID: uuid.New(), Name: "Active", Email: "a@e.com"}},
+				Total: 1,
+			}, nil
+		})
 
-	q := &entity.ListAssignableUsersQuery{Search: "alice", Roles: []entity.Role{entity.RoleReviewer}, Limit: 50}
+	q := &entity.ListAssignableUsersQuery{Search: "alice", Roles: []entity.Role{entity.RoleReviewer}, Limit: 50, Offset: 20}
 	res, err := srv.ListAssignable(context.Background(), q)
 	require.NoError(t, err)
 
-	// The query is forwarded unchanged to the auth gateway.
+	// "assignable" maps onto a ListUsersCmd with ExcludeBlocked always set; the
+	// query's search/roles/limit/offset pass through.
+	require.True(t, gotCmd.ExcludeBlocked)
+	require.Equal(t, "alice", gotCmd.Search)
+	require.Equal(t, []entity.Role{entity.RoleReviewer}, gotCmd.Roles)
+	require.Equal(t, int64(50), gotCmd.Limit)
+	require.Equal(t, int64(20), gotCmd.Offset)
+
 	require.Equal(t, int64(1), res.Total)
 	require.Len(t, res.Users, 1)
 	require.Equal(t, int64(50), res.Limit)
+	require.Equal(t, int64(20), res.Offset)
 }

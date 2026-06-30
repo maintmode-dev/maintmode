@@ -41,7 +41,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	cfg = config.LoadAuthAppConfig()
+	cfg = config.LoadAppConfig()
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 

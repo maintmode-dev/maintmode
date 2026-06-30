@@ -54,7 +54,7 @@ func NewTaskProcessor(pruner Pruner) goque.TaskProcessor {
 // external_id) unique key and return goque.ErrDuplicateTask — the desired
 // at-most-once-per-day fan-in. The losing inserts are correctness-neutral but
 // goque v0.8.9 logs them at ERROR and does not retry (see the registration note
-// in bootstrap.NewAuthTaskProcessors); on a single replica this never fires.
+// in bootstrap.NewTaskProcessors); on a single replica this never fires.
 func NewTaskFactory(retention time.Duration, batchLimit int64) goque.PeriodicJobFactory {
 	return func(_ context.Context) (*goque.Task, error) {
 		return goque.NewTaskWithPayloadAndExternalID(

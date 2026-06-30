@@ -4,7 +4,7 @@
 # so a single compose command can scope what runs:
 #
 #   storages     postgres, pg_doorman, redis, apply-migrations
-#   app          maintmode, auth, caddy
+#   app          maintmode, caddy
 #   monitoring   victoria-metrics, grafana, loki, promtail, postgres-exporter,
 #                redis-exporter, tempo, otel-collector, pyroscope, alloy,
 #                vmalert, alertmanager
@@ -127,41 +127,6 @@ services:
         condition: service_healthy
       pg_doorman:
         condition: service_started
-      apply-migrations:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/readiness"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - theapp
-
-  auth:
-    build:
-      context: .
-      dockerfile: deployment/auth/.build/Dockerfile
-    # No container_name: this service is horizontally scalable via
-    # `docker compose up --scale auth=N`. Docker assigns
-    # <project>-auth-<N> and DNS `auth` resolves to all replicas.
-    profiles: ["app"]
-    restart: unless-stopped
-    # Discovered by Prometheus via docker_sd_configs filter on this label.
-    labels:
-      prometheus.service: "auth"
-    environment:
-      AUTH_CONFIG_DIR: /app
-      AUTH_AUTHZ_DIR: /app/authz
-    volumes:
-      - ./deployment/auth/dev/app.config.yaml:/app/app.config.yaml:ro
-      - ./deployment/auth/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
-      - ./deployment/auth/authz:/app/authz:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      pg_doorman:
-        condition: service_started
       redis:
         condition: service_healthy
       apply-migrations:
@@ -176,7 +141,7 @@ services:
       - theapp
 
   # MailPit — local SMTP sink + web UI for inspecting outgoing email.
-  # The auth binary delivers invitation emails here (see deployment/auth/dev
+  # The maintmode binary delivers invitation emails here (see deployment/maintmode/dev
   # notify_transport.email: host=mailpit, port=1025, tls_policy=none). Nothing
   # leaves the host — open the inbox at http://localhost:8025 to read them.
   mailpit:
@@ -221,8 +186,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      auth:
-        condition: service_healthy
       maintmode:
         condition: service_healthy
     networks:
@@ -244,7 +207,7 @@ services:
       - victoria-metrics:/victoria-metrics-data
       - ./monitoring/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Docker SD reads container list from the daemon socket so every
-      # replica of the maintmode/auth services is discovered.
+      # replica of the maintmode service is discovered.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
       - "--promscrape.config=/etc/prometheus/prometheus.yml"

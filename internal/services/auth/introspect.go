@@ -13,6 +13,24 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
+// EnsureActiveToken reports nil when the access token is active and an error
+// otherwise — the active-token gate the API middleware applies to critical
+// mutations. "Active" is the full check (JWT + blacklist + blocked-user): an
+// inactive token yields ErrInvalidAccessToken, while a transient store failure
+// propagates so the middleware fails closed. It is the in-process replacement
+// for the S2S introspect the middleware used to call; the caller only needs the
+// yes/no answer, so no claims are returned.
+func (s *Service) EnsureActiveToken(ctx context.Context, tokenString string) error {
+	report, err := s.Introspect(ctx, tokenString)
+	if err != nil {
+		return err
+	}
+	if !report.Active {
+		return apperr.ErrInvalidAccessToken
+	}
+	return nil
+}
+
 // Introspect checks if an access token is active (not blacklisted).
 // Used by downstream services for critical operations (RFC 7662).
 func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.IntrospectReport, error) {

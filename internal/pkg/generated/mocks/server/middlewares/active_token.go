@@ -13,69 +13,67 @@ import (
 	context "context"
 	reflect "reflect"
 
-	entity "github.com/ruko1202/maintmode/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockActiveTokenIntrospector is a mock of ActiveTokenIntrospector interface.
-type MockActiveTokenIntrospector struct {
+// MockActiveTokenChecker is a mock of ActiveTokenChecker interface.
+type MockActiveTokenChecker struct {
 	ctrl     *gomock.Controller
-	recorder *MockActiveTokenIntrospectorMockRecorder
+	recorder *MockActiveTokenCheckerMockRecorder
 	isgomock struct{}
 }
 
-// MockActiveTokenIntrospectorMockRecorder is the mock recorder for MockActiveTokenIntrospector.
-type MockActiveTokenIntrospectorMockRecorder struct {
-	mock *MockActiveTokenIntrospector
+// MockActiveTokenCheckerMockRecorder is the mock recorder for MockActiveTokenChecker.
+type MockActiveTokenCheckerMockRecorder struct {
+	mock *MockActiveTokenChecker
 }
 
-// NewMockActiveTokenIntrospector creates a new mock instance.
-func NewMockActiveTokenIntrospector(ctrl *gomock.Controller) *MockActiveTokenIntrospector {
-	mock := &MockActiveTokenIntrospector{ctrl: ctrl}
-	mock.recorder = &MockActiveTokenIntrospectorMockRecorder{mock}
+// NewMockActiveTokenChecker creates a new mock instance.
+func NewMockActiveTokenChecker(ctrl *gomock.Controller) *MockActiveTokenChecker {
+	mock := &MockActiveTokenChecker{ctrl: ctrl}
+	mock.recorder = &MockActiveTokenCheckerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockActiveTokenIntrospector) EXPECT() *MockActiveTokenIntrospectorMockRecorder {
+func (m *MockActiveTokenChecker) EXPECT() *MockActiveTokenCheckerMockRecorder {
 	return m.recorder
 }
 
-// Introspect mocks base method.
-func (m *MockActiveTokenIntrospector) Introspect(ctx context.Context, tokenString string) (*entity.AccessClaims, error) {
+// EnsureActiveToken mocks base method.
+func (m *MockActiveTokenChecker) EnsureActiveToken(ctx context.Context, tokenString string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Introspect", ctx, tokenString)
-	ret0, _ := ret[0].(*entity.AccessClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "EnsureActiveToken", ctx, tokenString)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Introspect indicates an expected call of Introspect.
-func (mr *MockActiveTokenIntrospectorMockRecorder) Introspect(ctx, tokenString any) *MockActiveTokenIntrospectorIntrospectCall {
+// EnsureActiveToken indicates an expected call of EnsureActiveToken.
+func (mr *MockActiveTokenCheckerMockRecorder) EnsureActiveToken(ctx, tokenString any) *MockActiveTokenCheckerEnsureActiveTokenCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Introspect", reflect.TypeOf((*MockActiveTokenIntrospector)(nil).Introspect), ctx, tokenString)
-	return &MockActiveTokenIntrospectorIntrospectCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureActiveToken", reflect.TypeOf((*MockActiveTokenChecker)(nil).EnsureActiveToken), ctx, tokenString)
+	return &MockActiveTokenCheckerEnsureActiveTokenCall{Call: call}
 }
 
-// MockActiveTokenIntrospectorIntrospectCall wrap *gomock.Call
-type MockActiveTokenIntrospectorIntrospectCall struct {
+// MockActiveTokenCheckerEnsureActiveTokenCall wrap *gomock.Call
+type MockActiveTokenCheckerEnsureActiveTokenCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockActiveTokenIntrospectorIntrospectCall) Return(arg0 *entity.AccessClaims, arg1 error) *MockActiveTokenIntrospectorIntrospectCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Return(arg0 error) *MockActiveTokenCheckerEnsureActiveTokenCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockActiveTokenIntrospectorIntrospectCall) Do(f func(context.Context, string) (*entity.AccessClaims, error)) *MockActiveTokenIntrospectorIntrospectCall {
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Do(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureActiveTokenCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockActiveTokenIntrospectorIntrospectCall) DoAndReturn(f func(context.Context, string) (*entity.AccessClaims, error)) *MockActiveTokenIntrospectorIntrospectCall {
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) DoAndReturn(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureActiveTokenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

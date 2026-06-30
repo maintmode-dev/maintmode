@@ -2,6 +2,7 @@ package usersummary
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
@@ -23,8 +24,8 @@ func (s *Service) ResolveOne(ctx context.Context, id uuid.UUID) *entity.UserSumm
 }
 
 // ResolveMany batch-resolves user ids to summaries, indexed by id. It serves
-// cache hits, fetches the misses from auth in one call, and labels any id that
-// auth could not resolve (unavailable or unknown user) with the degraded
+// cache hits, fetches the misses from the user service in one query, and labels
+// any id it could not resolve (lookup failure or unknown user) with the degraded
 // "Unknown user" summary. The result contains an entry for every non-nil input
 // id, so callers can map a list row's author without a nil check. It never
 // returns an error — degrade, don't fail the read.
@@ -41,7 +42,7 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 		return out
 	}
 
-	// Serve cache hits; collect the misses to fetch from auth in one call.
+	// Serve cache hits; collect the misses to fetch from the user service in one query.
 	misses := make([]uuid.UUID, 0, len(uniqIDs))
 	for _, id := range uniqIDs {
 		if item := s.cache.Get(id); item != nil {
@@ -55,7 +56,7 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 		return out
 	}
 
-	resolved, err := s.gateway.GetUsersByIDs(ctx, misses)
+	resolved, err := s.getUsersByIDs(ctx, misses)
 	if err != nil {
 		// Auth unavailable: degrade every miss to the labeled fallback rather
 		// than failing the read.
@@ -77,4 +78,31 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 	}
 
 	return out
+}
+
+// getUsersByIDs batch-resolves user profiles by id, indexed by id. Unlike the
+// assignable-users path it does NOT exclude blocked users: a maintenance may
+// have been authored by a since-blocked or removed user, and the read still
+// wants to label them. Limit is bound to the id count — without it the store
+// emits LIMIT 0 and resolves zero rows (ListUsers does not default Limit; the
+// defaulting lives in the API binding layer this read path bypasses). Ids not
+// present are simply absent from the map; the caller degrades them.
+func (s *Service) getUsersByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*entity.User, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]*entity.User{}, nil
+	}
+
+	res, err := s.users.ListUsers(ctx, &entity.ListUsersCmd{
+		IDs:   ids,
+		Limit: int64(len(ids)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list users by ids: %w", err)
+	}
+
+	byID := make(map[uuid.UUID]*entity.User, len(res.Users))
+	for _, u := range res.Users {
+		byID[u.ID] = u
+	}
+	return byID, nil
 }

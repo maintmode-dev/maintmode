@@ -2242,7 +2242,7 @@ paths:
     /api/v1/users/assignable:
         get:
             description: |-
-                Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded. Backed by the auth service over S2S.
+                Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded.
                 Malformed pagination/filter params are coerced to defaults rather than rejected.
             parameters:
                 - description: Case-insensitive partial match on display_name or email

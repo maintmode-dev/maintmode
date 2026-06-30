@@ -18,7 +18,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/config"
 )
 
 // GoogleOauthCallback godoc
@@ -163,8 +162,14 @@ window.location.replace('%s');
 	)
 }
 
+const (
+	// cookieRefreshTokenName is the refresh-token cookie. Named for the single
+	// maintmode process (RUK-194); no longer derived from a per-binary build-meta
+	// app name. This is the cookie's name, not a secret value.
+	cookieRefreshTokenName = "maintmode-refresh_token" //nolint:gosec // G101: cookie name, not a credential
+)
+
 var (
-	cookieRefreshTokenName   = fmt.Sprintf("%s-refresh_token", config.GetAuthAppBuildMeta().AppName)
 	cookieRefreshTokenMaxAge = 30 * 24 * 60 * 60 // 30 days
 	cookieRefreshTokenPath   = "/auth"
 )

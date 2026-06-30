@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -69,10 +68,7 @@ func TestAudit_PublishedPerMutation(t *testing.T) {
 	t.Run("create publishes MaintCreated with actor", func(t *testing.T) {
 		t.Parallel()
 		service, mocks := initService(t)
-		mocks.approverValidator.EXPECT().
-			IsEligibleApprover(gomock.Any(), gomock.Any()).
-			Return(true, nil).
-			AnyTimes()
+		mocks.expectAnyApproverEligible()
 		recorder := mocks.audit
 		a := actor()
 

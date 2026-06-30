@@ -4,13 +4,20 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
+	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
+	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
 	resourcesapi "github.com/ruko1202/maintmode/internal/app/api/public/resources"
+	apiroles "github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
+	apiusers "github.com/ruko1202/maintmode/internal/app/api/public/users"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -19,21 +26,30 @@ import (
 
 // APIServerHandlers holds the per-domain Echo handler implementations served
 // by the API server. Adding a new domain means adding a field here, not a new
-// constructor argument.
+// constructor argument. With auth folded in-process (RUK-194) it carries both
+// the core (maint/resource/calendar/notify/userpicker) handlers and the auth
+// (auth/roles/users/invitations/audit) handlers.
 type APIServerHandlers struct {
 	Maint         *apimaint.Implementation
 	Resources     *resourcesapi.Implementation
 	Calendar      *uicalendar.Implementation
 	Notifications *apinotifications.Implementation
 	UserPicker    *userpickerapi.Implementation
+
+	// Auth-module handlers.
+	Auth        *apiauth.Implementation
+	Roles       *apiroles.Implementation
+	Users       *apiusers.Implementation
+	Invitations *apiinvitations.Implementation
+	Audit       *apiaudit.Implementation
 }
 
 // APIServerSecurity holds the security primitives wired into middleware
-// chains: local JWT verification, auth-gateway introspect for active-token
-// checks on critical mutations, and RBAC scenario authorization.
+// chains: local JWT verification, local active-token checks on critical
+// mutations, and RBAC scenario authorization.
 type APIServerSecurity struct {
 	TokenVerifier middlewares.TokenVerifier
-	Introspector  middlewares.ActiveTokenIntrospector
+	TokenChecker  middlewares.ActiveTokenChecker
 	Authorizer    middlewares.Authorizer
 }
 
@@ -41,18 +57,23 @@ type APIServer struct {
 	*server
 	handlers APIServerHandlers
 	security APIServerSecurity
+	// redis backs the rate limiters guarding the public login/oauth and
+	// invitation endpoints.
+	redis *redis.Client
 }
 
 func NewAPIServer(
 	cfg config.HTTPServer,
 	handlers APIServerHandlers,
 	security APIServerSecurity,
+	rdb *redis.Client,
 	opts ...Option,
 ) *APIServer {
 	return &APIServer{
 		server:   newServer(cfg, opts...),
 		handlers: handlers,
 		security: security,
+		redis:    rdb,
 	}
 }
 
@@ -61,9 +82,16 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
-	s.apiV1Group(rootGr.Group("/api/v1",
-		middlewares.RequireAccessToken(s.security.TokenVerifier),
-	))
+	// The /api/v1 base group carries NO blanket access-token gate: the auth module
+	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)
+	// that must stay unauthenticated. Each subgroup applies RequireAccessToken (or
+	// not) for itself.
+	apiV1 := rootGr.Group("/api/v1")
+	s.authPublicV1Group(apiV1, env, meta)
+	s.apiV1Group(apiV1)
+	s.authProtectedV1Group(apiV1)
+
+	// ui/v1 is fully token-gated.
 	s.uiV1Group(rootGr.Group("/ui/v1",
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
 	))
@@ -75,16 +103,52 @@ func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFun
 
 func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
-		middlewares.RequireActiveToken(s.security.Introspector),
+		middlewares.RequireActiveToken(s.security.TokenChecker),
 		s.scenarioMW(scenario),
 	}
 }
 
-// api V1 API group
+// authPublicV1Group registers the auth routes that must NOT sit behind the
+// access-token gate: JWKS, OAuth login, token refresh and the unauthenticated
+// invitation preview/accept endpoints. The token in the invitation link (and the
+// login/oauth surface) is the only credential, so those groups are rate-limited
+// to blunt enumeration.
+//
+// NOTE: the invitation preview/accept routes live under the STATIC path
+// /users/invitations and are registered here, before apiV1Group registers
+// /users/:id/... param routes, so the static segment is not shadowed.
+func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
+	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
+
+	loginOAuthGr := gr.Group("/login/oauth",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
+	)
+	loginOAuthGr.Add(http.MethodGet, "/google", s.handlers.Auth.GoogleOAuthLogin)
+	loginOAuthGr.Add(http.MethodGet, "/google/callback", s.handlers.Auth.GoogleOauthCallback,
+		middlewares.NotAllowedInProd(env),
+	)
+	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
+		middlewares.NotAllowedInProd(env),
+	)
+
+	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
+
+	invitesGr := gr.Group("/users/invitations",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
+	)
+	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
+	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
+}
+
+// apiV1Group registers the core (maintenance/resource/notify/userpicker) routes.
+// Each subgroup gates itself with RequireAccessToken — the /api/v1 base group
+// carries no blanket gate (the auth public routes share it).
 func (s *APIServer) apiV1Group(gr *echo.Group) {
+	requireToken := middlewares.RequireAccessToken(s.security.TokenVerifier)
+
 	// maint API group
 	{
-		maintAPI := gr.Group("/maintenances")
+		maintAPI := gr.Group("/maintenances", requireToken)
 		maintAPI.Add(http.MethodPost, "/create", s.handlers.Maint.CreateDraftMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceCreate))
 		maintAPI.Add(http.MethodPost, "/:id/edit", s.handlers.Maint.UpdateDraftMaint,
@@ -111,7 +175,7 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 
 	// resources API group
 	{
-		resourcesAPI := gr.Group("/resources")
+		resourcesAPI := gr.Group("/resources", requireToken)
 		resourcesAPI.Add(http.MethodGet, "", s.handlers.Resources.SearchResources,
 			s.scenarioMW(entity.AuthzScenarioResourceRead))
 		resourcesAPI.Add(http.MethodGet, "/list", s.handlers.Resources.ListResources,
@@ -120,7 +184,7 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 
 	// resource API group
 	{
-		resourceAPI := gr.Group("/resource")
+		resourceAPI := gr.Group("/resource", requireToken)
 		resourceAPI.Add(http.MethodPost, "/create", s.handlers.Resources.CreateResource,
 			s.scenarioMW(entity.AuthzScenarioResourceCreate))
 		resourceAPI.Add(http.MethodPost, "/:id/archive", s.handlers.Resources.ArchiveResource,
@@ -141,7 +205,7 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	// source of truth) and is editor-scoped, alongside the other
 	// create/edit scenarios.
 	{
-		notifAPI := gr.Group("/notifications")
+		notifAPI := gr.Group("/notifications", requireToken)
 		notifAPI.Add(http.MethodGet, "/transports", s.handlers.Notifications.GetTransports,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		notifAPI.Add(http.MethodGet, "/channels", s.handlers.Notifications.GetChannels,
@@ -158,18 +222,93 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioNotificationChannelUnarchive))
 	}
 
-	// users API group — assignable-user picker for the maintenance flow
-	// (reviewer/owner, notify targets). Read-scoped on the maintenance
-	// scenario (guest+); the data is fetched from the auth service over S2S
-	// and contains only active (non-blocked) users.
+	// users assignable-picker — the STATIC /users/assignable path. Registered on
+	// its own group (not the shared /users group) and, like all auth /users
+	// statics, before the auth /users/:id param routes in authProtectedV1Group so
+	// the static segment is not shadowed.
 	{
-		usersAPI := gr.Group("/users")
+		usersAPI := gr.Group("/users", requireToken)
 		usersAPI.Add(http.MethodGet, "/assignable", s.handlers.UserPicker.ListAssignableUsers,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	}
 }
 
-// ui V1 API group
+// authProtectedV1Group registers the auth routes that require an access token:
+// session (logout/me/providers), role management, user management, invitation
+// admin and audit read.
+//
+// Route ordering: every STATIC /users/... route (list, invite, invitations*) is
+// registered before the /users/:id/... param routes (block/unblock) so Echo v5
+// does not shadow a static segment with the :id param.
+func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
+	withAuthorize := gr.Group("",
+		middlewares.RequireAccessToken(s.security.TokenVerifier),
+	)
+
+	withAuthorize.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
+	withAuthorize.Add(http.MethodPost, "/logout/all", s.handlers.Auth.LogoutAll)
+	withAuthorize.Add(http.MethodGet, "/me", s.handlers.Auth.Me)
+	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.handlers.Auth.ConnectProvider)
+	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.handlers.Auth.DisconnectProvider)
+
+	withAuthorize.Add(http.MethodGet, "/roles",
+		s.handlers.Roles.AvailableRoles,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthRolesRead),
+	)
+	withAuthorize.Add(http.MethodPost, "/roles/assign",
+		s.handlers.Roles.Assign,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthRolesManage),
+	)
+	withAuthorize.Add(http.MethodPost, "/roles/revoke",
+		s.handlers.Roles.Revoke,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthRolesManage),
+	)
+	withAuthorize.Add(http.MethodGet, "/user/:id/roles",
+		s.handlers.Roles.ListRoles,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUserRolesRead),
+	)
+
+	// STATIC /users/... routes first.
+	withAuthorize.Add(http.MethodGet, "/users/list",
+		s.handlers.Users.ListUsers,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersRead),
+	)
+	// Admin invitation management. Read uses the users.read scenario; mutating
+	// operations use users.manage (same scenarios as block/unblock).
+	withAuthorize.Add(http.MethodPost, "/users/invite",
+		s.handlers.Invitations.Invite,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+	withAuthorize.Add(http.MethodGet, "/users/invitations",
+		s.handlers.Invitations.ListInvitations,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersRead),
+	)
+	withAuthorize.Add(http.MethodPost, "/users/invitations/:id/revoke",
+		s.handlers.Invitations.RevokeInvitation,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+	withAuthorize.Add(http.MethodPost, "/users/invitations/:id/resend",
+		s.handlers.Invitations.ResendInvitation,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+
+	// PARAM /users/:id/... routes after every static /users/... route.
+	withAuthorize.Add(http.MethodPost, "/users/:id/block",
+		s.handlers.Users.BlockUser,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+	withAuthorize.Add(http.MethodPost, "/users/:id/unblock",
+		s.handlers.Users.UnblockUser,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+
+	withAuthorize.Add(http.MethodGet, "/audit/log",
+		s.handlers.Audit.AuditLog,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthAuditRead),
+	)
+}
+
+// uiV1Group registers the read-only UI rendering routes (token-gated).
 func (s *APIServer) uiV1Group(gr *echo.Group) {
 	gr.Add(http.MethodGet, "/calendar", s.handlers.Calendar.CalendarView,
 		s.scenarioMW(entity.AuthzScenarioCalendarRead))

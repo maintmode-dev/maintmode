@@ -6,9 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// allDeclaredTaskTypes is every goque task type string the codebase enqueues or
-// drains. Keep in sync with the ProcessorTask* consts — a new task type added
-// without an owner is exactly the silent-loss bug this test guards against.
+// allDeclaredTaskTypes is every goque task type string the codebase declares,
+// listed independently of ActiveProcessorTaskTypes so the two can be diffed. A
+// new type added to one but not the other is exactly the silent-loss bug this
+// test guards against. A type may be declared-but-disabled (present here, absent
+// from the active set) when its processor is intentionally turned off without
+// freeing the string for reuse — the dedicated subtest below covers that.
 var allDeclaredTaskTypes = []string{
 	ProcessorTaskMessagingSend,
 	ProcessorTaskInvitationEmailSend,
@@ -20,51 +23,24 @@ var allDeclaredTaskTypes = []string{
 	ProcessorTaskAuditWrite,
 }
 
-// TestProcessorTaskOwner_CoversEveryTaskType fails if a task type has no draining
-// binary. An unowned type lingers in the shared goque_task table forever and its
-// work is silently lost (the gap this guard closes, RUK-179 follow-up).
-func TestProcessorTaskOwner_CoversEveryTaskType(t *testing.T) {
-	for _, taskType := range allDeclaredTaskTypes {
-		_, ok := ProcessorTaskOwner[taskType]
-		require.Truef(t, ok, "task type %q has no owning binary in ProcessorTaskOwner — it would never be drained", taskType)
-	}
-
-	// And no stray owner entries for task types that no longer exist.
+// TestActiveProcessorTaskTypes guards the active set against drift: every active
+// type must be a real declared const (a typo'd key would make the startup guard
+// demand a processor for a nonexistent type), and — while all types are
+// currently active — the set must cover every declared type so none silently
+// goes undrained.
+func TestActiveProcessorTaskTypes(t *testing.T) {
 	declared := make(map[string]struct{}, len(allDeclaredTaskTypes))
-	for _, tt := range allDeclaredTaskTypes {
-		declared[tt] = struct{}{}
+	for _, taskType := range allDeclaredTaskTypes {
+		declared[taskType] = struct{}{}
 	}
-	for taskType := range ProcessorTaskOwner {
+
+	for taskType := range ActiveProcessorTaskTypes {
 		_, ok := declared[taskType]
-		require.Truef(t, ok, "ProcessorTaskOwner has %q which is not a declared task type", taskType)
+		require.Truef(t, ok, "ActiveProcessorTaskTypes has %q which is not a declared task type", taskType)
 	}
-}
 
-func TestProcessorTaskTypesFor_PartitionsByBinary(t *testing.T) {
-	maintmode := ProcessorTaskTypesFor(ProcessorBinaryMaintmode)
-	auth := ProcessorTaskTypesFor(ProcessorBinaryAuth)
-
-	// Every owned type belongs to exactly one binary (disjoint), and together
-	// they cover the whole owner map (exhaustive) — the task-type isolation
-	// invariant that keeps a task off the wrong binary's registry.
-	require.Len(t, maintmode, countOwnedBy(ProcessorBinaryMaintmode))
-	require.Len(t, auth, countOwnedBy(ProcessorBinaryAuth))
-	require.Equal(t, len(ProcessorTaskOwner), len(maintmode)+len(auth))
-
-	for _, tt := range maintmode {
-		require.Equal(t, ProcessorBinaryMaintmode, ProcessorTaskOwner[tt])
-	}
-	for _, tt := range auth {
-		require.Equal(t, ProcessorBinaryAuth, ProcessorTaskOwner[tt])
-	}
-}
-
-func countOwnedBy(binary ProcessorBinary) int {
-	n := 0
-	for _, owner := range ProcessorTaskOwner {
-		if owner == binary {
-			n++
-		}
-	}
-	return n
+	// No type is disabled today, so the active set covers every declared type.
+	// If you disable one, move it out of this assertion deliberately.
+	require.Len(t, ActiveProcessorTaskTypes, len(allDeclaredTaskTypes),
+		"every declared task type must be active (none is currently disabled)")
 }

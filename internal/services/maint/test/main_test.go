@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	redisDB "github.com/redis/go-redis/v9"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
@@ -28,6 +29,7 @@ func testActor() *entity.User {
 
 var (
 	db             *sqlx.DB
+	redis          *redisDB.Client
 	cfg            *config.AppConfig
 	maintStore     *maintenances.Store
 	resourcesStore *resources.Store
@@ -39,7 +41,10 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	stores := testbootstraputils.InitStores(db)
+	redis = testdbconnutils.NewRedisClient(cfg)
+	closer.Add(redis.Close)
+
+	stores := testbootstraputils.InitStores(db, redis)
 	resourcesStore = stores.Resources
 	maintStore = stores.Maintenances
 

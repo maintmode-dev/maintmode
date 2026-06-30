@@ -1,13 +1,13 @@
 // Package usersummary resolves author/user summaries ({id, display_name, email})
-// for read paths. The users table is owned by the auth service, so a maintenance
-// author id cannot be resolved locally — it is fetched from auth over S2S via the
-// auth gateway. Resolution degrades gracefully: when auth is unavailable or the
-// user no longer exists the resolver returns an id-only summary labeled
-// "Unknown user" rather than failing the read.
+// for read paths. The users table is owned by the auth module, so a maintenance
+// author id is resolved by calling the auth user service in-process. Resolution
+// degrades gracefully: when the lookup fails or the user no longer exists the
+// resolver returns an id-only summary labeled "Unknown user" rather than failing
+// the read.
 //
-// A short-lived in-memory cache (jellydator/ttlcache) fronts the gateway so hot
-// reads (and repeat authors across a list page) do not hammer auth. The cache is
-// TTL- and capacity-bounded, so it never grows without limit.
+// A short-lived in-memory cache (jellydator/ttlcache) fronts the user service so
+// hot reads (and repeat authors across a list page) do not re-query it. The
+// cache is TTL- and capacity-bounded, so it never grows without limit.
 package usersummary
 
 import (
@@ -23,7 +23,7 @@ import (
 const (
 	// defaultTTL is how long a resolved user stays cached. Short by design:
 	// author profiles (name/email) change rarely, and a minute bounds staleness
-	// while still collapsing bursts of reads onto one auth call.
+	// while still collapsing bursts of reads onto one user-service query.
 	defaultTTL = time.Minute
 
 	// defaultCapacity caps the number of cached users so the cache is
@@ -31,31 +31,33 @@ const (
 	defaultCapacity = 10_000
 )
 
-// AuthUsersGateway is the subset of the auth gateway the resolver depends on —
-// batch user resolution by id. Defined consumer-side so tests can substitute a
-// mock (mirrors userpicker.ActiveUsersLister).
-type AuthUsersGateway interface {
-	GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*entity.User, error)
+// UserLister is the subset of the auth user service the resolver depends on.
+// Declared consumer-side so tests can substitute a mock; satisfied by
+// *user.Service. The batch-by-id composition (ListUsers without ExcludeBlocked
+// so since-blocked authors still resolve, reindex to a map) lives in this
+// package — see getUsersByIDs.
+type UserLister interface {
+	ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error)
 }
 
 // Service resolves user summaries by id, caching resolved users in memory for a
 // short TTL.
 type Service struct {
-	gateway AuthUsersGateway
-	cache   *ttlcache.Cache[uuid.UUID, *entity.User]
+	users UserLister
+	cache *ttlcache.Cache[uuid.UUID, *entity.User]
 }
 
 // NewService builds the resolver with the default cache TTL and starts the
 // cache's background eviction of expired entries. The janitor goroutine lives
 // for the process lifetime, which matches the resolver (constructed once at
 // startup).
-func NewService(gateway AuthUsersGateway) *Service {
-	return newServiceWithTTL(gateway, defaultTTL)
+func NewService(users UserLister) *Service {
+	return newServiceWithTTL(users, defaultTTL)
 }
 
 // newServiceWithTTL builds the resolver with an explicit cache TTL. Exposed for
 // tests that need a short TTL to exercise expiry without waiting a minute.
-func newServiceWithTTL(gateway AuthUsersGateway, ttl time.Duration) *Service {
+func newServiceWithTTL(users UserLister, ttl time.Duration) *Service {
 	cache := ttlcache.New[uuid.UUID, *entity.User](
 		ttlcache.WithTTL[uuid.UUID, *entity.User](ttl),
 		ttlcache.WithCapacity[uuid.UUID, *entity.User](defaultCapacity),
@@ -63,7 +65,7 @@ func newServiceWithTTL(gateway AuthUsersGateway, ttl time.Duration) *Service {
 	go cache.Start()
 
 	return &Service{
-		gateway: gateway,
-		cache:   cache,
+		users: users,
+		cache: cache,
 	}
 }

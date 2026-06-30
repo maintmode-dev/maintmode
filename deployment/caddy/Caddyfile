@@ -7,10 +7,11 @@
 # For production HTTPS use deployment/caddy/Caddyfile.prod via the
 # compose.app.prod.yaml overlay.
 #
-# Upstreams use docker service DNS (auth, maintmode). With
-# `docker compose up --scale auth=N --scale maintmode=N`, the names
-# resolve to all replica IPs; the lb_* directives spread requests across
-# them. Mirrors Caddyfile.prod so dev exercises the same health logic.
+# Upstream uses docker service DNS (maintmode). The single maintmode
+# process serves both the /auth/* and /maintmode/* surfaces. With
+# `docker compose up --scale maintmode=N`, the name resolves to all
+# replica IPs; the lb_* directives spread requests across them. Mirrors
+# Caddyfile.prod so dev exercises the same health logic.
 #
 # Active health polls /readiness on the infra port (8001) every 2s and
 # drops a replica that reports not-200 — including one that flipped to 503
@@ -27,8 +28,6 @@
 #   - app limiter  : precise business limit, replica-shared via Redis
 #   - this limiter : coarse anti-flood before traffic reaches the app,
 #                    Caddy in-memory (single Caddy per VM → consistent)
-# S2S traffic (maintmode → auth:8000 over docker DNS) bypasses Caddy and
-# is intentionally NOT limited here.
 #
 # Client IP: keyed on {http.request.remote.host}. In prod Caddy is the
 # internet edge (see Caddyfile.prod), so that is the real client IP. We
@@ -84,7 +83,7 @@
 
 	handle_path /auth/* {
 		import auth_ratelimit
-		reverse_proxy auth:8000 {
+		reverse_proxy maintmode:8000 {
 			import app_lb
 		}
 	}
@@ -103,7 +102,7 @@
 	encode gzip
 
 	handle_path /auth/* {
-		reverse_proxy auth:8001 {
+		reverse_proxy maintmode:8001 {
 			import app_lb
 		}
 	}

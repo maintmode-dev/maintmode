@@ -58,8 +58,8 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	approverValidator *mock_maint.MockApproverValidator
-	auditPublisher    *mock_maint.MockAuditPublisher
+	users          *mock_maint.MockUserLister
+	auditPublisher *mock_maint.MockAuditPublisher
 	// audit records every published audit action so a test can assert which
 	// action (and actor) a mutation produced. Always wired (publish is
 	// fire-and-forget for most flows) — audit-focused tests read mocks.audit.
@@ -71,9 +71,9 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 
 	ctrl := gomock.NewController(t)
 	mocks := serviceMocks{
-		approverValidator: mock_maint.NewMockApproverValidator(ctrl),
-		auditPublisher:    mock_maint.NewMockAuditPublisher(ctrl),
-		audit:             &capturedAudit{},
+		users:          mock_maint.NewMockUserLister(ctrl),
+		auditPublisher: mock_maint.NewMockAuditPublisher(ctrl),
+		audit:          &capturedAudit{},
 	}
 	// Default: accept any publish, record it, succeed. One expectation, so the
 	// recorder sees every call (a second AnyTimes stub would shadow this one).
@@ -115,9 +115,49 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 			deferrednotificationsstore.NewStore(db),
 			taskScheduler,
 		),
-		mocks.approverValidator,
+		mocks.users,
 		mocks.auditPublisher,
 	), mocks
+}
+
+// expectAnyApproverEligible stubs the user service so every approver-eligibility
+// check resolves eligible — the "approver validation is not what this test is
+// about" default. It echoes back the queried ids as a non-empty result.
+func (m serviceMocks) expectAnyApproverEligible() {
+	m.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
+			users := make([]*entity.User, 0, len(cmd.IDs))
+			for _, id := range cmd.IDs {
+				users = append(users, &entity.User{ID: id, Roles: entity.ApproverEligibleRoles})
+			}
+			return &entity.ListUsersResult{Users: users, Total: int64(len(users))}, nil
+		}).
+		AnyTimes()
+}
+
+// expectEligibleApprover stubs the user service so the given ids resolve as
+// eligible approvers (a non-empty ListUsers result), and any other id resolves
+// as ineligible (empty result). It mirrors the validateApprover composition:
+// the service queries ListUsers by id with the eligible roles + ExcludeBlocked,
+// and treats a non-empty result as eligible.
+func (m serviceMocks) expectEligibleApprover(eligible ...uuid.UUID) {
+	elig := make(map[uuid.UUID]struct{}, len(eligible))
+	for _, id := range eligible {
+		elig[id] = struct{}{}
+	}
+	m.users.EXPECT().
+		ListUsers(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
+			users := make([]*entity.User, 0, len(cmd.IDs))
+			for _, id := range cmd.IDs {
+				if _, ok := elig[id]; ok {
+					users = append(users, &entity.User{ID: id, Roles: entity.ApproverEligibleRoles})
+				}
+			}
+			return &entity.ListUsersResult{Users: users, Total: int64(len(users))}, nil
+		}).
+		AnyTimes()
 }
 
 func makeNotifyChannel(ctx context.Context, t *testing.T, service *Service) *entity.NotifyChannel {

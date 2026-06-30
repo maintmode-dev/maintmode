@@ -78,21 +78,3 @@ func ToAPIUsers(users []*entity.User, activeAdminCount int64, providersByUser ma
 		return ToAPIUser(u, activeAdminCount, providersByUser[u.ID])
 	})
 }
-
-// ToS2SUser maps a domain user to the neutral S2S representation.
-func ToS2SUser(u *entity.User) *S2SUser {
-	return &S2SUser{
-		ID:          u.ID,
-		Email:       u.Email,
-		DisplayName: u.Name,
-		Roles: lo.Map(u.Roles, func(item entity.Role, _ int) string {
-			return string(item)
-		}),
-	}
-}
-
-func ToS2SUsers(users []*entity.User) []*S2SUser {
-	return lo.Map(users, func(u *entity.User, _ int) *S2SUser {
-		return ToS2SUser(u)
-	})
-}

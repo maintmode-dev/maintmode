@@ -13,70 +13,70 @@ import (
 	context "context"
 	reflect "reflect"
 
-	uuid "github.com/google/uuid"
 	audit "github.com/ruko1202/maintmode/internal/audit"
+	entity "github.com/ruko1202/maintmode/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockApproverValidator is a mock of ApproverValidator interface.
-type MockApproverValidator struct {
+// MockUserLister is a mock of UserLister interface.
+type MockUserLister struct {
 	ctrl     *gomock.Controller
-	recorder *MockApproverValidatorMockRecorder
+	recorder *MockUserListerMockRecorder
 	isgomock struct{}
 }
 
-// MockApproverValidatorMockRecorder is the mock recorder for MockApproverValidator.
-type MockApproverValidatorMockRecorder struct {
-	mock *MockApproverValidator
+// MockUserListerMockRecorder is the mock recorder for MockUserLister.
+type MockUserListerMockRecorder struct {
+	mock *MockUserLister
 }
 
-// NewMockApproverValidator creates a new mock instance.
-func NewMockApproverValidator(ctrl *gomock.Controller) *MockApproverValidator {
-	mock := &MockApproverValidator{ctrl: ctrl}
-	mock.recorder = &MockApproverValidatorMockRecorder{mock}
+// NewMockUserLister creates a new mock instance.
+func NewMockUserLister(ctrl *gomock.Controller) *MockUserLister {
+	mock := &MockUserLister{ctrl: ctrl}
+	mock.recorder = &MockUserListerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockApproverValidator) EXPECT() *MockApproverValidatorMockRecorder {
+func (m *MockUserLister) EXPECT() *MockUserListerMockRecorder {
 	return m.recorder
 }
 
-// IsEligibleApprover mocks base method.
-func (m *MockApproverValidator) IsEligibleApprover(ctx context.Context, id uuid.UUID) (bool, error) {
+// ListUsers mocks base method.
+func (m *MockUserLister) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsEligibleApprover", ctx, id)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "ListUsers", ctx, cmd)
+	ret0, _ := ret[0].(*entity.ListUsersResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsEligibleApprover indicates an expected call of IsEligibleApprover.
-func (mr *MockApproverValidatorMockRecorder) IsEligibleApprover(ctx, id any) *MockApproverValidatorIsEligibleApproverCall {
+// ListUsers indicates an expected call of ListUsers.
+func (mr *MockUserListerMockRecorder) ListUsers(ctx, cmd any) *MockUserListerListUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEligibleApprover", reflect.TypeOf((*MockApproverValidator)(nil).IsEligibleApprover), ctx, id)
-	return &MockApproverValidatorIsEligibleApproverCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUsers", reflect.TypeOf((*MockUserLister)(nil).ListUsers), ctx, cmd)
+	return &MockUserListerListUsersCall{Call: call}
 }
 
-// MockApproverValidatorIsEligibleApproverCall wrap *gomock.Call
-type MockApproverValidatorIsEligibleApproverCall struct {
+// MockUserListerListUsersCall wrap *gomock.Call
+type MockUserListerListUsersCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApproverValidatorIsEligibleApproverCall) Return(arg0 bool, arg1 error) *MockApproverValidatorIsEligibleApproverCall {
+func (c *MockUserListerListUsersCall) Return(arg0 *entity.ListUsersResult, arg1 error) *MockUserListerListUsersCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApproverValidatorIsEligibleApproverCall) Do(f func(context.Context, uuid.UUID) (bool, error)) *MockApproverValidatorIsEligibleApproverCall {
+func (c *MockUserListerListUsersCall) Do(f func(context.Context, *entity.ListUsersCmd) (*entity.ListUsersResult, error)) *MockUserListerListUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApproverValidatorIsEligibleApproverCall) DoAndReturn(f func(context.Context, uuid.UUID) (bool, error)) *MockApproverValidatorIsEligibleApproverCall {
+func (c *MockUserListerListUsersCall) DoAndReturn(f func(context.Context, *entity.ListUsersCmd) (*entity.ListUsersResult, error)) *MockUserListerListUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

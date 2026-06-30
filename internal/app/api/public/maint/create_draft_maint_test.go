@@ -21,6 +21,9 @@ func TestCreateDraftMaint(t *testing.T) {
 
 	impl := initImpl(t)
 	notifyChan := makeNotifyChannel(ctx, t)
+	// A real, persisted, approver-eligible user: CreateDraftMaint validates the
+	// approver against the real user backend, so success cases must reference one.
+	approverID := seedApprover(ctx, t)
 
 	t.Run("ok global scope", func(t *testing.T) {
 		t.Parallel()
@@ -42,7 +45,7 @@ func TestCreateDraftMaint(t *testing.T) {
 			NotifyTargets: &apimodels.NotifyTargets{
 				ChannelIDs: []string{notifyChan.ID},
 			},
-			ApproverUserID: uuid.New(),
+			ApproverUserID: approverID,
 		}
 
 		author := makeUser(t)
@@ -119,7 +122,7 @@ func TestCreateDraftMaint(t *testing.T) {
 			NotifyTargets: &apimodels.NotifyTargets{
 				ChannelIDs: []string{notifyChan.ID},
 			},
-			ApproverUserID: uuid.New(),
+			ApproverUserID: approverID,
 		}
 
 		c, rec := echotest.ContextConfig{

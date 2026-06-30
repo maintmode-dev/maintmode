@@ -21,7 +21,7 @@ const (
 
 // ListAssignableUsers godoc
 // @Summary List assignable users
-// @Description Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded. Backed by the auth service over S2S.
+// @Description Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded.
 // @Description Malformed pagination/filter params are coerced to defaults rather than rejected.
 // @Tags Maintenances
 // @Produce json

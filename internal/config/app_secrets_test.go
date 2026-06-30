@@ -36,29 +36,16 @@ func TestApplySecret(t *testing.T) {
 				PrivateKey: "<secret:jwt/issuer_private_key>",
 				Kid:        "<secret:jwt/issuer_kid>",
 			},
-			S2SConfig: S2SConfig{
-				"maintmode": {
-					Secret: "<secret:s2s/maintmode/secret>",
-				},
-			},
-			ExternalServices: map[string]ExternalService{
-				"auth": {
-					Secret: "<secret:external_services/auth/secret>",
-					Host:   "auth",
-				},
-			},
 		}
 
 		secrets := secretStore{
-			"db/dsn":                        "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
-			"redis/password":                "strong-redis-password",
-			"oauth/google/client_id":        "google-client-id",
-			"oauth/google/client_secret":    "strong-google-client-secret",
-			"oauth/google/profile_scope":    "profile_scope",
-			"jwt/issuer_private_key":        "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
-			"jwt/issuer_kid":                "jwt-kid-1",
-			"s2s/maintmode/secret":          "s2s-maintmode-secret",
-			"external_services/auth/secret": "external_services-auth-secret",
+			"db/dsn":                     "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
+			"redis/password":             "strong-redis-password",
+			"oauth/google/client_id":     "google-client-id",
+			"oauth/google/client_secret": "strong-google-client-secret",
+			"oauth/google/profile_scope": "profile_scope",
+			"jwt/issuer_private_key":     "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
+			"jwt/issuer_kid":             "jwt-kid-1",
 		}
 
 		err := cfg.applySecrets(secrets)
@@ -91,17 +78,6 @@ func TestApplySecret(t *testing.T) {
 			JWT: JWT{
 				PrivateKey: "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
 				Kid:        "jwt-kid-1",
-			},
-			S2SConfig: S2SConfig{
-				"maintmode": {
-					Secret: "s2s-maintmode-secret",
-				},
-			},
-			ExternalServices: map[string]ExternalService{
-				"auth": {
-					Secret: "external_services-auth-secret",
-					Host:   "auth",
-				},
 			},
 		}, cfg)
 	})

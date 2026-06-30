@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 
@@ -22,10 +21,7 @@ func TestCreate(t *testing.T) {
 	ctx := context.Background()
 	now := xtime.UTCNow().Round(time.Microsecond)
 	service, mocks := initService(t)
-	mocks.approverValidator.EXPECT().
-		IsEligibleApprover(gomock.Any(), gomock.Any()).
-		Return(true, nil).
-		AnyTimes()
+	mocks.expectAnyApproverEligible()
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()

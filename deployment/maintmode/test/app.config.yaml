@@ -1,10 +1,17 @@
 environment: dev
 
 app:
+  # Used by the auth OAuth callback/exchange to redirect back to the frontend.
+  # Moved in from the auth config (RUK-194) — the merged process serves the auth
+  # routes, so it needs this or those redirects target an empty URL.
+  frontend_url: http://localhost:9000
 
 jwtverifier:
   jwt_issuer: oauth-service
-  jwks_url: http://auth:8000/api/v1/.well-known/jwks.json
+  # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
+  # itself (RUK-194), so the verifier fetches from localhost, not the removed
+  # auth service.
+  jwks_url: http://localhost:8000/api/v1/.well-known/jwks.json
   jwks_refresh_interval: 1h
   jwks_http_timeout: 10s
   jwt_leeway: 30s
@@ -24,6 +31,16 @@ api_server:
   name: api
   host: 0.0.0.0
   port: 8000
+  # Rate limiter for the auth login surface (/login/oauth), now served by the
+  # merged process (RUK-194). The api e2e suite drives /login/oauth/* from one IP
+  # and, via tloc-api's -count=2, twice — past the prod-shaped 30 RPM cap, which
+  # surfaces as spurious 429s. This is the test-only config; raise the ceiling far
+  # clear of the suite's burst.
+  rate_limiter:
+    requests_per_minute: 100000
+    burst: 100000
+    expires_in: 3m
+    timeout: 200ms
 
 infra_server:
   name: status
@@ -47,15 +64,43 @@ redis:
   password: <secret:redis/password>
   db: 0
 
-external_services:
-  auth:
-    secret: <secret:external_services/auth/secret>
-    protocol: http
-    host: auth
-    port: 8000
-    timeout: 3s
+oauth_providers:
+  use_stub: true
+  stub:
+    redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+  google:
+    client_id: <secret:oauth/google/client_id>
+    # client_secret is deprecated for production
+    client_secret: <secret:oauth/google/client_secret>
+    # redirect_url is deprecated for production
+    redirect_url: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+    # google_userinfo_url is deprecated for production
+    google_userinfo_url: https://www.googleapis.com/oauth2/v2/userinfo
+    scopes:
+      - "openid"
+      - "email"
+      - "profile"
+    jwtverifier:
+      jwks_url: https://www.googleapis.com/oauth2/v3/certs
+      jwt_issuers:
+        - "accounts.google.com"
+        - "https://accounts.google.com"
+      jwks_refresh_interval: 1h
+      jwks_http_timeout: 10s
+      jwt_leeway: 30s
+      jwks_unknown_kid_refresh_rate: 5m
+      jwks_unknown_kid_wait_max: 10s
 
-s2s:
+jwt:
+  issuer_name: oauth-service
+  issuer_private_key: <secret:jwt/issuer_private_key>
+  issuer_kid: <secret:jwt/issuer_kid>
+  access_token_ttl: 15m
+  refresh_token_ttl: 720h # 30 days
+  refresh_token_grace_period: 1ms
+  refresh_token_distributed_lock_ttl: 5s
+  oauth_state_signing_key: <secret:jwt/oauth_state_signing_key>
+  oauth_state_ttl: 5m
 
 notify_transport:
   # The channel catalog lives in Postgres (messenger_channels); tests
@@ -104,3 +149,10 @@ task_processor:
     cron_spec: "* * * * *"
     threshold: 15m
     batch_limit: 100
+  # audit_prune moved in with auth (RUK-194): the merged process owns the
+  # audit-retention cron, so its spec must live here or NewTaskProcessors panics
+  # building the cron job ("empty spec string").
+  audit_prune:
+    cron_spec: "0 3 * * *"
+    retention: 8760h
+    batch_limit: 1000

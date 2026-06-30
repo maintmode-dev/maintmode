@@ -17,65 +17,65 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockActiveUsersLister is a mock of ActiveUsersLister interface.
-type MockActiveUsersLister struct {
+// MockUserLister is a mock of UserLister interface.
+type MockUserLister struct {
 	ctrl     *gomock.Controller
-	recorder *MockActiveUsersListerMockRecorder
+	recorder *MockUserListerMockRecorder
 	isgomock struct{}
 }
 
-// MockActiveUsersListerMockRecorder is the mock recorder for MockActiveUsersLister.
-type MockActiveUsersListerMockRecorder struct {
-	mock *MockActiveUsersLister
+// MockUserListerMockRecorder is the mock recorder for MockUserLister.
+type MockUserListerMockRecorder struct {
+	mock *MockUserLister
 }
 
-// NewMockActiveUsersLister creates a new mock instance.
-func NewMockActiveUsersLister(ctrl *gomock.Controller) *MockActiveUsersLister {
-	mock := &MockActiveUsersLister{ctrl: ctrl}
-	mock.recorder = &MockActiveUsersListerMockRecorder{mock}
+// NewMockUserLister creates a new mock instance.
+func NewMockUserLister(ctrl *gomock.Controller) *MockUserLister {
+	mock := &MockUserLister{ctrl: ctrl}
+	mock.recorder = &MockUserListerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockActiveUsersLister) EXPECT() *MockActiveUsersListerMockRecorder {
+func (m *MockUserLister) EXPECT() *MockUserListerMockRecorder {
 	return m.recorder
 }
 
-// ListActiveUsers mocks base method.
-func (m *MockActiveUsersLister) ListActiveUsers(ctx context.Context, q *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error) {
+// ListUsers mocks base method.
+func (m *MockUserLister) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListActiveUsers", ctx, q)
-	ret0, _ := ret[0].(*entity.ListAssignableUsersResult)
+	ret := m.ctrl.Call(m, "ListUsers", ctx, cmd)
+	ret0, _ := ret[0].(*entity.ListUsersResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListActiveUsers indicates an expected call of ListActiveUsers.
-func (mr *MockActiveUsersListerMockRecorder) ListActiveUsers(ctx, q any) *MockActiveUsersListerListActiveUsersCall {
+// ListUsers indicates an expected call of ListUsers.
+func (mr *MockUserListerMockRecorder) ListUsers(ctx, cmd any) *MockUserListerListUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveUsers", reflect.TypeOf((*MockActiveUsersLister)(nil).ListActiveUsers), ctx, q)
-	return &MockActiveUsersListerListActiveUsersCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUsers", reflect.TypeOf((*MockUserLister)(nil).ListUsers), ctx, cmd)
+	return &MockUserListerListUsersCall{Call: call}
 }
 
-// MockActiveUsersListerListActiveUsersCall wrap *gomock.Call
-type MockActiveUsersListerListActiveUsersCall struct {
+// MockUserListerListUsersCall wrap *gomock.Call
+type MockUserListerListUsersCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockActiveUsersListerListActiveUsersCall) Return(arg0 *entity.ListAssignableUsersResult, arg1 error) *MockActiveUsersListerListActiveUsersCall {
+func (c *MockUserListerListUsersCall) Return(arg0 *entity.ListUsersResult, arg1 error) *MockUserListerListUsersCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockActiveUsersListerListActiveUsersCall) Do(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockActiveUsersListerListActiveUsersCall {
+func (c *MockUserListerListUsersCall) Do(f func(context.Context, *entity.ListUsersCmd) (*entity.ListUsersResult, error)) *MockUserListerListUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockActiveUsersListerListActiveUsersCall) DoAndReturn(f func(context.Context, *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error)) *MockActiveUsersListerListActiveUsersCall {
+func (c *MockUserListerListUsersCall) DoAndReturn(f func(context.Context, *entity.ListUsersCmd) (*entity.ListUsersResult, error)) *MockUserListerListUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

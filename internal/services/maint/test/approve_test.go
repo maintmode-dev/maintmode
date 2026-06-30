@@ -21,9 +21,14 @@ func TestApprove(t *testing.T) {
 	now := xtime.UTCNow()
 	start, end := now, now.Add(5*time.Hour)
 
-	services, _ := testbootstraputils.InitServicesWithMocks(ctx, t, db, cfg)
+	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
 	s := services.Maint
 	conflictsSrv := services.Conflicts
+
+	// A real, persisted, approver-eligible user. Its id is threaded into the
+	// maintenances below as the assigned approver, so approve calls acting as that
+	// user pass the assigned-approver guard against the real user backend.
+	approver := testbootstraputils.SeedEligibleApprover(ctx, t, services)
 
 	t.Run("ok", func(t *testing.T) {
 		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
@@ -54,6 +59,7 @@ func TestApprove(t *testing.T) {
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithApprover(approver.ID),
 			testdbutils.WithResources(
 				sharedResource.ID,
 				testdbutils.MakeResource(ctx, t, resourcesStore).ID,
@@ -139,6 +145,7 @@ func TestApprove(t *testing.T) {
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithApprover(approver.ID),
 		)
 
 		actualConflicts, err := conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
@@ -169,6 +176,7 @@ func TestApprove(t *testing.T) {
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithApprover(approver.ID),
 		)
 
 		actualConflicts, err := conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{

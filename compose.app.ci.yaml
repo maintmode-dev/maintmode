@@ -3,10 +3,6 @@ services:
     image: maintmode-ci-maintmode:${MAINTMODE_IMAGE_TAG:-local}
     build: null
 
-  auth:
-    image: maintmode-ci-auth:${AUTH_IMAGE_TAG:-local}
-    build: null
-
   # Use the prebuilt custom Caddy image (built once with buildx + GHA cache
   # in the api-test job) instead of rebuilding it via xcaddy on every
   # `compose up`. The xcaddy build is ~minutes; the Dockerfile rarely

@@ -14,8 +14,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-
-	"github.com/ruko1202/maintmode/internal/config"
 )
 
 // GoogleOAuthLogin godoc
@@ -103,8 +101,14 @@ func generateNonce(ctx context.Context) string {
 	return raw
 }
 
+const (
+	// cookieNonceName is the OAuth state-nonce cookie. Named for the single
+	// maintmode process (RUK-194 collapsed the former auth binary in); it no
+	// longer derives the name from a per-binary build-meta app name.
+	cookieNonceName = "maintmode-nonce"
+)
+
 var (
-	cookieNonceName   = fmt.Sprintf("%s-nonce", config.GetAuthAppBuildMeta().AppName)
 	cookieNoncePath   = "/"
 	cookieNonceMaxAge = 300 // 5 minutes
 )

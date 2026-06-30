@@ -14,7 +14,7 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	users *mock_userpicker.MockActiveUsersLister
+	users *mock_userpicker.MockUserLister
 }
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
@@ -22,7 +22,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	ctrl := gomock.NewController(t)
 
 	mocks := &serviceMocks{
-		users: mock_userpicker.NewMockActiveUsersLister(ctrl),
+		users: mock_userpicker.NewMockUserLister(ctrl),
 	}
 
 	return NewService(mocks.users), mocks

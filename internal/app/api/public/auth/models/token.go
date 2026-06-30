@@ -26,10 +26,6 @@ func ToOAuthCallbackJSONResponse(pair *entity.TokenPair, originalURI string) *OA
 
 type JWKSResponse entity.JWKS
 
-type IntrospectRequest struct {
-	AccessToken string `json:"access_token"`
-}
-
 type ExchangeIDTokenRequest struct {
 	// IDToken is the upstream provider's signed JWT.
 	IDToken string `json:"id_token"`
@@ -40,13 +36,4 @@ type ExchangeIDTokenRequest struct {
 // the authenticated user.
 type ConnectProviderRequest struct {
 	IDToken string `json:"id_token"`
-}
-
-type IntrospectResponse struct {
-	Active  bool     `json:"active"`
-	JTI     string   `json:"jti,omitempty"`
-	Subject string   `json:"sub,omitempty"`
-	Email   string   `json:"email,omitempty"`
-	Roles   []string `json:"roles,omitempty"`
-	Exp     int64    `json:"exp,omitempty"`
 }

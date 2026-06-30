@@ -35,7 +35,7 @@ func NewInfraServer(
 	}
 }
 
-func (s *InfraServer) BindRouters(env config.Environment, appName string) {
+func (s *InfraServer) BindRouters(env config.Environment) {
 	s.e.Use(middlewares.BaseMiddlewares()...)
 
 	pprof.Register(s.e, pprof.DefaultPrefix)
@@ -51,25 +51,18 @@ func (s *InfraServer) BindRouters(env config.Environment, appName string) {
 		gr.Add(http.MethodGet, "/", s.apiImpl.MainPage)
 
 		// Serve Swagger UI with both service specs selectable from a dropdown.
+		// Since RUK-194 collapsed auth into this process, the one infra server
+		// always exposes both the maintmode and auth specs (maintmode primary).
 		// The handler has its own internal mux rooted at "/", so it is mounted
 		// under /swagger with the prefix stripped; open it at /swagger/ (the
 		// trailing slash matters — the UI assets use relative paths).
-		var specsHandler http.Handler
-		switch appName {
-		case buildmeta.MaintModeAppName:
-			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
-				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec}},
-			)
-		case buildmeta.AuthAppName:
-			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
-				{Name: buildmeta.AuthAppName, Content: docs.AuthSpec},
-			})
-		default:
-			specsHandler = swaggerui.HandlerWithSpecs([]swaggerui.Spec{
-				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
-				{Name: buildmeta.AuthAppName, Content: docs.AuthSpec},
-			}, swaggerui.WithPrimaryName(buildmeta.MaintModeAppName))
-		}
+		specsHandler := swaggerui.HandlerWithSpecs([]swaggerui.Spec{
+			{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
+			// "auth" is just the dropdown label for the auth API spec, not a
+			// per-binary identity — kept as a literal so RUK-195 can drop the
+			// AuthAppName build-meta const without touching this.
+			{Name: "auth", Content: docs.AuthSpec},
+		}, swaggerui.WithPrimaryName(buildmeta.MaintModeAppName))
 
 		gr.Add(http.MethodGet, "/swagger/*", echo.WrapHandler(http.StripPrefix("/swagger", specsHandler)))
 	}

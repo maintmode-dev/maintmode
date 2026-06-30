@@ -249,61 +249,23 @@ type RbacConfig struct {
 	PolicyData string `mapstructure:"-"`
 }
 
-type S2S struct {
-	Secret       string   `mapstructure:"secret"`
-	AvailableAPI []string `mapstructure:"available_api"`
-}
-
-// S2SConfig is a map of S2S services.
-// The key is the service name and the value is the service configuration.
-type S2SConfig = map[string]S2S
-
-type ExternalServices map[string]ExternalService
-
-func (e ExternalServices) Get(name string) (ExternalService, bool) {
-	cfg, ok := e[name]
-
-	return cfg, ok
-}
-
-type ExternalService struct {
-	Secret   string        `mapstructure:"secret"`
-	Protocol string        `mapstructure:"protocol"`
-	Host     string        `mapstructure:"host"`
-	Port     int           `mapstructure:"port"`
-	Timeout  time.Duration `mapstructure:"timeout"`
-}
-
-func (e ExternalService) GetURL() string {
-	switch e.Protocol {
-	case "http", "https":
-		return fmt.Sprintf("%s://%s:%d", e.Protocol, e.Host, e.Port)
-	case "grpc", "grpcs":
-		return fmt.Sprintf("%s:%d", e.Host, e.Port)
-	default:
-		return fmt.Sprintf("%s://%s:%d", e.Protocol, e.Host, e.Port)
-	}
-}
-
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
-	App              App                   `mapstructure:"app"`
-	Environment      Environment           `mapstructure:"environment"`
-	JWTVerifier      JWTVerifierConfig     `mapstructure:"jwtverifier"`
-	RBAC             RbacConfig            `mapstructure:"rbac"`
-	InfraServer      HTTPServer            `mapstructure:"infra_server"`
-	APIServer        HTTPServer            `mapstructure:"api_server"`
-	Shutdown         Shutdown              `mapstructure:"shutdown"`
-	Tracer           Tracer                `mapstructure:"tracer"`
-	Logger           LoggerConfig          `mapstructure:"logger"`
-	DB               DB                    `mapstructure:"db"`
-	Redis            Redis                 `mapstructure:"redis"`
-	OauthProviders   OauthProviders        `mapstructure:"oauth_providers"`
-	JWT              JWT                   `mapstructure:"jwt"`
-	S2SConfig        S2SConfig             `mapstructure:"s2s"`
-	ExternalServices ExternalServices      `mapstructure:"external_services"`
-	NotifyTransport  NotifyTransportConfig `mapstructure:"notify_transport"`
-	TaskProcessor    TaskProcessorConfig   `mapstructure:"task_processor"`
+	App             App                   `mapstructure:"app"`
+	Environment     Environment           `mapstructure:"environment"`
+	JWTVerifier     JWTVerifierConfig     `mapstructure:"jwtverifier"`
+	RBAC            RbacConfig            `mapstructure:"rbac"`
+	InfraServer     HTTPServer            `mapstructure:"infra_server"`
+	APIServer       HTTPServer            `mapstructure:"api_server"`
+	Shutdown        Shutdown              `mapstructure:"shutdown"`
+	Tracer          Tracer                `mapstructure:"tracer"`
+	Logger          LoggerConfig          `mapstructure:"logger"`
+	DB              DB                    `mapstructure:"db"`
+	Redis           Redis                 `mapstructure:"redis"`
+	OauthProviders  OauthProviders        `mapstructure:"oauth_providers"`
+	JWT             JWT                   `mapstructure:"jwt"`
+	NotifyTransport NotifyTransportConfig `mapstructure:"notify_transport"`
+	TaskProcessor   TaskProcessorConfig   `mapstructure:"task_processor"`
 }
 
 const (

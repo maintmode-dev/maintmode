@@ -134,7 +134,7 @@ func TestCasbinAuthorizer(t *testing.T) {
 		t.Parallel()
 
 		authorizer, err := NewCasbinAuthorizer(config.RbacConfig{
-			ModelPath:  "../../../deployment/auth/authz/model.conf",
+			ModelPath:  "../../../deployment/maintmode/authz/model.conf",
 			Adapter:    config.AuthorizationAdapterMemory,
 			PolicyData: authPolicy,
 		})

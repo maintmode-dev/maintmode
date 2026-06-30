@@ -76,8 +76,8 @@ func (i *Implementation) CalendarView(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	// Batch-resolve all authors in one auth call (no per-row lookup). Degrades
-	// to labeled summaries when auth is unavailable; never errors the list.
+	// Batch-resolve all authors in one user-service query (no per-row lookup).
+	// Degrades to labeled summaries when the lookup fails; never errors the list.
 	authorIDs := lo.Map(maints, func(item *calendardto.Maintenance, _ int) uuid.UUID {
 		return item.CreatedByUserID
 	})

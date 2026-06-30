@@ -38,10 +38,10 @@ p, admin, auth.audit.read, execute
 `
 
 func TestMain(m *testing.M) {
-	cfg = config.LoadAuthAppConfig()
+	cfg = config.LoadAppConfig()
 	cfg.OauthProviders.UseStub = true
 	cfg.RBAC = config.RbacConfig{
-		ModelPath:  "../../../../../deployment/auth/authz/model.conf",
+		ModelPath:  "../../../../../deployment/maintmode/authz/model.conf",
 		Adapter:    config.AuthorizationAdapterMemory,
 		PolicyData: authPolicy,
 	}
@@ -60,13 +60,13 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	stores, err := bootstrap.NewAuthStores(db, redis)
+	stores, err := bootstrap.NewStores(db, redis)
 	require.NoError(t, err)
 
-	gateways, err := bootstrap.NewAuthGateways(cfg)
+	gateways, err := bootstrap.NewGateways(cfg)
 	require.NoError(t, err)
 
-	services, err := bootstrap.NewAuthServices(t.Context(), cfg, stores, gateways)
+	services, err := bootstrap.NewServices(t.Context(), cfg, stores, gateways)
 	require.NoError(t, err)
 
 	return New(services.User)

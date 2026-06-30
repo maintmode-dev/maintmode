@@ -15,7 +15,7 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	gateway *mock_usersummary.MockAuthUsersGateway
+	users *mock_usersummary.MockUserLister
 }
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
@@ -23,10 +23,10 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	ctrl := gomock.NewController(t)
 
 	mocks := &serviceMocks{
-		gateway: mock_usersummary.NewMockAuthUsersGateway(ctrl),
+		users: mock_usersummary.NewMockUserLister(ctrl),
 	}
 
-	return NewService(mocks.gateway), mocks
+	return NewService(mocks.users), mocks
 }
 
 // initServiceWithTTL is like initService but overrides the cache TTL, so the
@@ -36,8 +36,8 @@ func initServiceWithTTL(t *testing.T, ttl time.Duration) (*Service, *serviceMock
 	ctrl := gomock.NewController(t)
 
 	mocks := &serviceMocks{
-		gateway: mock_usersummary.NewMockAuthUsersGateway(ctrl),
+		users: mock_usersummary.NewMockUserLister(ctrl),
 	}
 
-	return newServiceWithTTL(mocks.gateway, ttl), mocks
+	return newServiceWithTTL(mocks.users, ttl), mocks
 }

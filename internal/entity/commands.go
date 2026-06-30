@@ -245,9 +245,9 @@ type ReplaceRolesCmd struct {
 // their roles (OR semantics).
 //
 // IDs, when non-empty, restricts the result to users with these ids — the batch
-// author-resolution path (GET /api/v1/s2s/users?ids=...). Other filters still
-// apply; the resolver sends no ExcludeBlocked so blocked/removed authors still
-// resolve (they are labeled, not hidden).
+// author-resolution path. Other filters still apply; the resolver sends no
+// ExcludeBlocked so blocked/removed authors still resolve (they are labeled, not
+// hidden).
 //
 // ExcludeBlocked, when true, hides users with blocked_at set. Assignment
 // pickers set it so blocked users cannot be selected; the admin list leaves it
@@ -276,8 +276,8 @@ type ListUsersResult struct {
 }
 
 // ListAssignableUsersQuery describes a request for users selectable in a
-// maintenance assignment picker. It is served by the auth service (owner of the
-// users table) over S2S; only active (non-blocked) users are returned.
+// maintenance assignment picker. It is served in-process by the auth module
+// (owner of the users table); only active (non-blocked) users are returned.
 type ListAssignableUsersQuery struct {
 	Search string
 	// Roles, when non-empty, keeps only users having ANY of these roles (OR).
@@ -287,7 +287,7 @@ type ListAssignableUsersQuery struct {
 }
 
 // ListAssignableUsersResult is a page of active (non-blocked) users eligible for
-// maintenance assignment, served by auth over S2S.
+// maintenance assignment, served in-process by the auth module.
 type ListAssignableUsersResult struct {
 	Users  []*User
 	Total  int64

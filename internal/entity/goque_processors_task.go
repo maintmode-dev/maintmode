@@ -10,11 +10,11 @@ const (
 	// ProcessorTaskMessagingSend is the goque task type for sending messages.
 	ProcessorTaskMessagingSend = "messaging.send"
 	// ProcessorTaskInvitationEmailSend is the goque task type for invitation
-	// emails. It is distinct from ProcessorTaskMessagingSend so that only the auth
-	// binary (which owns invitations and the email transport) drains it — the
-	// maintmode binary, which also registers a messaging.send processor against the
-	// shared goque_task table, must never pick up an invitation email and route it
-	// through its own differently-configured registry.
+	// emails. It is distinct from ProcessorTaskMessagingSend so the invitation path
+	// drains through the invitation email transport, not the generic messaging
+	// registry: both task types share the goque_task table, and a misrouted
+	// invitation must never be picked up by the messaging.send processor and sent
+	// through its differently-configured registry.
 	ProcessorTaskInvitationEmailSend = "invitation.email"
 	// ProcessorTaskMaintReminder is the goque task type for deferred reminders.
 	// Its string value coincides with NotifyEventMaintReminder but they are
@@ -25,24 +25,19 @@ const (
 	// every-minute periodic job. Its processor sweeps not-started maintenances
 	// (draft or planned) whose planned start has passed the grace window without
 	// being started and cancels them. The payload is empty: the sweep is computed at
-	// fire time, not snapshotted at enqueue time. maintmode-only — not registered by
-	// the auth binary.
+	// fire time, not snapshotted at enqueue time.
 	ProcessorTaskMaintAutoCancel     = "maint.auto.cancel"
 	ProcessorTaskMaintAutoCancelCron = "maint.auto.cancel.cron"
 	// ProcessorTaskAuditPrune is the goque task type produced by the audit-retention
 	// periodic job. Its processor deletes audit_log rows older than the retention
 	// window in bounded batches. The payload carries the retention window and batch
-	// limit (from config). auth-binary-only: the auth binary owns the audit store
-	// (read + write), so it also owns the retention prune — not registered by
-	// maintmode.
+	// limit (from config).
 	ProcessorTaskAuditPrune     = "audit.prune"
 	ProcessorTaskAuditPruneCron = "audit.prune.cron"
 	// ProcessorTaskAuditWrite is the goque task type produced when a service
 	// publishes an audited domain event via auditpublisher.Publish (RUK-179). Its
 	// processor decodes the rendered audit snapshot and writes it to audit_log
-	// after commit, outside any tx. It may be *enqueued* on any binary (auth
-	// today; maintmode for maint audit, RUK-182) but is *drained* only on the
-	// auth binary, which owns the audit store.
+	// after commit, outside any tx.
 	//
 	// The payload carries the fully rendered AuditEntry snapshot — a deliberate
 	// exception to the project's "payload = id, not content" rule, because audit
@@ -51,45 +46,27 @@ const (
 	ProcessorTaskAuditWrite = "audit.write"
 )
 
-// ProcessorBinary identifies which application binary owns (drains) a goque task
-// type. The goque_task table is shared across binaries (see the task-type
-// isolation note), so every task type must be drained by exactly one binary;
-// otherwise an enqueued task lingers forever and its work — e.g. an audit record
-// — is silently lost. ProcessorTaskOwner is the single source of truth, asserted
-// at startup and in a CI test.
-type ProcessorBinary string
-
-const (
-	ProcessorBinaryMaintmode ProcessorBinary = "maintmode"
-	ProcessorBinaryAuth      ProcessorBinary = "auth"
-)
-
-// ProcessorTaskOwner maps every goque task type to the binary that drains it.
-// Adding a task type without adding it here fails the coverage test; registering
-// it on the wrong binary fails the startup guard. Cron task types
-// (*.cron) are produced by RegisterPeriodicJob on their owning binary and listed
-// here too so the coverage check stays exhaustive.
-var ProcessorTaskOwner = map[string]ProcessorBinary{
-	ProcessorTaskMessagingSend:       ProcessorBinaryMaintmode,
-	ProcessorTaskMaintReminder:       ProcessorBinaryMaintmode,
-	ProcessorTaskMaintAutoCancel:     ProcessorBinaryMaintmode,
-	ProcessorTaskMaintAutoCancelCron: ProcessorBinaryMaintmode,
-	ProcessorTaskInvitationEmailSend: ProcessorBinaryAuth,
-	ProcessorTaskAuditWrite:          ProcessorBinaryAuth,
-	ProcessorTaskAuditPrune:          ProcessorBinaryAuth,
-	ProcessorTaskAuditPruneCron:      ProcessorBinaryAuth,
-}
-
-// ProcessorTaskTypesFor returns the task types the given binary must register a
-// processor (or periodic job) for.
-func ProcessorTaskTypesFor(binary ProcessorBinary) []string {
-	var types []string
-	for taskType, owner := range ProcessorTaskOwner {
-		if owner == binary {
-			types = append(types, taskType)
-		}
-	}
-	return types
+// ActiveProcessorTaskTypes is the set of goque task types the process must
+// currently register a processor (or periodic job) for. It is the single source
+// of truth for the startup coverage guard: every type here must have a
+// registered processor (else an enqueued task lingers in the goque_task table
+// forever and its work is silently lost), and no processor may be registered for
+// a type absent from this set. Cron task types (*.cron) are listed here too so
+// the check stays exhaustive.
+//
+// To disable a processor without freeing its type string for reuse, remove the
+// type from this set AND stop registering its processor — but keep its
+// ProcessorTask* const declared. The string then stays reserved (no accidental
+// re-use) while the guard no longer expects it to be drained.
+var ActiveProcessorTaskTypes = map[string]struct{}{
+	ProcessorTaskMessagingSend:       {},
+	ProcessorTaskMaintReminder:       {},
+	ProcessorTaskMaintAutoCancel:     {},
+	ProcessorTaskMaintAutoCancelCron: {},
+	ProcessorTaskInvitationEmailSend: {},
+	ProcessorTaskAuditWrite:          {},
+	ProcessorTaskAuditPrune:          {},
+	ProcessorTaskAuditPruneCron:      {},
 }
 
 // ProcessorTaskPayloadEventNotify is the typed payload stored in each goque task.

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5/echotest"
+	redisDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
@@ -30,8 +31,9 @@ import (
 )
 
 var (
-	db  *sqlx.DB
-	cfg *config.AppConfig
+	db    *sqlx.DB
+	redis *redisDB.Client
+	cfg   *config.AppConfig
 )
 
 func TestMain(m *testing.M) {
@@ -39,6 +41,9 @@ func TestMain(m *testing.M) {
 
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
+
+	redis = testdbconnutils.NewRedisClient(cfg)
+	closer.Add(redis.Close)
 
 	code := m.Run()
 
@@ -67,13 +72,12 @@ p, editor, resource.create, execute
 p, reviewer, maintenance.approve, execute
 `
 
-// newServices builds a per-test service set with the permissive auth mock bound
-// to t (so create/read paths run without a live auth service).
+// newServices builds a per-test service set wired to the real auth services
+// (user/auth in-process) backed by the live Postgres and Redis.
 func newServices(ctx context.Context, t *testing.T) *bootstrap.Services {
 	t.Helper()
 
-	services, _ := testbootstraputils.InitServicesWithMocks(ctx, t, db, cfg)
-	return services
+	return testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
 }
 
 func initImpl(t *testing.T) *Implementation {
@@ -88,6 +92,10 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 
 	services := newServices(ctx, t)
 	maintImpl := maintapi.New(services.Maint, services.UserSummary)
+
+	// A real, persisted, approver-eligible user: CreateDraftMaint validates the
+	// approver against the real user backend.
+	approver := testbootstraputils.SeedEligibleApprover(ctx, t, services)
 
 	notifyChan := makeNotifyChannel(ctx, t)
 	req := &maintmodels.CreateDraftMaintRequest{
@@ -105,7 +113,7 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 		NotifyTargets: &maintmodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
-		ApproverUserID: uuid.New(),
+		ApproverUserID: approver.ID,
 	}
 
 	c, rec := echotest.ContextConfig{

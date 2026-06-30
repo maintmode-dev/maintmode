@@ -12,7 +12,7 @@ func LoadMaintConfig() *config.AppConfig {
 }
 
 func LoadAuthConfig() *config.AppConfig {
-	cfg := config.LoadAuthAppConfig()
+	cfg := config.LoadAppConfig()
 	cfg.OauthProviders.UseStub = true
 	cfg.NotifyTransport.UseStub = true
 

@@ -31,21 +31,3 @@ type ListUsersResponse struct {
 	Limit  int64   `json:"limit" example:"50"`
 	Offset int64   `json:"offset" example:"0"`
 }
-
-// S2SUser is the neutral, lightweight user representation returned by the
-// service-to-service users listing. It carries only identity and roles — no
-// admin-management fields (is_last_admin, blocked_at, providers) — so consuming
-// services (e.g. maintmode assignment pickers) get just what selection needs.
-type S2SUser struct {
-	ID          uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Roles       []string  `json:"roles"`
-}
-
-type ListS2SUsersResponse struct {
-	Users  []*S2SUser `json:"users"`
-	Total  int64      `json:"total" example:"123"`
-	Limit  int64      `json:"limit" example:"50"`
-	Offset int64      `json:"offset" example:"0"`
-}

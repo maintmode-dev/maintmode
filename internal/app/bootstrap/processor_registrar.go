@@ -11,23 +11,21 @@ import (
 
 // processorRegistrar wraps a *goque.Goque and records every task type it
 // registers a processor or periodic job for, so the set can be checked against
-// the canonical entity.ProcessorTaskOwner map at startup.
+// the canonical entity.ActiveProcessorTaskTypes at startup.
 //
-// This closes the silent-loss gap that is inherent to any goque task type (not
-// just audit): the goque_task table is shared, so a task type that is enqueued
-// but has no registered processor on any binary lingers forever and its work is
-// lost. verify() turns "forgot to register" / "registered on the wrong binary"
-// into a startup failure instead of a production data loss.
+// This closes the silent-loss gap inherent to any goque task type: the
+// goque_task table is shared, so a task type that is enqueued but has no
+// registered processor lingers forever and its work is lost. verify() turns
+// "forgot to register" / "registered an unknown type" into a startup failure
+// instead of a production data loss.
 type processorRegistrar struct {
 	goq        *goque.Goque
-	binary     entity.ProcessorBinary
 	registered map[string]struct{}
 }
 
-func newProcessorRegistrar(goq *goque.Goque, binary entity.ProcessorBinary) *processorRegistrar {
+func newProcessorRegistrar(goq *goque.Goque) *processorRegistrar {
 	return &processorRegistrar{
 		goq:        goq,
-		binary:     binary,
 		registered: make(map[string]struct{}),
 	}
 }
@@ -44,14 +42,14 @@ func (r *processorRegistrar) RegisterPeriodicJob(job *goque.PeriodicJob) {
 	r.goq.RegisterPeriodicJob(job)
 }
 
-// verify fails if the binary did not register exactly the task types it owns per
-// entity.ProcessorTaskOwner: a missing one would silently drop tasks; an extra
-// one means it drains a type another binary owns (task-type isolation breach).
+// verify fails if the registered processors do not match the canonical
+// entity.ActiveProcessorTaskTypes exactly: a missing type would silently drop
+// its tasks, and an unexpected one (absent from the active set) is a typo, an
+// undeclared type, or a deliberately-disabled processor that was not also
+// removed from registration.
 func (r *processorRegistrar) verify() error {
-	want := entity.ProcessorTaskTypesFor(r.binary)
-
 	var missing []string
-	for _, taskType := range want {
+	for taskType := range entity.ActiveProcessorTaskTypes {
 		if _, ok := r.registered[taskType]; !ok {
 			missing = append(missing, taskType)
 		}
@@ -59,7 +57,7 @@ func (r *processorRegistrar) verify() error {
 
 	var unexpected []string
 	for taskType := range r.registered {
-		if entity.ProcessorTaskOwner[taskType] != r.binary {
+		if _, ok := entity.ActiveProcessorTaskTypes[taskType]; !ok {
 			unexpected = append(unexpected, taskType)
 		}
 	}
@@ -68,8 +66,8 @@ func (r *processorRegistrar) verify() error {
 		slices.Sort(missing)
 		slices.Sort(unexpected)
 		return fmt.Errorf(
-			"goque processor coverage mismatch for binary %q: missing=%v unexpected=%v",
-			r.binary, missing, unexpected,
+			"goque processor coverage mismatch: missing=%v unexpected=%v",
+			missing, unexpected,
 		)
 	}
 	return nil

@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
+	redisDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
@@ -33,6 +34,7 @@ import (
 
 var (
 	db                   *sqlx.DB
+	redis                *redisDB.Client
 	cfg                  *config.AppConfig
 	testMaintenanceIndex atomic.Int64
 )
@@ -43,6 +45,9 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
+	redis = testdbconnutils.NewRedisClient(cfg)
+	closer.Add(redis.Close)
+
 	code := m.Run()
 
 	os.Exit(code)
@@ -51,7 +56,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
 
 	return New(services.Maint, services.UserSummary)
 }
@@ -84,7 +89,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 		NotifyTargets: &apimodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
-		ApproverUserID: uuid.New(),
+		ApproverUserID: seedApprover(ctx, t),
 	}
 
 	c, rec := echotest.ContextConfig{
@@ -98,6 +103,17 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 
 	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
 	return &resp
+}
+
+// seedApprover provisions a real, persisted, approver-eligible (reviewer) user
+// and returns its id. CreateDraftMaint validates the approver against the real
+// user backend, so the assigned approver must be a real eligible user rather
+// than a random uuid.
+func seedApprover(ctx context.Context, t *testing.T) uuid.UUID {
+	t.Helper()
+
+	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
+	return testbootstraputils.SeedEligibleApprover(ctx, t, services).ID
 }
 
 // makeUser builds an authenticated user to act as the maintenance author.
@@ -215,7 +231,7 @@ func requireMaintStillMatchesDraft(t *testing.T, draft *apimodels.CreateDraftMai
 func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
 
 	impl := resourcesapi.New(services.Resources, services.UserSummary)
 	req := &resourcemodels.CreateResourceRequest{
@@ -248,7 +264,7 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
 
 	impl := apinotifications.New(services.NotifyTargets, services.UserSummary)
 
@@ -310,7 +326,7 @@ func createTwoStepDraftMaintenance(ctx context.Context, t *testing.T, impl *Impl
 		NotifyTargets: &apimodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
-		ApproverUserID: uuid.New(),
+		ApproverUserID: seedApprover(ctx, t),
 	}
 
 	c, rec := echotest.ContextConfig{

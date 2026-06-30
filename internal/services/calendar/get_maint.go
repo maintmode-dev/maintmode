@@ -34,7 +34,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		return nil, err
 	}
 
-	notifyTargets, err := s.notifyTargetsStore.ListByMaint(ctx, maint.ID)
+	notifyTargets, err := s.notifyTargets.ListByMaint(ctx, maint.ID)
 	if err != nil {
 		xlog.Error(ctx, "failed to get maint notify targets", xfield.Error(err))
 		return nil, err

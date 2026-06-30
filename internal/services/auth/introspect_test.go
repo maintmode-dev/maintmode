@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -127,5 +128,85 @@ func TestIntrospect(t *testing.T) {
 		resp, err := srv.Introspect(ctx, token)
 		require.NoError(t, err)
 		require.False(t, resp.Active)
+	})
+}
+
+// TestEnsureActiveToken pins the security-critical translation the API
+// middleware relies on: an active token yields nil, while any inactive token
+// (revoked by logout, or belonging to a blocked user) yields
+// ErrInvalidAccessToken so RequireActiveToken rejects the request. This is the
+// direct unit coverage that used to live in the deleted authlocal adapter test.
+func TestEnsureActiveToken(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	t.Run("active token returns nil", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		handleCallbackMock(mocks, 1)
+
+		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
+			Provider:     entity.OAuthProviderGoogle,
+			CallbackCode: "code-1",
+			ClientIP:     "10.0.0.1",
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken))
+	})
+
+	t.Run("blacklisted token is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		handleCallbackMock(mocks, 1)
+
+		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
+			Provider:     entity.OAuthProviderGoogle,
+			CallbackCode: "code-1",
+			ClientIP:     "10.0.0.1",
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{
+			AccessToken:  pair.AccessToken,
+			RefreshToken: pair.RefreshToken,
+		}))
+
+		require.ErrorIs(t, srv.EnsureActiveToken(ctx, pair.AccessToken), apperr.ErrInvalidAccessToken)
+	})
+
+	t.Run("blocked-user token is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		handleCallbackMock(mocks, 1)
+
+		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
+			Provider:     entity.OAuthProviderGoogle,
+			CallbackCode: "code-1",
+			ClientIP:     "10.0.0.1",
+		})
+		require.NoError(t, err)
+		require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken))
+
+		report, err := srv.Introspect(ctx, pair.AccessToken)
+		require.NoError(t, err)
+		userID, err := uuid.Parse(report.Subject)
+		require.NoError(t, err)
+		require.NoError(t, srv.usersSrv.BlockUser(ctx, &entity.BlockUserCmd{
+			Actor:  &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleAdmin}},
+			UserID: userID,
+		}))
+
+		require.ErrorIs(t, srv.EnsureActiveToken(ctx, pair.AccessToken), apperr.ErrInvalidAccessToken)
+	})
+
+	t.Run("invalid token is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initService(t)
+		require.ErrorIs(t, srv.EnsureActiveToken(ctx, "garbage-token"), apperr.ErrInvalidAccessToken)
 	})
 }
