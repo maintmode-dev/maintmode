@@ -115,17 +115,103 @@ groups:
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#goquepayloaddecodeerrors"
 
       - alert: PgDoormanPoolSaturated
-        # pg_doorman exports pgdoorman_databases_pool_clients_active and pool_size per pool.
-        # Adjust label selector when pool is renamed.
+        # pg_doorman exports pools-by-status as pg_doorman_pools_clients
+        # {status="active|idle|waiting"} and the configured cap as
+        # pg_doorman_pool_size, both keyed by (user, database). The previous
+        # expr used pgdoorman_databases_pool_clients_active / _pool_size, which
+        # this build does not emit — the rule could never fire (RUK-191).
         expr: |
-          max by (pool) (pgdoorman_databases_pool_clients_active)
+          max by (user, database) (pg_doorman_pools_clients{status="active"})
           /
-          max by (pool) (pgdoorman_databases_pool_size)
+          max by (user, database) (pg_doorman_pool_size)
           > 0.9
         for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "pg_doorman pool {{ $labels.pool }} > 90% saturated"
-          description: "Connection pooler is close to capacity. Investigate slow queries or raise pool_size."
+          summary: "pg_doorman pool {{ $labels.user }}@{{ $labels.database }} > 90% saturated"
+          description: "Connection pooler is close to capacity for {{ $labels.user }}@{{ $labels.database }}. Investigate slow queries or raise pool_size."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#pgdoormanpoolsaturated"
+
+      - alert: PgDoormanClientsWaiting
+        # Clients waiting for a server connection means the pool is exhausted
+        # right now — a more direct saturation signal than the ratio above.
+        expr: max by (user, database) (pg_doorman_pools_clients{status="waiting"}) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "pg_doorman clients waiting for {{ $labels.user }}@{{ $labels.database }}"
+          description: "Clients have been waiting for a pooled server connection for 2m. The pool is exhausted — raise pool_size or investigate long-held connections."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#pgdoormanpoolsaturated"
+
+  # Host + per-container resource pressure, backed by node-exporter and
+  # cAdvisor (added in RUK-191). Thresholds are intentionally conservative
+  # starting points for the single-VM stack — tune as real load is observed.
+  - name: maintmode.resources
+    interval: 30s
+    rules:
+      - alert: HostMemoryHigh
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory > 90% used"
+          description: "{{ $value | humanizePercentage }} of VM memory is in use for 5m. Risk of OOM kills; investigate the heaviest containers on the Resources dashboard."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostmemoryhigh"
+
+      - alert: HostDiskLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}
+           /
+           node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"})
+          < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host root filesystem < 15% free"
+          description: "Only {{ $value | humanizePercentage }} free on /. Postgres, Loki, and VictoriaMetrics volumes live here — free space or grow the disk before writes start failing."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostdisklow"
+
+      - alert: HostCPUHigh
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU > 85% for 10m"
+          description: "Sustained host CPU saturation ({{ $value | humanizePercentage }}). Identify the hot container on the Resources dashboard; the VM may need more cores."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostcpuhigh"
+
+      - alert: ContainerMemoryHigh
+        # Per-container working set as a share of total host memory. No
+        # per-container limit is set in this stack, so we compare against the
+        # host total rather than container_spec_memory_limit_bytes (unset).
+        # service_name is the relabeled container name (RUK-191).
+        expr: |
+          sum by (service_name) (container_memory_working_set_bytes{name=~".+"})
+          / scalar(node_memory_MemTotal_bytes)
+          > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.service_name }} using > 50% of host memory"
+          description: "{{ $labels.service_name }} has held more than half of the VM's memory for 5m. Investigate a leak or right-size the VM."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#containermemoryhigh"
+
+      - alert: ContainerCPUHigh
+        # Per-container CPU in cores vs total host cores.
+        expr: |
+          sum by (service_name) (rate(container_cpu_usage_seconds_total{name=~".+"}[5m]))
+          / scalar(machine_cpu_cores)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.service_name }} using > 85% of host CPU"
+          description: "{{ $labels.service_name }} has consumed more than 85% of total host CPU for 10m. Investigate a hot loop or scale out."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#containercpuhigh"

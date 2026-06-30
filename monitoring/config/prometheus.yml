@@ -8,9 +8,15 @@ scrape_configs:
   # maintmode + auth: discovered via the Docker socket so every replica
   # is scraped (docker compose up --scale maintmode=N --scale auth=N).
   # Containers opt in via the `prometheus.service` Docker label set in
-  # compose.yaml. `port: 8001` makes docker_sd_configs emit
-  # `<ip>:8001` as __address__; the network filter keeps us out of
-  # unrelated stacks that might share the docker daemon.
+  # compose.yaml — that label filter already scopes us to maintmode's own
+  # containers, so unrelated stacks sharing the daemon are excluded.
+  #
+  # docker_sd emits one target per exposed port, so a container that also
+  # exposes the app port (8000) yields a second `<ip>:8000` target. We keep
+  # only the metrics port (8001). The previous `keep` on
+  # __meta_docker_network_name was both redundant and fragile: that meta
+  # label can resolve empty (it did here), silently dropping every target so
+  # the Echo dashboard showed "No data" with no scrape target at all.
   - job_name: 'maintmode'
     metrics_path: /metrics
     docker_sd_configs:
@@ -20,8 +26,8 @@ scrape_configs:
           - name: label
             values: ["prometheus.service=maintmode"]
     relabel_configs:
-      - source_labels: [__meta_docker_network_name]
-        regex: theapp
+      - source_labels: [__meta_docker_port_private]
+        regex: '8001'
         action: keep
       - source_labels: [__meta_docker_container_name]
         regex: '/(.*)'
@@ -54,3 +60,45 @@ scrape_configs:
         labels:
           service_name: 'redis'
           component: 'cache'
+
+  # cAdvisor — per-container resource usage (container_* metrics).
+  # cAdvisor labels each series with `name` (the Docker container name).
+  # Relabel it to the same `service_name` key every other job uses so a
+  # single $service dropdown finds the maintmode containers without editing
+  # container_name filters (RUK-191). Series without a container name (the
+  # machine-level roll-up) get service_name='host'.
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          component: 'container'
+    metric_relabel_configs:
+      - source_labels: [name]
+        regex: '(.+)'
+        target_label: service_name
+        replacement: '$1'
+      - source_labels: [service_name]
+        regex: '^$'
+        target_label: service_name
+        replacement: 'host'
+
+  # node-exporter — host-level totals (node_* metrics): the "available
+  # resources" the VM has, against which cAdvisor "consumed" is compared.
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service_name: 'host'
+          component: 'node'
+
+  # Caddy — perimeter reverse proxy / rate limiter / load balancer.
+  # Metrics on the admin endpoint :2019/metrics (enabled via `metrics` in the
+  # Caddyfile global block). Gives request rate, latency, and 4xx/5xx at the
+  # edge (incl. 429s from the rate limiter), plus upstream health — how many
+  # maintmode replicas Caddy considers healthy (RUK-147 drain visibility).
+  - job_name: 'caddy'
+    static_configs:
+      - targets: ['caddy:2019']
+        labels:
+          service_name: 'caddy'
+          component: 'proxy'

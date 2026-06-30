@@ -90,7 +90,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -169,7 +169,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "time() - process_start_time_seconds{instance=~\"$instance\"}",
@@ -253,7 +253,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "(\n    (\n        sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n        + (\n            sum(http_server_request_duration_seconds_bucket{le=\"$tolerated\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n            - sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n        ) / 2\n    ) / sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^2..$\"})\n) * 100",
@@ -336,7 +336,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(rate(http_server_request_duration_seconds_count{instance=~\"$instance\"}[$interval]))",
@@ -415,7 +415,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(http_server_request_duration_seconds_count{instance=~\"$instance\"})",
@@ -498,7 +498,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "(\n    sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^[45]..$\"} OR on() vector(0))\n    / sum(http_server_request_duration_seconds_count{instance=~\"$instance\"})\n) * 100",
@@ -577,7 +577,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}) + sum(http_server_response_body_size_bytes_sum{instance=~\"$instance\"})",
@@ -656,7 +656,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(rate(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}[$interval])) + sum(rate(http_server_response_body_size_bytes_sum{instance=~\"$instance\"}[$interval]))",
@@ -732,7 +732,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -799,7 +799,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "avg(go_threads{instance=~\"$instance\"}) by(instance)",
@@ -1021,7 +1021,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(rate(http_server_request_duration_seconds_count{instance=~\"$instance\"}[$__rate_interval])) by (http_response_status_code, http_route)",
@@ -1223,7 +1223,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P4169E866C3094E38"
+            "uid": "vm_ds"
           },
           "editorMode": "code",
           "expr": "sum(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}) by (http_response_status_code, http_request_method, http_route)",
@@ -1918,7 +1918,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_memstats_sys_bytes{instance=~\"$instance\"})",
@@ -2044,7 +2044,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_stack_inuse_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2148,7 +2148,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_memstats_mspan_sys_bytes{instance=~\"$instance\"})",
@@ -2171,7 +2171,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_memstats_mcache_sys_bytes{instance=~\"$instance\"})",
@@ -2195,7 +2195,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_memstats_buck_hash_sys_bytes{instance=~\"$instance\"})",
@@ -2219,7 +2219,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_memstats_gc_sys_bytes{instance=~\"$instance\"})",
@@ -2342,7 +2342,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_heap_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2366,7 +2366,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_heap_inuse_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2390,7 +2390,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_heap_alloc_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2414,7 +2414,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_heap_idle_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2438,7 +2438,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(go_memstats_heap_released_bytes{instance=~\"$instance\"}[$__rate_interval])",
@@ -2740,7 +2740,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(rate(go_memstats_alloc_bytes_total{instance=~\"$instance\"}[$__rate_interval]))",
@@ -2843,7 +2843,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "rate(go_memstats_mallocs_total{instance=~\"$instance\"}[$__rate_interval])",
@@ -2946,7 +2946,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(\n    go_memstats_mallocs_total{instance=~\"$instance\"}\n    - go_memstats_frees_total{instance=~\"$instance\"}\n)",
@@ -3045,7 +3045,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(process_resident_memory_bytes{instance=~\"$instance\"})",
@@ -3068,7 +3068,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(hypr_process_virtual_memory_bytes{instance=~\"$instance\"})",
@@ -3206,7 +3206,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg by(instance)(go_gc_duration_seconds{quantile=\"1\", instance=~\"$instance\"})",
@@ -3652,7 +3652,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "deriv(process_open_fds{instance=~\"$instance\"}[$__rate_interval])",
@@ -3726,7 +3726,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P4169E866C3094E38"
+                "uid": "vm_ds"
               },
               "editorMode": "code",
               "expr": "avg(process_open_fds{instance=~\"$instance\"}) by (instance)",
@@ -3816,6 +3816,10 @@
           "text": "maintmode",
           "value": "maintmode"
         },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "vm_ds"
+        },
         "definition": "label_values(job)",
         "label": "Job",
         "name": "job",
@@ -3825,19 +3829,16 @@
           "query": "label_values(job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 1,
-        "regex": "",
+        "refresh": 2,
+        "regex": "/^maintmode$/",
         "regexApplyTo": "value",
         "type": "query"
       },
       {
-        "current": {
-          "text": [
-            "maintmode:8001"
-          ],
-          "value": [
-            "maintmode:8001"
-          ]
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "vm_ds"
         },
         "definition": "label_values({job=\"$job\"},instance)",
         "description": "",
@@ -3850,7 +3851,7 @@
           "query": "label_values({job=\"$job\"},instance)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
         "regexApplyTo": "value",
         "type": "query"

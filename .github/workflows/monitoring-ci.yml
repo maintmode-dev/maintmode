@@ -1,0 +1,93 @@
+name: Monitoring CI
+
+# Guards the monitoring stack config (Grafana dashboards, Prometheus scrape
+# config, vmalert rules). Backend CI deliberately runs without the monitoring
+# profile, so without this job a broken dashboard, a datasource-by-name
+# regression, or a rule referencing a non-existent metric would pass CI green
+# — which is exactly how PgDoormanPoolSaturated shipped dead (RUK-191).
+#
+# These checks are static and fast (seconds, no live stack needed).
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/monitoring-ci.yml"
+      - "monitoring/**"
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  validate:
+    name: Validate monitoring config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate dashboard JSON
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          fail=0
+          for f in monitoring/config/grafana/dashboards/*.json; do
+            if ! python3 -m json.tool "$f" > /dev/null; then
+              echo "::error file=$f::invalid JSON"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Provisioning hygiene gates
+        # Encode the SPEC "Never" rules as enforceable greps. Each must NOT
+        # match in any provisioned dashboard.
+        run: |
+          set -uo pipefail
+          DASH=monitoring/config/grafana/dashboards
+          fail=0
+
+          check() { # <human label> <grep-pattern>
+            local label="$1" pat="$2"
+            local hits
+            hits=$(grep -rEl "$pat" "$DASH"/*.json 2>/dev/null || true)
+            if [ -n "$hits" ]; then
+              echo "::error::$label found in:"
+              echo "$hits" | sed 's/^/  - /'
+              grep -rEn "$pat" "$DASH"/*.json | sed 's/^/      /'
+              fail=1
+            fi
+          }
+
+          # datasource-by-name / import-picker artifacts
+          check "DS_PROMETHEUS import variable" 'DS_PROMETHEUS'
+          # Datasource referenced by NAME instead of uid. Both the local
+          # name ("VictoriaMetrics") and the common export name ("Prometheus")
+          # are caught — a vendored dashboard exported elsewhere often carries
+          # "Prometheus" and silently falls back to the default datasource.
+          check 'datasource by name (VictoriaMetrics/Prometheus)' '"datasource":[[:space:]]*"(VictoriaMetrics|Prometheus)"'
+          check "manual-import __inputs block" '"__inputs"'
+          check "stale datasource uid prometheus" '"uid":[[:space:]]*"prometheus"'
+          # Kubernetes/Helm leftovers — this is a single-VM stack
+          check "k8s template variable (namespace/release/pod)" '"name":[[:space:]]*"(namespace|release|pod)"'
+
+          exit $fail
+
+      - name: Validate vmalert rules and scrape config
+        # vmalert is the actual evaluator in this stack (VictoriaMetrics), so
+        # validate with its own dry-run rather than promtool. The image tag is
+        # kept in sync with compose.yaml (victoriametrics/vmalert).
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/monitoring/config:/cfg:ro" \
+            victoriametrics/vmalert:v1.103.0 \
+            -rule=/cfg/alerts.yml \
+            -rule.validateExpressions \
+            -dryRun
+
+          # promtool validates the Prometheus-format scrape config (vmalert
+          # doesn't read prometheus.yml). Pull a pinned prometheus image just
+          # for its bundled promtool.
+          docker run --rm -v "$PWD/monitoring/config:/cfg:ro" \
+            --entrypoint promtool \
+            prom/prometheus:v2.53.0 \
+            check config --syntax-only /cfg/prometheus.yml

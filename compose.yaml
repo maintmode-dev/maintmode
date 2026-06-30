@@ -50,7 +50,7 @@ services:
       - theapp
 
   pg_doorman:
-    image: ghcr.io/ozontech/pg_doorman:latest
+    image: ghcr.io/ozontech/pg_doorman:v3.10.7
     container_name: pg_doorman
     profiles: ["storages"]
     restart: unless-stopped
@@ -297,6 +297,56 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - theapp
+
+  # cAdvisor — per-container resource usage (cpu/mem/net/io). Emits
+  # container_* metrics keyed by the `name` label, which prometheus.yml
+  # relabels to `service_name` so the same $service dropdown finds the
+  # maintmode containers without editing container_name filters (RUK-191).
+  # Read-only host mounts + privileged are the upstream-recommended minimum
+  # for reading cgroup/container stats on a Docker host. The :8080 host port
+  # is dev-only; prod keeps it internal via a compose overlay.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    privileged: true
+    ports:
+      # Loopback-only: VictoriaMetrics scrapes over the theapp network by
+      # service name (cadvisor:8080), so the published port is just for local
+      # `curl` debugging. Binding to 127.0.0.1 keeps this unauthenticated
+      # host/container telemetry off every other interface even in dev.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - theapp
+
+  # node-exporter — host-level totals (cpu/mem/disk/net capacity). This is the
+  # "available resources" half of RUK-191: node_* metrics report what the VM
+  # has, against which cAdvisor's per-container "consumed" is compared. The
+  # :9100 host port is dev-only; prod keeps it internal via a compose overlay.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      # Loopback-only (see cadvisor): VictoriaMetrics scrapes node-exporter:9100
+      # over the theapp network; the published port is local debugging only.
+      # 127.0.0.1 keeps the host process/filesystem telemetry off other ifaces.
+      - "127.0.0.1:9100:9100"
     networks:
       - theapp
 

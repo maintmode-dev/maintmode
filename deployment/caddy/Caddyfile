@@ -41,6 +41,15 @@
 	# The rate_limit handler ships in a non-standard module, so it has no
 	# default directive order — place it early, before reverse_proxy runs.
 	order rate_limit before reverse_proxy
+
+	# Expose Prometheus metrics on the admin endpoint's /metrics
+	# (caddy_http_*, caddy_reverse_proxy_upstreams_healthy, etc.). The admin
+	# API listens on :2019 across all interfaces so VictoriaMetrics can scrape
+	# it over the theapp network (the default localhost:2019 is unreachable
+	# from another container). Safe here because compose does NOT publish 2019
+	# to the host — it stays internal to the theapp network (RUK-191).
+	admin :2019
+	metrics
 }
 
 (app_lb) {
@@ -81,6 +90,21 @@
 :3000 {
 	encode gzip
 
+	# Per-server HTTP metrics (caddy_http_requests_total,
+	# caddy_http_request_duration_seconds, ...). The global `metrics` option
+	# only exposes the /metrics endpoint + admin/upstream gauges; request-level
+	# series require this directive inside each site block (RUK-191).
+	metrics
+
+	# JSON access log to stdout → promtail ships it to Loki under
+	# {container_name="caddy"}. Without this, Caddy only logs internal
+	# tls/config events, so HTTP status/duration/client_ip are unavailable
+	# to the Caddy dashboard's log panels (RUK-191).
+	log {
+		output stdout
+		format json
+	}
+
 	handle_path /auth/* {
 		import auth_ratelimit
 		reverse_proxy maintmode:8000 {
@@ -100,6 +124,15 @@
 
 :3001 {
 	encode gzip
+
+	# Per-server HTTP metrics (see :3000).
+	metrics
+
+	# JSON access log → Loki (see :3000).
+	log {
+		output stdout
+		format json
+	}
 
 	handle_path /auth/* {
 		reverse_proxy maintmode:8001 {
