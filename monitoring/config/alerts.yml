@@ -23,17 +23,22 @@ groups:
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#instancedown"
 
       - alert: HighHTTP5xxRate
+        # The app exposes OTel HTTP server metrics
+        # (http_server_request_duration_seconds_*), with the response status in
+        # the http_response_status_code label — NOT the old echo_http_requests_total
+        # series, which never existed in this stack and shipped the rule dead.
+        # Same metric the maintmode-app dashboard's 5xx panels query (RUK-191).
         expr: |
-          sum by (job) (rate(echo_http_requests_total{status=~"5.."}[5m]))
+          sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
           /
-          sum by (job) (rate(echo_http_requests_total[5m]))
+          sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))
           > 0.05
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.job }}: 5xx rate > 5%"
-          description: "Service {{ $labels.job }} is returning more than 5% 5xx responses over the last 5 minutes."
+          summary: "{{ $labels.service_name }}: 5xx rate > 5%"
+          description: "Service {{ $labels.service_name }} is returning more than 5% 5xx responses over the last 5 minutes."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#highhttp5xxrate"
 
   - name: maintmode.audit

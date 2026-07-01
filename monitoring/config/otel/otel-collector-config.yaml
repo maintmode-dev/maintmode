@@ -1,12 +1,39 @@
+# OpenTelemetry Collector — single ingest point for app traces.
+#
+# The app (maintmode) exports OTLP to otel-collector — the hostname it carries
+# in app.config.yaml (tracer.collector_host). The collector enriches, samples,
+# batches, and forwards to Tempo. Keeping this layer (vs apps → Tempo direct)
+# gives a buffer + one place to add processing/sampling without touching app
+# configs. Internal-only on the `theapp` network; no host ports needed.
+#
+# Single source of truth: this file lives in the backend repo and is pulled
+# into maintmode-deploy at deploy time (like the Grafana dashboards) — no
+# per-environment copy to drift. Everything here is environment-independent
+# (hostnames are docker service names, ports are fixed, no env-specific paths).
+
 receivers:
   otlp:
     protocols:
+      # Listen on all interfaces so other containers on the theapp network can
+      # reach the collector (the default localhost bind is unreachable cross-
+      # container). gRPC is what the app uses; HTTP is accepted too for tools
+      # that only speak OTLP/HTTP.
       grpc:
-        endpoint: 0.0.0.0:4317 # <-- ФИКС СЕТИ: Слушаем все интерфейсы, а не только localhost!
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
 
 processors:
-  # Копируем resource attributes в span attributes (service.name/version
-  # на самих спанах удобны для поиска в Tempo).
+  # memory_limiter MUST be first: it guards the collector's own memory before
+  # any other processing, so a spike can't OOM it on a small single VM.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Copy resource attributes onto the spans themselves (service.name/version
+  # on the span are handy for search in Tempo). Runs before sampling so the
+  # sampler and downstream see the enriched spans.
   transform:
     trace_statements:
       - context: span
@@ -14,6 +41,9 @@ processors:
           - set(attributes["service.name"], resource.attributes["service.name"])
           - set(attributes["service.version"], resource.attributes["service.version"])
 
+  # Keep the traces that matter, sample the rest: always keep errors and slow
+  # (>2s) requests; keep the remainder at sampling_percentage. At 100% nothing
+  # is dropped yet — lower it if trace volume ever grows.
   tail_sampling:
     decision_wait: 5s
     num_traces: 10000
@@ -32,15 +62,27 @@ processors:
         probabilistic:
           sampling_percentage: 100
 
+  # Batch last, after the sampling decision, to cut export overhead to Tempo.
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
 exporters:
-  otlp_grpc/tempo: # явное имя otlp_grpc, чтобы не было варнинга
+  otlp/tempo:
     endpoint: tempo:4317
     tls:
-      insecure: true
+      insecure: true          # in-cluster plaintext on the private Docker network
+
+extensions:
+  # Liveness endpoint so compose / an operator can check the collector is up.
+  health_check:
+    endpoint: 0.0.0.0:13133
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
-      receivers: [ otlp ]
-      processors: [ transform, tail_sampling ] # transform должен быть первым!
-      exporters: [ otlp_grpc/tempo ]
+      receivers: [otlp]
+      # Order matters: memory_limiter first, then enrich, then sample, batch last.
+      processors: [memory_limiter, transform, tail_sampling, batch]
+      exporters: [otlp/tempo]
