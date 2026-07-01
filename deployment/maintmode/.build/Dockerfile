@@ -44,7 +44,7 @@ RUN apk --no-cache add ca-certificates tzdata \
     && adduser -D nonroot
 
 COPY --from=builder /app/bin/maintmode .
-COPY --from=builder /app/deployment/maintmode/authz/ deployment/maintmode/authz/
+COPY --from=builder /app/deployment/maintmode/authz/ authz/
 RUN chown nonroot:nonroot maintmode
 
 USER nonroot

@@ -121,7 +121,7 @@ services:
     volumes:
       - ./deployment/maintmode/dev/app.config.yaml:/app/app.config.yaml:ro
       - ./deployment/maintmode/dev/app.secrets.yaml:/app/app.secrets.yaml:ro
-      - ./deployment/maintmode/authz:/app/authz:ro
+#      - ./deployment/maintmode/authz:/app/authz:ro
     depends_on:
       postgres:
         condition: service_healthy
