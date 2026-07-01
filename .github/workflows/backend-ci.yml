@@ -49,7 +49,12 @@ jobs:
     name: Build binary (maintmode)
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 so goreleaser sees tags/history and stamps the real
+      # version + commit into the binary (this is the ONLY place the binary is
+      # built — the image job reuses this artifact instead of rebuilding).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -59,6 +64,15 @@ jobs:
         with:
           version: v2.13.1
           args: build -f deployment/maintmode/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/maintmode
+      # Hand the built binary to image-maintmode so it doesn't rebuild it in
+      # Docker. Only needed on image-building runs (main/tag), but uploading on
+      # PRs too is cheap and keeps the job identical.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maintmode-binary
+          path: tmp/bin/maintmode
+          retention-days: 1
+          if-no-files-found: error
 
   test:
     name: Backend tests
@@ -96,6 +110,13 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Reuse the binary from build-maintmode (already stamped with the real
+      # version + commit) instead of rebuilding it in Docker. Lands at
+      # tmp/bin/maintmode, which the Dockerfile's `ci` target COPYs in.
+      - uses: actions/download-artifact@v4
+        with:
+          name: maintmode-binary
+          path: tmp/bin
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -112,10 +133,13 @@ jobs:
             type=sha,prefix=sha-
       # Push straight to GHCR. api-test pulls the sha-tagged image from there,
       # so no tar artifact is saved (avoids the Actions artifact storage quota).
+      # target: ci → runtime-only image that copies the prebuilt binary; the
+      # Go builder stages are skipped entirely.
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: deployment/maintmode/.build/Dockerfile
+          target: ci
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

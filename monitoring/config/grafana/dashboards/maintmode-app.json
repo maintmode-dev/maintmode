@@ -4077,10 +4077,10 @@
       {
         "current": {
           "text": [
-            "maintmode-deploy-maintmode-21"
+            "maintmode-deploy-maintmode-22"
           ],
           "value": [
-            "maintmode-deploy-maintmode-21"
+            "maintmode-deploy-maintmode-22"
           ]
         },
         "datasource": {
@@ -4199,6 +4199,6 @@
   "timezone": "browser",
   "title": "Golang Monitoring - Echo",
   "uid": "een1r1w7eo6bke",
-  "version": 12,
+  "version": 14,
   "weekStart": ""
 }

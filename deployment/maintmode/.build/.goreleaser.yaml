@@ -31,6 +31,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      # version/commit/date come straight from git — goreleaser now runs where
+      # git is available (the CI build-maintmode job and local `make build`),
+      # not inside Docker, so no env-var workaround is needed.
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.version={{.Version}}
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.os={{.Os}}
       - -X github.com/ruko1202/maintmode/internal/config/buildmeta.arch={{.Arch}}

@@ -3,6 +3,9 @@
 .agents
 bin
 tmp
+# ...but the CI (`--target ci`) image needs the prebuilt binary that the
+# build-maintmode job drops here. Un-ignore just that one file.
+!tmp/bin/maintmode
 dist
 coverage.tmp
 coverage.out

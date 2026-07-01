@@ -25,6 +25,11 @@ func InitTracerResource(meta *buildmeta.AppBuildMeta) (*resource.Resource, error
 		resource.NewWithAttributes(semconv.SchemaURL,
 			semconv.ServiceNameKey.String(meta.AppName),
 			semconv.ServiceVersionKey.String(meta.Version),
+			// The git commit SHA, surfaced on target_info as vcs.ref.head.revision.
+			// Until releases are tagged, service.version is only a short SHA (or
+			// "none" on an un-stamped build), so the full commit gives the
+			// dashboard an unambiguous "what's deployed" independent of tags.
+			semconv.VCSRefHeadRevision(meta.ShaCommit),
 		),
 	)
 	if err != nil {
