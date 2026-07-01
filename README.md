@@ -284,6 +284,25 @@ make air
 - **Назначение**: Сбор логов из Docker контейнеров
 - **Конфигурация**: [`monitoring/config/promtail/config.yml`](config-monitoring-promtail-config.yml.md)
 
+### Pyroscope (continuous profiling, RUK-190)
+- **Порт**: 4040 (внутренний, наружу не публикуется)
+- **Назначение**: Непрерывное профилирование приложения (CPU, heap, allocations,
+  goroutines, block, mutex)
+- **Модель**: pull — Grafana **Alloy** скрейпит стандартные Go `pprof`-эндпоинты
+  приложения (на infra-сервере `:8001`) и форвардит профили в Pyroscope. Приложение
+  ничего не пушит; SDK не подключается.
+- **Масштабирование**: Alloy находит цели через `discovery.docker` по лейблу
+  `prometheus.service=maintmode`, поэтому `docker compose up --scale maintmode=N`
+  профилируется автоматически (по цели на реплику).
+- **Хранение**: named volume `pyroscope:/data`. Ретеншен двумя рычагами:
+  по времени — блоки старше 2 суток (48h, рядом с Tempo 24h); по диску —
+  страховка от разрастания: чистка старых блоков, если на хосте свободно < 10 ГБ.
+- **Просмотр**: Grafana → datasource **Pyroscope** (Explore) или дашборд
+  **MaintMode Profiling**; ищите по тегу `service_name="maintmode"`.
+- **Конфигурация**: [`monitoring/config/alloy/config.alloy`](config-monitoring-alloy-config.alloy.md)
+- **Версии**: `grafana/pyroscope:1.14.1` (стабильная all-in-one линия; 2.x требует
+  multi-target деплой), `grafana/alloy:v1.17.1`.
+
 ### Экспортеры
 - **Node Exporter** (9100) - Метрики хост-системы
 - **cAdvisor** (8080) - Метрики Docker контейнеров
@@ -300,6 +319,7 @@ make air
 | PgBouncer Exporter | Метрики pg_doorman | Marketplace (ID: 11271) |
 | cAdvisor | Метрики Docker контейнеров | Marketplace (ID: 893) |
 | Node Exporter Full | Метрики хост-системы | Marketplace (ID: 1860) |
+| MaintMode Profiling | Флеймграфы CPU/heap/alloc/goroutine/block/mutex (Pyroscope) | Custom |
 
 ## Метрики приложения
 

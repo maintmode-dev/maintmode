@@ -1,25 +1,56 @@
-// 1. Куда пишем данные (Receiver)
+// RUK-190: непрерывное профилирование maintmode через Pyroscope (pull-модель).
+//
+// Alloy сам НЕ хранит профили — он их собирает с pprof-эндпоинтов приложения
+// и форвардит в Pyroscope. Схема: discovery.docker (найти реплики maintmode)
+// → discovery.relabel (собрать адрес <ip>:8001 и проставить service_name)
+// → pyroscope.scrape (снять профили) → pyroscope.write (отдать в Pyroscope).
+
+// 1. Куда пишем профили.
 pyroscope.write "local_pyroscope" {
 	endpoint {
 		url = "http://pyroscope:4040"
 	}
 }
 
-// 2. Откуда забираем данные (Scraper)
-pyroscope.scrape "maintmode_app" {
-	targets = [
-		{
-			// Имя твоего Go-контейнера в docker-compose и порт pprof
-			"__address__"  = "maintmode:8001",
-			// Тег, по которому ты будешь искать профили в Графане
-			"service_name" = "maintmode",
-		},
-	]
+// 2. Обнаружение целей через Docker.
+//    Берём ВСЕ контейнеры и фильтруем по лейблу prometheus.service=maintmode
+//    (тот же лейбл, по которому maintmode находит Prometheus). Так покрывается
+//    горизонтальное масштабирование `docker compose up --scale maintmode=N`:
+//    discovery отдаёт по цели на каждую реплику, статический таргет не нужен.
+discovery.docker "maintmode" {
+	host = "unix:///var/run/docker.sock"
 
-	// Передаем собранное в блок записи
+	filter {
+		name   = "label"
+		values = ["prometheus.service=maintmode"]
+	}
+}
+
+// 3. Приводим найденные контейнеры к пригодным для скрейпа целям:
+//    - __address__ = <ip контейнера в сети theapp>:8001 (порт pprof живёт на
+//      infra-сервере, наружу не публикуется, поэтому порт фиксируем литералом);
+//    - service_name = maintmode — тег, по которому профили ищутся в Grafana.
+discovery.relabel "maintmode" {
+	targets = discovery.docker.maintmode.targets
+
+	rule {
+		source_labels = ["__meta_docker_network_ip"]
+		target_label  = "__address__"
+		replacement   = "${1}:8001"
+	}
+
+	rule {
+		target_label = "service_name"
+		replacement  = "maintmode"
+	}
+}
+
+// 4. Скрейпим стандартные Go pprof-профили со всех обнаруженных реплик.
+pyroscope.scrape "maintmode_app" {
+	targets    = discovery.relabel.maintmode.output
 	forward_to = [pyroscope.write.local_pyroscope.receiver]
 
-	// Говорим собирать все типы профилей (CPU, память, горутины)
+	// Собираем все типы профилей: CPU, память, горутины, block, mutex.
 	profiling_config {
 		profile.process_cpu { enabled = true }
 		profile.memory { enabled = true }

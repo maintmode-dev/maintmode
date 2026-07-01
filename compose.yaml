@@ -381,29 +381,55 @@ services:
     networks:
       - theapp
 
+  # Pyroscope — continuous-profiling backend (RUK-190). Alloy скрейпит pprof
+  # приложения и пишет профили сюда; Grafana читает их через datasource
+  # pyroscope_ds. Версия пиньётся осознанно (как tempo), latest не берём.
+  #
+  # Держим линию 1.x: она стабильно работает как единый all-in-one `server`.
+  # 2.x переехал на metastore/raft-архитектуру, и монолитный контейнер в ней
+  # падает по gRPC keepalive (ENHANCE_YOUR_CALM / too_many_pings) — проверено
+  # на 2.1.0. Бампать на 2.x только с полноценным multi-target деплоем.
   pyroscope:
-    image: grafana/pyroscope:latest
+    image: grafana/pyroscope:1.14.1
     profiles: ["monitoring"]
     ports:
       - "4040" # internal port
+    # Данные кладём на named volume, чтобы профили переживали рестарт.
+    # Два независимых рычага ретеншена:
+    #  - по времени: блоки старше 2 суток (48h) удаляет compactor — профили
+    #    нужны для диагностики недавних инцидентов (рядом с Tempo 24h), не для
+    #    истории;
+    #  - по диску (страховка от разрастания): если на хосте свободно < 10 ГБ,
+    #    старые блоки чистятся раньше срока.
+    # Флаги вместо config-файла: без риска не-распарсенного ключа.
     command:
       - "server"
+      - "-pyroscopedb.data-path=/data"
+      - "-compactor.blocks-retention-period=48h"
+      - "-pyroscopedb.retention-policy-min-free-disk-gb=10"
+    volumes:
+      - pyroscope:/data
     networks:
       - theapp
 
+  # Alloy — забирает pprof со всех реплик maintmode и форвардит в Pyroscope.
+  # Таргеты берутся через discovery.docker (см. config.alloy), поэтому нужен
+  # доступ к docker-сокету (ro). Так покрывается `--scale maintmode=N`.
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.17.1
     profiles: ["monitoring"]
     ports:
       - "12345:12345"
     volumes:
       - ./monitoring/config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
       - /etc/alloy/config.alloy
     depends_on:
       - pyroscope
+      - maintmode
     networks:
       - theapp
 
@@ -465,6 +491,7 @@ volumes:
   loki:
   alertmanager:
   tempo:
+  pyroscope:
 
 networks:
   theapp:

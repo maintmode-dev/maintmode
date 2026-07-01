@@ -1,0 +1,198 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": ["maintmode", "profiling", "pyroscope"],
+  "templating": {
+    "list": [
+      {
+        "current": { "text": "maintmode", "value": "maintmode" },
+        "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+        "includeAll": false,
+        "label": "Service",
+        "name": "service",
+        "options": [],
+        "query": { "type": "labelValue", "label": "service_name", "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds" },
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MaintMode Profiling",
+  "uid": "maintmode-profiling",
+  "version": 1,
+  "panels": [
+    {
+      "type": "row",
+      "title": "CPU",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 16, "x": 0, "y": 1 },
+      "id": 1,
+      "title": "CPU — flame graph",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 8, "x": 16, "y": 1 },
+      "id": 2,
+      "title": "CPU usage over time",
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 1 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "metrics",
+          "profileTypeId": "process_cpu:samples:count:cpu:nanoseconds",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Memory",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 14 },
+      "id": 3,
+      "title": "Heap — inuse_space (flame graph)",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "memory:inuse_space:bytes:space:bytes",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 14 },
+      "id": 4,
+      "title": "Allocations — alloc_space (flame graph)",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "memory:alloc_space:bytes:space:bytes",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Concurrency",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 8, "x": 0, "y": 27 },
+      "id": 5,
+      "title": "Goroutines (flame graph)",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "goroutine:goroutine:count:goroutine:count",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 8, "x": 8, "y": 27 },
+      "id": 6,
+      "title": "Block (flame graph)",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "block:delay:nanoseconds:contentions:count",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+      "gridPos": { "h": 12, "w": 8, "x": 16, "y": 27 },
+      "id": 7,
+      "title": "Mutex (flame graph)",
+      "type": "flamegraph",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-pyroscope-datasource", "uid": "pyroscope_ds" },
+          "queryType": "profile",
+          "profileTypeId": "mutex:delay:nanoseconds:contentions:count",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": [],
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
