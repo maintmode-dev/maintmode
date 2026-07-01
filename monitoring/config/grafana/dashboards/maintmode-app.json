@@ -85,7 +85,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -93,8 +93,8 @@
             "uid": "vm_ds"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "up{job=~\"$job\"}",
+          "editorMode": "code",
+          "expr": "up{job=~\"$job\", instance=~\"$instance\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -104,6 +104,75 @@
         }
       ],
       "title": "Status",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "vm_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 2,
+        "y": 0
+      },
+      "id": 47,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "name",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
+          "expr": "max by (service_version) (target_info{job=~\"$job\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{service_version}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Version",
       "type": "stat"
     },
     {
@@ -133,24 +202,32 @@
               {
                 "color": "green",
                 "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 200
               }
             ]
           },
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 3,
         "w": 3,
-        "x": 2,
+        "x": 5,
         "y": 0
       },
-      "id": 8,
+      "id": 3,
       "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
@@ -164,7 +241,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -172,13 +249,13 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "time() - process_start_time_seconds{instance=~\"$instance\"}",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{job=~\"$job\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Uptime",
+      "title": "QPS",
       "type": "stat"
     },
     {
@@ -226,7 +303,7 @@
       "gridPos": {
         "h": 3,
         "w": 4,
-        "x": 5,
+        "x": 8,
         "y": 0
       },
       "id": 2,
@@ -248,7 +325,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -256,13 +333,184 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "(\n    (\n        sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n        + (\n            sum(http_server_request_duration_seconds_bucket{le=\"$tolerated\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n            - sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"})\n        ) / 2\n    ) / sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^2..$\"})\n) * 100",
+          "expr": "(\n    (\n        sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\"})\n        + (\n            sum(http_server_request_duration_seconds_bucket{le=\"$tolerated\", http_response_status_code=~\"^2..$\"})\n            - sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\"})\n        ) / 2\n    ) / sum(http_server_request_duration_seconds_count{job=~\"$job\", http_response_status_code=~\"^2..$\"})\n) * 100",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Apdex Score: $target s, $tolerated s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "vm_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "hidden",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": true,
+          "mappings": [],
+          "min": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 48,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
+          "editorMode": "code",
+          "expr": "process_start_time_seconds{job=~\"$job\"}[$__interval]",
+          "format": "time_series",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "vm_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 0,
+        "y": 3
+      },
+      "id": 46,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
+          "expr": "count(up{job=~\"$job\"} == 1)",
+          "legendFormat": "replicas",
+          "refId": "A"
+        }
+      ],
+      "title": "Replicas",
       "type": "stat"
     },
     {
@@ -292,32 +540,24 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 200
               }
             ]
           },
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
-        "x": 9,
-        "y": 0
+        "w": 3,
+        "x": 2,
+        "y": 3
       },
-      "id": 3,
+      "id": 8,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "horizontal",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
@@ -331,7 +571,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -339,13 +579,13 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_request_duration_seconds_count{instance=~\"$instance\"}[$interval]))",
+          "expr": "time() - process_start_time_seconds{job=~\"$job\", instance=~\"$instance\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "QPS",
+      "title": "Uptime",
       "type": "stat"
     },
     {
@@ -388,9 +628,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
-        "x": 11,
-        "y": 0
+        "w": 3,
+        "x": 5,
+        "y": 3
       },
       "id": 4,
       "options": {
@@ -410,7 +650,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -418,7 +658,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(http_server_request_duration_seconds_count{instance=~\"$instance\"})",
+          "expr": "sum(http_server_request_duration_seconds_count{job=~\"$job\"})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -471,9 +711,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
-        "x": 13,
-        "y": 0
+        "w": 4,
+        "x": 8,
+        "y": 3
       },
       "id": 5,
       "options": {
@@ -493,7 +733,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -501,7 +741,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "(\n    sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^[45]..$\"} OR on() vector(0))\n    / sum(http_server_request_duration_seconds_count{instance=~\"$instance\"})\n) * 100",
+          "expr": "(\n    sum(http_server_request_duration_seconds_count{job=~\"$job\", http_response_status_code=~\"^5..$\"} OR on() vector(0))\n    / sum(http_server_request_duration_seconds_count{job=~\"$job\"})\n) * 100",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -520,6 +760,7 @@
           "color": {
             "mode": "thresholds"
           },
+          "fieldMinMax": false,
           "mappings": [
             {
               "options": {
@@ -537,26 +778,22 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
-        "x": 15,
-        "y": 0
+        "w": 3,
+        "x": 12,
+        "y": 3
       },
-      "id": 6,
+      "id": 24,
       "options": {
-        "colorMode": "none",
+        "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
@@ -572,7 +809,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -580,13 +817,80 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}) + sum(http_server_response_body_size_bytes_sum{instance=~\"$instance\"})",
+          "exemplar": false,
+          "expr": "avg by(job)(go_goroutines{job=~\"$job\"})",
+          "format": "time_series",
+          "instant": false,
+          "legendFormat": "{{instance}}: goroutines (avg)",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Goroutines",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "vm_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 15,
+        "y": 3
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
+          "editorMode": "code",
+          "expr": "avg(go_threads{job=~\"$job\"}) by(job)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Transferred",
+      "title": "Threads",
       "type": "stat"
     },
     {
@@ -630,8 +934,8 @@
       "gridPos": {
         "h": 3,
         "w": 3,
-        "x": 17,
-        "y": 0
+        "x": 18,
+        "y": 3
       },
       "id": 7,
       "options": {
@@ -651,7 +955,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -659,7 +963,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}[$interval])) + sum(rate(http_server_response_body_size_bytes_sum{instance=~\"$instance\"}[$interval]))",
+          "expr": "sum(rate(http_server_request_body_size_bytes_sum{job=~\"$job\"}[$interval])) + sum(rate(http_server_response_body_size_bytes_sum{job=~\"$job\"}[$interval]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -678,7 +982,6 @@
           "color": {
             "mode": "thresholds"
           },
-          "fieldMinMax": false,
           "mappings": [
             {
               "options": {
@@ -696,89 +999,26 @@
               {
                 "color": "green",
                 "value": 0
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 20,
-        "y": 0
-      },
-      "id": 24,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.4.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm_ds"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "avg by(instance)(go_goroutines{instance=~\"$instance\"})",
-          "format": "time_series",
-          "instant": false,
-          "legendFormat": "{{instance}}: goroutines (avg)",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Goroutines",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "vm_ds"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+              },
               {
-                "color": "green",
-                "value": 0
+                "color": "red",
+                "value": 80
               }
             ]
-          }
+          },
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
-        "x": 22,
-        "y": 0
+        "w": 3,
+        "x": 21,
+        "y": 3
       },
-      "id": 25,
+      "id": 6,
       "options": {
-        "colorMode": "background",
+        "colorMode": "none",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
@@ -794,7 +1034,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -802,13 +1042,13 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "avg(go_threads{instance=~\"$instance\"}) by(instance)",
+          "expr": "sum(http_server_request_body_size_bytes_sum{job=~\"$job\"}) + sum(http_server_response_body_size_bytes_sum{job=~\"$job\"})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Threads",
+      "title": "Transferred",
       "type": "stat"
     },
     {
@@ -817,7 +1057,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 6
       },
       "id": 11,
       "panels": [],
@@ -892,7 +1132,7 @@
         "h": 5,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 7
       },
       "id": 29,
       "options": {
@@ -911,7 +1151,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -919,7 +1159,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "(\n    (\n        sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"}) by (instance)\n        + (\n            sum(http_server_request_duration_seconds_bucket{le=\"$tolerated\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"}) by (instance)\n            - sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\", instance=~\"$instance\"}) by (instance)\n        ) / 2\n    ) / sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^2..$\"}) by (instance)\n) * 100",
+          "expr": "(\n    (\n        sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\"}) by (instance)\n        + (\n            sum(http_server_request_duration_seconds_bucket{le=\"$tolerated\", http_response_status_code=~\"^2..$\"}) by (instance)\n            - sum(http_server_request_duration_seconds_bucket{le=\"$target\", http_response_status_code=~\"^2..$\"}) by (instance)\n        ) / 2\n    ) / sum(http_server_request_duration_seconds_count{job=~\"$job\", http_response_status_code=~\"^2..$\"}) by (instance)\n) * 100",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
@@ -994,7 +1234,7 @@
         "h": 15,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 7
       },
       "id": 32,
       "options": {
@@ -1016,7 +1256,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1024,7 +1264,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_request_duration_seconds_count{instance=~\"$instance\"}[$__rate_interval])) by (http_response_status_code, http_route)",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{job=~\"$job\"}[$__rate_interval])) by (http_response_status_code, http_route)",
           "legendFormat": "{{http_route}} {{http_response_status_code}}",
           "range": true,
           "refId": "A"
@@ -1099,7 +1339,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 12
       },
       "id": 30,
       "options": {
@@ -1119,7 +1359,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1127,7 +1367,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_request_duration_seconds_bucket{instance=~\"$instance\"}[$__rate_interval])) by (http_response_status_code, http_route)",
+          "expr": "sum(rate(http_server_request_duration_seconds_bucket{job=~\"$job\"}[$__rate_interval])) by (http_response_status_code, http_route)",
           "legendFormat": "{{http_route}} {{http_response_status_code}}",
           "range": true,
           "refId": "A"
@@ -1202,7 +1442,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 22
       },
       "id": 31,
       "options": {
@@ -1218,7 +1458,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1226,7 +1466,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "sum(http_server_request_body_size_bytes_sum{instance=~\"$instance\"}) by (http_response_status_code, http_request_method, http_route)",
+          "expr": "sum(http_server_request_body_size_bytes_sum{job=~\"$job\"}) by (http_response_status_code, http_request_method, http_route)",
           "legendFormat": "{{http_request_method}} {{http_route}} {{http_response_status_code}}",
           "range": true,
           "refId": "A"
@@ -1280,7 +1520,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 25
+        "y": 28
       },
       "id": 35,
       "options": {
@@ -1289,7 +1529,7 @@
         "frameIndex": 1,
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1297,7 +1537,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{instance=~\"$instance\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{job=~\"$job\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "interval": "1",
@@ -1380,14 +1620,14 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 25
+        "y": 28
       },
       "id": 36,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1396,7 +1636,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{instance=~\"$instance\", http_response_status_code=~\"^[23]..$\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{http_response_status_code=~\"^[23]..$\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "interval": "1",
@@ -1477,14 +1717,14 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 25
+        "y": 28
       },
       "id": 37,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1493,7 +1733,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{instance=~\"$instance\", http_response_status_code=~\"^[54]..$\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_sum{http_response_status_code=~\"^[54]..$\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "interval": "1",
@@ -1574,14 +1814,14 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 31
+        "y": 34
       },
       "id": 38,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1590,7 +1830,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_count{instance=~\"$instance\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_count{job=~\"$job\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{http_route}}",
@@ -1670,14 +1910,14 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 31
+        "y": 34
       },
       "id": 39,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1686,7 +1926,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^[23]..$\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_count{http_response_status_code=~\"^[23]..$\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{http_route}}",
@@ -1766,14 +2006,14 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 31
+        "y": 34
       },
       "id": 40,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
-      "pluginVersion": "12.4.1",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -1782,7 +2022,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "topk(5, sum(http_server_request_duration_seconds_count{instance=~\"$instance\", http_response_status_code=~\"^[54]..$\"}) by (http_route))",
+          "expr": "topk(5, sum(http_server_request_duration_seconds_count{http_response_status_code=~\"^[54]..$\"}) by (http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "{{http_route}}",
@@ -1824,7 +2064,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 40
       },
       "id": 9,
       "panels": [
@@ -1893,7 +2133,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 40
+            "y": 41
           },
           "id": 13,
           "options": {
@@ -1913,7 +2153,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -1921,7 +2161,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_sys_bytes{job=~\"$job\"})",
               "legendFormat": "{{instance}} (avg)",
               "range": true,
               "refId": "AVG"
@@ -1932,7 +2172,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}} (deriv)",
               "range": true,
@@ -2008,7 +2248,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 40
+            "y": 41
           },
           "id": 14,
           "options": {
@@ -2028,7 +2268,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2036,7 +2276,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_stack_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_stack_sys_bytes{job=~\"$job\"})",
               "legendFormat": "{{instance}}: stack in use (avg)",
               "range": true,
               "refId": "AVG"
@@ -2047,7 +2287,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_stack_inuse_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_stack_inuse_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: stack in use (deriv)",
               "range": true,
@@ -2123,7 +2363,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 48
+            "y": 49
           },
           "id": 15,
           "options": {
@@ -2143,7 +2383,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2151,7 +2391,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_mspan_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_mspan_sys_bytes{job=~\"$job\"})",
               "legendFormat": "{{instance}}: mspan (avg)",
               "range": true,
               "refId": "MSPAN (AVG)"
@@ -2162,7 +2402,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_mspan_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_mspan_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: mspan (deriv)",
               "range": true,
@@ -2174,7 +2414,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_mcache_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_mcache_sys_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: mcache (avg)",
               "range": true,
@@ -2186,7 +2426,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_mcache_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_mcache_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: mcache (deriv)",
               "range": true,
@@ -2198,7 +2438,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_buck_hash_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_buck_hash_sys_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: buck hash (avg)",
               "range": true,
@@ -2210,7 +2450,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_buck_hash_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_buck_hash_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: buck hash (deriv)",
               "range": true,
@@ -2222,7 +2462,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_gc_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_gc_sys_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: gc (avg)",
               "range": true,
@@ -2234,7 +2474,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_gc_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_gc_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: gc (deriv)",
               "range": true,
@@ -2306,7 +2546,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 48
+            "y": 49
           },
           "id": 16,
           "options": {
@@ -2326,7 +2566,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2334,7 +2574,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_heap_sys_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_heap_sys_bytes{job=~\"$job\"})",
               "legendFormat": "{{instance}}: heap reserved (avg)",
               "range": true,
               "refId": "SYS (AVG)"
@@ -2345,7 +2585,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_heap_sys_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_heap_sys_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: heap reserved (deriv)",
               "range": true,
@@ -2357,7 +2597,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_heap_inuse_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_heap_inuse_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: heap in use (avg)",
               "range": true,
@@ -2369,7 +2609,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_heap_inuse_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_heap_inuse_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: heap in use (deriv)",
               "range": true,
@@ -2381,7 +2621,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_heap_alloc_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_heap_alloc_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: heap alloc (avg)",
               "range": true,
@@ -2393,7 +2633,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_heap_alloc_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_heap_alloc_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: heap alloc (deriv)",
               "range": true,
@@ -2405,7 +2645,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_heap_idle_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_heap_idle_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: heap idle (avg)",
               "range": true,
@@ -2417,7 +2657,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_heap_idle_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_heap_idle_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: heap idle (deriv)",
               "range": true,
@@ -2429,7 +2669,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_heap_released_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_heap_released_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: heap released (avg)",
               "range": true,
@@ -2441,7 +2681,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(go_memstats_heap_released_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(go_memstats_heap_released_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: heap released (deriv)",
               "range": true,
@@ -2517,7 +2757,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 56
+            "y": 57
           },
           "id": 44,
           "options": {
@@ -2533,7 +2773,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2541,7 +2781,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "rate(go_memstats_mallocs_total{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "rate(go_memstats_mallocs_total{job=~\"$job\"}[$__rate_interval])",
               "legendFormat": "{{instance}}",
               "range": true,
               "refId": "A"
@@ -2616,7 +2856,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 56
+            "y": 57
           },
           "id": 45,
           "options": {
@@ -2632,7 +2872,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2640,7 +2880,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "rate(go_memstats_frees_total{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "rate(go_memstats_frees_total{job=~\"$job\"}[$__rate_interval])",
               "legendFormat": "{{instance}}",
               "range": true,
               "refId": "A"
@@ -2715,7 +2955,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 64
+            "y": 65
           },
           "id": 17,
           "options": {
@@ -2735,7 +2975,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2743,7 +2983,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(rate(go_memstats_alloc_bytes_total{instance=~\"$instance\"}[$__rate_interval]))",
+              "expr": "avg by(instance)(rate(go_memstats_alloc_bytes_total{job=~\"$job\"}[$__rate_interval]))",
               "legendFormat": "{{instance}}: bytes malloced/s (avg)",
               "range": true,
               "refId": "A"
@@ -2818,7 +3058,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 64
+            "y": 65
           },
           "id": 18,
           "options": {
@@ -2838,7 +3078,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2846,7 +3086,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "rate(go_memstats_mallocs_total{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "rate(go_memstats_mallocs_total{job=~\"$job\"}[$__rate_interval])",
               "legendFormat": "{{instance}}: obj mallocs/s",
               "range": true,
               "refId": "A"
@@ -2921,7 +3161,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 72
+            "y": 73
           },
           "id": 19,
           "options": {
@@ -2941,7 +3181,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -2949,7 +3189,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(\n    go_memstats_mallocs_total{instance=~\"$instance\"}\n    - go_memstats_frees_total{instance=~\"$instance\"}\n)",
+              "expr": "avg by(instance)(\n    go_memstats_mallocs_total{job=~\"$job\"}\n    - go_memstats_frees_total{job=~\"$job\"}\n)",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
@@ -3024,7 +3264,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 72
+            "y": 73
           },
           "id": 23,
           "options": {
@@ -3040,7 +3280,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3048,7 +3288,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(process_resident_memory_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(process_resident_memory_bytes{job=~\"$job\"})",
               "legendFormat": "{{instance}}: resident memory (avg)",
               "range": true,
               "refId": "RESIDENT AVG"
@@ -3059,7 +3299,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(hypr_process_resident_memory_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(hypr_process_resident_memory_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: resident memory (deriv)",
               "range": true,
@@ -3071,7 +3311,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(hypr_process_virtual_memory_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(hypr_process_virtual_memory_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: virtual memory (avg)",
               "range": true,
@@ -3083,7 +3323,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(hypr_process_virtual_memory_bytes{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(hypr_process_virtual_memory_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: virtual memory (deriv)",
               "range": true,
@@ -3103,7 +3343,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 41
       },
       "id": 10,
       "panels": [
@@ -3174,7 +3414,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 81
+            "y": 42
           },
           "id": 20,
           "options": {
@@ -3190,7 +3430,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3198,7 +3438,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_gc_duration_seconds{quantile=\"0\", instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_gc_duration_seconds{quantile=\"0\"})",
               "legendFormat": "{{instance}}: min gc time (avg)",
               "range": true,
               "refId": "MIN"
@@ -3209,7 +3449,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_gc_duration_seconds{quantile=\"1\", instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_gc_duration_seconds{quantile=\"1\"})",
               "instant": false,
               "legendFormat": "{{instance}}: max gc time (avg)",
               "range": true,
@@ -3221,7 +3461,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_gc_duration_seconds{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_gc_duration_seconds{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: gc duration (avg)",
               "range": true,
@@ -3297,7 +3537,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 81
+            "y": 42
           },
           "id": 21,
           "options": {
@@ -3317,7 +3557,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3325,7 +3565,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(go_memstats_next_gc_bytes{instance=~\"$instance\"})",
+              "expr": "avg by(instance)(go_memstats_next_gc_bytes{job=~\"$job\"})",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
@@ -3400,7 +3640,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 89
+            "y": 50
           },
           "id": 43,
           "options": {
@@ -3416,7 +3656,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3424,7 +3664,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "rate(go_gc_duration_seconds_sum{instance=~\"$instance\"}[$__rate_interval]) / rate(go_gc_duration_seconds_count{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "rate(go_gc_duration_seconds_sum{job=~\"$job\"}[$__rate_interval]) / rate(go_gc_duration_seconds_count{job=~\"$job\"}[$__rate_interval])",
               "legendFormat": "{{instance}} avg duration",
               "range": true,
               "refId": "A"
@@ -3508,7 +3748,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 89
+            "y": 50
           },
           "id": 22,
           "options": {
@@ -3524,7 +3764,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3532,7 +3772,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg(go_memstats_lookups_total{instance=~\"$instance\"}) by (instance)",
+              "expr": "avg(go_memstats_lookups_total{job=~\"$job\"}) by (instance)",
               "legendFormat": "{{instance}}: pointer deferences (avg)",
               "range": true,
               "refId": "A"
@@ -3551,7 +3791,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 42
       },
       "id": 26,
       "panels": [
@@ -3620,7 +3860,7 @@
             "h": 8,
             "w": 17,
             "x": 0,
-            "y": 82
+            "y": 43
           },
           "id": 27,
           "options": {
@@ -3636,7 +3876,7 @@
               "sort": "none"
             }
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3644,7 +3884,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg(process_open_fds{instance=~\"$instance\"}) by (instance)",
+              "expr": "avg(process_open_fds{job=~\"$job\"}) by (instance)",
               "legendFormat": "{{instance}} (avg)",
               "range": true,
               "refId": "AVG"
@@ -3655,7 +3895,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(process_open_fds{instance=~\"$instance\"}[$__rate_interval])",
+              "expr": "deriv(process_open_fds{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}} (deriv)",
               "range": true,
@@ -3703,7 +3943,7 @@
             "h": 8,
             "w": 7,
             "x": 17,
-            "y": 82
+            "y": 43
           },
           "id": 28,
           "options": {
@@ -3721,7 +3961,7 @@
             "showThresholdMarkers": true,
             "sizing": "auto"
           },
-          "pluginVersion": "12.4.1",
+          "pluginVersion": "12.4.4",
           "targets": [
             {
               "datasource": {
@@ -3729,7 +3969,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg(process_open_fds{instance=~\"$instance\"}) by (instance)",
+              "expr": "avg(process_open_fds{job=~\"$job\"}) by (instance)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -3741,7 +3981,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg(process_max_fds{instance=~\"$instance\"}) by (instance)",
+              "expr": "avg(process_max_fds{job=~\"$job\"}) by (instance)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -3835,24 +4075,27 @@
         "type": "query"
       },
       {
-        "current": {},
+        "current": {
+          "text": [
+            "maintmode-deploy-maintmode-21"
+          ],
+          "value": [
+            "maintmode-deploy-maintmode-21"
+          ]
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "vm_ds"
         },
-        "definition": "label_values({job=\"$job\"},instance)",
+        "definition": "query_result(up{job=\"$job\"} == 1)",
         "description": "",
         "label": "Instance",
         "multi": true,
         "name": "instance",
         "options": [],
-        "query": {
-          "qryType": 1,
-          "query": "label_values({job=\"$job\"},instance)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
+        "query": "query_result(up{job=\"$job\"} == 1)",
         "refresh": 2,
-        "regex": "",
+        "regex": "/instance=\"(?<value>[^\"]+)\"/",
         "regexApplyTo": "value",
         "type": "query"
       },
@@ -3956,6 +4199,6 @@
   "timezone": "browser",
   "title": "Golang Monitoring - Echo",
   "uid": "een1r1w7eo6bke",
-  "version": 1,
+  "version": 12,
   "weekStart": ""
 }

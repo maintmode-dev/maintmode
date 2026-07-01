@@ -41,6 +41,23 @@ groups:
           description: "Service {{ $labels.service_name }} is returning more than 5% 5xx responses over the last 5 minutes."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#highhttp5xxrate"
 
+      - alert: MaintmodeCrashLooping
+        # process_start_time_seconds resets on every process (re)start, so
+        # changes() over a window counts restarts. A healthy rolling deploy
+        # restarts each replica ONCE; several restarts in a few minutes means a
+        # crash loop or a deploy that keeps failing its health check and being
+        # recreated. Counted per instance so one flapping replica is enough.
+        # for: 30s so a single planned restart (changes briefly = 1, not > 3)
+        # never trips it, but a genuine loop fires fast.
+        expr: changes(process_start_time_seconds{job=~"maintmode"}[5m]) > 3
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} is crash-looping / redeploying repeatedly"
+          description: "{{ $labels.instance }} has restarted {{ $value }} times in the last 5 minutes. A rolling deploy restarts a replica once — repeated restarts mean a crash loop or a deploy failing its readiness check. Check the container logs and the last deploy."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintmodecrashlooping"
+
   - name: maintmode.audit
     interval: 30s
     rules:
