@@ -10,13 +10,19 @@ clients:
 
 scrape_configs:
   # Сбор логов из всех Docker контейнеров
-  # service_name автоматически извлекается из com.docker.compose.service
   - job_name: docker-containers
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
     relabel_configs:
-      # Извлекаем имя контейнера
+      # service_name = docker-compose service (стабильное имя, БЕЗ номера
+      # реплики). Иначе Loki сам выводит service_name из имени контейнера
+      # (maintmode-deploy-maintmode-25), которое меняется на каждом редеплое и
+      # не совпадает с service_name="maintmode" в метриках. Ставим явно из
+      # лейбла com.docker.compose.service, чтобы логи и метрики совпадали.
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service_name
+      # Извлекаем имя контейнера (конкретная реплика — для точечного дебага)
       - source_labels: [__meta_docker_container_name]
         regex: '/(.*)'
         target_label: container_name

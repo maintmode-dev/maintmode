@@ -3,7 +3,6 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -15,7 +14,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": null,
   "links": [],
   "panels": [
     {
@@ -78,17 +76,17 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=~\"new\"}[$rate_interval]))",
-          "range": true,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=~\"new\"}[$rate_interval]))",
+          "range": true,
+          "refId": "A"
         }
       ],
       "title": "New rate [q95]",
@@ -141,18 +139,18 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
           "editorMode": "code",
           "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=\"done\"}[$rate_interval]))",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm_ds"
-          }
+          "refId": "A"
         }
       ],
       "title": "Success [q95]",
@@ -225,17 +223,17 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=~\"attempts_left|error\"}[$rate_interval]))",
-          "range": true,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=~\"attempts_left|error\"}[$rate_interval]))",
+          "range": true,
+          "refId": "A"
         }
       ],
       "title": "Error rate [q95]",
@@ -293,17 +291,17 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "sum(increase(goque_payload_decode_errors_total{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "range": true,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(goque_payload_decode_errors_total{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
+          "range": true,
+          "refId": "A"
         }
       ],
       "title": "Payload Decode Errors",
@@ -357,17 +355,17 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "range": true,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])))",
+          "range": true,
+          "refId": "A"
         }
       ],
       "title": "Processing Duration [q95]",
@@ -544,18 +542,18 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
           "editorMode": "code",
           "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])) by (status)",
           "legendFormat": "{{status}}",
           "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm_ds"
-          }
+          "refId": "A"
         }
       ],
       "title": "Task Processing",
@@ -579,8 +577,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -641,18 +639,18 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, task_type) (goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "legendFormat": "{{task_type}}",
-          "range": true,
-          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, task_type) (rate(goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])))",
+          "legendFormat": "{{task_type}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Task Processing Duration [q95]",
@@ -775,7 +773,7 @@
         "sizing": "auto",
         "valueMode": "color"
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -784,22 +782,20 @@
           },
           "editorMode": "code",
           "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=\"new\"}[$rate_interval]))",
-          "hide": false,
           "legendFormat": "new",
           "range": true,
           "refId": "B"
         },
         {
-          "editorMode": "code",
-          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=\"done\"}[$rate_interval]))",
-          "hide": false,
-          "legendFormat": "done",
-          "range": true,
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=\"done\"}[$rate_interval]))",
+          "legendFormat": "done",
+          "range": true,
+          "refId": "A"
         },
         {
           "datasource": {
@@ -808,7 +804,6 @@
           },
           "editorMode": "code",
           "expr": "sum(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\", status=~\"attempts_left|error\"}[$rate_interval]))",
-          "hide": false,
           "instant": false,
           "legendFormat": "error",
           "range": true,
@@ -870,7 +865,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
           "datasource": {
@@ -878,8 +873,7 @@
             "uid": "vm_ds"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, task_type) (goque_task_retry_attempts_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "hide": false,
+          "expr": "histogram_quantile(0.95, sum by (le, task_type) (rate(goque_task_retry_attempts_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])))",
           "instant": false,
           "legendFormat": "Retry attempts",
           "range": true,
@@ -938,18 +932,18 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
           "editorMode": "code",
           "expr": "sum by (task_type) (goque_processors_workers_count{service_name=\"$service\", task_type=~\"$processor\"}[$__range])",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm_ds"
-          }
+          "refId": "A"
         }
       ],
       "title": "Workers",
@@ -1030,21 +1024,6 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/.*done.*/"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
               "options": "/.*new.*/"
             },
             "properties": [
@@ -1054,10 +1033,29 @@
                   "fixedColor": "yellow",
                   "mode": "fixed"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*done.*/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
               },
               {
                 "id": "custom.axisPlacement",
                 "value": "right"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 100
               }
             ]
           },
@@ -1118,18 +1116,18 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
           "editorMode": "code",
           "expr": "sum by (task_type, status)(increase(goque_processed_tasks_total{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
           "legendFormat": "{{status}}",
           "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm_ds"
-          }
+          "refId": "A"
         }
       ],
       "title": "Task Processing",
@@ -1153,8 +1151,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -1216,18 +1214,18 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, task_type) (goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, task_type) (rate(goque_task_processing_duration_seconds_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])))",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Task Processing Duration [q95)",
@@ -1251,8 +1249,8 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 94,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -1314,19 +1312,18 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0",
+      "pluginVersion": "12.4.4",
       "targets": [
         {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, task_type)(goque_task_payload_size_bytes_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
-          "hide": false,
-          "legendFormat": "{{task_type}}",
-          "range": true,
-          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "vm_ds"
-          }
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, task_type)(rate(goque_task_payload_size_bytes_bucket{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval])))",
+          "legendFormat": "{{task_type}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Task Payload Size [q95]",
@@ -1338,7 +1335,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 89
+        "y": 71
       },
       "id": 15,
       "panels": [
@@ -1407,7 +1404,7 @@
             "h": 9,
             "w": 24,
             "x": 0,
-            "y": 277
+            "y": 313
           },
           "id": 17,
           "maxPerRow": 4,
@@ -1434,15 +1431,15 @@
           "repeatDirection": "h",
           "targets": [
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "vm_ds"
+              },
               "editorMode": "code",
               "expr": "sum by (operation) (increase(goque_operations_total{service_name=\"$service\", task_type=~\"$processor\"}[$rate_interval]))",
               "legendFormat": "__auto",
               "range": true,
-              "refId": "A",
-              "datasource": {
-                "type": "prometheus",
-                "uid": "vm_ds"
-              }
+              "refId": "A"
             }
           ],
           "title": "Internal process: $processor",
@@ -1471,43 +1468,24 @@
         },
         "includeAll": false,
         "name": "rate_interval",
-        "options": [
-          {
-            "selected": false,
-            "text": "10s",
-            "value": "10s"
-          },
-          {
-            "selected": true,
-            "text": "30s",
-            "value": "30s"
-          },
-          {
-            "selected": false,
-            "text": "1m",
-            "value": "1m"
-          },
-          {
-            "selected": false,
-            "text": "5m",
-            "value": "5m"
-          },
-          {
-            "selected": false,
-            "text": "10m",
-            "value": "10m"
-          }
-        ],
+        "options": [],
         "query": "10s,30s,1m,5m,10m",
-        "type": "custom"
+        "type": "custom",
+        "valuesFormat": "csv"
       },
       {
         "allowCustomValue": false,
         "current": {
-          "text": "All",
+          "text": [
+            "All"
+          ],
           "value": [
             "$__all"
           ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "vm_ds"
         },
         "definition": "label_values(goque_processed_tasks_total{service_name=\"$service\"},task_type)",
         "includeAll": true,
@@ -1521,15 +1499,19 @@
         },
         "refresh": 1,
         "regex": "",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "vm_ds"
-        }
+        "regexApplyTo": "value",
+        "type": "query"
       },
       {
         "allowCustomValue": false,
-        "current": {},
+        "current": {
+          "text": "maintmode",
+          "value": "maintmode"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "vm_ds"
+        },
         "definition": "label_values(goque_processed_tasks_total,service_name)",
         "name": "service",
         "options": [],
@@ -1540,21 +1522,19 @@
         },
         "refresh": 1,
         "regex": "",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "vm_ds"
-        }
+        "regexApplyTo": "value",
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "browser",
   "title": "Goque Queue Metrics",
   "uid": "goque-metrics",
-  "version": 24
+  "version": 10,
+  "weekStart": ""
 }

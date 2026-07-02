@@ -453,7 +453,12 @@ services:
       - "--notifier.url=http://alertmanager:9093"
       - "--httpListenAddr=:8880"
       - "--evaluationInterval=30s"
-      - "--external.label=env=dev"
+      # env=local: this compose.yaml is the LOCAL dev-machine stack. Tag alerts
+      # env=local so alertmanager routes them to the local topic (thread 18),
+      # NOT the dev-VM topic — local noise (e.g. caddy not running locally) must
+      # not mix with real dev-VM alerts. The dev VM sets env=dev in the deploy
+      # repo's compose.dev.yaml; prod sets env=prod in compose.prod.yaml.
+      - "--external.label=env=local"
     depends_on:
       - victoria-metrics
       - alertmanager

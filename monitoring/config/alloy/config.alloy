@@ -50,6 +50,14 @@ pyroscope.scrape "maintmode_app" {
 	targets    = discovery.relabel.maintmode.output
 	forward_to = [pyroscope.write.local_pyroscope.receiver]
 
+	// Как часто снимать профили с каждой реплики. Не заданы → дефолты Alloy:
+	// scrape_interval = 15s, scrape_timeout = 18s. 15s = профилирование почти
+	// непрерывное (CPU-профиль снимается окном ~10-15s), что даёт постоянную
+	// небольшую нагрузку на приложение и растит объём в Pyroscope при многих
+	// репликах. Раскомментируй и увеличь (напр. 60s), если нужно реже/дешевле.
+	// scrape_interval = "15s"
+	// scrape_timeout  = "18s"
+
 	// Собираем все типы профилей: CPU, память, горутины, block, mutex.
 	profiling_config {
 		profile.process_cpu { enabled = true }

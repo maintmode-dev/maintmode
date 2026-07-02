@@ -10,8 +10,9 @@
 # (dev in base compose.yaml, prod in compose.app.prod.yaml), and the
 # top-level route dispatches on that label:
 #
-#   env=dev  -> telegram-dev  -> message_thread_id 3
-#   env=prod -> telegram-prod -> message_thread_id 2
+#   env=dev   -> telegram-dev   -> message_thread_id 3
+#   env=prod  -> telegram-prod  -> message_thread_id 2
+#   env=local -> telegram-local -> message_thread_id 18  (dev running locally)
 #
 # The two real receivers share everything except the thread id. To
 # keep the common bits in one place, this file defines a sentinel
@@ -59,6 +60,18 @@ route:
         - matchers:
             - severity = "critical"
           receiver: telegram-dev
+          repeat_interval: 1h
+    # env=local — a developer running the full stack on their machine (vmalert
+    # tagged env=local). Kept OUT of the dev topic so local noise (e.g. caddy
+    # not up locally) never mixes with real dev-VM alerts. Goes to its own
+    # topic (thread 18) in the same supergroup.
+    - matchers:
+        - env = "local"
+      receiver: telegram-local
+      routes:
+        - matchers:
+            - severity = "critical"
+          receiver: telegram-local
           repeat_interval: 1h
 
 receivers:
@@ -116,3 +129,8 @@ receivers:
     telegram_configs:
       - <<: *telegram_base
         message_thread_id: 3
+
+  - name: telegram-local
+    telegram_configs:
+      - <<: *telegram_base
+        message_thread_id: 18

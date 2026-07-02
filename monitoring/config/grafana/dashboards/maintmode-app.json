@@ -391,7 +391,7 @@
           },
           "fieldMinMax": true,
           "mappings": [],
-          "min": 1,
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -438,9 +438,23 @@
           "editorMode": "code",
           "expr": "process_start_time_seconds{job=~\"$job\"}[$__interval]",
           "format": "time_series",
+          "hide": true,
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "vm_ds"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "target_info{job=~\"$job\"}[$__interval]",
+          "instant": false,
+          "legendFormat": "{{service_version}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "",
@@ -4077,10 +4091,10 @@
       {
         "current": {
           "text": [
-            "maintmode-deploy-maintmode-22"
+            "maintmode-deploy-maintmode-25"
           ],
           "value": [
-            "maintmode-deploy-maintmode-22"
+            "maintmode-deploy-maintmode-25"
           ]
         },
         "datasource": {
@@ -4199,6 +4213,6 @@
   "timezone": "browser",
   "title": "Golang Monitoring - Echo",
   "uid": "een1r1w7eo6bke",
-  "version": 14,
+  "version": 15,
   "weekStart": ""
 }
