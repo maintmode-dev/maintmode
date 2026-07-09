@@ -34,7 +34,9 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrStepOrderViolation),
 		errors.Is(err, apperr.ErrForbiddenStepStatusTransition),
 		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps),
-		errors.Is(err, apperr.ErrInvalidRole):
+		errors.Is(err, apperr.ErrInvalidRole),
+		errors.Is(err, apperr.ErrIntegrationNotFound),
+		errors.Is(err, apperr.ErrIntegrationConflict):
 		statusCode, errResp = mapError(err)
 	// auth domain errors
 	case errors.Is(err, apperr.ErrLockBusy),
@@ -98,8 +100,12 @@ func mapError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrMaintNotFound),
 		errors.Is(err, apperr.ErrUserNotFound),
 		errors.Is(err, apperr.ErrResourceNotFound),
-		errors.Is(err, apperr.ErrNotifyChannelNotFound):
+		errors.Is(err, apperr.ErrNotifyChannelNotFound),
+		errors.Is(err, apperr.ErrIntegrationNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
+
+	case errors.Is(err, apperr.ErrIntegrationConflict):
+		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
 
 	case errors.Is(err, apperr.ErrForbiddenMaintStatusTransition):
 		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())

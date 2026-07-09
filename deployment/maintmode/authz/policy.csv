@@ -31,3 +31,5 @@ p, admin, auth.roles.manage, execute
 p, admin, auth.audit.read, execute
 p, admin, auth.users.read, execute
 p, admin, auth.users.manage, execute
+p, admin, integration.read, execute
+p, admin, integration.manage, execute

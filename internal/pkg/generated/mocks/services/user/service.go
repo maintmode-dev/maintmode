@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	uuid "github.com/google/uuid"
+	audit "github.com/ruko1202/maintmode/internal/audit"
 	entity "github.com/ruko1202/maintmode/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -373,6 +374,68 @@ func (c *MockUsersStoreUpdateCall) Do(f func(context.Context, *entity.User) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUsersStoreUpdateCall) DoAndReturn(f func(context.Context, *entity.User) error) *MockUsersStoreUpdateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockAuditPublisher is a mock of AuditPublisher interface.
+type MockAuditPublisher struct {
+	ctrl     *gomock.Controller
+	recorder *MockAuditPublisherMockRecorder
+	isgomock struct{}
+}
+
+// MockAuditPublisherMockRecorder is the mock recorder for MockAuditPublisher.
+type MockAuditPublisherMockRecorder struct {
+	mock *MockAuditPublisher
+}
+
+// NewMockAuditPublisher creates a new mock instance.
+func NewMockAuditPublisher(ctrl *gomock.Controller) *MockAuditPublisher {
+	mock := &MockAuditPublisher{ctrl: ctrl}
+	mock.recorder = &MockAuditPublisherMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAuditPublisher) EXPECT() *MockAuditPublisherMockRecorder {
+	return m.recorder
+}
+
+// Publish mocks base method.
+func (m *MockAuditPublisher) Publish(ctx context.Context, action audit.Action) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Publish", ctx, action)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Publish indicates an expected call of Publish.
+func (mr *MockAuditPublisherMockRecorder) Publish(ctx, action any) *MockAuditPublisherPublishCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockAuditPublisher)(nil).Publish), ctx, action)
+	return &MockAuditPublisherPublishCall{Call: call}
+}
+
+// MockAuditPublisherPublishCall wrap *gomock.Call
+type MockAuditPublisherPublishCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuditPublisherPublishCall) Return(arg0 error) *MockAuditPublisherPublishCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuditPublisherPublishCall) Do(f func(context.Context, audit.Action) error) *MockAuditPublisherPublishCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuditPublisherPublishCall) DoAndReturn(f func(context.Context, audit.Action) error) *MockAuditPublisherPublishCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

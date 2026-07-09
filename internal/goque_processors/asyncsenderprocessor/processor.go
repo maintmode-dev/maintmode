@@ -9,7 +9,7 @@ import (
 
 // NewTaskProcessor returns the goque TaskProcessor that delivers async/delayed messages
 func NewTaskProcessor(
-	notifyTransportRegistry *notifytransport.Registry,
+	notifyTransportRegistry notifytransport.TransportResolver,
 ) goque.TaskProcessor {
 	return goque.NewTypedTaskProcessor[entity.ProcessorTaskPayloadEventNotify](
 		newQueueProcessorProcessor(notifyTransportRegistry),
@@ -18,10 +18,10 @@ func NewTaskProcessor(
 }
 
 type queueProcessor struct {
-	notifyTransportRegistry *notifytransport.Registry
+	notifyTransportRegistry notifytransport.TransportResolver
 }
 
-func newQueueProcessorProcessor(notifyTransportRegistry *notifytransport.Registry) *queueProcessor {
+func newQueueProcessorProcessor(notifyTransportRegistry notifytransport.TransportResolver) *queueProcessor {
 	return &queueProcessor{
 		notifyTransportRegistry: notifyTransportRegistry,
 	}

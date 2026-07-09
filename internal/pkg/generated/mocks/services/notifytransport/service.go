@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	entity "github.com/ruko1202/maintmode/internal/entity"
+	notifytransport "github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -113,6 +114,69 @@ func (c *MockTransportTransportIDCall) Do(f func() entity.NotifyTransport) *Mock
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockTransportTransportIDCall) DoAndReturn(f func() entity.NotifyTransport) *MockTransportTransportIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockTransportResolver is a mock of TransportResolver interface.
+type MockTransportResolver struct {
+	ctrl     *gomock.Controller
+	recorder *MockTransportResolverMockRecorder
+	isgomock struct{}
+}
+
+// MockTransportResolverMockRecorder is the mock recorder for MockTransportResolver.
+type MockTransportResolverMockRecorder struct {
+	mock *MockTransportResolver
+}
+
+// NewMockTransportResolver creates a new mock instance.
+func NewMockTransportResolver(ctrl *gomock.Controller) *MockTransportResolver {
+	mock := &MockTransportResolver{ctrl: ctrl}
+	mock.recorder = &MockTransportResolverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTransportResolver) EXPECT() *MockTransportResolverMockRecorder {
+	return m.recorder
+}
+
+// Get mocks base method.
+func (m *MockTransportResolver) Get(ctx context.Context, name entity.NotifyTransport) (notifytransport.Transport, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx, name)
+	ret0, _ := ret[0].(notifytransport.Transport)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockTransportResolverMockRecorder) Get(ctx, name any) *MockTransportResolverGetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTransportResolver)(nil).Get), ctx, name)
+	return &MockTransportResolverGetCall{Call: call}
+}
+
+// MockTransportResolverGetCall wrap *gomock.Call
+type MockTransportResolverGetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTransportResolverGetCall) Return(arg0 notifytransport.Transport, arg1 error) *MockTransportResolverGetCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTransportResolverGetCall) Do(f func(context.Context, entity.NotifyTransport) (notifytransport.Transport, error)) *MockTransportResolverGetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTransportResolverGetCall) DoAndReturn(f func(context.Context, entity.NotifyTransport) (notifytransport.Transport, error)) *MockTransportResolverGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

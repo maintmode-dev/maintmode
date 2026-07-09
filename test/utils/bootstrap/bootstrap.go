@@ -44,10 +44,7 @@ func InitServicesT(
 ) *bootstrap.Services {
 	t.Helper()
 
-	gateways, err := bootstrap.NewGateways(cfg)
-	require.NoError(t, err)
-
-	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, redis), gateways)
+	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, redis))
 	require.NoError(t, err)
 
 	return services

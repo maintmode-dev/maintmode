@@ -26,14 +26,13 @@ func NewTaskProcessors(
 	cfg config.TaskProcessorConfig,
 	stores *Stores,
 	services *Services,
-	gateways *Gateways,
 ) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
 	reg := newProcessorRegistrar(goq)
 
 	reg.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
-		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
+		asyncsenderprocessor.NewTaskProcessor(services.TransportResolver),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)
@@ -89,7 +88,7 @@ func NewTaskProcessors(
 	// preserves the registry-routing boundary and lets the owner map stay explicit.
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
-		asyncsenderprocessor.NewTaskProcessor(gateways.NotifyTransportRegistry),
+		asyncsenderprocessor.NewTaskProcessor(services.TransportResolver),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)

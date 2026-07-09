@@ -63,10 +63,7 @@ func initImpl(t *testing.T) *Implementation {
 	stores, err := bootstrap.NewStores(db, redis)
 	require.NoError(t, err)
 
-	gateways, err := bootstrap.NewGateways(cfg)
-	require.NoError(t, err)
-
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores, gateways)
+	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)
 
 	return New(services.User)

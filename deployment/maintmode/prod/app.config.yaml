@@ -111,34 +111,11 @@ jwt:
 # create channels via POST /api/v1/notifications/channels so they are
 # consistent across all instances without a restart.
 notify_transport:
-  slack:
-    enabled: true
-    bot_token: <secret:messengers/slack/bot_token>
-    # api_url overrides the default Slack API base URL.
-    # Leave empty in production;
-    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
-    api_url: ""
-    timeout: 10s
-  telegram:
-    enabled: true
-    bot_token: <secret:messengers/telegram/bot_token>
-    # api_url overrides the default Telegram Bot API base URL.
-    # Leave empty in production;
-    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
-    api_url: ""
-    timeout: 10s
-  email:
-    # SMTP delivery for invitation emails. host/from must point at the real
-    # provider; credentials come from secrets, never inline.
-    enabled: true
-    host: <secret:messengers/email/host>
-    port: 587
-    username: <secret:messengers/email/username>
-    password: <secret:messengers/email/password>
-    from: <secret:messengers/email/from>
-    reply_to: ""
-    tls_policy: "mandatory"
-    timeout: 10s
+  # Per-transport credentials (Slack/Telegram/SMTP) now live in the DB-backed
+  # integration registry (RUK-196) — an admin configures and enables each
+  # transport at runtime via POST /api/v1/integrations, no redeploy. In prod the
+  # stub is never used; every delivery resolves the real transport from the DB.
+  use_stub: false
 
 task_processor:
   messaging:
@@ -157,3 +134,29 @@ task_processor:
     cron_spec: "0 3 * * *"
     retention: 8760h
     batch_limit: 1000
+
+# crypto addresses the master key (KEK) that wraps the data-encryption keys
+# protecting integration secrets at rest. A KEK is addressed by URI:
+# local-kms://<id> is served from local_keys (URI -> hex-encoded 32-byte key);
+# a cloud KMS would point active_kek_uri at the provider URI (gcp-kms://...,
+# aws-kms://...) and wire that provider's KMSClient in bootstrap (the config
+# contract itself does not change).
+#
+# KEK rotation is TWO-PHASE (startup auto-re-wraps data_keys onto active_kek_uri,
+# so rollbacks matter):
+#   A. deploy: add "local-kms://prod-2" + its secret to local_keys, keep
+#      active_kek_uri on prod-1;
+#   B. deploy: flip active_kek_uri to prod-2 (boot re-wraps every DEK).
+# Rollback B -> A is self-healing (A knows prod-2 and re-wraps back). NEVER roll
+# back past A after B has booted: a config that has never seen prod-2 cannot
+# unwrap any DEK — integrations stay configured but every secret is unreadable
+# until the key is restored. Drop prod-1 from local_keys only after B is settled
+# and a rollback across the flip is impossible.
+#
+# The keyring fails fast on an empty/unsupported/weak KEK, so a bad value aborts
+# startup. The real KEK value is injected from the runtime-mounted secrets file
+# (never git).
+crypto:
+  active_kek_uri: local-kms://prod-1
+  local_keys:
+    "local-kms://prod-1": <secret:crypto/kek/prod-1>

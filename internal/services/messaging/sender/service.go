@@ -20,12 +20,12 @@ type taskScheduler interface {
 // registry, and SendAsync which enqueues a delivery task (of the caller's task
 // type) via the scheduler.
 type Service struct {
-	notifyTransportRegistry *notifytransport.Registry
+	notifyTransportRegistry notifytransport.TransportResolver
 	scheduler               taskScheduler
 }
 
 func NewService(
-	notifyTransportRegistry *notifytransport.Registry,
+	notifyTransportRegistry notifytransport.TransportResolver,
 	sched taskScheduler,
 ) *Service {
 	return &Service{

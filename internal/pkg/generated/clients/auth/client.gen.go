@@ -66,6 +66,8 @@ func (e ApimodelsRole) Valid() bool {
 
 // Defines values for EntityAuditAction.
 const (
+	AuditActionIntegrationCreated EntityAuditAction = "integration.created"
+	AuditActionIntegrationUpdated EntityAuditAction = "integration.updated"
 	AuditActionLoginFailed        EntityAuditAction = "login.failed"
 	AuditActionLoginSuccess       EntityAuditAction = "login.success"
 	AuditActionLogoutSuccess      EntityAuditAction = "logout.success"
@@ -86,6 +88,10 @@ const (
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
 func (e EntityAuditAction) Valid() bool {
 	switch e {
+	case AuditActionIntegrationCreated:
+		return true
+	case AuditActionIntegrationUpdated:
+		return true
 	case AuditActionLoginFailed:
 		return true
 	case AuditActionLoginSuccess:
@@ -123,6 +129,7 @@ func (e EntityAuditAction) Valid() bool {
 
 // Defines values for EntityAuditEntityType.
 const (
+	AuditEntityTypeIntegration EntityAuditEntityType = "integration"
 	AuditEntityTypeMaintenance EntityAuditEntityType = "maintenance"
 	AuditEntityTypeUser        EntityAuditEntityType = "user"
 )
@@ -130,6 +137,8 @@ const (
 // Valid indicates whether the value is a known member of the EntityAuditEntityType enum.
 func (e EntityAuditEntityType) Valid() bool {
 	switch e {
+	case AuditEntityTypeIntegration:
+		return true
 	case AuditEntityTypeMaintenance:
 		return true
 	case AuditEntityTypeUser:
@@ -255,6 +264,7 @@ type ApiauthmodelsAuditFacets struct {
 	All         *int `json:"all,omitempty"`
 	Auth        *int `json:"auth,omitempty"`
 	Block       *int `json:"block,omitempty"`
+	Integration *int `json:"integration,omitempty"`
 	Maintenance *int `json:"maintenance,omitempty"`
 	Roles       *int `json:"roles,omitempty"`
 }

@@ -23,7 +23,8 @@ const (
 func (t NotifyTransport) IsValid() bool {
 	switch t {
 	case NotifyTransportSlack,
-		NotifyTransportTelegram:
+		NotifyTransportTelegram,
+		NotifyTransportEmail:
 		return true
 	default:
 		return false

@@ -91,7 +91,7 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(taskStorage))
 	notifier, err := maintnotify.NewNotifier(
 		cfg,
-		messagesender.NewService(notifytransport.NewRegistry(cfg), taskScheduler),
+		messagesender.NewService(newStubResolver(), taskScheduler),
 		notifyTargetsStore,
 	)
 	require.NoError(t, err)
@@ -118,6 +118,13 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 		mocks.users,
 		mocks.auditPublisher,
 	), mocks
+}
+
+// newStubResolver builds the stub transport resolver: every Get short-circuits
+// to the stub transport, so these service tests never touch a real transport or
+// the DB-backed integration registry.
+func newStubResolver() notifytransport.TransportResolver {
+	return notifytransport.NewStubResolver()
 }
 
 // expectAnyApproverEligible stubs the user service so every approver-eligibility

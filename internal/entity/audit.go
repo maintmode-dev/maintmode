@@ -32,6 +32,11 @@ const (
 	AuditActionMaintStepStarted   AuditAction = "maintenance_step.started"
 	AuditActionMaintStepCompleted AuditAction = "maintenance_step.completed"
 	AuditActionMaintStepCanceled  AuditAction = "maintenance_step.canceled"
+
+	// Integration registry actions (RUK-196). The payload records the kind and
+	// enabled flag only — never secret values.
+	AuditActionIntegrationCreated AuditAction = "integration.created"
+	AuditActionIntegrationUpdated AuditAction = "integration.updated"
 )
 
 func (a AuditAction) IsValid() bool {
@@ -50,7 +55,9 @@ func (a AuditAction) IsValid() bool {
 		AuditActionMaintCanceled,
 		AuditActionMaintStepStarted,
 		AuditActionMaintStepCompleted,
-		AuditActionMaintStepCanceled:
+		AuditActionMaintStepCanceled,
+		AuditActionIntegrationCreated,
+		AuditActionIntegrationUpdated:
 		return true
 	default:
 		return false
@@ -62,6 +69,7 @@ type AuditEntityType string
 const (
 	AuditEntityTypeUser        AuditEntityType = "user"
 	AuditEntityTypeMaintenance AuditEntityType = "maintenance"
+	AuditEntityTypeIntegration AuditEntityType = "integration"
 )
 
 // AuditEntry представляет структурированную запись аудит-лога.
@@ -154,6 +162,7 @@ const (
 	AuditCategoryRoles       AuditCategory = "roles"
 	AuditCategoryBlock       AuditCategory = "block"
 	AuditCategoryMaintenance AuditCategory = "maintenance"
+	AuditCategoryIntegration AuditCategory = "integration"
 )
 
 var auditActionCategories = map[AuditAction]AuditCategory{
@@ -177,6 +186,9 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionMaintStepStarted:   AuditCategoryMaintenance,
 	AuditActionMaintStepCompleted: AuditCategoryMaintenance,
 	AuditActionMaintStepCanceled:  AuditCategoryMaintenance,
+
+	AuditActionIntegrationCreated: AuditCategoryIntegration,
+	AuditActionIntegrationUpdated: AuditCategoryIntegration,
 }
 
 // AuditActionCategory returns the facet category of action.
@@ -216,6 +228,7 @@ type AuditFacets struct {
 	Roles       int64
 	Block       int64
 	Maintenance int64
+	Integration int64
 }
 
 // AuditLogsPage is one page of audit log entries plus pagination/facet

@@ -41,11 +41,29 @@ func actor() *entity.User {
 	return &entity.User{ID: uuid.New(), Email: "actor@example.com", Name: "Actor"}
 }
 
+// uniqueFutureOffset returns a large, effectively-unique positive time offset so
+// a test can park its maintenance window where no other (parallel) test's window
+// overlaps it. Derived from a random uuid rather than wall-clock so it stays
+// distinct even across -count reruns within the same second.
+func uniqueFutureOffset() time.Duration {
+	b := uuid.New()
+	// 16 bits of the uuid → up to ~65535 distinct hour offsets, all >= a decade
+	// out so they never overlap the real-now windows other tests use.
+	slot := time.Duration(uint16(b[0])<<8|uint16(b[1])) * time.Hour
+	return 100000*time.Hour + slot
+}
+
 func TestAudit_PublishedPerMutation(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow()
+	// Park this test's maintenance window far in the future, at a per-run-unique
+	// offset. The approve subtest guards on a conflict fingerprint taken at
+	// preview vs. approve; a parallel GLOBAL-scope maintenance (created by other
+	// tests in this package) conflicts with ANY overlapping window regardless of
+	// resources, so sharing the real-now window with them races the fingerprint.
+	// A unique far-future window no parallel test overlaps removes the race.
+	now := xtime.UTCNow().Add(uniqueFutureOffset())
 
 	t.Run("start publishes MaintStarted with actor", func(t *testing.T) {
 		t.Parallel()

@@ -70,6 +70,7 @@ type AuditFacets struct {
 	Roles       int64 `json:"roles" example:"8"`
 	Block       int64 `json:"block" example:"1"`
 	Maintenance int64 `json:"maintenance" example:"17"`
+	Integration int64 `json:"integration" example:"3"`
 }
 
 type AuditLogResponse struct {

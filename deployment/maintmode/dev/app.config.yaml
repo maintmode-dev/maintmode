@@ -104,41 +104,10 @@ notify_transport:
   # use_stub=true routes every delivery to the in-memory stub
   # transport (deliveries logged, never sent). Dev has no real
   # Slack/Telegram credentials, so this is what lets maintenances be
-  # created with the now-required notify targets. The channel catalog
-  # itself lives in Postgres (messenger_channels) — create channels via
-  # POST /api/v1/notifications/channels, not via this config.
+  # created with the now-required notify targets. Per-transport
+  # credentials now live in the DB-backed integration registry
+  # (RUK-196) — configure them via POST /api/v1/integrations, not here.
   use_stub: true
-  slack:
-    enabled: false
-    bot_token: <secret:messengers/slack/bot_token>
-    # api_url overrides the default Slack API base URL.
-    # Leave empty in production;
-    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
-    api_url: ""
-    timeout: 10s
-  telegram:
-    enabled: false
-    bot_token: <secret:messengers/telegram/bot_token>
-    # api_url overrides the default Telegram Bot API base URL.
-    # Leave empty in production;
-    # set for integration tests, corporate proxies, or a self-hosted telegram-bot-api server.
-    api_url: ""
-    timeout: 10s
-  email:
-    # SMTP delivery for invitation emails. Disabled in dev — use_stub above
-    # routes deliveries to the in-memory stub so no real mail server is needed.
-    enabled: false
-    host: ""
-    port: 587
-    username: ""
-    password: <secret:messengers/email/password>
-    from: "noreply@maintmode.local"
-    reply_to: ""
-    # tls_policy: "mandatory" (default) | "opportunistic" | "none".
-    # "none" + empty username is the integration-test mode against an in-process
-    # SMTP server (the SMTP analogue of the slack/telegram api_url override).
-    tls_policy: "mandatory"
-    timeout: 10s
 
 task_processor:
   messaging:
@@ -160,3 +129,16 @@ task_processor:
     # 365 days. Rows older than this are deleted in batches.
     retention: 8760h
     batch_limit: 1000
+
+# crypto addresses the master key (KEK) that wraps the data-encryption keys
+# protecting integration secrets at rest. A KEK is addressed by URI:
+# local-kms://<id> is served from local_keys (URI -> hex-encoded 32-byte key);
+# a cloud KMS would point active_kek_uri at the provider URI (gcp-kms://...,
+# aws-kms://...) and wire that provider's KMSClient in bootstrap (the config
+# contract itself does not change). Retired KEKs
+# stay in local_keys so already-wrapped DEKs still unwrap during a rotation. The
+# keyring fails fast on an empty/unsupported/weak KEK, so a bad value aborts startup.
+crypto:
+  active_kek_uri: local-kms://dev-1
+  local_keys:
+    "local-kms://dev-1": <secret:crypto/kek/dev-1>

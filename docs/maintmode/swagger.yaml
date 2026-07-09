@@ -180,6 +180,17 @@ components:
                 title:
                     type: string
             type: object
+        apimodels.CreateIntegrationRequest:
+            properties:
+                config:
+                    type: object
+                enabled:
+                    type: boolean
+                kind:
+                    type: string
+                secrets:
+                    type: object
+            type: object
         apimodels.CreateResourceRequest:
             properties:
                 description:
@@ -195,6 +206,33 @@ components:
                     format: date-time
                     type: string
             type: object
+        apimodels.Integration:
+            properties:
+                config:
+                    type: object
+                created_at:
+                    format: date-time
+                    type: string
+                created_by:
+                    $ref: '#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary'
+                enabled:
+                    type: boolean
+                id:
+                    format: uuid
+                    type: string
+                kind:
+                    example: slack
+                    type: string
+                secrets_set:
+                    additionalProperties:
+                        type: boolean
+                    type: object
+                updated_at:
+                    format: date-time
+                    type: string
+                updated_by:
+                    $ref: '#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary'
+            type: object
         apimodels.ListAssignableUsersResponse:
             properties:
                 limit:
@@ -209,6 +247,14 @@ components:
                 users:
                     items:
                         $ref: '#/components/schemas/apimodels.AssignableUser'
+                    type: array
+                    uniqueItems: false
+            type: object
+        apimodels.ListIntegrationsResponse:
+            properties:
+                integrations:
+                    items:
+                        $ref: '#/components/schemas/apimodels.Integration'
                     type: array
                     uniqueItems: false
             type: object
@@ -437,6 +483,11 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apimodels.ToggleIntegrationRequest:
+            properties:
+                enabled:
+                    type: boolean
+            type: object
         apimodels.Transport:
             properties:
                 id:
@@ -502,6 +553,23 @@ components:
                     example: DB migration
                     type: string
             type: object
+        apimodels.UpdateIntegrationRequest:
+            properties:
+                config:
+                    description: |-
+                        Omitted → keep the stored config; an explicit object (including {})
+                        replaces it wholesale.
+                    type: object
+                enabled:
+                    description: Omitted → keep the current flag; true/false → set it.
+                    type: boolean
+                secrets:
+                    description: |-
+                        Per-key intent: key absent → keep the stored secret; non-empty string →
+                        replace it; null → clear it. Values are write-only and never returned by
+                        any read endpoint (see Integration.secrets_set).
+                    type: object
+            type: object
         apimodels.UpdateResourceRequest:
             properties:
                 description:
@@ -509,6 +577,16 @@ components:
                 external_id:
                     type: string
                 name:
+                    type: string
+            type: object
+        github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary:
+            properties:
+                display_name:
+                    type: string
+                email:
+                    type: string
+                id:
+                    format: uuid
                     type: string
             type: object
         github_com_ruko1202_maintmode_internal_app_api_public_maint_models.UserSummary:
@@ -807,6 +885,193 @@ servers:
     - description: Local (service run on host)
       url: http://localhost:8000
 paths:
+    /api/v1/integrations:
+        get:
+            description: Returns all integrations (masked). Admin only.
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.ListIntegrationsResponse'
+                    description: OK
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+            security:
+                - BearerAuth: []
+            summary: List integrations
+            tags:
+                - Integrations
+        post:
+            description: Creates an integration of a kind. Admin only. Secrets are encrypted at rest; the response masks them.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.CreateIntegrationRequest'
+                description: Create integration request
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.Integration'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Bad Request
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Conflict
+            security:
+                - BearerAuth: []
+            summary: Create an integration
+            tags:
+                - Integrations
+    /api/v1/integrations/{kind}:
+        get:
+            description: Returns the masked integration for a kind. Admin only.
+            parameters:
+                - description: Integration kind
+                  in: path
+                  name: kind
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.Integration'
+                    description: OK
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Not Found
+            security:
+                - BearerAuth: []
+            summary: Get an integration by kind
+            tags:
+                - Integrations
+        patch:
+            description: Updates an integration's config and (partially) secrets. Admin only. A secret key omitted keeps its stored value.
+            parameters:
+                - description: Integration kind
+                  in: path
+                  name: kind
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.UpdateIntegrationRequest'
+                description: Update integration request
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.Integration'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Bad Request
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Not Found
+            security:
+                - BearerAuth: []
+            summary: Update an integration
+            tags:
+                - Integrations
+    /api/v1/integrations/{kind}/toggle:
+        post:
+            description: Flips the enabled flag at runtime without resending settings. Admin only.
+            parameters:
+                - description: Integration kind
+                  in: path
+                  name: kind
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.ToggleIntegrationRequest'
+                description: Toggle request
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.Integration'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Bad Request
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Not Found
+            security:
+                - BearerAuth: []
+            summary: Enable/disable an integration
+            tags:
+                - Integrations
     /api/v1/maintenances/{id}:
         get:
             description: Returns a maintenance entity by its unique identifier.

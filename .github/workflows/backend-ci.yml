@@ -45,6 +45,22 @@ jobs:
           args: -v --build-tags=api ./...
           cache-invalidation-interval: 3
 
+  vuln:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      # Version matches bin-deps in the Makefile; GOBIN points at ./bin, which
+      # is where the vuln target looks for the binary. The go.mod toolchain
+      # directive pins the stdlib the scan runs against.
+      - name: Install govulncheck
+        run: GOBIN=$PWD/bin go install golang.org/x/vuln/cmd/govulncheck@v1.5.0
+      - run: make vuln
+
   build-maintmode:
     name: Build binary (maintmode)
     runs-on: ubuntu-latest
@@ -91,7 +107,10 @@ jobs:
           EOF
           sudo chmod +x /usr/local/bin/docker-compose
       - run: make docker-up
-      - run: make tloc
+      # tloc-cov, not tloc: it is the only target running with -race, so the
+      # concurrency tests (xcache generations, cipher parallel use) actually
+      # exercise the race detector in CI.
+      - run: make tloc-cov
       - run: make docker-down
         if: always()
 
@@ -103,6 +122,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs:
       - lint
+      - vuln
       - test
       - build-maintmode
     permissions:
@@ -153,6 +173,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs:
       - lint
+      - vuln
       - test
       - build-maintmode
     permissions:

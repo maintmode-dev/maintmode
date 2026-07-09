@@ -135,56 +135,51 @@ type App struct {
 	InvitationTTL time.Duration `mapstructure:"invitation_ttl"`
 }
 
-type SlackConfig struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	BotToken string `mapstructure:"bot_token"`
-	// APIURL overrides the default Slack API base URL. Leave empty in
-	// production; set for integration tests against an httptest mock,
-	// for egress through a corporate proxy, or for a self-hosted Slack
-	// API endpoint.
-	APIURL  string        `mapstructure:"api_url"`
-	Timeout time.Duration `mapstructure:"timeout"`
-}
-
-type TelegramConfig struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	BotToken string `mapstructure:"bot_token"`
-	// APIURL overrides the default Telegram Bot API base URL. Leave
-	// empty in production; set for integration tests, corporate
-	// proxies, or a self-hosted telegram-bot-api server.
-	APIURL  string        `mapstructure:"api_url"`
-	Timeout time.Duration `mapstructure:"timeout"`
-}
-
-type EmailConfig struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	// From is the envelope/header sender address. Required when Enabled.
-	From string `mapstructure:"from"`
-	// ReplyTo is optional; left empty no Reply-To header is set.
-	ReplyTo string `mapstructure:"reply_to"`
-	// TLSPolicy selects the STARTTLS posture: "mandatory" (default), "opportunistic",
-	// or "none". "none" together with an empty Username is the integration-test mode
-	// against an in-process SMTP server — the SMTP analog of the slack/telegram
-	// api_url override.
-	TLSPolicy string        `mapstructure:"tls_policy"`
-	Timeout   time.Duration `mapstructure:"timeout"`
-}
-
+// NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
+// credentials (Slack/Telegram/SMTP) moved to the DB-backed integration registry
+// in RUK-196; the only remaining knob is the dev stub short-circuit.
 type NotifyTransportConfig struct {
-	UseStub  bool           `mapstructure:"use_stub"`
-	Slack    SlackConfig    `mapstructure:"slack"`
-	Telegram TelegramConfig `mapstructure:"telegram"`
-	Email    EmailConfig    `mapstructure:"email"`
+	// UseStub, in a dev environment, routes every delivery to the stub transport
+	// instead of the real DB-resolved one — no external calls in local dev.
+	UseStub bool `mapstructure:"use_stub"`
 }
 
 type TaskProcessorConfig struct {
 	Messaging       TaskProcessorMessagingConfig       `mapstructure:"messaging"`
 	MaintAutoCancel TaskProcessorMaintAutoCancelConfig `mapstructure:"maint_auto_cancel"`
 	AuditPrune      TaskProcessorAuditPruneConfig      `mapstructure:"audit_prune"`
+}
+
+// CryptoConfig addresses the master keys (KEKs) that wrap the data-encryption
+// keys protecting integration secrets at rest. A KEK is addressed by URI; the
+// scheme routes it to a provider: local-kms://<id> is served from LocalKeys,
+// and a cloud KMS deployment points ActiveKEKURI at the provider's URI
+// (gcp-kms://…, aws-kms://…) instead — the config contract does not change.
+// Key values come from the secrets file — never inline. The keyring fails fast
+// on an empty/unsupported/weak KEK so the binary refuses to start rather than
+// silently protecting secrets with an unusable key.
+type CryptoConfig struct {
+	// ActiveKEKURI addresses the KEK that wraps new DEKs. It is also stamped
+	// onto data_keys.kek_id.
+	ActiveKEKURI string `mapstructure:"active_kek_uri"`
+	// LocalKeys maps local-kms:// URI -> hex-encoded 32-byte key for the local
+	// KEK provider. Holds the active KEK plus any retired-but-still-referenced
+	// KEKs needed to unwrap existing DEKs. Empty when the KEK lives in a cloud
+	// KMS.
+	//
+	// Rotation is TWO-PHASE, because startup re-wraps data_keys onto
+	// ActiveKEKURI (see bootstrap rotateDataKeys) and a rollback boots an older
+	// config against the re-wrapped rows:
+	//   phase A: add the new KEK to LocalKeys, keep ActiveKEKURI on the old one;
+	//   phase B: flip ActiveKEKURI to the new KEK (boot re-wraps all DEKs).
+	// Rollback from B to A is self-healing (A knows the new KEK, its boot
+	// re-wraps everything back); rollback PAST phase A — to a config that has
+	// never seen the new KEK — leaves every DEK unreadable until the key is
+	// added. Invariant: every KEK referenced by data_keys.kek_id must be present
+	// in the LocalKeys of ANY config a deploy may roll back to. Remove a retired
+	// KEK only after phase B is deployed everywhere and a rollback across the
+	// flip is no longer possible.
+	LocalKeys map[string]string `mapstructure:"local_keys"`
 }
 
 type TaskProcessorMessagingConfig struct {
@@ -266,6 +261,7 @@ type AppConfig struct {
 	JWT             JWT                   `mapstructure:"jwt"`
 	NotifyTransport NotifyTransportConfig `mapstructure:"notify_transport"`
 	TaskProcessor   TaskProcessorConfig   `mapstructure:"task_processor"`
+	Crypto          CryptoConfig          `mapstructure:"crypto"`
 }
 
 const (
@@ -315,7 +311,28 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("failed to apply secrets for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateUseStubInDev(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	return cfg
+}
+
+// validateUseStubInDev enforces the cross-field invariant that would otherwise
+// fail silently at runtime: use_stub routes every notify delivery to the
+// in-memory stub and is gated on IsDev() at wiring time, so setting it in a
+// non-dev environment is a silent no-op that a developer might expect to take
+// effect. Reject it loudly instead of ignoring it, so a misplaced dev flag
+// never masks real prod deliveries. It panics-via-caller (initConfig) so the
+// misconfiguration surfaces at startup.
+func (c *AppConfig) validateUseStubInDev() error {
+	if !c.Environment.IsDev() && c.NotifyTransport.UseStub {
+		return fmt.Errorf(
+			"notify_transport.use_stub is only valid in a dev environment, got environment %q",
+			c.Environment,
+		)
+	}
+	return nil
 }
 
 func readConfig(filePath string) (*AppConfig, error) {

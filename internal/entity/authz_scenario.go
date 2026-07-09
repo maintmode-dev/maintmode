@@ -40,6 +40,14 @@ const (
 	AuthzScenarioNotificationChannelUnarchive AuthzScenario = "notification.channel.unarchive"
 )
 
+// integration registry scenarios (admin only). Read exposes the masked settings;
+// Manage covers create/update/toggle. An ordinary user does not configure
+// external integrations (RUK-196).
+const (
+	AuthzScenarioIntegrationRead   AuthzScenario = "integration.read"
+	AuthzScenarioIntegrationManage AuthzScenario = "integration.manage"
+)
+
 // auth scenarios
 const (
 	AuthzScenarioAuthRolesRead     AuthzScenario = "auth.roles.read"

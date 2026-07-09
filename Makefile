@@ -81,7 +81,17 @@ bin-deps: bin-deps-build
 	GOBIN=$(GOBIN) go install github.com/go-delve/delve/cmd/dlv@v1.26.0 && \
 	GOBIN=$(GOBIN) go install github.com/air-verse/air@v1.64.3 && \
 	GOBIN=$(GOBIN) go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5 && \
-	GOBIN=$(GOBIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0
+	GOBIN=$(GOBIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0 && \
+	GOBIN=$(GOBIN) go install golang.org/x/vuln/cmd/govulncheck@v1.5.0
+
+# vuln - Scan dependencies and reachable code paths for known vulnerabilities
+# (govulncheck queries the Go vulnerability DB; only findings reachable from
+# this module's code fail the run). Part of the pre-release checklist alongside
+# lint.
+.PHONY: vuln
+vuln:
+	$(info $(M) running govulncheck...)
+	$(GOBIN)/govulncheck ./...
 
 # -------------------------------------
 # Build binary or run app
@@ -217,6 +227,8 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/invitation/service.go -source ./internal/services/invitation/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/user/service.go -source ./internal/services/user/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/notifytransport/service.go -source ./internal/gateways/notifytransport/transports.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/integration/service.go -source ./internal/services/integration/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/dekrotator/service.go -source ./internal/services/dekrotator/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/userpicker/service.go -source ./internal/services/userpicker/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/autocancelprocessor/processor.go -source ./internal/goque_processors/autocancelprocessor/processor.go
@@ -235,7 +247,7 @@ swag:
 	$(info $(M) generating OpenAPI specs (swag/v2)...)
 	$(GOBIN)/swag init \
 		-g ./doc_maintmode.go --parseInternal --parseDependency \
-		--tags Maintenances,Resources,Notifications,UI \
+		--tags Maintenances,Resources,Notifications,UI,Integrations \
 		--v3.1 --outputTypes yaml,json -o ./docs/maintmode
 	$(GOBIN)/swag init \
 		-g ./doc_auth.go --parseInternal --parseDependency \

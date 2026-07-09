@@ -16,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
 	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	integrationapi "github.com/ruko1202/maintmode/internal/app/api/public/integration"
 	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
@@ -75,18 +76,14 @@ func main() {
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
-	gateways, err := bootstrap.NewGateways(cfg)
-	if err != nil {
-		xlog.Panic(ctx, "failed to init gateways", xfield.Error(err))
-	}
-	services, err := bootstrap.NewServices(ctx, cfg, stores, gateways)
+	services, err := bootstrap.NewServices(ctx, cfg, stores)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
 	}
 
 	// start async task processor
 	{
-		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services, gateways)
+		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services)
 		if err != nil {
 			xlog.Panic(ctx, "failed to init task processors", xfield.Error(err))
 		}
@@ -127,6 +124,7 @@ func startAPIServer(
 			Resources:     resourcesapi.New(services.Resources, services.UserSummary),
 			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
 			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary),
+			Integrations:  integrationapi.New(services.Integration, services.UserSummary),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
 			Auth: apiauth.New(

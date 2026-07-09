@@ -318,6 +318,11 @@ linters:
             # audit storage
             - pkg: github.com/ruko1202/maintmode/internal/storages/audit
               desc: "core must not import audit storages directly — use a consumer interface"
+            # integration storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/integration
+              desc: "core must not import integration storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
+              desc: "core must not import integration storages directly — use a consumer interface"
 
         module-auth-stores:
           list-mode: lax
@@ -371,6 +376,11 @@ linters:
             # audit storage
             - pkg: github.com/ruko1202/maintmode/internal/storages/audit
               desc: "auth must not import audit storages directly — use a consumer interface"
+            # integration storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/integration
+              desc: "auth must not import integration storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
+              desc: "auth must not import integration storages directly — use a consumer interface"
 
         module-notificator-stores:
           list-mode: lax
@@ -383,6 +393,12 @@ linters:
             - "**/internal/services/maintnotify/**/*.go"
             - "**/internal/services/deferrednotifications/*.go"
             - "**/internal/services/deferrednotifications/**/*.go"
+            # transportresolver is the delivery side of the integration split
+            # (RUK-196): it must reach configs/secrets ONLY through the
+            # integration service, never the ciphertext/DEK tables — its deny
+            # list below includes the integration storages.
+            - "**/internal/services/transportresolver/*.go"
+            - "**/internal/services/transportresolver/**/*.go"
             - "**/internal/storages/notifychannel/*.go"
             - "**/internal/storages/notifychannel/**/*.go"
             - "**/internal/storages/notifytargets/*.go"
@@ -416,6 +432,11 @@ linters:
             # audit storage
             - pkg: github.com/ruko1202/maintmode/internal/storages/audit
               desc: "notificator must not import audit storages directly — use a consumer interface"
+            # integration storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/integration
+              desc: "notificator must not import integration storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
+              desc: "notificator must not import integration storages directly — use a consumer interface"
 
         module-audit-stores:
           list-mode: lax
@@ -457,6 +478,63 @@ linters:
               desc: "audit must not import notificator storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/deferrednotifications
               desc: "audit must not import notificator storages directly — use a consumer interface"
+            # integration storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/integration
+              desc: "audit must not import integration storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
+              desc: "audit must not import integration storages directly — use a consumer interface"
+
+        # Integration registry module (RUK-196): the integration service + its
+        # kinds, the DEK rotator, and the two stores holding encrypted
+        # credentials. The stores are walled in here so no other module can read
+        # ciphertext/DEKs directly — only this module: the integration service
+        # (encrypt-on-write / mask-on-read) and the dekrotator (startup KEK
+        # re-wrap over storages/datakey).
+        module-integration-stores:
+          list-mode: lax
+          files:
+            - "**/internal/services/integration/*.go"
+            - "**/internal/services/integration/**/*.go"
+            - "**/internal/services/dekrotator/*.go"
+            - "**/internal/services/dekrotator/**/*.go"
+            - "**/internal/storages/integration/*.go"
+            - "**/internal/storages/integration/**/*.go"
+            - "**/internal/storages/datakey/*.go"
+            - "**/internal/storages/datakey/**/*.go"
+            - "!**/*_test.go"
+          deny:
+            # core storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/maintenances
+              desc: "integration must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/resources
+              desc: "integration must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/conflicts
+              desc: "integration must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/conflict_snapshots
+              desc: "integration must not import core storages directly — use a consumer interface"
+            # auth storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/users
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/useridentities
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/refreshtoken
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/blacklisttoken
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
+              desc: "integration must not import auth storages directly — use a consumer interface"
+            # notificator storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/notifychannel
+              desc: "integration must not import notificator storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/notifytargets
+              desc: "integration must not import notificator storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/deferrednotifications
+              desc: "integration must not import notificator storages directly — use a consumer interface"
+            # audit storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/audit
+              desc: "integration must not import audit storages directly — use a consumer interface"
 
         # Слои-точки-входа (goque_processors, gateways) не должны обращаться к
         # storage напрямую — только через сервисы. Запрещаем ЛЮБОЙ storages/*,

@@ -62,6 +62,8 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 		return fillBlockedPayload(payload, action)
 	case entity.AuditCategoryMaintenance:
 		return fillMaintPayload(payload, action)
+	case entity.AuditCategoryIntegration:
+		return fillIntegrationPayload(payload, action)
 	default:
 		// Unreachable: every category in auditActionCategories has a case above.
 		return fmt.Errorf("%w: category %q", apperr.ErrUnsupportedEvent, category)

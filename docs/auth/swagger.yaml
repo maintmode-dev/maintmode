@@ -11,6 +11,9 @@ components:
                 block:
                     example: 1
                     type: integer
+                integration:
+                    example: 3
+                    type: integer
                 maintenance:
                     example: 17
                     type: integer
@@ -370,6 +373,8 @@ components:
                 - maintenance_step.started
                 - maintenance_step.completed
                 - maintenance_step.canceled
+                - integration.created
+                - integration.updated
             type: string
             x-enum-varnames:
                 - AuditActionLoginSuccess
@@ -387,14 +392,18 @@ components:
                 - AuditActionMaintStepStarted
                 - AuditActionMaintStepCompleted
                 - AuditActionMaintStepCanceled
+                - AuditActionIntegrationCreated
+                - AuditActionIntegrationUpdated
         entity.AuditEntityType:
             enum:
                 - user
                 - maintenance
+                - integration
             type: string
             x-enum-varnames:
                 - AuditEntityTypeUser
                 - AuditEntityTypeMaintenance
+                - AuditEntityTypeIntegration
         entity.JWK:
             properties:
                 alg:

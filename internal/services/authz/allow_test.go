@@ -32,6 +32,9 @@ p, editor, resource.create, execute
 p, editor, resource.archive, execute
 
 p, reviewer, maintenance.approve, execute
+
+p, admin, integration.read, execute
+p, admin, integration.manage, execute
 `
 
 const authPolicy = `
@@ -116,6 +119,26 @@ func TestCasbinAuthorizer(t *testing.T) {
 				roles:    []entity.Role{entity.RoleAdmin},
 				scenario: entity.AuthzScenarioMaintenanceApprove,
 				allowed:  true,
+			}, {
+				name:     "admin can manage integrations",
+				roles:    []entity.Role{entity.RoleAdmin},
+				scenario: entity.AuthzScenarioIntegrationManage,
+				allowed:  true,
+			}, {
+				name:     "admin can read integrations",
+				roles:    []entity.Role{entity.RoleAdmin},
+				scenario: entity.AuthzScenarioIntegrationRead,
+				allowed:  true,
+			}, {
+				name:     "editor cannot manage integrations",
+				roles:    []entity.Role{entity.RoleEditor},
+				scenario: entity.AuthzScenarioIntegrationManage,
+				allowed:  false,
+			}, {
+				name:     "guest cannot read integrations",
+				roles:    []entity.Role{entity.RoleGuest},
+				scenario: entity.AuthzScenarioIntegrationRead,
+				allowed:  false,
 			},
 		}
 

@@ -3,6 +3,8 @@ package emailtransport
 import (
 	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"mime/quotedprintable"
 	"net"
@@ -12,9 +14,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
+
+// Params carries a secret (Password). Lock in that it defines no Stringer or JSON
+// marshaler so it can never be accidentally logged or serialized in full.
+func TestParams_HasNoSecretLeakingSerializer(t *testing.T) {
+	t.Parallel()
+
+	var p any = Params{Password: "smtp-secret"}
+	_, isStringer := p.(fmt.Stringer)
+	require.False(t, isStringer, "Params must not implement fmt.Stringer (would risk logging the password)")
+	_, isMarshaler := p.(json.Marshaler)
+	require.False(t, isMarshaler, "Params must not implement json.Marshaler (would risk serializing the password)")
+}
 
 func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 	t.Parallel()
@@ -22,7 +35,7 @@ func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 	captured := make(chan capturedMessage, 1)
 	host, port := newMockSMTPServer(t, captured)
 
-	client, err := New(config.EmailConfig{
+	client, err := New(Params{
 		Host:      host,
 		Port:      port,
 		From:      "noreply@maintmode.test",
@@ -62,7 +75,7 @@ func TestClient_New_EmptyHost(t *testing.T) {
 	// Empty host fails fast at construction: when email is enabled but no host is
 	// configured (e.g. a missing secret), the binary should fail to start rather
 	// than silently never delivering.
-	_, err := New(config.EmailConfig{From: "noreply@maintmode.test", Host: ""})
+	_, err := New(Params{From: "noreply@maintmode.test", Host: ""})
 	require.Error(t, err)
 }
 
@@ -72,7 +85,7 @@ func TestClient_New_EmptyFrom(t *testing.T) {
 	// Empty From fails fast too: From is required when enabled, and go-mail rejects
 	// an empty From only at send time, which is the silent-until-first-send failure
 	// the fail-fast construction exists to avoid.
-	_, err := New(config.EmailConfig{Host: "smtp.example.com"})
+	_, err := New(Params{Host: "smtp.example.com"})
 	require.Error(t, err)
 }
 
@@ -135,7 +148,7 @@ func decodeQuotedPrintable(t *testing.T, raw string) string {
 // of the protocol (EHLO/MAIL/RCPT/DATA/QUIT) to accept one message, then sends
 // the captured envelope on c. It is the SMTP analog of the httptest mock used
 // for the slack/telegram transports. Returns the host and port to point a client
-// at via EmailConfig with TLSPolicy "none".
+// at via Params with TLSPolicy "none".
 func newMockSMTPServer(t *testing.T, c chan<- capturedMessage) (host string, port int) {
 	t.Helper()
 

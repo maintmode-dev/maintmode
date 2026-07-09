@@ -13,8 +13,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
+	"github.com/ruko1202/maintmode/internal/storages/datakey"
 	"github.com/ruko1202/maintmode/internal/storages/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
+	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/notifytargets"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
@@ -38,6 +40,11 @@ type Stores struct {
 	NotifyTargets         *notifytargets.Store
 	DeferredNotifications *deferrednotifications.Store
 	ChannelCatalog        *notifychannel.Store
+
+	// Integration registry stores (RUK-196): the settings catalog and the wrapped
+	// data-encryption keys that protect its secrets at rest.
+	Integrations *integrationstore.Store
+	DataKeys     *datakey.Store
 
 	// Auth-module stores (formerly AuthStores). TokenBlackList and Locker are
 	// Redis-backed; the rest are Postgres-backed.
@@ -75,6 +82,9 @@ func NewStores(
 		NotifyTargets:         notifytargets.NewStore(db),
 		DeferredNotifications: deferrednotifications.NewStore(db),
 		ChannelCatalog:        notifychannel.NewStore(db),
+
+		Integrations: integrationstore.NewStore(db),
+		DataKeys:     datakey.NewStore(db),
 
 		Users:           users.NewStore(db),
 		UserIdentities:  useridentities.NewStore(db),

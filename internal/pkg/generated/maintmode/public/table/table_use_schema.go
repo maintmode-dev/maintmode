@@ -11,8 +11,10 @@ package table
 // this method only once at the beginning of the program.
 func UseSchema(schema string) {
 	AuditLog = AuditLog.FromSchema(schema)
+	DataKeys = DataKeys.FromSchema(schema)
 	GooseDbVersion = GooseDbVersion.FromSchema(schema)
 	GoqueTask = GoqueTask.FromSchema(schema)
+	IntegrationSettings = IntegrationSettings.FromSchema(schema)
 	MaintenanceConflictSnapshot = MaintenanceConflictSnapshot.FromSchema(schema)
 	MaintenanceDeferredNotifications = MaintenanceDeferredNotifications.FromSchema(schema)
 	MaintenanceNotifyTargets = MaintenanceNotifyTargets.FromSchema(schema)

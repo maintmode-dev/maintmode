@@ -11,6 +11,7 @@ import (
 
 	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
 	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	integrationapi "github.com/ruko1202/maintmode/internal/app/api/public/integration"
 	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
@@ -24,6 +25,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/server/middlewares"
 )
 
+// integrationBodyLimitBytes caps request bodies on the integrations group: its
+// config/secrets are free-form JSON persisted verbatim, so without a cap a
+// single request could bloat the integration_settings row and every subsequent
+// resolve. 64 KiB is orders of magnitude above any real transport config.
+const integrationBodyLimitBytes int64 = 64 * 1024
+
 // APIServerHandlers holds the per-domain Echo handler implementations served
 // by the API server. Adding a new domain means adding a field here, not a new
 // constructor argument. With auth folded in-process (RUK-194) it carries both
@@ -34,6 +41,7 @@ type APIServerHandlers struct {
 	Resources     *resourcesapi.Implementation
 	Calendar      *uicalendar.Implementation
 	Notifications *apinotifications.Implementation
+	Integrations  *integrationapi.Implementation
 	UserPicker    *userpickerapi.Implementation
 
 	// Auth-module handlers.
@@ -195,6 +203,26 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioResourceRead))
 		resourceAPI.Add(http.MethodPatch, "/:id", s.handlers.Resources.UpdateResource,
 			s.scenarioMW(entity.AuthzScenarioResourceEdit))
+	}
+
+	// integrations API group — admin-only registry of external-system connections
+	// (RUK-196). Reads require integration.read; writes require integration.manage.
+	// Body-limited: config/secrets are free-form JSON stored verbatim, so this is
+	// the one write surface accepting arbitrary payloads — cap it well above any
+	// real integration config but below anything that could bloat rows/memory.
+	{
+		integrationAPI := gr.Group("/integrations", requireToken,
+			middleware.BodyLimit(integrationBodyLimitBytes))
+		integrationAPI.Add(http.MethodGet, "", s.handlers.Integrations.List,
+			s.scenarioMW(entity.AuthzScenarioIntegrationRead))
+		integrationAPI.Add(http.MethodPost, "", s.handlers.Integrations.Create,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
+		integrationAPI.Add(http.MethodGet, "/:kind", s.handlers.Integrations.Get,
+			s.scenarioMW(entity.AuthzScenarioIntegrationRead))
+		integrationAPI.Add(http.MethodPatch, "/:kind", s.handlers.Integrations.Update,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
+		integrationAPI.Add(http.MethodPost, "/:kind/toggle", s.handlers.Integrations.Toggle,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
 	}
 
 	// notifications API group — transports + channel catalog powering the
