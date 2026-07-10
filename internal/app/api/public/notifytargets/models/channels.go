@@ -20,13 +20,18 @@ type UserSummary struct {
 }
 
 type Channel struct {
-	ID                 string     `json:"id" format:"uuid"`
-	Transport          string     `json:"transport"`
-	TransportChannelID string     `json:"transport_channel_id"`
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	ArchivedAt         *time.Time `json:"archived_at,omitempty" format:"date-time"`
-	CreatedAt          time.Time  `json:"created_at" format:"date-time"`
+	ID        string `json:"id" format:"uuid"`
+	Transport string `json:"transport"`
+	// TransportStatus reports whether the integration backing the transport can
+	// deliver right now (ok | disabled | not_configured). Always present — the
+	// coupling to the registry stays weak, this is the read-model signal that
+	// makes silent non-delivery visible (RUK-198).
+	TransportStatus    TransportStatus `json:"transport_status" example:"ok"`
+	TransportChannelID string          `json:"transport_channel_id"`
+	Name               string          `json:"name"`
+	Description        string          `json:"description"`
+	ArchivedAt         *time.Time      `json:"archived_at,omitempty" format:"date-time"`
+	CreatedAt          time.Time       `json:"created_at" format:"date-time"`
 	// CreatedBy is the channel author resolved from the auth service. Null for
 	// legacy rows with no recorded author; when the id is set but unresolvable
 	// (auth down or user removed) it degrades to the "Unknown user" label.
@@ -76,11 +81,13 @@ func toAPIUserSummary(u *entity.UserSummary) *UserSummary {
 
 // ToChannel maps a domain channel to its API shape. author and editor are the
 // authorship summaries resolved from auth (nil when the channel carries no
-// corresponding user id, e.g. an unedited channel has no editor).
-func ToChannel(channel *entity.NotifyChannel, author, editor *entity.UserSummary) *Channel {
+// corresponding user id, e.g. an unedited channel has no editor). index is the
+// per-request integration registry view the transport status is derived from.
+func ToChannel(channel *entity.NotifyChannel, author, editor *entity.UserSummary, index IntegrationIndex) *Channel {
 	return &Channel{
 		ID:                 channel.ID.String(),
 		Transport:          string(channel.Transport),
+		TransportStatus:    index.StatusFor(channel.Transport),
 		TransportChannelID: channel.TransportChannelID,
 		Name:               channel.Name,
 		Description:        channel.Description,
@@ -100,11 +107,12 @@ type ChannelsResponse struct {
 }
 
 // ToChannelsResponse maps the catalog to its API shape, looking up each
-// channel's author/editor summary in the pre-resolved index (keyed by user id).
-func ToChannelsResponse(channels []*entity.NotifyChannel, summaries map[uuid.UUID]*entity.UserSummary) ChannelsResponse {
+// channel's author/editor summary in the pre-resolved index (keyed by user id)
+// and each channel's transport status in the integration registry view.
+func ToChannelsResponse(channels []*entity.NotifyChannel, summaries map[uuid.UUID]*entity.UserSummary, index IntegrationIndex) ChannelsResponse {
 	return ChannelsResponse{
 		Channels: lo.Map(channels, func(item *entity.NotifyChannel, _ int) *Channel {
-			return ToChannel(item, lookupSummary(summaries, item.CreatedByUserID), lookupSummary(summaries, item.UpdatedByUserID))
+			return ToChannel(item, lookupSummary(summaries, item.CreatedByUserID), lookupSummary(summaries, item.UpdatedByUserID), index)
 		}),
 	}
 }

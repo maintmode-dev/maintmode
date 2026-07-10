@@ -58,6 +58,14 @@ func (i *Implementation) CreateChannel(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	// Snapshot the registry BEFORE the write: the response must carry
+	// transport_status, and failing on the index after the row is committed
+	// would report a successful create as a 500 (client retry → spurious 409).
+	index, err := i.integrationIndex(ctx)
+	if err != nil {
+		return httperrors.ToAPIError(c, op, err)
+	}
+
 	channel, err := i.notifyTargets.CreateChannel(ctx, &entity.CreateNotifyChannelCmd{
 		Transport:          entity.NotifyTransport(req.Transport),
 		TransportChannelID: req.TransportChannelID,
@@ -72,7 +80,7 @@ func (i *Implementation) CreateChannel(c *echo.Context) error {
 
 	// The author is the authenticated creator from the token, so render its
 	// summary directly. A freshly created channel has no editor (updated_by nil).
-	return c.JSON(http.StatusCreated, apimodels.ToChannel(channel, author.ToUserSummary(), nil))
+	return c.JSON(http.StatusCreated, apimodels.ToChannel(channel, author.ToUserSummary(), nil, index))
 }
 
 func validateCreateChannelRequest(ctx context.Context, req *apimodels.CreateChannelRequest) error {

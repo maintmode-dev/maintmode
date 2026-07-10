@@ -70,6 +70,13 @@ func (i *Implementation) UpdateChannel(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
+	// Snapshot the registry BEFORE the write: failing on the index after the
+	// update is committed would report a successful mutation as a 500.
+	index, err := i.integrationIndex(ctx)
+	if err != nil {
+		return httperrors.ToAPIError(c, op, err)
+	}
+
 	channel, err := i.notifyTargets.UpdateChannel(ctx, &entity.UpdateNotifyChannelCmd{
 		ID:                 channelID,
 		Name:               req.Name,
@@ -87,7 +94,7 @@ func (i *Implementation) UpdateChannel(c *echo.Context) error {
 	// failure and never errors the write result.
 	author := i.userSummarySrv.ResolveOne(ctx, lo.FromPtr(channel.CreatedByUserID))
 
-	return c.JSON(http.StatusOK, apimodels.ToChannel(channel, author, editor.ToUserSummary()))
+	return c.JSON(http.StatusOK, apimodels.ToChannel(channel, author, editor.ToUserSummary(), index))
 }
 
 func validateUpdateChannelRequest(ctx context.Context, req *apimodels.UpdateChannelRequest) error {

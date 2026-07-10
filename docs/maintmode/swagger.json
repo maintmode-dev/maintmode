@@ -78,6 +78,9 @@
                     "transport_channel_id": {
                         "type": "string"
                     },
+                    "transport_status": {
+                        "$ref": "#/components/schemas/apimodels.TransportStatus"
+                    },
                     "updated_at": {
                         "description": "UpdatedAt is null until the channel is first edited.",
                         "format": "date-time",
@@ -703,9 +706,27 @@
                     "title": {
                         "example": "Slack",
                         "type": "string"
+                    },
+                    "transport_status": {
+                        "$ref": "#/components/schemas/apimodels.TransportStatus"
                     }
                 },
                 "type": "object"
+            },
+            "apimodels.TransportStatus": {
+                "description": "TransportStatus reports whether the integration backing the transport can\ndeliver right now (ok | disabled | not_configured), so the channel-create\nform can flag transports that would silently not deliver (RUK-198). The\ncatalog stays advisory: creating a channel on a disabled/unconfigured\ntransport is still allowed.",
+                "enum": [
+                    "ok",
+                    "disabled",
+                    "not_configured"
+                ],
+                "example": "ok",
+                "type": "string",
+                "x-enum-varnames": [
+                    "TransportStatusOK",
+                    "TransportStatusDisabled",
+                    "TransportStatusNotConfigured"
+                ]
             },
             "apimodels.TransportsResponse": {
                 "properties": {
@@ -3134,7 +3155,7 @@
         },
         "/api/v1/notifications/transports": {
             "get": {
-                "description": "Returns the catalog of transports a channel can be created on\n(slack, telegram, ...). Each entry carries the UX copy the\nchannel-create form needs: title, description and the\ntransport-specific transport_channel_id label, placeholder and\nhelper text. It is a reference catalog available to any\nauthenticated role, not an attestation, so it never returns 403.",
+                "description": "Returns the catalog of transports a channel can be created on\n(slack, telegram, ...). Each entry carries the UX copy the\nchannel-create form needs: title, description and the\ntransport-specific transport_channel_id label, placeholder and\nhelper text. Each entry also carries transport_status — whether\nan enabled integration backs the transport right now — so the\nform can flag transports that would silently not deliver. It is\na reference catalog available to any authenticated role, not an\nattestation, so it never returns 403.",
                 "responses": {
                     "200": {
                         "content": {

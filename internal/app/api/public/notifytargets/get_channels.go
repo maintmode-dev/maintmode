@@ -34,6 +34,7 @@ import (
 func (i *Implementation) GetChannels(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Notifications.GetChannels")
 	defer span.End()
+	op := "get available channels"
 
 	// Tolerant parse: an absent or malformed flag means "active only".
 	includeArchived, _ := strconv.ParseBool(c.QueryParam("include_archived"))
@@ -41,7 +42,7 @@ func (i *Implementation) GetChannels(c *echo.Context) error {
 	channels, err := i.notifyTargets.AvailableChannels(ctx, includeArchived)
 	if err != nil {
 		xlog.Error(ctx, "get available channels failed", xfield.Error(err))
-		return httperrors.ToAPIError(c, "get available channels", err)
+		return httperrors.ToAPIError(c, op, err)
 	}
 
 	// Batch-resolve every author/editor id across the page in one auth call
@@ -49,7 +50,12 @@ func (i *Implementation) GetChannels(c *echo.Context) error {
 	// failure, never erroring the read).
 	summaries := i.userSummarySrv.ResolveMany(ctx, channelUserIDs(channels))
 
-	return c.JSON(http.StatusOK, apimodels.ToChannelsResponse(channels, summaries))
+	index, err := i.integrationIndex(ctx)
+	if err != nil {
+		return httperrors.ToAPIError(c, op, err)
+	}
+
+	return c.JSON(http.StatusOK, apimodels.ToChannelsResponse(channels, summaries, index))
 }
 
 // channelUserIDs collects the non-nil author and editor ids across the channels.

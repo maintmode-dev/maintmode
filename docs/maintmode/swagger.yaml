@@ -53,6 +53,8 @@ components:
                     type: string
                 transport_channel_id:
                     type: string
+                transport_status:
+                    $ref: '#/components/schemas/apimodels.TransportStatus'
                 updated_at:
                     description: UpdatedAt is null until the channel is first edited.
                     format: date-time
@@ -496,7 +498,26 @@ components:
                 title:
                     example: Slack
                     type: string
+                transport_status:
+                    $ref: '#/components/schemas/apimodels.TransportStatus'
             type: object
+        apimodels.TransportStatus:
+            description: |-
+                TransportStatus reports whether the integration backing the transport can
+                deliver right now (ok | disabled | not_configured), so the channel-create
+                form can flag transports that would silently not deliver (RUK-198). The
+                catalog stays advisory: creating a channel on a disabled/unconfigured
+                transport is still allowed.
+            enum:
+                - ok
+                - disabled
+                - not_configured
+            example: ok
+            type: string
+            x-enum-varnames:
+                - TransportStatusOK
+                - TransportStatusDisabled
+                - TransportStatusNotConfigured
         apimodels.TransportsResponse:
             properties:
                 transports:
@@ -2071,8 +2092,11 @@ paths:
                 (slack, telegram, ...). Each entry carries the UX copy the
                 channel-create form needs: title, description and the
                 transport-specific transport_channel_id label, placeholder and
-                helper text. It is a reference catalog available to any
-                authenticated role, not an attestation, so it never returns 403.
+                helper text. Each entry also carries transport_status — whether
+                an enabled integration backs the transport right now — so the
+                form can flag transports that would silently not deliver. It is
+                a reference catalog available to any authenticated role, not an
+                attestation, so it never returns 403.
             responses:
                 "200":
                     content:

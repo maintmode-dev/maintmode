@@ -266,7 +266,7 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
 
-	impl := apinotifications.New(services.NotifyTargets, services.UserSummary)
+	impl := apinotifications.New(services.NotifyTargets, services.UserSummary, services.Integration)
 
 	req := &notificationsmodels.CreateChannelRequest{
 		Transport:          string(entity.NotifyTransportTelegram),

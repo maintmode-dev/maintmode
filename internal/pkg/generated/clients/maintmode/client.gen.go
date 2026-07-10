@@ -115,6 +115,27 @@ func (e ApimodelsMaintenanceStepStatus) Valid() bool {
 	}
 }
 
+// Defines values for ApimodelsTransportStatus.
+const (
+	TransportStatusDisabled      ApimodelsTransportStatus = "disabled"
+	TransportStatusNotConfigured ApimodelsTransportStatus = "not_configured"
+	TransportStatusOK            ApimodelsTransportStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ApimodelsTransportStatus enum.
+func (e ApimodelsTransportStatus) Valid() bool {
+	switch e {
+	case TransportStatusDisabled:
+		return true
+	case TransportStatusNotConfigured:
+		return true
+	case TransportStatusOK:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UimodelsMaintenanceStatus.
 const (
 	MaintenanceStatusCancelled  UimodelsMaintenanceStatus = "canceled"
@@ -202,6 +223,13 @@ type ApimodelsChannel struct {
 	Name               *string                                                                       `json:"name,omitempty"`
 	Transport          *string                                                                       `json:"transport,omitempty"`
 	TransportChannelId *string                                                                       `json:"transport_channel_id,omitempty"`
+
+	// TransportStatus TransportStatus reports whether the integration backing the transport can
+	// deliver right now (ok | disabled | not_configured), so the channel-create
+	// form can flag transports that would silently not deliver (RUK-198). The
+	// catalog stays advisory: creating a channel on a disabled/unconfigured
+	// transport is still allowed.
+	TransportStatus *ApimodelsTransportStatus `json:"transport_status,omitempty"`
 
 	// UpdatedAt UpdatedAt is null until the channel is first edited.
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
@@ -449,7 +477,21 @@ type ApimodelsToggleIntegrationRequest struct {
 type ApimodelsTransport struct {
 	Id    *string `json:"id,omitempty"`
 	Title *string `json:"title,omitempty"`
+
+	// TransportStatus TransportStatus reports whether the integration backing the transport can
+	// deliver right now (ok | disabled | not_configured), so the channel-create
+	// form can flag transports that would silently not deliver (RUK-198). The
+	// catalog stays advisory: creating a channel on a disabled/unconfigured
+	// transport is still allowed.
+	TransportStatus *ApimodelsTransportStatus `json:"transport_status,omitempty"`
 }
+
+// ApimodelsTransportStatus TransportStatus reports whether the integration backing the transport can
+// deliver right now (ok | disabled | not_configured), so the channel-create
+// form can flag transports that would silently not deliver (RUK-198). The
+// catalog stays advisory: creating a channel on a disabled/unconfigured
+// transport is still allowed.
+type ApimodelsTransportStatus string
 
 // ApimodelsTransportsResponse defines model for apimodels.TransportsResponse.
 type ApimodelsTransportsResponse struct {
