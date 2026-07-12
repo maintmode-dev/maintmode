@@ -3313,7 +3313,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(hypr_process_resident_memory_bytes{job=~\"$job\"}[$__rate_interval])",
+              "expr": "deriv(process_resident_memory_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: resident memory (deriv)",
               "range": true,
@@ -3325,7 +3325,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "avg by(instance)(hypr_process_virtual_memory_bytes{job=~\"$job\"})",
+              "expr": "avg by(instance)(process_virtual_memory_bytes{job=~\"$job\"})",
               "instant": false,
               "legendFormat": "{{instance}}: virtual memory (avg)",
               "range": true,
@@ -3337,7 +3337,7 @@
                 "uid": "vm_ds"
               },
               "editorMode": "code",
-              "expr": "deriv(hypr_process_virtual_memory_bytes{job=~\"$job\"}[$__rate_interval])",
+              "expr": "deriv(process_virtual_memory_bytes{job=~\"$job\"}[$__rate_interval])",
               "instant": false,
               "legendFormat": "{{instance}}: virtual memory (deriv)",
               "range": true,
