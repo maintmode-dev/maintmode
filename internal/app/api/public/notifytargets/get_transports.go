@@ -33,7 +33,7 @@ func (i *Implementation) GetTransports(c *echo.Context) error {
 	defer span.End()
 	op := "get transports"
 
-	index, err := i.integrationIndex(ctx)
+	index, err := i.transportStatuses(ctx, apimodels.SupportedTransportNames())
 	if err != nil {
 		return httperrors.ToAPIError(c, op, err)
 	}

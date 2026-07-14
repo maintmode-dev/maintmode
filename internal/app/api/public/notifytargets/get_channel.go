@@ -53,7 +53,7 @@ func (i *Implementation) GetChannel(c *echo.Context) error {
 	// drops nil ids, so author==editor or an unedited channel are safe.
 	summaries := i.userSummarySrv.ResolveMany(ctx, channelUserIDs([]*entity.NotifyChannel{channel}))
 
-	index, err := i.integrationIndex(ctx)
+	index, err := i.transportStatuses(ctx, []entity.NotifyTransport{channel.Transport})
 	if err != nil {
 		return httperrors.ToAPIError(c, op, err)
 	}

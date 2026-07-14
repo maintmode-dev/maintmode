@@ -11,17 +11,21 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/services/usersummary"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
 )
 
-// integrationSource is the read-only view of the integration registry the
-// channel read models derive transport_status from (RUK-198). The masked
-// listing never carries secrets, so this is the only registry surface the
-// notifications API is allowed to see. Implemented by integration.Service.
-type integrationSource interface {
-	List(ctx context.Context) ([]*entity.MaskedIntegration, error)
+// transportSource resolves a delivery transport by name — the SAME seam the
+// send paths use (transportresolver.Service, or the stub in dev), so
+// transport_status is derived from exactly what a real send would do:
+// resolves → ok, and the error's sentinel tells disabled / not_configured /
+// unreadable apart (RUK-200). The resolved transport itself is discarded by
+// this layer; only the outcome is read. Secrets never surface here — they stay
+// inside the built client.
+type transportSource interface {
+	Get(ctx context.Context, name entity.NotifyTransport) (notifytransport.Transport, error)
 }
 
 // channelService is the consumer-side port to the channel-catalog service —
@@ -40,31 +44,43 @@ type channelService interface {
 type Implementation struct {
 	notifyTargets  channelService
 	userSummarySrv *usersummary.Service
-	integrations   integrationSource
+	transports     transportSource
 }
 
 func New(
 	notifyTargets channelService,
 	userSummarySrv *usersummary.Service,
-	integrations integrationSource,
+	transports transportSource,
 ) *Implementation {
 	return &Implementation{
 		notifyTargets:  notifyTargets,
 		userSummarySrv: userSummarySrv,
-		integrations:   integrations,
+		transports:     transports,
 	}
 }
 
-// integrationIndex snapshots the registry into the kind→enabled view, one List
-// call per request. A registry read failure fails the request loudly (500) —
-// transport_status is a mandatory read-model field, not a best-effort hint.
-// The failure is logged here once for all handlers (the service layer logs its
-// own storage detail).
-func (i *Implementation) integrationIndex(ctx context.Context) (apimodels.IntegrationIndex, error) {
-	integrations, err := i.integrations.List(ctx)
-	if err != nil {
-		xlog.Error(ctx, "build integration index failed", xfield.Error(err))
-		return nil, err
+// transportStatuses resolves each of the given transports once (duplicates
+// collapse) and classifies the outcome into the status index. The resolver's
+// own cache makes the warm path a map lookup per transport. An unclassifiable
+// resolve failure (e.g. storage down) fails the request loudly (500) —
+// transport_status is a mandatory read-model field, and a made-up status would
+// hide an outage. The failure is logged here once for all handlers.
+func (i *Implementation) transportStatuses(ctx context.Context, transports []entity.NotifyTransport) (apimodels.TransportStatusIndex, error) {
+	index := make(apimodels.TransportStatusIndex, len(transports))
+	for _, transport := range transports {
+		if _, done := index[transport]; done {
+			continue
+		}
+		_, err := i.transports.Get(ctx, transport)
+
+		status, ok := apimodels.StatusFromResolve(err)
+		if !ok {
+			xlog.Error(ctx, "resolve transport status failed",
+				xfield.String("transport", string(transport)),
+				xfield.Error(err))
+			return nil, err
+		}
+		index[transport] = status
 	}
-	return apimodels.NewIntegrationIndex(integrations), nil
+	return index, nil
 }

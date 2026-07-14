@@ -213,11 +213,11 @@ func (s *Service) lazyDEK(ctx context.Context, dekID uuid.UUID) func() ([]byte, 
 func (s *Service) unwrapDEKFor(ctx context.Context, dekID uuid.UUID) ([]byte, error) {
 	row, err := s.dekStore.GetByID(ctx, dekID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get dek: %w", err)
 	}
 	dek, err := s.keyring.UnwrapDEK(row.EncryptedDEK, row.KEKID)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap dek: %w", err)
+		return nil, fmt.Errorf("%w: unwrap dek: %w", apperr.ErrUnwrapDEK, err)
 	}
 	return dek, nil
 }

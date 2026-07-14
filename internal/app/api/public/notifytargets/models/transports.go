@@ -1,7 +1,9 @@
 package apimodels
 
 import (
-	"strings"
+	"github.com/samber/lo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -28,7 +30,7 @@ type TransportsResponse struct {
 // ToTransportsResponse projects the static catalog with each transport's
 // per-request registry status. It copies the entries — SupportedTransports is
 // shared package state and must not be mutated.
-func ToTransportsResponse(index IntegrationIndex) TransportsResponse {
+func ToTransportsResponse(index TransportStatusIndex) TransportsResponse {
 	transports := make([]*Transport, 0, len(SupportedTransports))
 	for _, tr := range SupportedTransports {
 		withStatus := *tr
@@ -45,10 +47,24 @@ func ToTransportsResponse(index IntegrationIndex) TransportsResponse {
 var SupportedTransports = []*Transport{
 	{
 		ID:    string(entity.NotifyTransportSlack),
-		Title: strings.ToTitle(string(entity.NotifyTransportSlack)),
+		Title: capitalize(string(entity.NotifyTransportSlack)),
 	},
 	{
 		ID:    string(entity.NotifyTransportTelegram),
-		Title: strings.ToTitle(string(entity.NotifyTransportTelegram)),
+		Title: capitalize(string(entity.NotifyTransportTelegram)),
 	},
+}
+
+// SupportedTransportNames returns the catalog ids as transports, for handlers
+// that need the per-transport status of the whole catalog.
+func SupportedTransportNames() []entity.NotifyTransport {
+	return lo.Map(SupportedTransports, func(item *Transport, _ int) entity.NotifyTransport {
+		return entity.NotifyTransport(item.ID)
+	})
+}
+
+func capitalize(s string) string {
+	caser := cases.Title(language.Und)
+
+	return caser.String(s)
 }

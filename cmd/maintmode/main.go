@@ -123,7 +123,7 @@ func startAPIServer(
 			Maint:         apimaint.New(services.Maint, services.UserSummary),
 			Resources:     resourcesapi.New(services.Resources, services.UserSummary),
 			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
-			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary, services.Integration),
+			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver),
 			Integrations:  integrationapi.New(services.Integration, services.UserSummary),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 

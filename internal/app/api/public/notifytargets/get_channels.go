@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 
@@ -50,7 +51,8 @@ func (i *Implementation) GetChannels(c *echo.Context) error {
 	// failure, never erroring the read).
 	summaries := i.userSummarySrv.ResolveMany(ctx, channelUserIDs(channels))
 
-	index, err := i.integrationIndex(ctx)
+	index, err := i.transportStatuses(ctx,
+		lo.Map(channels, func(ch *entity.NotifyChannel, _ int) entity.NotifyTransport { return ch.Transport }))
 	if err != nil {
 		return httperrors.ToAPIError(c, op, err)
 	}

@@ -44,3 +44,7 @@ screenshots/
 .DS_Store
 .claude/skills
 .claude/
+
+specs/
+
+SPEC.md

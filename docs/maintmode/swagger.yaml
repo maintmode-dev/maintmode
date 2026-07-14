@@ -510,12 +510,14 @@ components:
                 transport is still allowed.
             enum:
                 - ok
+                - unreadable
                 - disabled
                 - not_configured
             example: ok
             type: string
             x-enum-varnames:
                 - TransportStatusOK
+                - TransportStatusUnreadable
                 - TransportStatusDisabled
                 - TransportStatusNotConfigured
         apimodels.TransportsResponse:

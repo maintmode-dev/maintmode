@@ -78,7 +78,8 @@ type Services struct {
 
 	// TokenChecker is the active-token checker wired into the API server's
 	// active-token middleware (the real *auth.Service).
-	TokenChecker middlewares.ActiveTokenChecker
+	TokenChecker  middlewares.ActiveTokenChecker
+	MessageSender *messagesender.Service
 }
 
 func NewServices(ctx context.Context,
@@ -146,9 +147,7 @@ func NewServices(ctx context.Context,
 
 	// Auditor is both read-side (api/public/audit reads logs through it) and
 	// write-side (the audit-write goque processor writes the log after commit).
-	auditorSrv := auditor.NewAuditor(
-		stores.Audit,
-	)
+	auditorSrv := auditor.NewAuditor(stores.Audit)
 
 	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher)
 	if err != nil {
@@ -157,6 +156,8 @@ func NewServices(ctx context.Context,
 
 	transportResolver := initTransportResolver(cfg, integrationSrv)
 
+	messageSender := messagesender.NewService(transportResolver, scheduler.NewService(queue))
+
 	invitationSrv := invitation.NewService(
 		cfg,
 		stores.TxManager,
@@ -164,10 +165,7 @@ func NewServices(ctx context.Context,
 		userSrv,
 		authSrv,
 		oauthProviders,
-		messagesender.NewService(
-			transportResolver,
-			scheduler.NewService(queue),
-		),
+		messageSender,
 	)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue, transportResolver)
@@ -215,6 +213,7 @@ func NewServices(ctx context.Context,
 		StateCodec:     stateCodec,
 		AuditPublisher: auditPublisher,
 		TokenChecker:   authSrv,
+		MessageSender:  messageSender,
 	}, nil
 }
 

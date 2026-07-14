@@ -70,9 +70,16 @@ func (i *Implementation) UpdateChannel(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
-	// Snapshot the registry BEFORE the write: failing on the index after the
+	// Snapshot the transport status BEFORE the write: failing on it after the
 	// update is committed would report a successful mutation as a 500.
-	index, err := i.integrationIndex(ctx)
+	// Transport is immutable, so reading it pre-write is safe.
+	current, err := i.notifyTargets.GetChannel(ctx, channelID)
+	if err != nil {
+		xlog.Error(ctx, "load channel for status failed", xfield.Error(err))
+		return httperrors.ToAPIError(c, op, err)
+	}
+
+	index, err := i.transportStatuses(ctx, []entity.NotifyTransport{current.Transport})
 	if err != nil {
 		return httperrors.ToAPIError(c, op, err)
 	}

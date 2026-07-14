@@ -2,6 +2,7 @@ package apinotifications
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -10,37 +11,40 @@ import (
 	"go.uber.org/mock/gomock"
 
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets/models"
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	mock_apinotifications "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/api/notifytargets"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
 
-// transportsImpl builds an Implementation whose registry port returns the
-// given masked listing (or error) once — the handler must issue exactly one
-// List call per request.
-func transportsImpl(t *testing.T, list []*entity.MaskedIntegration, err error) *Implementation {
+// transportsImpl builds an Implementation whose transport source yields the
+// given resolve outcome per transport — the handler resolves each catalog
+// transport exactly once per request.
+func transportsImpl(t *testing.T, outcomes map[entity.NotifyTransport]error) *Implementation {
 	t.Helper()
 
-	integrations := mock_apinotifications.NewMockintegrationSource(gomock.NewController(t))
-	integrations.EXPECT().List(gomock.Any()).Return(list, err)
-	return &Implementation{integrations: integrations}
+	transports := mock_apinotifications.NewMocktransportSource(gomock.NewController(t))
+	for transport, resolveErr := range outcomes {
+		transports.EXPECT().Get(gomock.Any(), transport).Return(nil, resolveErr)
+	}
+	return &Implementation{transports: transports}
 }
 
 // TestGetTransports covers the transports catalog handler: the static
 // slack/telegram catalog enriched with per-transport transport_status derived
-// from the integration registry (RUK-198).
+// from the delivery resolver (RUK-198/RUK-200).
 func TestGetTransports(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		// slack enabled, telegram present but disabled; the registry knows
-		// nothing about any other transport.
-		impl := transportsImpl(t, []*entity.MaskedIntegration{
-			{Kind: string(entity.NotifyTransportSlack), Enabled: true},
-			{Kind: string(entity.NotifyTransportTelegram), Enabled: false},
-		}, nil)
+		// slack resolves, telegram exists but is disabled; the classification of
+		// each catalog transport lands in the response.
+		impl := transportsImpl(t, map[entity.NotifyTransport]error{
+			entity.NotifyTransportSlack:    nil,
+			entity.NotifyTransportTelegram: apperr.ErrIntegrationDisabled,
+		})
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
 
@@ -52,7 +56,7 @@ func TestGetTransports(t *testing.T) {
 
 		// Catalog ids must be the slack/telegram MVP set, every id must be a
 		// transport a channel can actually be created on, and each entry must
-		// carry the status derived from the registry state above.
+		// carry the status derived from the resolve outcome above.
 		wantStatuses := map[string]apimodels.TransportStatus{
 			string(entity.NotifyTransportSlack):    apimodels.TransportStatusOK,
 			string(entity.NotifyTransportTelegram): apimodels.TransportStatusDisabled,
@@ -78,31 +82,39 @@ func TestGetTransports(t *testing.T) {
 		}
 	})
 
-	t.Run("empty registry means not_configured", func(t *testing.T) {
+	t.Run("unreadable and not_configured are distinguished", func(t *testing.T) {
 		t.Parallel()
 
-		impl := transportsImpl(t, nil, nil)
+		impl := transportsImpl(t, map[entity.NotifyTransport]error{
+			entity.NotifyTransportSlack: fmt.Errorf("%w: unwrap dek", apperr.ErrIntegrationUnreadable),
+			entity.NotifyTransportTelegram: fmt.Errorf("%w: %q",
+				apperr.ErrIntegrationNotConfigured, entity.NotifyTransportTelegram),
+		})
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
 
-		err := impl.GetTransports(c)
-		require.NoError(t, err)
+		require.NoError(t, impl.GetTransports(c))
 		require.Equal(t, http.StatusOK, rec.Code)
 
 		resp := testjsonudils.JSONToAny[apimodels.TransportsResponse](t, rec.Body)
+		got := map[string]apimodels.TransportStatus{}
 		for _, tr := range resp.Transports {
-			require.Equal(t, apimodels.TransportStatusNotConfigured, tr.TransportStatus,
-				"transport %q with no registry row", tr.ID)
+			got[tr.ID] = tr.TransportStatus
 		}
+		require.Equal(t, apimodels.TransportStatusUnreadable, got[string(entity.NotifyTransportSlack)])
+		require.Equal(t, apimodels.TransportStatusNotConfigured, got[string(entity.NotifyTransportTelegram)])
 	})
 
-	// transport_status is a mandatory read-model field: a registry read failure
-	// must fail the request loudly (500), never degrade to a made-up status.
-	// All five handlers funnel through the same integrationIndex helper, so
-	// this pins the shared error path.
-	t.Run("registry read failure returns 500", func(t *testing.T) {
+	// transport_status is a mandatory read-model field: an unclassifiable
+	// resolve failure (storage outage, not an integration state) must fail the
+	// request loudly (500), never degrade to a made-up status. All five
+	// handlers funnel through the same transportStatuses helper, so this pins
+	// the shared error path.
+	t.Run("unclassified resolve failure returns 500", func(t *testing.T) {
 		t.Parallel()
 
-		impl := transportsImpl(t, nil, errors.New("registry unavailable"))
+		impl := transportsImpl(t, map[entity.NotifyTransport]error{
+			entity.NotifyTransportSlack: errors.New("pq: connection refused"),
+		})
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
 
 		err := impl.GetTransports(c)

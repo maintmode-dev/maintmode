@@ -32,7 +32,7 @@ func NewTaskProcessors(
 
 	reg.RegisterProcessor(
 		entity.ProcessorTaskMessagingSend,
-		asyncsenderprocessor.NewTaskProcessor(services.TransportResolver),
+		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)
@@ -88,7 +88,7 @@ func NewTaskProcessors(
 	// preserves the registry-routing boundary and lets the owner map stay explicit.
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
-		asyncsenderprocessor.NewTaskProcessor(services.TransportResolver),
+		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
 		goque.WithWorkersCount(cfg.Messaging.Workers),
 		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
 	)

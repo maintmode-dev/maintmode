@@ -120,6 +120,7 @@ const (
 	TransportStatusDisabled      ApimodelsTransportStatus = "disabled"
 	TransportStatusNotConfigured ApimodelsTransportStatus = "not_configured"
 	TransportStatusOK            ApimodelsTransportStatus = "ok"
+	TransportStatusUnreadable    ApimodelsTransportStatus = "unreadable"
 )
 
 // Valid indicates whether the value is a known member of the ApimodelsTransportStatus enum.
@@ -130,6 +131,8 @@ func (e ApimodelsTransportStatus) Valid() bool {
 	case TransportStatusNotConfigured:
 		return true
 	case TransportStatusOK:
+		return true
+	case TransportStatusUnreadable:
 		return true
 	default:
 		return false

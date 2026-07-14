@@ -83,7 +83,7 @@ func toAPIUserSummary(u *entity.UserSummary) *UserSummary {
 // authorship summaries resolved from auth (nil when the channel carries no
 // corresponding user id, e.g. an unedited channel has no editor). index is the
 // per-request integration registry view the transport status is derived from.
-func ToChannel(channel *entity.NotifyChannel, author, editor *entity.UserSummary, index IntegrationIndex) *Channel {
+func ToChannel(channel *entity.NotifyChannel, author, editor *entity.UserSummary, index TransportStatusIndex) *Channel {
 	return &Channel{
 		ID:                 channel.ID.String(),
 		Transport:          string(channel.Transport),
@@ -109,7 +109,7 @@ type ChannelsResponse struct {
 // ToChannelsResponse maps the catalog to its API shape, looking up each
 // channel's author/editor summary in the pre-resolved index (keyed by user id)
 // and each channel's transport status in the integration registry view.
-func ToChannelsResponse(channels []*entity.NotifyChannel, summaries map[uuid.UUID]*entity.UserSummary, index IntegrationIndex) ChannelsResponse {
+func ToChannelsResponse(channels []*entity.NotifyChannel, summaries map[uuid.UUID]*entity.UserSummary, index TransportStatusIndex) ChannelsResponse {
 	return ChannelsResponse{
 		Channels: lo.Map(channels, func(item *entity.NotifyChannel, _ int) *Channel {
 			return ToChannel(item, lookupSummary(summaries, item.CreatedByUserID), lookupSummary(summaries, item.UpdatedByUserID), index)

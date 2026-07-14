@@ -144,7 +144,7 @@ func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.C
 	t.Helper()
 
 	services := newServices(ctx, t)
-	impl := apinotifications.New(services.NotifyTargets, services.UserSummary, services.Integration)
+	impl := apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver)
 
 	req := &notificationsmodels.CreateChannelRequest{
 		Transport:          string(entity.NotifyTransportTelegram),

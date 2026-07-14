@@ -20,15 +20,23 @@ import (
 // deliberately does NOT gate on entity.NotifyTransport.IsValid(): "email" is a
 // valid integration kind even though it is not a user-subscribable channel.
 //
-// A missing or disabled integration returns ErrIntegrationDisabled, which the
-// dispatch path treats as a best-effort drop (not an error). The decrypted
-// secrets live inside the returned Settings; the caller (the transport builder)
-// captures what it needs and drops them — Settings types carry no
-// Stringer/marshaler, so they cannot be logged wholesale by accident.
+// A missing integration returns ErrIntegrationNotConfigured and a disabled one
+// ErrIntegrationDisabled; the former wraps the latter, so the dispatch path's
+// errors.Is(err, ErrIntegrationDisabled) best-effort drop covers both, while
+// the read model can still tell them apart (RUK-200). An ENABLED integration
+// whose secrets cannot be opened locally (rolled-back KEK, corrupt envelope,
+// missing DEK row, unparseable settings) returns ErrIntegrationUnreadable —
+// surfaced as transport_status "unreadable" on reads, retried toward
+// dead-letter on delivery. A plain storage failure stays unwrapped: it is an
+// infrastructure error, not an integration state.
+//
+// The decrypted secrets live inside the returned Settings; the caller (the
+// transport builder) captures what it needs and drops them — Settings types
+// carry no Stringer/marshaler, so they cannot be logged wholesale by accident.
 func (s *Service) Settings(ctx context.Context, kind string) (integrationkinds.Settings, error) {
 	setting, err := s.store.GetByKind(ctx, kind)
 	if errors.Is(err, apperr.ErrIntegrationNotFound) {
-		return nil, fmt.Errorf("%w: %q not configured", apperr.ErrIntegrationDisabled, kind)
+		return nil, fmt.Errorf("%w: %q", apperr.ErrIntegrationNotConfigured, kind)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("settings %q: %w", kind, err)
@@ -37,24 +45,32 @@ func (s *Service) Settings(ctx context.Context, kind string) (integrationkinds.S
 		return nil, apperr.ErrIntegrationDisabled
 	}
 
+	// From here on the integration is enabled and every failure is a local
+	// can't-open-it condition, classified unreadable.
 	in, err := s.registry.Get(kind)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: kind %q not in registry: %w", apperr.ErrIntegrationUnreadable, kind, err)
 	}
 
 	dek, err := s.unwrapDEKFor(ctx, setting.DEKID)
 	if err != nil {
-		return nil, err
+		// A missing DEK row or a failed unwrap are known can't-open-it
+		// conditions → unreadable. Anything else (e.g. a DB outage on the load)
+		// stays unwrapped so it surfaces as a 500, not a channel status.
+		if errors.Is(err, apperr.ErrDataKeyNotFound) || errors.Is(err, apperr.ErrUnwrapDEK) {
+			return nil, fmt.Errorf("%w: %w", apperr.ErrIntegrationUnreadable, err)
+		}
+		return nil, fmt.Errorf("settings %q: load dek: %w", kind, err)
 	}
 
 	plainSecrets, err := s.decryptAllSecrets(in, dek, setting.Secrets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", apperr.ErrIntegrationUnreadable, err)
 	}
 
 	parsed, err := in.Parse(setting.Config, plainSecrets)
 	if err != nil {
-		return nil, fmt.Errorf("settings %q: parse: %w", kind, err)
+		return nil, fmt.Errorf("%w: parse: %w", apperr.ErrIntegrationUnreadable, err)
 	}
 	return parsed, nil
 }

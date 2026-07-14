@@ -32,15 +32,17 @@ func registryFailureMocks(t *testing.T) (*Implementation, *mock_apinotifications
 
 	channelSvc := mock_apinotifications.NewMockchannelService(ctrl)
 
-	integrations := mock_apinotifications.NewMockintegrationSource(ctrl)
-	integrations.EXPECT().List(gomock.Any()).Return(nil, errors.New("registry unavailable"))
+	transports := mock_apinotifications.NewMocktransportSource(ctrl)
+	transports.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.New("pq: connection refused"))
 
 	// The resolver is exercised through its documented degrade-never-fail
 	// contract; the canned channel carries no author ids, so the lister is
 	// never consulted (no expectations).
 	userLister := mock_usersummary.NewMockUserLister(ctrl)
 
-	return New(channelSvc, usersummary.NewService(userLister), integrations), channelSvc
+	// The resolve failure short-circuits before the last-delivery load, so no
+
+	return New(channelSvc, usersummary.NewService(userLister), transports), channelSvc
 }
 
 func testChannel() *entity.NotifyChannel {
@@ -115,7 +117,10 @@ func TestChannelHandlers_RegistryFailure500(t *testing.T) {
 	t.Run("UpdateChannel fails before the write", func(t *testing.T) {
 		t.Parallel()
 
-		impl, _ := registryFailureMocks(t)
+		impl, channelSvc := registryFailureMocks(t)
+		// The handler pre-loads the channel (transport is immutable) before
+		// resolving its status; only UpdateChannel itself must stay unreached.
+		channelSvc.EXPECT().GetChannel(gomock.Any(), gomock.Any()).Return(testChannel(), nil)
 
 		newName := "renamed"
 		c, rec := echotest.ContextConfig{

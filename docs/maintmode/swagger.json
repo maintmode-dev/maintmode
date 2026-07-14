@@ -717,6 +717,7 @@
                 "description": "TransportStatus reports whether the integration backing the transport can\ndeliver right now (ok | disabled | not_configured), so the channel-create\nform can flag transports that would silently not deliver (RUK-198). The\ncatalog stays advisory: creating a channel on a disabled/unconfigured\ntransport is still allowed.",
                 "enum": [
                     "ok",
+                    "unreadable",
                     "disabled",
                     "not_configured"
                 ],
@@ -724,6 +725,7 @@
                 "type": "string",
                 "x-enum-varnames": [
                     "TransportStatusOK",
+                    "TransportStatusUnreadable",
                     "TransportStatusDisabled",
                     "TransportStatusNotConfigured"
                 ]

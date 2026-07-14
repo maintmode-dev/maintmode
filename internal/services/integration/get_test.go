@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	integrationsvc "github.com/ruko1202/maintmode/internal/services/integration"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -53,4 +54,19 @@ func TestService_ListMasksSecrets(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), plaintext, "List must never surface the plaintext secret")
 	require.NotContains(t, string(raw), ciphertext, "List must never surface the stored ciphertext")
+}
+
+// createEnabledSlack creates an enabled integration of the test's unique slack
+// kind with one encrypted secret, returning nothing — the caller reads it back
+// through the listing under test.
+func createEnabledSlack(ctx context.Context, t *testing.T, svc *integrationsvc.Service, kind string) {
+	t.Helper()
+	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
+		Kind:    kind,
+		Enabled: lo.ToPtr(true),
+		Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
+		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-health-secret"}),
+		Actor:   testActor(),
+	})
+	require.NoError(t, err)
 }

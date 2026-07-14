@@ -15,68 +15,69 @@ import (
 
 	uuid "github.com/google/uuid"
 	entity "github.com/ruko1202/maintmode/internal/entity"
+	notifytransport "github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockintegrationSource is a mock of integrationSource interface.
-type MockintegrationSource struct {
+// MocktransportSource is a mock of transportSource interface.
+type MocktransportSource struct {
 	ctrl     *gomock.Controller
-	recorder *MockintegrationSourceMockRecorder
+	recorder *MocktransportSourceMockRecorder
 	isgomock struct{}
 }
 
-// MockintegrationSourceMockRecorder is the mock recorder for MockintegrationSource.
-type MockintegrationSourceMockRecorder struct {
-	mock *MockintegrationSource
+// MocktransportSourceMockRecorder is the mock recorder for MocktransportSource.
+type MocktransportSourceMockRecorder struct {
+	mock *MocktransportSource
 }
 
-// NewMockintegrationSource creates a new mock instance.
-func NewMockintegrationSource(ctrl *gomock.Controller) *MockintegrationSource {
-	mock := &MockintegrationSource{ctrl: ctrl}
-	mock.recorder = &MockintegrationSourceMockRecorder{mock}
+// NewMocktransportSource creates a new mock instance.
+func NewMocktransportSource(ctrl *gomock.Controller) *MocktransportSource {
+	mock := &MocktransportSource{ctrl: ctrl}
+	mock.recorder = &MocktransportSourceMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockintegrationSource) EXPECT() *MockintegrationSourceMockRecorder {
+func (m *MocktransportSource) EXPECT() *MocktransportSourceMockRecorder {
 	return m.recorder
 }
 
-// List mocks base method.
-func (m *MockintegrationSource) List(ctx context.Context) ([]*entity.MaskedIntegration, error) {
+// Get mocks base method.
+func (m *MocktransportSource) Get(ctx context.Context, name entity.NotifyTransport) (notifytransport.Transport, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", ctx)
-	ret0, _ := ret[0].([]*entity.MaskedIntegration)
+	ret := m.ctrl.Call(m, "Get", ctx, name)
+	ret0, _ := ret[0].(notifytransport.Transport)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// List indicates an expected call of List.
-func (mr *MockintegrationSourceMockRecorder) List(ctx any) *MockintegrationSourceListCall {
+// Get indicates an expected call of Get.
+func (mr *MocktransportSourceMockRecorder) Get(ctx, name any) *MocktransportSourceGetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockintegrationSource)(nil).List), ctx)
-	return &MockintegrationSourceListCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MocktransportSource)(nil).Get), ctx, name)
+	return &MocktransportSourceGetCall{Call: call}
 }
 
-// MockintegrationSourceListCall wrap *gomock.Call
-type MockintegrationSourceListCall struct {
+// MocktransportSourceGetCall wrap *gomock.Call
+type MocktransportSourceGetCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockintegrationSourceListCall) Return(arg0 []*entity.MaskedIntegration, arg1 error) *MockintegrationSourceListCall {
+func (c *MocktransportSourceGetCall) Return(arg0 notifytransport.Transport, arg1 error) *MocktransportSourceGetCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockintegrationSourceListCall) Do(f func(context.Context) ([]*entity.MaskedIntegration, error)) *MockintegrationSourceListCall {
+func (c *MocktransportSourceGetCall) Do(f func(context.Context, entity.NotifyTransport) (notifytransport.Transport, error)) *MocktransportSourceGetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockintegrationSourceListCall) DoAndReturn(f func(context.Context) ([]*entity.MaskedIntegration, error)) *MockintegrationSourceListCall {
+func (c *MocktransportSourceGetCall) DoAndReturn(f func(context.Context, entity.NotifyTransport) (notifytransport.Transport, error)) *MocktransportSourceGetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

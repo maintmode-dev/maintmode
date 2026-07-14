@@ -58,10 +58,10 @@ func (i *Implementation) CreateChannel(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
 	}
 
-	// Snapshot the registry BEFORE the write: the response must carry
-	// transport_status, and failing on the index after the row is committed
-	// would report a successful create as a 500 (client retry → spurious 409).
-	index, err := i.integrationIndex(ctx)
+	// Resolve the status BEFORE the write: the response must carry
+	// transport_status, and failing on it after the row is committed would
+	// report a successful create as a 500 (client retry → spurious 409).
+	index, err := i.transportStatuses(ctx, []entity.NotifyTransport{entity.NotifyTransport(req.Transport)})
 	if err != nil {
 		return httperrors.ToAPIError(c, op, err)
 	}
