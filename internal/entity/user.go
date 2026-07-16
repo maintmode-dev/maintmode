@@ -48,6 +48,10 @@ type User struct {
 	// BlockedAt is nil for active users and records when an admin blocked the
 	// user. Blocking preserves roles so unblock immediately restores access.
 	BlockedAt *time.Time
+	// Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia").
+	// nil means "not selected" — the frontend falls back to browser auto-detect.
+	// Stored as an IANA string (never a numeric offset) so it survives DST.
+	Timezone *string
 }
 
 // IsBlocked reports whether the user is currently blocked.

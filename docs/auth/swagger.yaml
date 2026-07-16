@@ -161,6 +161,11 @@ components:
                         type: string
                     type: array
                     uniqueItems: false
+                timezone:
+                    description: |-
+                        Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
+                        null when not selected — the frontend then falls back to browser auto-detect.
+                    type: string
             type: object
         apiauthmodels.OAuthCallbackJSONResponse:
             properties:
@@ -176,6 +181,11 @@ components:
                 expires_in:
                     type: integer
                 refresh_token:
+                    type: string
+            type: object
+        apiauthmodels.UpdateMeRequest:
+            properties:
+                timezone:
                     type: string
             type: object
         apimodels.AcceptInvitationRequest:
@@ -860,6 +870,45 @@ paths:
             security:
                 - BearerAuth: []
             summary: Get current authenticated user
+            tags:
+                - Auth
+        patch:
+            description: Updates the caller's timezone preference. Accepts an IANA identifier (e.g. "Asia/Nicosia"); null, empty or whitespace resets to browser auto-detect. An invalid identifier returns 400.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.UpdateMeRequest'
+                description: Preferences patch
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.MeResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid timezone
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Update current authenticated user's preferences
             tags:
                 - Auth
     /api/v1/me/providers/{provider}/connect:

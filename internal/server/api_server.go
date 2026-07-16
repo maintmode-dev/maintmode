@@ -276,6 +276,7 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	withAuthorize.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.handlers.Auth.LogoutAll)
 	withAuthorize.Add(http.MethodGet, "/me", s.handlers.Auth.Me)
+	withAuthorize.Add(http.MethodPatch, "/me", s.handlers.Auth.UpdateMe)
 	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.handlers.Auth.ConnectProvider)
 	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.handlers.Auth.DisconnectProvider)
 

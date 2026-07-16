@@ -20,4 +20,5 @@ type Users struct {
 	Roles     pq.StringArray `db:"users.roles"`
 	CreatedAt time.Time      `db:"users.created_at"`
 	BlockedAt *time.Time     `db:"users.blocked_at"`
+	Timezone  *string        `db:"users.timezone"`
 }

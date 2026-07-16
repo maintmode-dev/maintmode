@@ -23,6 +23,7 @@ type usersTable struct {
 	Roles     postgres.ColumnStringArray
 	CreatedAt postgres.ColumnTimestampz
 	BlockedAt postgres.ColumnTimestampz
+	Timezone  postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,8 +71,9 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		RolesColumn     = postgres.StringArrayColumn("roles")
 		CreatedAtColumn = postgres.TimestampzColumn("created_at")
 		BlockedAtColumn = postgres.TimestampzColumn("blocked_at")
-		allColumns      = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn}
-		mutableColumns  = postgres.ColumnList{EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn}
+		TimezoneColumn  = postgres.StringColumn("timezone")
+		allColumns      = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn}
+		mutableColumns  = postgres.ColumnList{EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn}
 		defaultColumns  = postgres.ColumnList{IDColumn, NameColumn, RolesColumn, CreatedAtColumn}
 	)
 
@@ -85,6 +87,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		Roles:     RolesColumn,
 		CreatedAt: CreatedAtColumn,
 		BlockedAt: BlockedAtColumn,
+		Timezone:  TimezoneColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -45,6 +45,7 @@ func TestMe(t *testing.T) {
 		require.Equal(t, user.Name, got.DisplayName)
 		require.Equal(t, string(entity.OAuthProviderGoogle), got.OAuthProvider)
 		require.Equal(t, []string{string(entity.OAuthProviderGoogle)}, got.ConnectedProviders)
+		require.Nil(t, got.Timezone, "fresh user has no timezone")
 	})
 
 	t.Run("missing user in context", func(t *testing.T) {

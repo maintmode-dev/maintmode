@@ -357,6 +357,10 @@ type ApiauthmodelsMeResponse struct {
 	Id                 *string   `json:"id,omitempty"`
 	OauthProvider      *string   `json:"oauth_provider,omitempty"`
 	Roles              *[]string `json:"roles,omitempty"`
+
+	// Timezone Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
+	// null when not selected — the frontend then falls back to browser auto-detect.
+	Timezone *string `json:"timezone,omitempty"`
 }
 
 // ApiauthmodelsOAuthCallbackJSONResponse defines model for apiauthmodels.OAuthCallbackJSONResponse.
@@ -370,6 +374,11 @@ type ApiauthmodelsTokenPairResponse struct {
 	AccessToken  *string `json:"access_token,omitempty"`
 	ExpiresIn    *int    `json:"expires_in,omitempty"`
 	RefreshToken *string `json:"refresh_token,omitempty"`
+}
+
+// ApiauthmodelsUpdateMeRequest defines model for apiauthmodels.UpdateMeRequest.
+type ApiauthmodelsUpdateMeRequest struct {
+	Timezone *string `json:"timezone,omitempty"`
 }
 
 // ApimodelsAcceptInvitationRequest defines model for apimodels.AcceptInvitationRequest.
@@ -604,6 +613,9 @@ type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDT
 // PostApiV1LogoutJSONRequestBody defines body for PostApiV1Logout for application/json ContentType.
 type PostApiV1LogoutJSONRequestBody = AuthRefreshTokenJSONRequest
 
+// PatchApiV1MeJSONRequestBody defines body for PatchApiV1Me for application/json ContentType.
+type PatchApiV1MeJSONRequestBody = ApiauthmodelsUpdateMeRequest
+
 // PostApiV1MeProvidersProviderConnectJSONRequestBody defines body for PostApiV1MeProvidersProviderConnect for application/json ContentType.
 type PostApiV1MeProvidersProviderConnectJSONRequestBody = ApiauthmodelsConnectProviderRequest
 
@@ -722,6 +734,11 @@ type ClientInterface interface {
 
 	// GetApiV1Me request
 	GetApiV1Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiV1MeWithBody request with any body
+	PatchApiV1MeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchApiV1Me(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1MeProvidersProviderConnectWithBody request with any body
 	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -894,6 +911,30 @@ func (c *Client) PostApiV1LogoutAll(ctx context.Context, params *PostApiV1Logout
 
 func (c *Client) GetApiV1Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1MeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1MeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1MeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1Me(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1MeRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1606,6 +1647,46 @@ func NewGetApiV1MeRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPatchApiV1MeRequest calls the generic PatchApiV1Me builder with application/json body
+func NewPatchApiV1MeRequest(server string, body PatchApiV1MeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiV1MeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPatchApiV1MeRequestWithBody generates requests for PatchApiV1Me with any type of body
+func NewPatchApiV1MeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2365,6 +2446,11 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1MeWithResponse request
 	GetApiV1MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1MeResponse, error)
 
+	// PatchApiV1MeWithBodyWithResponse request with any body
+	PatchApiV1MeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1MeResponse, error)
+
+	PatchApiV1MeWithResponse(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1MeResponse, error)
+
 	// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with any body
 	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
 
@@ -2672,6 +2758,39 @@ func (r GetApiV1MeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiV1MeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PatchApiV1MeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsMeResponse
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiV1MeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiV1MeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiV1MeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3299,6 +3418,23 @@ func (c *ClientWithResponses) GetApiV1MeWithResponse(ctx context.Context, reqEdi
 	return ParseGetApiV1MeResponse(rsp)
 }
 
+// PatchApiV1MeWithBodyWithResponse request with arbitrary body returning *PatchApiV1MeResponse
+func (c *ClientWithResponses) PatchApiV1MeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1MeResponse, error) {
+	rsp, err := c.PatchApiV1MeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1MeResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchApiV1MeWithResponse(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1MeResponse, error) {
+	rsp, err := c.PatchApiV1Me(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1MeResponse(rsp)
+}
+
 // PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersProviderConnectResponse
 func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
 	rsp, err := c.PostApiV1MeProvidersProviderConnectWithBody(ctx, provider, contentType, body, reqEditors...)
@@ -3757,6 +3893,53 @@ func ParseGetApiV1MeResponse(rsp *http.Response) (*GetApiV1MeResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiV1MeResponse parses an HTTP response from a PatchApiV1MeWithResponse call
+func ParsePatchApiV1MeResponse(rsp *http.Response) (*PatchApiV1MeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiV1MeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsMeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest HttperrorsErrorResponse

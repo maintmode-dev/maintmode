@@ -15,6 +15,7 @@ func fromDBUser(r *model.Users) *entity.User {
 		Roles:     lo.Map(r.Roles, func(item string, _ int) entity.Role { return entity.Role(item) }),
 		CreatedAt: r.CreatedAt,
 		BlockedAt: r.BlockedAt,
+		Timezone:  r.Timezone,
 	}
 }
 
@@ -24,5 +25,6 @@ func toDBUser(r *entity.User) *model.Users {
 		Name:      r.Name,
 		Roles:     lo.Map(r.Roles, func(item entity.Role, _ int) string { return string(item) }),
 		BlockedAt: r.BlockedAt,
+		Timezone:  r.Timezone,
 	}
 }

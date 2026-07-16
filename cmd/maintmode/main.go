@@ -6,6 +6,13 @@ import (
 	"syscall"
 	"time"
 
+	// Embed the IANA tz database in the binary so timezone validation
+	// (entity.CanonicalTimezone → time.LoadLocation) is hermetic and does not
+	// depend on the runtime image shipping /usr/share/zoneinfo. Without this,
+	// dropping tzdata from the image would make every valid zone return 400 with
+	// no compile- or test-time signal.
+	_ "time/tzdata"
+
 	"github.com/jmoiron/sqlx"
 	redislib "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"

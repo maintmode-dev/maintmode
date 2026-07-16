@@ -18,6 +18,9 @@ type MeResponse struct {
 	Roles              []string `json:"roles"`
 	OAuthProvider      string   `json:"oauth_provider"`
 	ConnectedProviders []string `json:"connected_providers"`
+	// Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
+	// null when not selected — the frontend then falls back to browser auto-detect.
+	Timezone *string `json:"timezone"`
 }
 
 func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeResponse {
@@ -34,5 +37,6 @@ func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeRespon
 		}),
 		OAuthProvider:      string(entity.PrimaryOAuthProvider(providers)),
 		ConnectedProviders: connected,
+		Timezone:           u.Timezone,
 	}
 }
