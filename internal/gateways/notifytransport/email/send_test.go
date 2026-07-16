@@ -67,6 +67,41 @@ func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 	// The plain-text alternative must keep the link too — anchors are expanded to
 	// "text (url)" so a non-HTML client still has a way to accept the invitation.
 	require.Contains(t, decoded, "here ("+link+")", "plain-text alternative must keep the link")
+	// HTML bodies are wrapped in the branded frame: the wordmark and the default
+	// footer line appear in both the HTML and its derived plain text.
+	require.Contains(t, decoded, "MaintMode", "wrapped HTML must carry the wordmark")
+	require.Contains(t, decoded, defaultFooterText, "wrapped HTML must carry the footer line")
+}
+
+func TestClient_Send_PlainTextIsNotWrapped(t *testing.T) {
+	t.Parallel()
+
+	captured := make(chan capturedMessage, 1)
+	host, port := newMockSMTPServer(t, captured)
+
+	client, err := New(Params{
+		Host:      host,
+		Port:      port,
+		From:      "noreply@maintmode.test",
+		TLSPolicy: "none",
+	})
+	require.NoError(t, err)
+
+	// A plain-text message passes through the transport unframed: no wordmark, no
+	// footer, no table markup — only what the caller sent.
+	err = client.Send(context.Background(), "someone@example.com", entity.NotifyMessage{
+		Subject:     "Maintenance started",
+		Body:        "Maintenance started for Database.",
+		MessageMIME: entity.TextMessageMIME,
+	})
+	require.NoError(t, err)
+
+	msg := <-captured
+	decoded := decodeQuotedPrintable(t, msg.data)
+	require.Contains(t, decoded, "Maintenance started for Database.")
+	require.NotContains(t, decoded, "MaintMode", "plain-text messages must not be wrapped in the branded frame")
+	require.NotContains(t, decoded, "<table", "plain-text messages must not gain HTML markup")
+	require.NotContains(t, decoded, defaultFooterText)
 }
 
 func TestClient_New_EmptyHost(t *testing.T) {
@@ -116,6 +151,16 @@ func TestHTMLToText(t *testing.T) {
 			name: "plain text passes through",
 			in:   "just text",
 			want: "just text",
+		},
+		{
+			name: "table rows become newlines",
+			in:   "<table><tr><td>MaintMode</td></tr><tr><td>body</td></tr><tr><td>footer</td></tr></table>",
+			want: "MaintMode\nbody\nfooter",
+		},
+		{
+			name: "runs of blank lines collapse to one",
+			in:   "<p>one</p><tr></tr><tr></tr><p>two</p>",
+			want: "one\n\ntwo",
 		},
 	}
 

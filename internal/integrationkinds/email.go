@@ -11,17 +11,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
-// TLS policy vocabulary of the email config contract. The kind owns the
-// admin-facing vocabulary; the transport maps these strings (and safely
-// defaults anything unknown to mandatory STARTTLS). String equality with the
-// transport's mapping is pinned by a test in services/transportresolver — the
-// one module that legitimately sees both halves.
-const (
-	TLSPolicyNone          = "none"
-	TLSPolicyOpportunistic = "opportunistic"
-	TLSPolicyMandatory     = "mandatory"
-)
-
 const (
 	// kindEmail is derived from the transport constant (see kindSlack).
 	kindEmail              = string(entity.NotifyTransportEmail)
@@ -85,13 +74,6 @@ func (email) Validate(settings Settings) error {
 			validation.Required.When(s.Password != "").Error("username and password must be set together")),
 		validation.Field(&s.Password,
 			validation.Required.When(s.Username != "").Error("username and password must be set together")),
-		// The vocabulary is the transport's (email/client.go tlsPolicy): empty is
-		// allowed and defaults to mandatory STARTTLS there.
-		validation.Field(&s.TLSPolicy, validation.In(
-			TLSPolicyNone,
-			TLSPolicyOpportunistic,
-			TLSPolicyMandatory,
-		)),
 		validation.Field(&s.Timeout, validation.When(s.Timeout != "", validation.WithContext(xvalidation.IsDuration))),
 	)
 }

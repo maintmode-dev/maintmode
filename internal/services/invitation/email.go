@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/ruko1202/xlog"
 
@@ -14,14 +16,16 @@ import (
 )
 
 const (
-	invitationEmailSubject  = "You've been invited"
+	invitationEmailSubject  = "You've been invited to MaintMode"
 	invitationEmailTemplate = "invitation_email.gohtml"
 )
 
 // invitationEmailTmpl is the HTML invitation body, parsed once from the embedded
 // templates. The email transport derives a plain-text alternative from the
-// rendered HTML, so this stays the single source. Email-specific theming beyond
-// this minimal wrapper is a separate ticket (RUK-155 scope note).
+// rendered HTML, so this stays the single source. The template is deliberately
+// minimal (plain semantic HTML, no branding). Branded email theming — a shared
+// layout/wrapper across the invitation and notify emails — is intentionally
+// deferred and not yet ticketed.
 var invitationEmailTmpl = template.Must(
 	template.ParseFS(templates.FS, invitationEmailTemplate),
 )
@@ -35,7 +39,7 @@ func (s *Service) sendInvitationEmail(ctx context.Context, inv *entity.Invitatio
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Invitation.sendInvitationEmail")
 	defer span.End()
 
-	body, err := renderInvitationEmail(link)
+	body, err := renderInvitationEmail(link, s.ttl)
 	if err != nil {
 		return fmt.Errorf("render invitation email: %w", err)
 	}
@@ -71,14 +75,34 @@ func invitationEmailIdempotencyKey(inv *entity.Invitation) string {
 
 type invitationEmailData struct {
 	Link string
+	// ExpiresIn is a human phrase for the link lifetime, e.g. "7 days" or
+	// "1 day", derived from the invitation TTL so the copy never contradicts the
+	// actual expiry the service stamps on the invitation.
+	ExpiresIn string
 }
 
-func renderInvitationEmail(link string) (string, error) {
+func renderInvitationEmail(link string, ttl time.Duration) (string, error) {
 	var buf strings.Builder
 
-	err := invitationEmailTmpl.Execute(&buf, invitationEmailData{Link: link})
+	err := invitationEmailTmpl.Execute(&buf, invitationEmailData{
+		Link:      link,
+		ExpiresIn: expiresInPhrase(ttl),
+	})
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(buf.String()), nil
+}
+
+// expiresInPhrase renders the invitation TTL as a whole-day phrase for the email
+// copy. It rounds up so a sub-day remainder never understates the lifetime (a
+// recipient told "1 day" for a 25h link is fine; "0 days" would be wrong), and
+// floors at one day so a short TTL still reads sensibly. Days is the right unit:
+// the default TTL is 7 days and the config is expressed in days.
+func expiresInPhrase(ttl time.Duration) string {
+	days := max(int(math.Ceil(ttl.Hours()/24)), 1)
+	if days == 1 {
+		return "1 day" //nolint:goconst
+	}
+	return fmt.Sprintf("%d days", days)
 }

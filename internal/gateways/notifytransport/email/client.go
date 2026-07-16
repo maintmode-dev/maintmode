@@ -79,22 +79,22 @@ func (*Client) TransportID() entity.NotifyTransport {
 }
 
 // TLS policy config strings. Unknown/empty values default to mandatory STARTTLS —
-// the safe production posture. TLSPolicyNone is the plaintext mode used by the
+// the safe production posture. tlsPolicyNone is the plaintext mode used by the
 // in-process SMTP test server.
 const (
-	TLSPolicyNone          = "none"
-	TLSPolicyOpportunistic = "opportunistic"
-	TLSPolicyTLSMandatory  = "mandatory"
+	tlsPolicyNone          = "none"
+	tlsPolicyOpportunistic = "opportunistic"
+	tlsPolicyTLSMandatory  = "mandatory"
 )
 
 // tlsPolicy maps the config string to a go-mail TLSPolicy.
 func tlsPolicy(s string) mail.TLSPolicy {
 	switch s {
-	case TLSPolicyNone:
+	case tlsPolicyNone:
 		return mail.NoTLS
-	case TLSPolicyOpportunistic:
+	case tlsPolicyOpportunistic:
 		return mail.TLSOpportunistic
-	case TLSPolicyTLSMandatory:
+	case tlsPolicyTLSMandatory:
 		return mail.TLSMandatory
 	default:
 		return mail.TLSMandatory

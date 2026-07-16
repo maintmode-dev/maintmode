@@ -16,8 +16,8 @@ func TestTLSPolicy(t *testing.T) {
 		in   string
 		want mail.TLSPolicy
 	}{
-		{TLSPolicyNone, mail.NoTLS},
-		{TLSPolicyOpportunistic, mail.TLSOpportunistic},
+		{tlsPolicyNone, mail.NoTLS},
+		{tlsPolicyOpportunistic, mail.TLSOpportunistic},
 		{"mandatory", mail.TLSMandatory},
 		{"", mail.TLSMandatory},          // empty defaults to mandatory
 		{"bogus", mail.TLSMandatory},     // unknown defaults to mandatory

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	emailtransport "github.com/ruko1202/maintmode/internal/gateways/notifytransport/email"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/services/transportresolver"
 )
@@ -24,7 +23,7 @@ func TestBuilders_ConstructWorkingClients(t *testing.T) {
 	require.Equal(t, entity.NotifyTransportTelegram, tgTr.TransportID())
 
 	emailTr, err := b["email"](integrationkinds.EmailSettings{
-		Host: "smtp.test", From: "a@b.c", TLSPolicy: integrationkinds.TLSPolicyNone, Timeout: "5s",
+		Host: "smtp.test", From: "a@b.c", TLSPolicy: "none", Timeout: "5s",
 	})
 	require.NoError(t, err)
 	require.Equal(t, entity.NotifyTransportEmail, emailTr.TransportID())
@@ -49,16 +48,6 @@ func TestBuilders_EmailInvalidConfigErrors(t *testing.T) {
 	// Missing From makes the underlying email client construction fail (not panic).
 	_, err := transportresolver.Builders()["email"](integrationkinds.EmailSettings{Host: "smtp.test"})
 	require.Error(t, err)
-}
-
-// The kind owns the admin-facing TLS vocabulary; the transport owns its
-// interpretation. This test pins the two string sets together — the resolver is
-// the one module that legitimately imports both halves.
-func TestBuilders_EmailTLSVocabularyMatchesTransport(t *testing.T) {
-	t.Parallel()
-	require.Equal(t, emailtransport.TLSPolicyNone, integrationkinds.TLSPolicyNone)
-	require.Equal(t, emailtransport.TLSPolicyOpportunistic, integrationkinds.TLSPolicyOpportunistic)
-	require.Equal(t, emailtransport.TLSPolicyTLSMandatory, integrationkinds.TLSPolicyMandatory)
 }
 
 // A delivery-capable kind takes its name FROM entity.NotifyTransport by
