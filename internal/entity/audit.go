@@ -175,8 +175,6 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionUserBlocked:   AuditCategoryBlock,
 	AuditActionUserUnblocked: AuditCategoryBlock,
 
-	// Maintenance lifecycle/CRUD + steps all share one FE category chip; steps
-	// belong to a maintenance and are not split out (RUK-182).
 	AuditActionMaintCreated:       AuditCategoryMaintenance,
 	AuditActionMaintUpdated:       AuditCategoryMaintenance,
 	AuditActionMaintApproved:      AuditCategoryMaintenance,
@@ -196,6 +194,40 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 func AuditActionCategory(action AuditAction) (AuditCategory, bool) {
 	category, ok := auditActionCategories[action]
 	return category, ok
+}
+
+var auditCategoriesAction = map[AuditCategory][]AuditAction{
+	AuditCategoryAuth: {
+		AuditActionLoginSuccess,
+		AuditActionLoginFailed,
+		AuditActionLogoutSuccess,
+	},
+	AuditCategoryRoles: {
+		AuditActionRolesChanged,
+	},
+	AuditCategoryBlock: {
+		AuditActionUserBlocked,
+		AuditActionUserUnblocked,
+	},
+	AuditCategoryMaintenance: {
+		AuditActionMaintCreated,
+		AuditActionMaintUpdated,
+		AuditActionMaintApproved,
+		AuditActionMaintStarted,
+		AuditActionMaintCompleted,
+		AuditActionMaintCanceled,
+		AuditActionMaintStepStarted,
+		AuditActionMaintStepCompleted,
+		AuditActionMaintStepCanceled,
+	},
+	AuditCategoryIntegration: {
+		AuditActionIntegrationCreated,
+		AuditActionIntegrationUpdated,
+	},
+}
+
+func AuditCategoryAction(category AuditCategory) []AuditAction {
+	return auditCategoriesAction[category]
 }
 
 // AuditFilter is a read-time filter for audit log entries.

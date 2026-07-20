@@ -1,4 +1,5 @@
 import { check } from 'k6';
+import http from 'k6/http';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 // Base configuration
@@ -38,10 +39,16 @@ export function generateDateRange(daysBack = 7, daysForward = 30) {
 }
 
 // Standard request headers
+// AUTH_TOKEN: the API requires a Bearer token since auth landed; mint one via
+// the OAuth stub (dev) and pass it as `k6 run -e AUTH_TOKEN=...`.
 export function getHeaders() {
-  return {
+  const headers = {
     'Content-Type': 'application/json',
   };
+  if (__ENV.AUTH_TOKEN) {
+    headers['Authorization'] = `Bearer ${__ENV.AUTH_TOKEN}`;
+  }
+  return headers;
 }
 
 // Check response helper
@@ -82,10 +89,32 @@ export function generateResourcePayload() {
   };
 }
 
-// Generate maintenance payload
+// Create a fresh resource and return its id, or null on failure. Each
+// maintenance scopes to its own brand-new resource so it never conflicts with
+// any other maintenance — that keeps the approve conflicts_snapshot empty and
+// stable (no drift-under-load 409s to retry around).
+export function createResource(baseUrl, headers) {
+  const res = http.post(
+    `${baseUrl}/api/v1/resource/create`,
+    JSON.stringify(generateResourcePayload()),
+    { headers }
+  );
+  if (res.status !== 200) {
+    return null;
+  }
+  const body = parseResponse(res);
+  return body && body.id ? body.id : null;
+}
+
+// Generate maintenance payload. Pass the id of a freshly created resource so
+// the window is scoped to it and stays conflict-free.
 export function generateMaintenancePayload(resourceIds = []) {
+  // Spread planned_start across a wide future range so even same-resource
+  // windows don't overlap by accident.
   const plannedStart = new Date();
-  plannedStart.setHours(plannedStart.getHours() + 24);
+  plannedStart.setHours(
+    plannedStart.getHours() + 24 + Math.floor(Math.random() * 24 * 90)
+  );
 
   const scope = resourceIds.length > 0 ? 'resource' : 'global';
 
@@ -95,6 +124,11 @@ export function generateMaintenancePayload(resourceIds = []) {
     scope: scope,
     impact: randomItem(MAINTENANCE_IMPACTS),
     planned_start: plannedStart.toISOString(),
+    // approver_user_id and notify_targets are required by the current API;
+    // the runner mints them against the target stand and passes them via
+    // `k6 run -e APPROVER_ID=... -e CHANNEL_ID=...`.
+    approver_user_id: __ENV.APPROVER_ID,
+    notify_targets: { channel_ids: [__ENV.CHANNEL_ID] },
     steps: [{
       order: 1,
       description: 'Run load test maintenance task',
@@ -104,10 +138,7 @@ export function generateMaintenancePayload(resourceIds = []) {
   };
 
   if (resourceIds.length > 0) {
-    payload.resources = resourceIds.map(id => ({
-      id: id,
-      type: randomItem(RESOURCE_TYPES)
-    }));
+    payload.resources = resourceIds.map(id => ({ id: id }));
   }
 
   return payload;

@@ -21,7 +21,7 @@ type integrationSettingsTable struct {
 	Kind            postgres.ColumnString // Integration type: telegram | slack | smtp | jira | ... — matches messenger_channels.transport for user-subscribable kinds.
 	Enabled         postgres.ColumnBool   // Runtime on/off toggle read by the transport resolver; a disabled integration drops delivery best-effort.
 	Config          postgres.ColumnString // Non-secret settings as plaintext jsonb (host, port, from, tls_policy, api_url, timeout, ...).
-	Secrets         postgres.ColumnString // Secret fields only, each value base64(envelope [nonce][ciphertext]) encrypted with the DEK at dek_id. Never plaintext.
+	Secrets         postgres.ColumnString // Secret fields only, each value base64(Tink AEAD envelope) encrypted with the DEK at dek_id. Never plaintext.
 	DekID           postgres.ColumnString // The data_keys row whose DEK encrypts this integration's secret values.
 	CreatedAt       postgres.ColumnTimestampz
 	CreatedByUserID postgres.ColumnString

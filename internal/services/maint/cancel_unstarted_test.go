@@ -101,6 +101,34 @@ func TestCancelUnStarted_SkipsStartedOrFinished(t *testing.T) {
 	}
 }
 
+// TestCancelUnStarted_ActualPeriodInFuture guards the sweep against drifted
+// rows: the shared dev DB accumulates not-started maintenances that carry an
+// actual period whose start is still in the future (leftovers from storage-level
+// tests writing arbitrary periods). Closing that period at "now" naively yields
+// an inverted range that Postgres rejects (22000), failing the whole batch — the
+// sweep must cancel such a row, not choke on it.
+func TestCancelUnStarted_ActualPeriodInFuture(t *testing.T) {
+	// Not parallel: see TestCancelUnStarted.
+	ctx := context.Background()
+	now := xtime.UTCNow()
+
+	service, _ := initService(t)
+
+	overdueStart := now.Add(-10000 * time.Hour)
+	maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore,
+		entity.NewPeriod(overdueStart, overdueStart.Add(time.Hour)),
+		testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+		testdbutils.WithActualPeriod(entity.NewPeriod(now.Add(30*time.Minute), now.Add(time.Hour))),
+	)
+
+	require.NoError(t, service.CancelUnStarted(ctx, now.Add(-15*time.Minute), 100_000))
+
+	got, err := service.GetMaint(ctx, maint.ID)
+	require.NoError(t, err)
+	require.Equal(t, entity.MaintenanceStatusCancelled, got.Status)
+	require.Equal(t, entity.MaintenanceCancelReasonNotStarted, got.CancelReason)
+}
+
 // TestCancelUnStarted_NoOverdue verifies the sweep is a clean no-op when nothing
 // qualifies (planned but still within grace).
 func TestCancelUnStarted_NoOverdue(t *testing.T) {

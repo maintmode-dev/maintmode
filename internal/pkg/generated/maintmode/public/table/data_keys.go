@@ -18,8 +18,8 @@ type dataKeysTable struct {
 
 	// Columns
 	ID           postgres.ColumnString
-	KekID        postgres.ColumnString // Id of the KEK that wrapped encrypted_dek (a key in config crypto.keys); recorded so a rotation can re-wrap and fail-fast can reject an unknown KEK.
-	EncryptedDek postgres.ColumnBytea  // DEK wrapped by the KEK: envelope bytes [nonce][ciphertext]. The plaintext DEK never touches the database.
+	KekID        postgres.ColumnString // URI of the KEK that wrapped encrypted_dek (a key in config crypto.local_keys, e.g. local-kms://...); recorded so a rotation can re-wrap and fail-fast can reject an unknown KEK.
+	EncryptedDek postgres.ColumnBytea  // DEK keyset wrapped by the KEK (Tink encrypted keyset bytes). The plaintext DEK never touches the database.
 	Label        postgres.ColumnString // Optional human-readable note for the key (e.g. "integration secrets").
 	CreatedAt    postgres.ColumnTimestampz
 

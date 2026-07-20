@@ -182,6 +182,35 @@ type CryptoConfig struct {
 	LocalKeys map[string]string `mapstructure:"local_keys"`
 }
 
+// LicenseConfig wires the instance to the closed MaintMode Console license
+// server (SaaS mode). Self-hosted deployments leave the whole block
+// empty: Enabled() reports false, the license client never starts and no
+// limits apply. With both fields set, the instance heartbeats Console, caches
+// the returned license in its own DB and enforces its status: a blocked license
+// rejects every mutating business request (the block gate).
+type LicenseConfig struct {
+	// URL is the Console base URL; the heartbeat goes to
+	// {URL}/cloud/v1/instances/heartbeat.
+	URL string `mapstructure:"url"`
+	// InstanceToken authenticates this instance (Authorization: Bearer). Comes
+	// from the secrets file via <secret:...> — never inline in the config.
+	InstanceToken string `mapstructure:"instance_token"`
+	// CronSpec is the 5-field schedule of the heartbeat producer job. Zero falls
+	// back to "* * * * *" (~60s, the contract cadence) at wiring time.
+	CronSpec string `mapstructure:"cron_spec"`
+	// HTTPTimeout bounds one heartbeat request. Zero falls back to 10s at wiring
+	// time. There is no retry: the next cron tick is the retry, and a failed tick
+	// just keeps the cached license (warning-level log).
+	HTTPTimeout         time.Duration `mapstructure:"http_timeout"`
+	CacheReloadInterval time.Duration `mapstructure:"cache_reload_interval"`
+}
+
+// Enabled reports whether the SaaS license mode is on. Both knobs are required;
+// a half-set block is rejected at startup by validateLicense.
+func (c LicenseConfig) Enabled() bool {
+	return c.URL != "" && c.InstanceToken != ""
+}
+
 type TaskProcessorMessagingConfig struct {
 	Workers     int   `mapstructure:"workers"`
 	MaxAttempts int32 `mapstructure:"max_attempts"`
@@ -262,6 +291,7 @@ type AppConfig struct {
 	NotifyTransport NotifyTransportConfig `mapstructure:"notify_transport"`
 	TaskProcessor   TaskProcessorConfig   `mapstructure:"task_processor"`
 	Crypto          CryptoConfig          `mapstructure:"crypto"`
+	License         LicenseConfig         `mapstructure:"license"`
 }
 
 const (

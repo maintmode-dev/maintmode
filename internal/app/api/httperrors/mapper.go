@@ -71,6 +71,13 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 	case errors.Is(err, apperr.ErrInvalidInvitation):
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvitationInvalid, "")
 
+	// license enforcement: stable 403 codes, checked before the
+	// generic ErrForbidden case so the frontend can distinguish them.
+	case errors.Is(err, apperr.ErrSeatsLimitExceeded):
+		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrSeatsLimitExceeded, err.Error())
+	case errors.Is(err, apperr.ErrOrganizationSuspended):
+		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrOrganizationSuspended, err.Error())
+
 	// common errors. check after specific domain errors
 	case errors.Is(err, apperr.ErrValidation):
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())

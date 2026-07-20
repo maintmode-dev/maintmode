@@ -17,7 +17,7 @@ type IntegrationSettings struct {
 	Kind            string     `db:"integration_settings.kind"`    // Integration type: telegram | slack | smtp | jira | ... — matches messenger_channels.transport for user-subscribable kinds.
 	Enabled         bool       `db:"integration_settings.enabled"` // Runtime on/off toggle read by the transport resolver; a disabled integration drops delivery best-effort.
 	Config          string     `db:"integration_settings.config"`  // Non-secret settings as plaintext jsonb (host, port, from, tls_policy, api_url, timeout, ...).
-	Secrets         string     `db:"integration_settings.secrets"` // Secret fields only, each value base64(envelope [nonce][ciphertext]) encrypted with the DEK at dek_id. Never plaintext.
+	Secrets         string     `db:"integration_settings.secrets"` // Secret fields only, each value base64(Tink AEAD envelope) encrypted with the DEK at dek_id. Never plaintext.
 	DekID           uuid.UUID  `db:"integration_settings.dek_id"`  // The data_keys row whose DEK encrypts this integration's secret values.
 	CreatedAt       time.Time  `db:"integration_settings.created_at"`
 	CreatedByUserID *uuid.UUID `db:"integration_settings.created_by_user_id"`

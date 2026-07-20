@@ -5,13 +5,12 @@ import (
 	"slices"
 
 	"github.com/ruko1202/goque"
-
-	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // processorRegistrar wraps a *goque.Goque and records every task type it
 // registers a processor or periodic job for, so the set can be checked against
-// the canonical entity.ActiveProcessorTaskTypes at startup.
+// the expected set (entity.ExpectedProcessorTaskTypes for this process's
+// feature toggles) at startup.
 //
 // This closes the silent-loss gap inherent to any goque task type: the
 // goque_task table is shared, so a task type that is enqueued but has no
@@ -42,14 +41,14 @@ func (r *processorRegistrar) RegisterPeriodicJob(job *goque.PeriodicJob) {
 	r.goq.RegisterPeriodicJob(job)
 }
 
-// verify fails if the registered processors do not match the canonical
-// entity.ActiveProcessorTaskTypes exactly: a missing type would silently drop
-// its tasks, and an unexpected one (absent from the active set) is a typo, an
-// undeclared type, or a deliberately-disabled processor that was not also
-// removed from registration.
-func (r *processorRegistrar) verify() error {
+// verify fails if the registered processors do not match the expected set
+// exactly (entity.ExpectedProcessorTaskTypes for this process's feature
+// toggles): a missing type would silently drop its tasks, and an unexpected
+// one (absent from the expected set) is a typo, an undeclared type, or a
+// deliberately-disabled processor that was not also removed from registration.
+func (r *processorRegistrar) verify(expected map[string]struct{}) error {
 	var missing []string
-	for taskType := range entity.ActiveProcessorTaskTypes {
+	for taskType := range expected {
 		if _, ok := r.registered[taskType]; !ok {
 			missing = append(missing, taskType)
 		}
@@ -57,7 +56,7 @@ func (r *processorRegistrar) verify() error {
 
 	var unexpected []string
 	for taskType := range r.registered {
-		if _, ok := entity.ActiveProcessorTaskTypes[taskType]; !ok {
+		if _, ok := expected[taskType]; !ok {
 			unexpected = append(unexpected, taskType)
 		}
 	}

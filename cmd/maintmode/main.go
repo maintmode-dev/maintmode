@@ -90,7 +90,7 @@ func main() {
 
 	// start async task processor
 	{
-		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, stores, services)
+		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, cfg.License, stores, services)
 		if err != nil {
 			xlog.Panic(ctx, "failed to init task processors", xfield.Error(err))
 		}
@@ -150,6 +150,7 @@ func startAPIServer(
 			TokenVerifier: services.JWTVerifier,
 			TokenChecker:  services.TokenChecker,
 			Authorizer:    services.RBAC,
+			License:       services.License,
 		},
 		redisClient,
 		server.WithLogger(logger),

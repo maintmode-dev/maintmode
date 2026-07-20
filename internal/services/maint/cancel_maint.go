@@ -6,7 +6,6 @@ import (
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
-	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 
@@ -44,9 +43,7 @@ func (s *Service) cancelMaint(
 			return err
 		}
 
-		if maint.ActualPeriod != nil {
-			maint.ActualPeriod.End = lo.ToPtr(xtime.UTCNow())
-		}
+		maint.CloseActualPeriod(xtime.UTCNow())
 		maint.Status = entity.MaintenanceStatusCancelled
 		maint.CancelReason = cmd.Reason
 		maint.CancelReasonComment = cmd.ReasonComment

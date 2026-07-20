@@ -59,6 +59,9 @@ type APIServerSecurity struct {
 	TokenVerifier middlewares.TokenVerifier
 	TokenChecker  middlewares.ActiveTokenChecker
 	Authorizer    middlewares.Authorizer
+	// License is the suspend-gate source: the license service in SaaS mode,
+	// license.Noop on self-hosted (its nil license passes every request).
+	License middlewares.LicenseProvider
 }
 
 type APIServer struct {
@@ -88,20 +91,29 @@ func NewAPIServer(
 func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuildMeta) {
 	rootGr := s.e.Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
+
 	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
 
 	// The /api/v1 base group carries NO blanket access-token gate: the auth module
 	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)
 	// that must stay unauthenticated. Each subgroup applies RequireAccessToken (or
 	// not) for itself.
+	//
+	// The license block gate is NOT applied here: the whole auth module — both its
+	// public (login/oauth, refresh, invitation accept) and its protected (logout,
+	// /me, provider connect, role/user admin) routes — must stay reachable under a
+	// blocked license so a member of a blocked org can sign in, manage their
+	// session and reach the suspended page. The gate lives inside apiV1Group,
+	// covering the business routes only.
 	apiV1 := rootGr.Group("/api/v1")
 	s.authPublicV1Group(apiV1, env, meta)
 	s.apiV1Group(apiV1)
 	s.authProtectedV1Group(apiV1)
 
-	// ui/v1 is fully token-gated.
+	// ui/v1 is fully token-gated and also behind the block gate.
 	s.uiV1Group(rootGr.Group("/ui/v1",
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
+		middlewares.RequireLicenseNotSuspended(s.security.License),
 	))
 }
 
@@ -151,8 +163,14 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 // apiV1Group registers the core (maintenance/resource/notify/userpicker) routes.
 // Each subgroup gates itself with RequireAccessToken — the /api/v1 base group
 // carries no blanket gate (the auth public routes share it).
+//
+// The license block gate wraps ONLY these business routes (not the auth module):
+// under a blocked license it rejects mutating requests while leaving reads open,
+// so a member of a blocked org still sees their data but cannot change it. On
+// self-hosted the provider is license.Noop, whose nil license passes everything.
 func (s *APIServer) apiV1Group(gr *echo.Group) {
 	requireToken := middlewares.RequireAccessToken(s.security.TokenVerifier)
+	gr = gr.Group("", middlewares.RequireLicenseNotSuspended(s.security.License))
 
 	// maint API group
 	{

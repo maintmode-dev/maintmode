@@ -17,6 +17,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
 	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
+	"github.com/ruko1202/maintmode/internal/storages/licensecache"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/notifytargets"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
@@ -45,6 +46,11 @@ type Stores struct {
 	// data-encryption keys that protect its secrets at rest.
 	Integrations *integrationstore.Store
 	DataKeys     *datakey.Store
+
+	// LicenseCache holds the last successful Console heartbeat response
+	//. Constructed unconditionally (it is just a table handle); only a
+	// license-enabled process ever reads or writes it.
+	LicenseCache *licensecache.Store
 
 	// Auth-module stores (formerly AuthStores). TokenBlackList and Locker are
 	// Redis-backed; the rest are Postgres-backed.
@@ -85,6 +91,7 @@ func NewStores(
 
 		Integrations: integrationstore.NewStore(db),
 		DataKeys:     datakey.NewStore(db),
+		LicenseCache: licensecache.NewStore(db),
 
 		Users:           users.NewStore(db),
 		UserIdentities:  useridentities.NewStore(db),

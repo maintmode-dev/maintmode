@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"cmp"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/goque_processors/auditprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/auditpruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/autocancelprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/licenseheartbeatprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -19,11 +21,13 @@ import (
 // NewTaskProcessors builds the single goque worker for the maintmode process and
 // registers every task type the merged process owns (RUK-194): messaging.send,
 // maint.reminder, maint.auto.cancel (+ cron), invitation.email, audit.write and
-// audit.prune (+ cron). All eight are registered on one registrar, and verify()
-// runs once at the end to assert the registered set matches the canonical
-// entity.ActiveProcessorTaskTypes.
+// audit.prune (+ cron), plus license.heartbeat (+ cron) when SaaS license mode
+// is enabled. Everything is registered on one registrar, and verify()
+// runs once at the end to assert the registered set matches
+// entity.ExpectedProcessorTaskTypes for this process's toggles.
 func NewTaskProcessors(
 	cfg config.TaskProcessorConfig,
+	licenseCfg config.LicenseConfig,
 	stores *Stores,
 	services *Services,
 ) (*goque.Goque, error) {
@@ -133,7 +137,36 @@ func NewTaskProcessors(
 	}
 	reg.RegisterPeriodicJob(auditPruneJob)
 
-	if err := reg.verify(); err != nil {
+	// license.heartbeat: SaaS mode only — the concrete license service exists
+	// exactly when the license is configured, so its presence is the single
+	// source of truth for registration (no config/service mismatch possible).
+	// The cron job enqueues one empty-payload task per tick (~60s contract
+	// cadence; minute-bucketed external id dedupes replicas) and the processor
+	// runs one heartbeat: collect report → send → cache. One worker and one
+	// attempt — the tick cadence IS the retry, and Console-side failures are
+	// already fail-open inside the service (warn + keep cached license).
+	licenseEnabled := licenseCfg.Enabled()
+	if licenseEnabled {
+		reg.RegisterProcessor(
+			entity.ProcessorTaskLicenseHeartbeat,
+			licenseheartbeatprocessor.NewTaskProcessor(services.licenseHeartbeat),
+			goque.WithWorkersCount(1),
+			goque.WithTaskProcessingMaxAttempts(1),
+		)
+
+		heartbeatJob, err := goque.NewCronJob(
+			entity.ProcessorTaskLicenseHeartbeatCron,
+			cmp.Or(licenseCfg.CronSpec, "* * * * *"),
+			time.UTC,
+			licenseheartbeatprocessor.NewTaskFactory(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build license-heartbeat cron job: %w", err)
+		}
+		reg.RegisterPeriodicJob(heartbeatJob)
+	}
+
+	if err := reg.verify(entity.ExpectedProcessorTaskTypes(licenseEnabled)); err != nil {
 		return nil, err
 	}
 

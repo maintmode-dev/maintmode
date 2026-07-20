@@ -11,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/dekrotator"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	licensegw "github.com/ruko1202/maintmode/internal/gateways/license"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
@@ -25,6 +26,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/integration"
 	"github.com/ruko1202/maintmode/internal/services/invitation"
 	"github.com/ruko1202/maintmode/internal/services/jwtverifier"
+	licensesvc "github.com/ruko1202/maintmode/internal/services/license"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
 	"github.com/ruko1202/maintmode/internal/services/maintnotify"
 	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
@@ -80,6 +82,14 @@ type Services struct {
 	// active-token middleware (the real *auth.Service).
 	TokenChecker  middlewares.ActiveTokenChecker
 	MessageSender *messagesender.Service
+
+	// License is the enforcement surface (block-gate source, cache reload).
+	// Never nil: the real license service in SaaS mode, Noop on self-hosted —
+	// consumers never branch on "is the license configured".
+	License licensesvc.Enforcement
+	// licenseHeartbeat is the concrete license service driving the heartbeat
+	// processor; nil on self-hosted, where the processor is not registered.
+	licenseHeartbeat *licensesvc.Service
 }
 
 func NewServices(ctx context.Context,
@@ -98,24 +108,11 @@ func NewServices(ctx context.Context,
 	// user and auth services below depend on it.
 	auditPublisher := auditpublisher.New(queue)
 
-	// tokenSrv is built before userSrv: blocking a user revokes their refresh
-	// tokens, so the user service depends on the token service.
-	tokenSrv := token.NewService(
-		stores.TxManager,
-		stores.RefreshToken,
-		cfg.JWT.GeneratePrivateKey(),
-		cfg.JWT.Issuer,
-		cfg.JWT.Kid,
-	)
+	// License enforcement surface (the suspend-gate license source): the real
+	// client in SaaS mode, Noop otherwise.
+	enforcement, heartbeatSrv := newLicenseService(cfg, stores)
 
-	userSrv := user.NewService(
-		cfg.Environment,
-		stores.TxManager,
-		stores.Users,
-		stores.UserIdentities,
-		auditPublisher,
-		tokenSrv,
-	)
+	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher)
 
 	// authorizer is the single RBAC authorizer shared by the core (scenario
 	// middleware) and the auth admin routes.
@@ -205,16 +202,81 @@ func NewServices(ctx context.Context,
 		Integration:       integrationSrv,
 		TransportResolver: transportResolver,
 
-		Auth:           authSrv,
-		Token:          tokenSrv,
-		User:           userSrv,
-		Invitation:     invitationSrv,
-		Audit:          auditorSrv,
-		StateCodec:     stateCodec,
-		AuditPublisher: auditPublisher,
-		TokenChecker:   authSrv,
-		MessageSender:  messageSender,
+		Auth:             authSrv,
+		Token:            tokenSrv,
+		User:             userSrv,
+		Invitation:       invitationSrv,
+		Audit:            auditorSrv,
+		StateCodec:       stateCodec,
+		AuditPublisher:   auditPublisher,
+		TokenChecker:     authSrv,
+		MessageSender:    messageSender,
+		License:          enforcement,
+		licenseHeartbeat: heartbeatSrv,
 	}, nil
+}
+
+// newTokenAndUserServices builds the token service first, then the user
+// service on top of it: blocking a user revokes their refresh tokens, so the
+// user service depends on the token service.
+func newTokenAndUserServices(
+	cfg *config.AppConfig,
+	stores *Stores,
+	auditPublisher *auditpublisher.Publisher,
+) (tokenSvc *token.Service, userSvc *user.Service) {
+	tokenSrv := token.NewService(
+		stores.TxManager,
+		stores.RefreshToken,
+		cfg.JWT.GeneratePrivateKey(),
+		cfg.JWT.Issuer,
+		cfg.JWT.Kid,
+	)
+
+	userSrv := user.NewService(
+		cfg.Environment,
+		stores.TxManager,
+		stores.Users,
+		stores.UserIdentities,
+		auditPublisher,
+		tokenSrv,
+	)
+
+	return tokenSrv, userSrv
+}
+
+// newLicenseService builds the license enforcement: the real service (backed
+// by the Console heartbeat gateway) when the license is configured, Noop
+// otherwise — the process always starts, consumers always hold a working
+// guard, and nothing is enforced without a config. Enforcement reads the
+// license_cache row, seeded with a default active license by the migration and
+// refreshed by the cron heartbeat, so startup never blocks on Console. The
+// second return is the concrete service for the heartbeat processor — nil on
+// self-hosted, where the processor is not registered.
+func newLicenseService(
+	cfg *config.AppConfig,
+	stores *Stores,
+) (licensesvc.Enforcement, *licensesvc.Service) {
+	if !cfg.License.Enabled() {
+		return licensesvc.NewNoop(), nil
+	}
+
+	// No synchronous heartbeat at startup: the license is always read from the
+	// license_cache row, which the migration seeds with a default active license
+	// so the block gate has something to read from the first request. The cron
+	// heartbeat processor refreshes that row on its schedule, so startup never
+	// blocks on Console being reachable, and a restart of a blocked org closes
+	// the gate immediately from the persisted row.
+	licenseSrv := licensesvc.NewService(
+		stores.Users,
+		stores.UserInvitations,
+		stores.Audit,
+		stores.LicenseCache,
+		licensegw.NewClient(cfg.License),
+		config.GetAppBuildMeta().Version,
+		cfg.License.CacheReloadInterval,
+	)
+
+	return licenseSrv, licenseSrv
 }
 
 // coreServices groups the core (non-auth) domain services so NewServices can

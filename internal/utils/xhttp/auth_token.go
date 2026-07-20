@@ -21,5 +21,11 @@ func ExtractBearerToken(req *http.Request) string {
 }
 
 func SetBearerToken(req *http.Request, token string) {
-	req.Header.Set("Authorization", bearerHeader+token)
+	withBearerToken(token)(req)
+}
+
+func withBearerToken(token string) func(*http.Request) {
+	return func(req *http.Request) {
+		req.Header.Set("Authorization", bearerHeader+token)
+	}
 }

@@ -14,8 +14,8 @@ import (
 
 type DataKeys struct {
 	ID           uuid.UUID `sql:"primary_key" db:"data_keys.id"`
-	KekID        string    `db:"data_keys.kek_id"`        // Id of the KEK that wrapped encrypted_dek (a key in config crypto.keys); recorded so a rotation can re-wrap and fail-fast can reject an unknown KEK.
-	EncryptedDek []byte    `db:"data_keys.encrypted_dek"` // DEK wrapped by the KEK: envelope bytes [nonce][ciphertext]. The plaintext DEK never touches the database.
+	KekID        string    `db:"data_keys.kek_id"`        // URI of the KEK that wrapped encrypted_dek (a key in config crypto.local_keys, e.g. local-kms://...); recorded so a rotation can re-wrap and fail-fast can reject an unknown KEK.
+	EncryptedDek []byte    `db:"data_keys.encrypted_dek"` // DEK keyset wrapped by the KEK (Tink encrypted keyset bytes). The plaintext DEK never touches the database.
 	Label        *string   `db:"data_keys.label"`         // Optional human-readable note for the key (e.g. "integration secrets").
 	CreatedAt    time.Time `db:"data_keys.created_at"`
 }

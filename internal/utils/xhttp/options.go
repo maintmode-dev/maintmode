@@ -27,3 +27,30 @@ func WithCustomRedirectFlow(redirectFlow func(_ *http.Request, _ []*http.Request
 		c.CheckRedirect = redirectFlow
 	}
 }
+
+func WithCallerBeforeDo(f func(*http.Request)) ClientOptions {
+	return func(c *http.Client) {
+		tr, ok := c.Transport.(*transport)
+		if !ok {
+			return
+		}
+
+		tr.beforeRoundTrip = append(tr.beforeRoundTrip, f)
+	}
+}
+
+func WithBearerToken(token string) ClientOptions {
+	return WithCallerBeforeDo(withBearerToken(token))
+}
+
+func WithCallerAfterDo(f func(*http.Response)) ClientOptions {
+	return func(c *http.Client) {
+		tr, ok := c.Transport.(*transport)
+		if !ok {
+			return
+		}
+
+		//nolint:bodyclose // registers an after-response hook; it neither owns nor reads the body, so there is nothing to close here.
+		tr.afterRoundTrip = append(tr.afterRoundTrip, f)
+	}
+}

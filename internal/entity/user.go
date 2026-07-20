@@ -21,6 +21,13 @@ const (
 	roleSystemAdmin Role = "system admin"
 )
 
+var rolesLevel = map[Role]int{
+	RoleGuest:    0,
+	RoleEditor:   1,
+	RoleReviewer: 2,
+	RoleAdmin:    3,
+}
+
 // Valid checks whether the role is one of the known roles.
 func (r Role) Valid(ctx context.Context) bool {
 	switch r {

@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
@@ -38,8 +37,11 @@ func (s *Service) CompleteMaint(ctx context.Context, cmd *entity.CompleteMainten
 			return apperr.ErrMaintenanceHasUnfinishedSteps
 		}
 
+		// CloseActualPeriod rather than a direct end assignment: the fallback
+		// planned period can start in the future, and writing an inverted actual
+		// period would fail the update (see CloseActualPeriod).
 		maint.ActualPeriod = cmp.Or(maint.ActualPeriod, &maint.PlannedPeriod)
-		maint.ActualPeriod.End = lo.ToPtr(xtime.UTCNow())
+		maint.CloseActualPeriod(xtime.UTCNow())
 		maint.Status = entity.MaintenanceStatusCompleted
 		return nil
 	})

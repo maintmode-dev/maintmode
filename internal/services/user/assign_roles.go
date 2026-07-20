@@ -43,7 +43,7 @@ func (s *Service) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (
 			return apperr.ErrNotChanged
 		}
 
-		user.Roles = append(user.Roles, added...)
+		user.Roles = append(slices.Clone(user.Roles), added...)
 		return nil
 	})
 	if err != nil {

@@ -19,8 +19,11 @@
 package xcache
 
 import (
+	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // Cache is a mutex-guarded TTL map with generation-checked writes. It is built
@@ -35,6 +38,9 @@ type Cache[K comparable, V any] struct {
 	// gen tracks the invalidation generation per key; a Set is dropped if the
 	// generation moved between the caller's snapshot and the Set.
 	gen map[K]uint64
+	// sf coalesces concurrent cache-filling loads through GetOrLoad, so a TTL
+	// expiry does not fan every in-flight reader out to the source at once.
+	sf singleflight.Group
 }
 
 type entry[V any] struct {
@@ -67,6 +73,42 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
 		return zero, false
 	}
 	return e.value, true
+}
+
+// GetOrLoad returns the cached value for key, or loads it via loader on a miss
+// and caches the result. Concurrent misses for the same key are coalesced:
+// loader runs once and all callers share its result, so a TTL expiry cannot
+// stampede the source. The generation guard is preserved — a load whose value
+// was invalidated mid-flight is returned to the caller but not cached, exactly
+// as with the manual Get/Generation/Set flow. loader errors are returned and
+// nothing is cached.
+func (c *Cache[K, V]) GetOrLoad(key K, loader func() (V, error)) (V, error) {
+	if v, ok := c.Get(key); ok {
+		return v, nil
+	}
+
+	res, err, _ := c.sf.Do(fmt.Sprint(key), func() (any, error) {
+		// Re-check under the flight: a peer may have filled the cache between
+		// our Get miss and winning the singleflight slot.
+		if v, ok := c.Get(key); ok {
+			return v, nil
+		}
+		gen := c.Generation(key)
+		v, err := loader()
+		if err != nil {
+			return v, err
+		}
+		c.Set(key, v, gen)
+		return v, nil
+	})
+	if err != nil {
+		var zero V
+		return zero, err
+	}
+	// res is always V — every return inside the flight is typed V — but the
+	// comma-ok keeps it panic-proof and satisfies the checker.
+	v, _ := res.(V)
+	return v, nil
 }
 
 // Generation returns the current invalidation generation for key. A

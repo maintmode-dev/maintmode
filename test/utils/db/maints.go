@@ -37,6 +37,15 @@ func WithStatus(status entity.MaintenanceStatus) MaintChanger {
 	}
 }
 
+// WithActualPeriod pins the actual period regardless of status, e.g. to model
+// drifted rows in the shared DB where a not-started maintenance carries an
+// actual period.
+func WithActualPeriod(period entity.Period) MaintChanger {
+	return func(m *entity.Maintenance) {
+		m.ActualPeriod = &period
+	}
+}
+
 func WithSteps(step []*entity.MaintenanceStep) MaintChanger {
 	return func(m *entity.Maintenance) {
 		m.Steps = step

@@ -233,10 +233,13 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/autocancelprocessor/processor.go -source ./internal/goque_processors/autocancelprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/auditpruneprocessor/processor.go -source ./internal/goque_processors/auditpruneprocessor/processor.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/licenseheartbeatprocessor/processor.go -source ./internal/goque_processors/licenseheartbeatprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/license/service.go -source ./internal/services/license/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/active_token.go -source ./internal/server/middlewares/active_token.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/rbac.go -source ./internal/server/middlewares/rbac.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/license_suspend.go -source ./internal/server/middlewares/license_suspend.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/api/notifytargets/app.go -source ./internal/app/api/public/notifytargets/app.go
 
 # swag - Generate OpenAPI 3.1 specs from annotations, split by @Tags into the

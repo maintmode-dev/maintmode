@@ -323,6 +323,9 @@ linters:
               desc: "core must not import integration storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
               desc: "core must not import integration storages directly — use a consumer interface"
+            # license storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
+              desc: "core must not import the license storage directly — use a consumer interface"
 
         module-auth-stores:
           list-mode: lax
@@ -381,6 +384,9 @@ linters:
               desc: "auth must not import integration storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
               desc: "auth must not import integration storages directly — use a consumer interface"
+            # license storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
+              desc: "auth must not import the license storage directly — use a consumer interface"
 
         module-notificator-stores:
           list-mode: lax
@@ -437,6 +443,9 @@ linters:
               desc: "notificator must not import integration storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
               desc: "notificator must not import integration storages directly — use a consumer interface"
+            # license storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
+              desc: "notificator must not import the license storage directly — use a consumer interface"
 
         module-audit-stores:
           list-mode: lax
@@ -483,6 +492,9 @@ linters:
               desc: "audit must not import integration storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
               desc: "audit must not import integration storages directly — use a consumer interface"
+            # license storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
+              desc: "audit must not import the license storage directly — use a consumer interface"
 
         # Integration registry module (RUK-196): the integration service + its
         # kinds, the DEK rotator, and the two stores holding encrypted
@@ -535,6 +547,63 @@ linters:
             # audit storage
             - pkg: github.com/ruko1202/maintmode/internal/storages/audit
               desc: "integration must not import audit storages directly — use a consumer interface"
+            # license storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
+              desc: "integration must not import the license storage directly — use a consumer interface"
+
+        # License module: the license service and its cache store.
+        # licensecache is walled in here — only the license service reads/writes
+        # the cached license; enforcement consumers (invitation, user, the
+        # suspend middleware) go through license.Service via consumer
+        # interfaces. The license service itself reaches users/invitations/
+        # audit data ONLY through consumer interfaces (bootstrap injects the
+        # concrete stores), so every other module storage is denied.
+        module-license-stores:
+          list-mode: lax
+          files:
+            - "**/internal/services/license/*.go"
+            - "**/internal/services/license/**/*.go"
+            - "**/internal/storages/licensecache/*.go"
+            - "**/internal/storages/licensecache/**/*.go"
+            - "!**/*_test.go"
+          deny:
+            # core storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/maintenances
+              desc: "license must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/resources
+              desc: "license must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/conflicts
+              desc: "license must not import core storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/conflict_snapshots
+              desc: "license must not import core storages directly — use a consumer interface"
+            # auth storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/users
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/useridentities
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/refreshtoken
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/blacklisttoken
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
+              desc: "license must not import auth storages directly — use a consumer interface"
+            # notificator storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/notifychannel
+              desc: "license must not import notificator storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/notifytargets
+              desc: "license must not import notificator storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/deferrednotifications
+              desc: "license must not import notificator storages directly — use a consumer interface"
+            # audit storage
+            - pkg: github.com/ruko1202/maintmode/internal/storages/audit
+              desc: "license must not import audit storages directly — use a consumer interface"
+            # integration storages
+            - pkg: github.com/ruko1202/maintmode/internal/storages/integration
+              desc: "license must not import integration storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/datakey
+              desc: "license must not import integration storages directly — use a consumer interface"
 
         # Слои-точки-входа (goque_processors, gateways) не должны обращаться к
         # storage напрямую — только через сервисы. Запрещаем ЛЮБОЙ storages/*,

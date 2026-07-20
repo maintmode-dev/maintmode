@@ -7,6 +7,7 @@ import {
   checkResponse,
   generateResourcePayload,
   generateMaintenancePayload,
+  createResource,
   generateDateRange,
   parseResponse,
   sleepWithJitter,
@@ -115,14 +116,15 @@ export function resourceManager() {
 
     sleep(sleepWithJitter(0.5, 0.3));
 
-    // Get resource types
+    // Get resource by id (the /types endpoint is gone: a resource is
+    // maintained as a whole, without component types)
     if (resourceId) {
-      const typesRes = http.get(
-        `${BASE_URL}/api/v1/resource/${resourceId}/types`,
+      const getRes = http.get(
+        `${BASE_URL}/api/v1/resource/${resourceId}`,
         { headers }
       );
 
-      checkResponse(typesRes, 200, 'RM: Get Types');
+      checkResponse(getRes, 200, 'RM: Get Resource');
     }
 
     sleep(sleepWithJitter(2, 1));
@@ -135,8 +137,15 @@ export function maintenancePlanner() {
   const headers = getHeaders();
 
   group('Maintenance Planning', function() {
+    // Scope the draft to its own fresh resource so it stays conflict-free
+    const resourceId = createResource(BASE_URL, headers);
+    if (!resourceId) {
+      sleep(sleepWithJitter(1, 0.5));
+      return;
+    }
+
     // Create maintenance draft
-    const createPayload = generateMaintenancePayload();
+    const createPayload = generateMaintenancePayload([resourceId]);
     const createRes = http.post(
       `${BASE_URL}/api/v1/maintenances/create`,
       JSON.stringify(createPayload),
@@ -154,6 +163,8 @@ export function maintenancePlanner() {
     }
 
     if (!maintenanceId) {
+      // Back off instead of hot-looping when creation keeps failing
+      sleep(sleepWithJitter(1, 0.5));
       return;
     }
 
@@ -169,8 +180,8 @@ export function maintenancePlanner() {
 
     sleep(sleepWithJitter(1, 0.5));
 
-    // Update the draft
-    const updatePayload = generateMaintenancePayload();
+    // Update the draft — keep it scoped to the same fresh resource
+    const updatePayload = generateMaintenancePayload([resourceId]);
     updatePayload.title = `Updated ${createPayload.title}`;
 
     const updateRes = http.post(
@@ -201,8 +212,15 @@ export function maintenanceExecutor() {
   const headers = getHeaders();
 
   group('Maintenance Execution', function() {
+    // Scope the maintenance to its own fresh resource so it stays conflict-free
+    const resourceId = createResource(BASE_URL, headers);
+    if (!resourceId) {
+      sleep(sleepWithJitter(1, 0.5));
+      return;
+    }
+
     // Create maintenance
-    const createPayload = generateMaintenancePayload();
+    const createPayload = generateMaintenancePayload([resourceId]);
     const createRes = http.post(
       `${BASE_URL}/api/v1/maintenances/create`,
       JSON.stringify(createPayload),
@@ -220,12 +238,17 @@ export function maintenanceExecutor() {
     }
 
     if (!maintenanceId) {
+      // Back off instead of hot-looping when creation keeps failing
+      sleep(sleepWithJitter(1, 0.5));
       return;
     }
 
     sleep(sleepWithJitter(1, 0.5));
 
-    // Get maintenance view to fetch revision and conflicts
+    // Approve requires the current observed_maint_revision plus the
+    // conflicts_snapshot the server previewed. Because the maintenance is
+    // scoped to its own fresh resource, that snapshot is reliably empty, so a
+    // single read-then-approve is enough — no drift-under-load 409s to retry.
     const viewRes = http.get(
       `${BASE_URL}/ui/v1/maintenances/${maintenanceId}`,
       { headers }
@@ -243,17 +266,12 @@ export function maintenanceExecutor() {
       }
     }
 
-    sleep(sleepWithJitter(0.5, 0.3));
-
-    // Approve maintenance
-    const approvePayload = {
-      observed_maint_revision: revision,
-      conflicts_snapshot: conflicts
-    };
-
     const approveRes = http.post(
       `${BASE_URL}/api/v1/maintenances/${maintenanceId}/approve`,
-      JSON.stringify(approvePayload),
+      JSON.stringify({
+        observed_maint_revision: revision,
+        conflicts_snapshot: conflicts
+      }),
       { headers }
     );
 
@@ -299,6 +317,33 @@ export function maintenanceExecutor() {
       }
 
       sleep(sleepWithJitter(2, 1)); // Simulate work being done
+
+      // Complete every step first — the API rejects completing a
+      // maintenance while any step is still pending
+      const stepsRes = http.get(
+        `${BASE_URL}/api/v1/maintenances/${maintenanceId}`,
+        { headers }
+      );
+
+      const stepsBody = parseResponse(stepsRes);
+      const steps = (stepsBody && stepsBody.steps) || [];
+      for (const step of steps) {
+        const stepStartRes = http.post(
+          `${BASE_URL}/api/v1/maintenances/${maintenanceId}/steps/${step.id}/start`,
+          null,
+          { headers }
+        );
+        checkResponse(stepStartRes, 204, 'ME: Step Start');
+
+        sleep(sleepWithJitter(0.5, 0.3)); // Simulate step work
+
+        const stepCompleteRes = http.post(
+          `${BASE_URL}/api/v1/maintenances/${maintenanceId}/steps/${step.id}/complete`,
+          null,
+          { headers }
+        );
+        checkResponse(stepCompleteRes, 204, 'ME: Step Complete');
+      }
 
       // Complete maintenance
       const completeRes = http.post(

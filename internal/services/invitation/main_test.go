@@ -100,7 +100,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		txManager,
 		userinvitations.NewStore(db),
 		user.NewService(
-			config.DevEnvironment,
+			config.ProdEnvironment,
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),

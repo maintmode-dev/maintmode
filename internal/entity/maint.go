@@ -121,6 +121,23 @@ func (m *Maintenance) Normalize() {
 	}
 }
 
+// CloseActualPeriod closes the actual period at end. The DB constraint requires
+// actual_period to be NULL or strictly ordered (lower < upper), and the shared
+// database can hold drifted rows whose recorded actual start is still in the
+// future — closing such a period naively would write an inverted range and fail
+// the whole update. A maintenance whose actual work has not begun by end never
+// actually ran, so its actual period is dropped instead.
+func (m *Maintenance) CloseActualPeriod(end time.Time) {
+	if m.ActualPeriod == nil {
+		return
+	}
+	if !m.ActualPeriod.Start.Before(end) {
+		m.ActualPeriod = nil
+		return
+	}
+	m.ActualPeriod.End = lo.ToPtr(end)
+}
+
 func (m *Maintenance) Revision() int64 {
 	if m.UpdatedAt != nil {
 		return m.UpdatedAt.UnixMicro()

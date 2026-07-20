@@ -29,6 +29,12 @@ var (
 	// precondition failed (privacy), so these are returned with no message.
 	ErrInvitationInvalid ErrorCode = "invalid"
 	ErrEmailMismatch     ErrorCode = "email_mismatch"
+
+	// License enforcement codes. Stable machine-readable contract for
+	// the frontend: organization_suspended drives the full-screen suspended page
+	//, seats_limit_exceeded surfaces on invite/activate over the cap.
+	ErrSeatsLimitExceeded    ErrorCode = "seats_limit_exceeded"
+	ErrOrganizationSuspended ErrorCode = "organization_suspended"
 )
 
 type ErrorResponse struct {

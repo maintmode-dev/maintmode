@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,6 +45,14 @@ const (
 	// must be an immutable point-in-time record (actor_display_name is captured
 	// at event time, never resolved on read).
 	ProcessorTaskAuditWrite = "audit.write"
+	// ProcessorTaskLicenseHeartbeat is the goque task type produced once per cron
+	// tick by the license client (SaaS mode only). Its processor collects
+	// the seat/activity report at process time (payload is empty — a stale
+	// enqueued snapshot must never reach Console), sends the heartbeat and caches
+	// the returned license. Registered only when config license mode is enabled;
+	// see ExpectedProcessorTaskTypes.
+	ProcessorTaskLicenseHeartbeat     = "license.heartbeat"
+	ProcessorTaskLicenseHeartbeatCron = "license.heartbeat.cron"
 )
 
 // ActiveProcessorTaskTypes is the set of goque task types the process must
@@ -67,6 +76,20 @@ var ActiveProcessorTaskTypes = map[string]struct{}{
 	ProcessorTaskAuditWrite:          {},
 	ProcessorTaskAuditPrune:          {},
 	ProcessorTaskAuditPruneCron:      {},
+}
+
+// ExpectedProcessorTaskTypes returns the exact task-type set the process must
+// register given its feature toggles: the always-on baseline plus the license
+// client pair when SaaS mode is enabled. The coverage guard verifies
+// against this so a self-hosted process is not forced to register license
+// processors, and a license-enabled one cannot forget them.
+func ExpectedProcessorTaskTypes(licenseEnabled bool) map[string]struct{} {
+	expected := maps.Clone(ActiveProcessorTaskTypes)
+	if licenseEnabled {
+		expected[ProcessorTaskLicenseHeartbeat] = struct{}{}
+		expected[ProcessorTaskLicenseHeartbeatCron] = struct{}{}
+	}
+	return expected
 }
 
 // ProcessorTaskPayloadEventNotify is the typed payload stored in each goque task.
