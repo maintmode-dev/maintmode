@@ -26,12 +26,12 @@ func TestRefresh(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -50,12 +50,12 @@ func TestRefresh(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -81,13 +81,15 @@ func TestRefresh(t *testing.T) {
 		t.Parallel()
 
 		srv, mocks := initService(t)
+		// A real grace window: the second refresh below must land inside it.
+		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -121,12 +123,12 @@ func TestRefresh(t *testing.T) {
 			srv, mocks := initService(t)
 			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-			handleCallbackMock(mocks, 1)
+			exchangeIDTokenMock(mocks, 1)
 
-			pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-				Provider:     entity.OAuthProviderGoogle,
-				CallbackCode: "code-1",
-				ClientIP:     "10.0.0.1",
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.OAuthProviderGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
 			})
 			require.NoError(t, err)
 
@@ -155,12 +157,12 @@ func TestRefresh(t *testing.T) {
 
 			srv, mocks := initService(t)
 
-			handleCallbackMock(mocks, 1)
+			exchangeIDTokenMock(mocks, 1)
 
-			pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-				Provider:     entity.OAuthProviderGoogle,
-				CallbackCode: "code-1",
-				ClientIP:     "10.0.0.1",
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.OAuthProviderGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
 			})
 			require.NoError(t, err)
 
@@ -173,7 +175,7 @@ func TestRefresh(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, rt.Revoked)
 			// Wait past grace period simulation: manually expire the grace TTL
-			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-cfg.JWT.RefreshTokenGracePeriod))
+			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-srv.cfg.RefreshTokenGracePeriod))
 			err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
 			require.NoError(t, err)
 
@@ -189,12 +191,12 @@ func TestRefresh(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -223,12 +225,12 @@ func TestRefresh(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 

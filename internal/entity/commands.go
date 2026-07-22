@@ -182,23 +182,15 @@ type ListResourcesResult struct {
 
 // --- Authorization commands ---
 
-type GetAuthCodeURLCmd struct {
-	Provider OAuthProvider
-	State    string // State is an opaque, already-encoded value (typically signed via SignedStateCodec).
-}
-
-type HandleOAuthCallbackCmd struct {
-	Provider     OAuthProvider
-	CallbackCode string
-	ClientIP     string
-	UserAgent    string
-}
-
 type ExchangeIDTokenCmd struct {
 	Provider  OAuthProvider
 	IDToken   string
 	ClientIP  string
 	UserAgent string
+	// TestRoles are extra roles requested via the dev-only X-Test-Roles header.
+	// Filled only by the dev component of the API layer; the prod wiring is a
+	// noop that never reads the header, so the field stays empty there.
+	TestRoles []Role
 }
 
 type ConnectProviderCmd struct {

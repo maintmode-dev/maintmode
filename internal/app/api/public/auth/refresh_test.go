@@ -21,38 +21,7 @@ func TestRefresh(t *testing.T) {
 
 	impl := initImpl(t)
 
-	t.Run("ok via cookie", func(t *testing.T) {
-		t.Parallel()
-
-		tokenPair := issueTokenPair(ctx, t, impl)
-
-		request := httptest.NewRequest(http.MethodPost, "/auth/refresh", http.NoBody)
-		request.AddCookie(&http.Cookie{
-			Name:  cookieRefreshTokenName,
-			Value: tokenPair.RefreshToken,
-		})
-		c, rec := echotest.ContextConfig{
-			Request: request,
-		}.ToContextRecorder(t)
-
-		err := impl.Refresh(c)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		resp := testjsonudils.JSONToAny[apiauthmodels.TokenPairResponse](t, rec.Body)
-		require.NotEmpty(t, resp.AccessToken)
-		require.NotEmpty(t, resp.RefreshToken)
-		require.Greater(t, resp.ExpiresIn, 0)
-
-		refreshCookie, ok := lo.Find(rec.Result().Cookies(), func(cookie *http.Cookie) bool {
-			return cookie.Name == cookieRefreshTokenName
-		})
-		require.True(t, ok)
-		require.Equal(t, resp.RefreshToken, refreshCookie.Value)
-		require.Equal(t, cookieRefreshTokenPath, refreshCookie.Path)
-	})
-
-	t.Run("ok via json body fallback", func(t *testing.T) {
+	t.Run("ok via json body", func(t *testing.T) {
 		t.Parallel()
 
 		tokenPair := issueTokenPair(ctx, t, impl)
@@ -70,6 +39,16 @@ func TestRefresh(t *testing.T) {
 
 		resp := testjsonudils.JSONToAny[apiauthmodels.TokenPairResponse](t, rec.Body)
 		require.NotEmpty(t, resp.AccessToken)
+		require.NotEmpty(t, resp.RefreshToken)
+		require.Greater(t, resp.ExpiresIn, 0)
+		require.NotEqual(t, tokenPair.RefreshToken, resp.RefreshToken, "refresh token must rotate")
+
+		// No refresh cookie is set: the BFF owns token storage and reads the
+		// rotated token from the response body.
+		_, hasCookie := lo.Find(rec.Result().Cookies(), func(cookie *http.Cookie) bool {
+			return cookie.Name == "maintmode-refresh_token"
+		})
+		require.False(t, hasCookie, "refresh endpoint must not set a cookie")
 	})
 
 	t.Run("empty refresh token", func(t *testing.T) {

@@ -9,6 +9,8 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
+	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
+
 	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
@@ -24,18 +26,12 @@ func TestLogout(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		request.AddCookie(&http.Cookie{
-			Name:     cookieRefreshTokenName,
-			Value:    tokenPair.RefreshToken,
-			Path:     cookieRefreshTokenPath,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   cookieRefreshTokenMaxAge, // 30 days
-		})
 		xhttp.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,
+			JSONBody: testjsonudils.AnyToJSONBytes(t, refreshTokenJSONRequest{
+				RefreshToken: tokenPair.RefreshToken,
+			}),
 		}.ToContextRecorder(t)
 
 		err := impl.Logout(c)
@@ -80,15 +76,6 @@ func TestLogoutAll(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		request.AddCookie(&http.Cookie{
-			Name:     cookieRefreshTokenName,
-			Value:    tokenPair.RefreshToken,
-			Path:     cookieRefreshTokenPath,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   cookieRefreshTokenMaxAge, // 30 days
-		})
 		xhttp.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,

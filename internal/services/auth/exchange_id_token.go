@@ -51,15 +51,20 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 		return nil, nil, err
 	}
 
+	// TestRoles are filled only by the dev component of the API layer; in prod
+	// the field is always empty, so creation falls back to bootstrap/open-signup.
 	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,
+	}, entity.UserCreationPolicy{
+		AllowCreate: len(cmd.TestRoles) > 0,
+		GrantRoles:  cmd.TestRoles,
 	})
 	if err != nil {
 		// login_failed is a security-relevant record. It is published to the
-		// durable audit outbox (RUK-179): the write survives a crash, at the cost
-		// of being eventually-consistent rather than persisted before we return.
+		// durable audit outbox: the write survives a crash, at the cost of being
+		// eventually-consistent rather than persisted before we return.
 		s.publishAudit(ctx, audit.LoginFailed{
 			User: &entity.User{
 				Email: claims.Email,
@@ -68,7 +73,7 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 			Meta: &entity.AuditMetadata{
 				IP:            cmd.ClientIP,
 				UserAgent:     cmd.UserAgent,
-				FailureReason: entity.AuditFailureUserProvisioning,
+				FailureReason: provisioningFailureReason(err),
 			},
 		})
 		return nil, nil, fmt.Errorf("get or create user: %w", err)

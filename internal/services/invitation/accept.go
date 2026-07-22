@@ -83,11 +83,13 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 	// GetOrCreateByOAuthInfo's concurrent-first-login recovery retries on a
 	// clean connection after a unique violation aborts its own transaction, so
 	// it must own its transaction and cannot be nested in the claim tx below.
+	// The valid invitation itself authorizes the creation; the invitation's
+	// roles are assigned by the claim transaction below, not via the policy.
 	user, err := s.userSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	if err != nil {
 		xlog.Error(ctx, "accept: get or create user failed", xfield.Error(err))
 		return nil, fmt.Errorf("get or create user: %w", err)

@@ -40,7 +40,7 @@ type Store interface {
 // UserService is the subset of user.Service used by the invitation flow.
 type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
-	GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo) (*entity.User, error)
+	GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error)
 	AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (*entity.User, error)
 }
 

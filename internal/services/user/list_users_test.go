@@ -31,7 +31,7 @@ func makeNamedUserWithEmail(ctx context.Context, t *testing.T, srv *Service, nam
 		ID:    xuuid.NewString(),
 		Email: email,
 		Name:  name,
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 
 	if len(roles) > 0 {
@@ -146,7 +146,7 @@ func TestListUsers(t *testing.T) {
 			ID:    xuuid.NewString(),
 			Email: token + "@email.com",
 			Name:  "Multi " + token,
-		})
+		}, entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 		require.NoError(t, srv.LinkIdentity(ctx, created.ID, entity.OAuthProviderGithub, &entity.OAuthIDTokenClaims{
 			Subject: xuuid.NewString(),

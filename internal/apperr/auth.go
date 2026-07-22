@@ -14,9 +14,6 @@ var (
 	ErrTokenExpired         = errors.New("token expired")
 	ErrTokenReuse           = errors.New("token reuse detected")
 	ErrSuspiciousActivity   = errors.New("suspicious activity detected")
-	ErrInvalidOAuthState    = errors.New("invalid oauth state")
-	ErrOAuthStateTampered   = errors.New("oauth state tampered")
-	ErrOAuthStateExpired    = errors.New("oauth state expired")
 	ErrLogoutAlready        = errors.New("logout already")
 	ErrUnsupportedProvider  = errors.New("unsupported provider")
 	ErrAuthUnavailable      = errors.New("auth unavailable")
@@ -25,6 +22,12 @@ var (
 	// so blocking a user cuts off both new tokens and live ones on the next
 	// introspected (critical-mutation) request.
 	ErrUserBlocked = errors.New("user is blocked")
+	// ErrSignupDisabled rejects an OAuth login of an unknown user when neither an
+	// invitation nor open signup authorizes creating the account. No user row is
+	// persisted. 403 (not 401): the OIDC identity is verified — account creation
+	// is what is refused. The HTTP message stays generic so the response never
+	// reveals whether an invitation exists for the email.
+	ErrSignupDisabled = errors.New("signup disabled")
 )
 
 // OAuth provider connect/disconnect errors.

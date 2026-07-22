@@ -100,12 +100,12 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		txManager,
 		userinvitations.NewStore(db),
 		user.NewService(
-			config.ProdEnvironment,
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),
 			newTestAuditPublisher(t),
 			mocks.tokenRevoker,
+			false, // allowOpenSignup: the accept flow must authorize creation itself
 		),
 		mocks.tokenIssuer,
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
@@ -174,7 +174,7 @@ func makeAdmin(ctx context.Context, t *testing.T, s *Service) *entity.User {
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@admin-test.com",
 		Name:  "Inviter",
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 	return u
 }

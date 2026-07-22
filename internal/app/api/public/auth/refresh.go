@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,20 +20,21 @@ import (
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param request body refreshTokenJSONRequest false "Fallback refresh token body when cookie is absent"
+// @Param request body refreshTokenJSONRequest true "Refresh token"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid refresh token"
 // @Failure 409 {object} httperrors.ErrorResponse "Refresh lock busy or token reuse"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
-// @Header 200 {string} Set-Cookie "Rotated refresh token cookie (if issued)"
 // @Router /api/v1/refresh [post]
-// Refresh rotates the refresh token and issues a new token pair.
+// Refresh rotates the refresh token and issues a new token pair. The caller
+// (the BFF) sends the current refresh token in the request body and stores the
+// rotated one from the response body; no cookie is involved.
 func (i *Implementation) Refresh(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Refresh")
 	defer span.End()
 	op := "rotate refresh token"
 
-	refreshToken, err := extractRefreshToken(ctx, c)
+	refreshToken, err := extractRefreshToken(c)
 	if err != nil {
 		xlog.Error(ctx, "missing refresh token", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
@@ -50,10 +50,6 @@ func (i *Implementation) Refresh(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	if pair.RefreshToken != "" {
-		setRefreshCookie(c, pair.RefreshToken)
-	}
-
 	return c.JSON(http.StatusOK, apiauthmodels.ToAPITokenPairResponse(pair))
 }
 
@@ -61,14 +57,10 @@ type refreshTokenJSONRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-func extractRefreshToken(ctx context.Context, c *echo.Context) (string, error) {
-	cookie, err := c.Cookie(cookieRefreshTokenName)
-	if err == nil && cookie.Value != "" {
-		return cookie.Value, nil
-	}
-	xlog.Warn(ctx, "missing refresh token in cookie", xfield.String("cookie name", cookieRefreshTokenName))
-
-	// Fallback: JSON body
+// extractRefreshToken reads the refresh token from the JSON request body. The
+// BFF owns token storage and always sends the token in the body; the legacy
+// refresh cookie is gone.
+func extractRefreshToken(c *echo.Context) (string, error) {
 	body := new(refreshTokenJSONRequest)
 	if err := c.Bind(body); err != nil {
 		return "", fmt.Errorf("extract refresh token from json: %w", err)

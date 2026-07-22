@@ -9,6 +9,28 @@
 make app-with-monitoring-up
 ```
 
+### Получить токен авторизации
+
+API требует Bearer-токен. Signup по умолчанию invite-only (обычный exchange
+через стаб даст отказ, guest или — только на пустой базе — bootstrap-админа),
+поэтому токен минтится через OAuth-стаб **с dev-only заголовком
+`X-Test-Roles`** — он создаёт стаб-пользователя и выдаёт нужные сценариям роли
+(admin покрывает все записи). У токена ограниченный TTL — для длинных soak-ов
+переминтите его перед запуском:
+
+```bash
+AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exchange/google" \
+  -H 'Content-Type: application/json' -H 'X-Test-Roles: admin' \
+  -d '{"id_token":"k6-load-test"}' | jq -r '.access_token')
+```
+
+Токен передаётся в сценарии через env:
+
+```bash
+AUTH_TOKEN=$AUTH_TOKEN make k6
+# или напрямую: k6 run -e AUTH_TOKEN=$AUTH_TOKEN scenarios/00-full-scenario-test.js
+```
+
 ### Запустить нагрузочный тест
 
 ```bash

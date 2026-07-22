@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,6 +76,8 @@ func TestMain(m *testing.M) {
 	// The suite mints synthetic JWTs locally and never completes a real login,
 	// so without this the users table is empty and every maintenance-create
 	// helper fails at resolveEligibleApprover ("no eligible approver in auth").
+	// This seed also deterministically settles the first-admin bootstrap
+	// before any suite runs — see seedEligibleApprover.
 	if err := seedEligibleApprover(ctx); err != nil {
 		xlog.Panic(ctx, "Failed to seed eligible approver", xfield.Error(err))
 	}
@@ -94,11 +97,21 @@ var seededUserID string
 // seedEligibleApprover provisions a persisted, active admin user by driving the
 // public OAuth token-exchange endpoint and records its id in seededUserID. In
 // the dev/test environment the auth service routes every provider to the stub
-// verifier (use_stub: true), which accepts any non-sentinel id_token and returns
-// synthetic claims; the resulting user is auto-granted the admin role
-// (assignAdminRoleBySystem). That makes the user show up in the assignable-users
-// picker that resolveEligibleApprover reads, and makes it a valid token subject
-// for introspect.
+// verifier (use_stub: true), which accepts any non-sentinel id_token and mints
+// a fresh synthetic identity. The X-Test-Roles header (dev-only) makes the
+// backend create that user and grant it admin, so it shows up in the
+// assignable-users picker that resolveEligibleApprover reads and is a valid
+// token subject for introspect.
+//
+// This call also deterministically settles the first-admin bootstrap BEFORE
+// any suite runs: signup is invite-only in the API test stack
+// (allow_open_signup: false), so on a clean database the first successful
+// exchange wins the first-login bootstrap and becomes admin. Making that
+// exchange happen here — with X-Test-Roles: admin, so the seed succeeds and
+// ends up admin even when a previous run already left an admin behind —
+// guarantees the database contains an active admin after TestMain. No test's
+// exchange can then win the bootstrap race, which would otherwise make
+// guest/role assertions depend on test order (-p 2 -count=2).
 func seedEligibleApprover(ctx context.Context) error {
 	client := newAuthTestClient("")
 
@@ -106,6 +119,7 @@ func seedEligibleApprover(ctx context.Context) error {
 		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
 			IdToken: lo.ToPtr("api-test-seed-approver"),
 		},
+		testRolesEditor(entity.RoleAdmin),
 	)
 	if err != nil {
 		return fmt.Errorf("exchange id token: %w", err)
@@ -204,6 +218,24 @@ func bearerEditor(token string) maintmodeclient.RequestEditorFn {
 		if token != "" {
 			xhttp.SetBearerToken(req, token)
 		}
+		return nil
+	}
+}
+
+// testRolesEditor returns a RequestEditorFn that attaches the dev-only
+// X-Test-Roles header to a login request (exchange/callback). The header asks
+// the auth backend to create the stub user despite invite-only signup and to
+// grant the listed roles on top of the defaults — it is honored only when the
+// backend runs in a dev environment, which the API test stack does.
+func testRolesEditor(roles ...entity.Role) authclient.RequestEditorFn {
+	names := make([]string, 0, len(roles))
+	for _, role := range roles {
+		names = append(names, string(role))
+	}
+	header := strings.Join(names, ",")
+
+	return func(_ context.Context, req *http.Request) error {
+		req.Header.Set("X-Test-Roles", header)
 		return nil
 	}
 }

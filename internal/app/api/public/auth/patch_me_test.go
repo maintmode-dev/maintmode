@@ -29,7 +29,7 @@ func TestUpdateMe(t *testing.T) {
 			ID:    "oauth-" + uuid.NewString(),
 			Email: uuid.NewString() + "@test.local",
 			Name:  "Patch Me User",
-		})
+		}, entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 		return user
 	}

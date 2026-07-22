@@ -69,12 +69,12 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 
 	revoker := &fakeTokenRevoker{}
 	srv := NewService(
-		config.DevEnvironment,
 		dbtx.NewTxManager(db),
 		users.NewStore(db),
 		useridentities.NewStore(db),
 		newTestAuditPublisher(t),
 		revoker,
+		false, // allowOpenSignup: tests authorize creation per call via the policy
 	)
 	return srv, revoker
 }
@@ -100,12 +100,12 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 
 	store := fixedAdminCountStore{UsersStore: users.NewStore(db), activeAdmins: activeAdmins}
 	return NewService(
-		config.DevEnvironment,
 		dbtx.NewTxManager(db),
 		store,
 		useridentities.NewStore(db),
 		newTestAuditPublisher(t),
 		&fakeTokenRevoker{},
+		false,
 	)
 }
 
@@ -116,7 +116,7 @@ func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.R
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@email.com",
 		Name:  "Name" + t.Name(),
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 
 	if uniqRoles := lo.Uniq(roles); len(uniqRoles) > 0 {

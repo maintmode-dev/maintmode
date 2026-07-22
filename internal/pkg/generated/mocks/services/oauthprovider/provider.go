@@ -41,44 +41,6 @@ func (m *MockOAuthProvider) EXPECT() *MockOAuthProviderMockRecorder {
 	return m.recorder
 }
 
-// AuthCodeURL mocks base method.
-func (m *MockOAuthProvider) AuthCodeURL(ctx context.Context, state string) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthCodeURL", ctx, state)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// AuthCodeURL indicates an expected call of AuthCodeURL.
-func (mr *MockOAuthProviderMockRecorder) AuthCodeURL(ctx, state any) *MockOAuthProviderAuthCodeURLCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthCodeURL", reflect.TypeOf((*MockOAuthProvider)(nil).AuthCodeURL), ctx, state)
-	return &MockOAuthProviderAuthCodeURLCall{Call: call}
-}
-
-// MockOAuthProviderAuthCodeURLCall wrap *gomock.Call
-type MockOAuthProviderAuthCodeURLCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockOAuthProviderAuthCodeURLCall) Return(arg0 string) *MockOAuthProviderAuthCodeURLCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderAuthCodeURLCall) Do(f func(context.Context, string) string) *MockOAuthProviderAuthCodeURLCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderAuthCodeURLCall) DoAndReturn(f func(context.Context, string) string) *MockOAuthProviderAuthCodeURLCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Exchange mocks base method.
 func (m *MockOAuthProvider) Exchange(ctx context.Context, code string) (*entity.OAuthProviderTokens, error) {
 	m.ctrl.T.Helper()

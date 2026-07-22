@@ -6,6 +6,13 @@ app:
   # routes, so it needs this or those redirects target an empty URL.
   frontend_url: https://maintmode.example.com
 
+auth:
+  # Invite-only: an unknown user without an invitation is rejected with 403
+  # signup_disabled. The very first login still bootstraps the first admin.
+  # Enable open signup only deliberately, and only after that bootstrap has
+  # completed.
+  allow_open_signup: false
+
 jwtverifier:
   jwt_issuer: oauth-service
   # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
@@ -104,8 +111,6 @@ jwt:
   refresh_token_ttl: 720h # 30 days
   refresh_token_grace_period: 30s
   refresh_token_distributed_lock_ttl: 5s
-  oauth_state_signing_key: <secret:jwt/oauth_state_signing_key>
-  oauth_state_ttl: 5m
 
 # The channel catalog lives in Postgres (messenger_channels), not here:
 # create channels via POST /api/v1/notifications/channels so they are

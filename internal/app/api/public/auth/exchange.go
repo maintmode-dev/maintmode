@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // ExchangeGoogleToken godoc
@@ -23,7 +24,7 @@ import (
 // @Param request body apiauthmodels.ExchangeIDTokenRequest true "Google ID token"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
 // @Failure 400 {object} httperrors.ErrorResponse "INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED"
-// @Failure 403 {object} httperrors.ErrorResponse "DOMAIN_NOT_ALLOWED"
+// @Failure 403 {object} httperrors.ErrorResponse "DOMAIN_NOT_ALLOWED or signup_disabled"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/login/oauth/exchange/google [post]
@@ -43,11 +44,16 @@ func (i *Implementation) exchange(c *echo.Context, provider entity.OAuthProvider
 		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
+	// Dev-only test roles, if the X-Test-Roles middleware ran (it is registered
+	// only under the dev environment gate). Absent in production → nil.
+	testRoles, _ := xecho.TestRolesFromEchoCtx(c)
+
 	cmd := &entity.ExchangeIDTokenCmd{
 		Provider:  provider,
 		IDToken:   body.IDToken,
 		ClientIP:  c.RealIP(),
 		UserAgent: c.Request().UserAgent(),
+		TestRoles: testRoles,
 	}
 
 	if err := validateExchangeIDTokenCmd(ctx, cmd); err != nil {

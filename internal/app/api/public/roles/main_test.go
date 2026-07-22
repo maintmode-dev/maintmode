@@ -76,7 +76,7 @@ func createUser(ctx context.Context, t *testing.T, impl *Implementation, apiRole
 		ID:    "oauth-" + uuid.NewString(),
 		Email: uuid.NewString() + "@test.local",
 		Name:  "Test User",
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 
 	if len(apiRoles) == 0 {

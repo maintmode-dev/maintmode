@@ -129,10 +129,10 @@ func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []ec
 }
 
 // authPublicV1Group registers the auth routes that must NOT sit behind the
-// access-token gate: JWKS, OAuth login, token refresh and the unauthenticated
-// invitation preview/accept endpoints. The token in the invitation link (and the
-// login/oauth surface) is the only credential, so those groups are rate-limited
-// to blunt enumeration.
+// access-token gate: JWKS, the OAuth ID-token exchange, token refresh and the
+// unauthenticated invitation preview/accept endpoints. The token in the
+// invitation link (and the login/oauth surface) is the only credential, so those
+// groups are rate-limited to blunt enumeration.
 //
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
@@ -142,10 +142,6 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 
 	loginOAuthGr := gr.Group("/login/oauth",
 		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
-	)
-	loginOAuthGr.Add(http.MethodGet, "/google", s.handlers.Auth.GoogleOAuthLogin)
-	loginOAuthGr.Add(http.MethodGet, "/google/callback", s.handlers.Auth.GoogleOauthCallback,
-		middlewares.NotAllowedInProd(env),
 	)
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
 		middlewares.NotAllowedInProd(env),

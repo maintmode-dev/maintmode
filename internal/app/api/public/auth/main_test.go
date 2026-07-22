@@ -53,8 +53,6 @@ func initImpl(t *testing.T) *Implementation {
 		services.Auth,
 		services.Token,
 		services.User,
-		services.StateCodec,
-		cfg.App.FrontendURL,
 	)
 }
 
@@ -63,10 +61,10 @@ func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *en
 
 	c := echotest.ContextConfig{}.ToContext(t)
 
-	tokenPair, err := impl.authSrv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-		Provider:     entity.OAuthProviderGoogle,
-		CallbackCode: "string",
-		ClientIP:     c.RealIP(),
+	tokenPair, err := impl.authSrv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+		Provider: entity.OAuthProviderGoogle,
+		IDToken:  "stub-id-token",
+		ClientIP: c.RealIP(),
 	})
 	require.NoError(t, err)
 

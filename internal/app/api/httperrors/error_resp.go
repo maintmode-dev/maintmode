@@ -35,6 +35,12 @@ var (
 	//, seats_limit_exceeded surfaces on invite/activate over the cap.
 	ErrSeatsLimitExceeded    ErrorCode = "seats_limit_exceeded"
 	ErrOrganizationSuspended ErrorCode = "organization_suspended"
+
+	// ErrSignupDisabled is the stable machine-readable code for an OAuth login
+	// of an unknown user rejected by the signup policy (invite-only, no open
+	// signup). Returned with a generic message only — the response must not
+	// reveal whether an invitation exists for the email.
+	ErrSignupDisabled ErrorCode = "signup_disabled"
 )
 
 type ErrorResponse struct {

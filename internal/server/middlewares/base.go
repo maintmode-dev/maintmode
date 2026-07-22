@@ -49,6 +49,10 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 	if env.IsDev() {
 		mw = append(mw,
 			middleware.CORS("*"),
+			// Dev-only: honor X-Test-Roles so tests/k6 can request roles at login.
+			// Gated here (not in prod) so the header is physically unread in prod.
+			// Kept in the shared IsDev branch — performance_test (k6) needs it too.
+			InjectTestRoles(),
 		)
 		if !env.IsPerformanceTest() {
 			mw = append(mw,

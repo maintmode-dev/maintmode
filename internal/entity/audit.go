@@ -101,6 +101,9 @@ const (
 	AuditFailureUserProvisioning AuditFailureReason = "user provisioning failed"
 	//nolint:gosec // G101 false positive: человекочитаемая причина отказа, не credential
 	AuditFailureTokenIssuance AuditFailureReason = "token issuance failed"
+	// AuditFailureSignupDisabled marks an OAuth login of an unknown user rejected
+	// because neither an invitation nor open signup authorized creating the account.
+	AuditFailureSignupDisabled AuditFailureReason = "signup disabled"
 )
 
 type AuditLogoutKind string

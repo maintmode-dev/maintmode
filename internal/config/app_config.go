@@ -102,8 +102,6 @@ type JWT struct {
 	RefreshTokenTTL                 time.Duration `mapstructure:"refresh_token_ttl"`
 	RefreshTokenGracePeriod         time.Duration `mapstructure:"refresh_token_grace_period"`
 	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
-	OAuthStateSigningKey            string        `mapstructure:"oauth_state_signing_key"`
-	OAuthStateTTL                   time.Duration `mapstructure:"oauth_state_ttl"`
 }
 
 func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
@@ -133,6 +131,17 @@ type App struct {
 	// InvitationTTL is how long a user invitation link stays valid. Zero falls
 	// back to a 7-day default at wiring time.
 	InvitationTTL time.Duration `mapstructure:"invitation_ttl"`
+}
+
+// Auth holds the authentication signup policy.
+type Auth struct {
+	// AllowOpenSignup lets an unknown, uninvited user self-register as guest on
+	// OAuth login. Default false: once the first admin exists, login of an
+	// unknown user without an invitation is rejected (invite-only). Read at
+	// startup, per-replica — a config rollout may briefly diverge across
+	// replicas. Bootstrap correctness does not depend on it (advisory lock in
+	// the shared DB).
+	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
 }
 
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
@@ -276,6 +285,7 @@ type RbacConfig struct {
 // AppConfig holds the complete application configuration including servers and database.
 type AppConfig struct {
 	App             App                   `mapstructure:"app"`
+	Auth            Auth                  `mapstructure:"auth"`
 	Environment     Environment           `mapstructure:"environment"`
 	JWTVerifier     JWTVerifierConfig     `mapstructure:"jwtverifier"`
 	RBAC            RbacConfig            `mapstructure:"rbac"`

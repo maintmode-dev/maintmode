@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/entity"
 	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
 )
@@ -29,13 +30,17 @@ import (
 func TestMaintenancesAPI_ActiveTokenRevokedOnLogout(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 
-	// Real login: a fresh stub user, auto-granted admin, gets a real access +
-	// refresh pair whose access JTI is tied to a revocable session.
+	// Real login: signup is invite-only in the test stack, so the fresh stub
+	// user is created via the dev-only X-Test-Roles header and granted admin
+	// (the lifecycle below needs resource/channel/maintenance writes). The
+	// exchange returns a real access + refresh pair whose access JTI is tied
+	// to a revocable session.
 	authClient := newAuthTestClient("")
 	exchangeResp, err := authClient.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
 		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
 			IdToken: lo.ToPtr("api-test-active-token-" + uuid.NewString()),
 		},
+		testRolesEditor(entity.RoleAdmin),
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, exchangeResp.StatusCode(), "unexpected status: %s", exchangeResp.Body)

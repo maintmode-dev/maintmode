@@ -10,7 +10,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
-	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -45,29 +44,31 @@ type AuditPublisher interface {
 
 // Service manages user-related operations including role management.
 type Service struct {
-	env             config.Environment
 	txManager       *dbtx.TxManager
 	usersStore      UsersStore
 	identitiesStore *useridentities.Store
 	auditPublisher  AuditPublisher
 	tokenRevoker    TokenRevoker
+	// allowOpenSignup lets an unknown, uninvited user self-register as guest on
+	// OAuth login (cfg.Auth.AllowOpenSignup, read once at wiring time).
+	allowOpenSignup bool
 }
 
 func NewService(
-	env config.Environment,
 	txManager *dbtx.TxManager,
 	usersStore UsersStore,
 	identitiesStore *useridentities.Store,
 	auditPublisher AuditPublisher,
 	tokenRevoker TokenRevoker,
+	allowOpenSignup bool,
 ) *Service {
 	return &Service{
-		env:             env,
 		auditPublisher:  auditPublisher,
 		txManager:       txManager,
 		usersStore:      usersStore,
 		identitiesStore: identitiesStore,
 		tokenRevoker:    tokenRevoker,
+		allowOpenSignup: allowOpenSignup,
 	}
 }
 

@@ -29,7 +29,7 @@ func TestMe(t *testing.T) {
 			ID:    "oauth-" + uuid.NewString(),
 			Email: uuid.NewString() + "@test.local",
 			Name:  "Me Test User",
-		})
+		}, entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)

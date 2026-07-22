@@ -21,12 +21,12 @@ func TestLogout(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -53,12 +53,12 @@ func TestLogout(t *testing.T) {
 
 			srv, mocks := initService(t)
 
-			handleCallbackMock(mocks, 1)
+			exchangeIDTokenMock(mocks, 1)
 
-			pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-				Provider:     entity.OAuthProviderGoogle,
-				CallbackCode: "code-1",
-				ClientIP:     "10.0.0.1",
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.OAuthProviderGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
 			})
 			require.NoError(t, err)
 
@@ -80,12 +80,12 @@ func TestLogout(t *testing.T) {
 
 			srv, mocks := initService(t)
 
-			handleCallbackMock(mocks, 1)
+			exchangeIDTokenMock(mocks, 1)
 
-			pair, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-				Provider:     entity.OAuthProviderGoogle,
-				CallbackCode: "code-1",
-				ClientIP:     "10.0.0.1",
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.OAuthProviderGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
 			})
 			require.NoError(t, err)
 
@@ -102,21 +102,21 @@ func TestLogout(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair1, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair1, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
-		handleCallbackMock(mocks, 1)
+		exchangeIDTokenMock(mocks, 1)
 
-		pair2, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair2, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
@@ -149,19 +149,19 @@ func TestLogoutAll(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		handleCallbackMock(mocks, 2)
+		exchangeIDTokenMock(mocks, 2)
 
-		pair1, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair1, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
-		pair2, err := srv.HandleOAuthCallback(ctx, &entity.HandleOAuthCallbackCmd{
-			Provider:     entity.OAuthProviderGoogle,
-			CallbackCode: "code-1",
-			ClientIP:     "10.0.0.1",
+		pair2, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.OAuthProviderGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 

@@ -486,6 +486,7 @@ k6: ## Run K6 load tests using Docker Compose
 	$(info $(M) running K6 load test: $(TEST)...)
 	@docker-compose -f $(K6_COMPOSE_FILE) run --rm \
 		-e BASE_URL=http://maintmode:8000 \
+		-e AUTH_TOKEN=$(AUTH_TOKEN) \
 		k6 run /k6/$(TEST) \
 		--out experimental-prometheus-rw \
 		--tag testid=k6-load-test

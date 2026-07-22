@@ -35,7 +35,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/oauthprovider/googleoauth"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
-	statecodec "github.com/ruko1202/maintmode/internal/services/state_codec"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/transportresolver"
 	"github.com/ruko1202/maintmode/internal/services/user"
@@ -71,7 +70,6 @@ type Services struct {
 	User       *user.Service
 	Invitation *invitation.Service
 	Audit      *auditor.Auditor
-	StateCodec *statecodec.Service
 	// AuditPublisher enqueues audit events to the durable goque outbox; the
 	// audit-write processor drains them after commit. There are no in-process
 	// goroutines to drain, so no Stop is needed on shutdown — the goque runtime
@@ -120,11 +118,6 @@ func NewServices(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
 	}
-
-	stateCodec := statecodec.NewService(
-		[]byte(cfg.JWT.OAuthStateSigningKey),
-		cfg.JWT.OAuthStateTTL,
-	)
 
 	oauthProviders, err := initOAuthProviders(ctx, cfg)
 	if err != nil {
@@ -207,7 +200,6 @@ func NewServices(ctx context.Context,
 		User:             userSrv,
 		Invitation:       invitationSrv,
 		Audit:            auditorSrv,
-		StateCodec:       stateCodec,
 		AuditPublisher:   auditPublisher,
 		TokenChecker:     authSrv,
 		MessageSender:    messageSender,
@@ -233,12 +225,12 @@ func newTokenAndUserServices(
 	)
 
 	userSrv := user.NewService(
-		cfg.Environment,
 		stores.TxManager,
 		stores.Users,
 		stores.UserIdentities,
 		auditPublisher,
 		tokenSrv,
+		cfg.Auth.AllowOpenSignup,
 	)
 
 	return tokenSrv, userSrv

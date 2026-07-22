@@ -29,7 +29,7 @@ func TestConnectProvider(t *testing.T) {
 			ID:    xuuid.NewString(),
 			Email: xuuid.NewString() + "@example.com",
 			Name:  "User",
-		})
+		}, entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 
 		// Connect google (the mock provider resolves to google).

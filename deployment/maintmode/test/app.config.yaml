@@ -6,6 +6,12 @@ app:
   # routes, so it needs this or those redirects target an empty URL.
   frontend_url: http://localhost:9000
 
+auth:
+  # OFF in the API-test stack: TestMain seeds the bootstrap admin and suites
+  # request roles via the dev-only X-Test-Roles header, so open signup would
+  # only mask the 403 signup_disabled path under test.
+  allow_open_signup: false
+
 jwtverifier:
   jwt_issuer: oauth-service
   # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
@@ -99,8 +105,6 @@ jwt:
   refresh_token_ttl: 720h # 30 days
   refresh_token_grace_period: 1ms
   refresh_token_distributed_lock_ttl: 5s
-  oauth_state_signing_key: <secret:jwt/oauth_state_signing_key>
-  oauth_state_ttl: 5m
 
 notify_transport:
   # The channel catalog lives in Postgres (messenger_channels); tests

@@ -16,9 +16,6 @@ import (
 type OAuthProvider interface {
 	// ProviderID returns the provider's ID.'
 	ProviderID() entity.OAuthProvider
-	// AuthCodeURL returns the URL to redirect the user to for consent.
-	// state is an opaque, already-encoded value (typically a SignedStateCodec output).
-	AuthCodeURL(ctx context.Context, state string) string
 	// Exchange trades an authorization code for Google tokensStore.
 	Exchange(ctx context.Context, code string) (*entity.OAuthProviderTokens, error)
 	// UserInfo fetches user profile from Google using the access token.

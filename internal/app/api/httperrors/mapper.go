@@ -49,9 +49,6 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrLogoutAlready),
 		errors.Is(err, apperr.ErrUserBlocked),
 		errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrInvalidOAuthState),
-		errors.Is(err, apperr.ErrOAuthStateExpired),
-		errors.Is(err, apperr.ErrOAuthStateTampered),
 		errors.Is(err, apperr.ErrAuthUnavailable),
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
@@ -77,6 +74,12 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrSeatsLimitExceeded, err.Error())
 	case errors.Is(err, apperr.ErrOrganizationSuspended):
 		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrOrganizationSuspended, err.Error())
+
+	// signup policy: stable 403 code, checked before the generic ErrForbidden
+	// case. The message is a fixed generic string (not err.Error()) so wrapped
+	// context can never leak whether an invitation exists for the email.
+	case errors.Is(err, apperr.ErrSignupDisabled):
+		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrSignupDisabled, "signup is disabled")
 
 	// common errors. check after specific domain errors
 	case errors.Is(err, apperr.ErrValidation):
@@ -175,9 +178,6 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
 
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrInvalidOAuthState),
-		errors.Is(err, apperr.ErrOAuthStateExpired),
-		errors.Is(err, apperr.ErrOAuthStateTampered),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 

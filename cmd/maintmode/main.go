@@ -138,8 +138,6 @@ func startAPIServer(
 				services.Auth,
 				services.Token,
 				services.User,
-				services.StateCodec,
-				cfg.App.FrontendURL,
 			),
 			Roles:       apiroles.New(services.User),
 			Users:       apiusers.New(services.User),

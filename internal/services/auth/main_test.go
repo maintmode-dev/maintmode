@@ -87,16 +87,23 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		"kid-1",
 	)
 
+	// Each service gets its own JWT config copy: parallel subtests tweak fields
+	// like RefreshTokenGracePeriod, and sharing the package-level cfg.JWT pointer
+	// would race under -race.
+	jwtCfg := cfg.JWT
+
 	return NewService(
-		&cfg.JWT,
+		&jwtCfg,
 		txManager,
 		user.NewService(
-			config.DevEnvironment,
 			txManager,
 			users.NewStore(db),
 			useridentities.NewStore(db),
 			newTestAuditPublisher(t),
 			tokenSrv,
+			// allowOpenSignup mirrors the local/dev config: a plain exchange of an
+			// unknown user provisions a guest, so login tests need no invitation.
+			true,
 		),
 		distributedlock.NewStore(redis),
 		blacklisttoken.NewStore(redis),
@@ -117,21 +124,23 @@ func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
 	return auditpublisher.New(goque.NewTaskQueueManager(storage))
 }
 
-func handleCallbackMock(mocks *serviceMocks, times int) *entity.OAuthProviderUserInfo {
-	oauthUserToken := &entity.OAuthProviderTokens{AccessToken: "access-token"}
-	mocks.oauthProvider.EXPECT().
-		Exchange(gomock.Any(), "code-1").
-		Return(oauthUserToken, nil).
-		Times(times)
-
+// exchangeIDTokenMock sets up the VerifyToken expectation for the ID-token
+// exchange flow and returns the identity the mocked provider resolves. Tests use
+// it to mint a token pair via srv.ExchangeIDToken. The returned value carries
+// the resolved email so callers can assert on the provisioned user.
+func exchangeIDTokenMock(mocks *serviceMocks, times int) *entity.OAuthProviderUserInfo {
 	oauthUser := &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "_alice@example.com",
 		Name:  "alice",
 	}
 	mocks.oauthProvider.EXPECT().
-		UserInfo(gomock.Any(), oauthUserToken.AccessToken).
-		Return(oauthUser, nil).
+		VerifyToken(gomock.Any(), "id-token").
+		Return(&entity.OAuthIDTokenClaims{
+			Subject: oauthUser.ID,
+			Email:   oauthUser.Email,
+			Name:    oauthUser.Name,
+		}, nil).
 		Times(times)
 
 	return oauthUser

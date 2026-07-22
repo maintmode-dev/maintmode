@@ -229,17 +229,6 @@
                 },
                 "type": "object"
             },
-            "apiauthmodels.OAuthCallbackJSONResponse": {
-                "properties": {
-                    "original_uri": {
-                        "type": "string"
-                    },
-                    "token": {
-                        "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
-                    }
-                },
-                "type": "object"
-            },
             "apiauthmodels.TokenPairResponse": {
                 "properties": {
                     "access_token": {
@@ -854,7 +843,7 @@
                                 }
                             }
                         },
-                        "description": "DOMAIN_NOT_ALLOWED"
+                        "description": "DOMAIN_NOT_ALLOWED or signup_disabled"
                     },
                     "429": {
                         "content": {
@@ -883,141 +872,9 @@
                 ]
             }
         },
-        "/api/v1/login/oauth/google": {
-            "get": {
-                "deprecated": true,
-                "description": "**Deprecated for production.** Production clients should use\nthe BFF-owned flow: complete OAuth at the frontend BFF and\nexchange the resulting Google ID token via\n`POST /api/v1/auth/exchange/google`. This endpoint is kept only for\nlocal prototype / HTML-mode testing.\n\nRedirects the user to the OAuth provider consent page.\n\nThe handler issues a short-lived nonce cookie and a signed state\nthat carries `original_uri` and the desired callback response\nshape (`oauth_callback_type`). Both values are echoed back by\nthe provider to `/login/oauth/google/callback`.\n\nQuery parameters:\n- `original_uri` — frontend path to navigate to after login (preserved through the OAuth flow).\n- `oauth_callback_type` — selects the callback response shape:\n- `json` *(default)* — callback returns `OAuthCallbackJSONResponse` with tokens in the body. Use this for production server-side integrations (BFF / NextAuth).\n- `html` — callback returns a legacy HTML handoff page and sets an HttpOnly refresh cookie. Intended for local testing / the prototype frontend.",
-                "parameters": [
-                    {
-                        "description": "Original frontend path to redirect after login",
-                        "in": "query",
-                        "name": "original_uri",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "Callback response shape: `json` (default, server-side BFF) or `html` (legacy handoff for local testing)",
-                        "in": "query",
-                        "name": "oauth_callback_type",
-                        "schema": {
-                            "enum": [
-                                "json",
-                                "html"
-                            ],
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "307": {
-                        "description": "Temporary redirect to OAuth provider"
-                    },
-                    "500": {
-                        "content": {
-                            "text/plain": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal error"
-                    }
-                },
-                "summary": "Start OAuth login (deprecated for production)",
-                "tags": [
-                    "Auth"
-                ]
-            }
-        },
-        "/api/v1/login/oauth/google/callback": {
-            "get": {
-                "deprecated": true,
-                "description": "**Deprecated for production.** Production clients should use\nthe BFF-owned flow: the frontend BFF completes OAuth with\nGoogle directly and posts the resulting ID token to\n`POST /api/v1/auth/exchange/google`. This endpoint is kept only for\nlocal prototype / HTML-mode testing.\n\nHandles the redirect from Google after the user grants consent.\nValidates the signed `state` and the nonce cookie, exchanges the\nauthorization `code` for tokens, and returns the result.\n\n**Default response — JSON**\nReturns `OAuthCallbackJSONResponse` with the access token, refresh\ntoken, and `original_uri` in the response body. The refresh token\nis **not** set as a cookie — the caller (typically a server-side\nBFF) persists it in its own session storage. This is the contract\nused by production server-side integrations (NextAuth, BFFs) that\nmust never expose tokens to the browser.\n\nJSON mode is selected when **any** of the following holds:\n- `Accept: application/json` request header\n- `Content-Type: application/json` request header\n- the signed state was issued with `oauth_callback_type=json`\n(see `/login/oauth/google?oauth_callback_type=json`, which is\nalso the default if the parameter is omitted)\n\n**HTML mode (legacy / local testing)** — opt-in via the login\nhandler with `?oauth_callback_type=html`. In this mode the\nhandler sets an HttpOnly, Secure, SameSite=Strict refresh-token\ncookie on the backend domain and returns an HTML handoff page\nthat stashes the access token in `sessionStorage` and redirects\nto `frontendURL + original_uri`. Kept for the prototype frontend\nand local debugging only — production clients should not use it.\n\nBoth modes clear the nonce cookie on success.",
-                "parameters": [
-                    {
-                        "description": "Optional override: `application/json` forces JSON mode regardless of the state flag (JSON is already the default).",
-                        "in": "header",
-                        "name": "Accept",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "OAuth authorization code returned by the provider",
-                        "in": "query",
-                        "name": "code",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "Signed opaque state (HMAC + expiry) issued by /login/oauth/google; carries the HTML/JSON mode flag set at login time",
-                        "in": "query",
-                        "name": "state",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "content": {
-                            "text/html": {
-                                "schema": {
-                                    "oneOf": [
-                                        {
-                                            "$ref": "#/components/schemas/apiauthmodels.OAuthCallbackJSONResponse"
-                                        },
-                                        {
-                                            "type": "string"
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        "description": "Opt-in HTML mode: handoff page that stores access_token in sessionStorage and redirects; refresh cookie set",
-                        "headers": {
-                            "Set-Cookie": {
-                                "description": "Refresh token cookie (HTML mode only; not set in JSON mode)",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "content": {
-                            "text/html": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Missing/invalid/expired/tampered state or nonce mismatch"
-                    },
-                    "500": {
-                        "content": {
-                            "text/html": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal error"
-                    }
-                },
-                "summary": "OAuth callback (JSON by default, HTML opt-in) (deprecated for production)",
-                "tags": [
-                    "Auth"
-                ]
-            }
-        },
         "/api/v1/logout": {
             "post": {
-                "description": "Revokes current refresh token, blacklists access token, and clears refresh cookie.",
+                "description": "Revokes the current refresh token and blacklists the access token.",
                 "parameters": [
                     {
                         "description": "Bearer access token",
@@ -1036,19 +893,12 @@
                             }
                         }
                     },
-                    "description": "Fallback refresh token body when cookie is absent"
+                    "description": "Refresh token",
+                    "required": true
                 },
                 "responses": {
                     "204": {
-                        "description": "Logged out",
-                        "headers": {
-                            "Set-Cookie": {
-                                "description": "Cleared refresh token cookie",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
+                        "description": "Logged out"
                     },
                     "400": {
                         "content": {
@@ -1089,7 +939,7 @@
         },
         "/api/v1/logout/all": {
             "post": {
-                "description": "Revokes all refresh tokens for current user and clears refresh cookie.",
+                "description": "Revokes all refresh tokens for the current user.",
                 "parameters": [
                     {
                         "description": "Bearer access token",
@@ -1103,15 +953,7 @@
                 ],
                 "responses": {
                     "204": {
-                        "description": "Logged out from all sessions",
-                        "headers": {
-                            "Set-Cookie": {
-                                "description": "Cleared refresh token cookie",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
+                        "description": "Logged out from all sessions"
                     },
                     "400": {
                         "content": {
@@ -1421,7 +1263,8 @@
                             }
                         }
                     },
-                    "description": "Fallback refresh token body when cookie is absent"
+                    "description": "Refresh token",
+                    "required": true
                 },
                 "responses": {
                     "200": {
@@ -1432,15 +1275,7 @@
                                 }
                             }
                         },
-                        "description": "OK",
-                        "headers": {
-                            "Set-Cookie": {
-                                "description": "Rotated refresh token cookie (if issued)",
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
+                        "description": "OK"
                     },
                     "400": {
                         "content": {

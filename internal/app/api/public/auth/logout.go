@@ -17,28 +17,26 @@ import (
 
 // Logout godoc
 // @Summary Logout current session
-// @Description Revokes current refresh token, blacklists access token, and clears refresh cookie.
+// @Description Revokes the current refresh token and blacklists the access token.
 // @Tags Auth
 // @Accept json
 // @Produce json
 // @Param Authorization header string false "Bearer access token"
-// @Param request body refreshTokenJSONRequest false "Fallback refresh token body when cookie is absent"
+// @Param request body refreshTokenJSONRequest true "Refresh token"
 // @Success 204 "Logged out"
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid token"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
-// @Header 204 {string} Set-Cookie "Cleared refresh token cookie"
 // @Router /api/v1/logout [post]
-// Logout revokes the current refresh token and blacklists the access token.
-//
-// If refresh token is absent (e.g. long-lived tab where cookie was already cleared),
-// Logout still blacklists the current access token and clears the cookie.
+// Logout revokes the current refresh token and blacklists the access token. The
+// caller sends the refresh token in the request body and the access token as a
+// Bearer header.
 func (i *Implementation) Logout(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Logout")
 	defer span.End()
 	op := "logout"
 
-	refreshToken, err := extractRefreshToken(ctx, c)
+	refreshToken, err := extractRefreshToken(c)
 	if err != nil {
 		xlog.Error(ctx, "missing refresh token", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
@@ -53,13 +51,12 @@ func (i *Implementation) Logout(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	clearRefreshCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }
 
 // LogoutAll godoc
 // @Summary Logout from all sessions
-// @Description Revokes all refresh tokens for current user and clears refresh cookie.
+// @Description Revokes all refresh tokens for the current user.
 // @Tags Auth
 // @Produce json
 // @Param Authorization header string true "Bearer access token"
@@ -67,7 +64,6 @@ func (i *Implementation) Logout(c *echo.Context) error {
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid token"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
-// @Header 204 {string} Set-Cookie "Cleared refresh token cookie"
 // @Router /api/v1/logout/all [post]
 // LogoutAll revokes all refresh tokens for the authenticated user.
 func (i *Implementation) LogoutAll(c *echo.Context) error {
@@ -81,6 +77,5 @@ func (i *Implementation) LogoutAll(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	clearRefreshCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }

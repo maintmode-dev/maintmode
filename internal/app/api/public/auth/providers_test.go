@@ -24,7 +24,7 @@ func makeTestUser(ctx context.Context, t *testing.T, impl *Implementation) *enti
 		ID:    "oauth-" + uuid.NewString(),
 		Email: uuid.NewString() + "@test.local",
 		Name:  "Provider Test User",
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 	return user
 }

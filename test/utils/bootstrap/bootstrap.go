@@ -66,7 +66,7 @@ func SeedEligibleApprover(ctx context.Context, t *testing.T, services *bootstrap
 		ID:    "approver-" + uuid.NewString(),
 		Email: "approver-" + uuid.NewString() + "@test.local",
 		Name:  "Eligible Approver",
-	})
+	}, entity.UserCreationPolicy{AllowCreate: true})
 	require.NoError(t, err)
 
 	err = services.User.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
