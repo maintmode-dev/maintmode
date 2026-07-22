@@ -35,6 +35,8 @@ type Store interface {
 	SetRevoked(ctx context.Context, id uuid.UUID, revokedAt time.Time) error
 	MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error)
 	Resend(ctx context.Context, id uuid.UUID, tokenHash string, expiresAt, sentAt time.Time) (*entity.Invitation, error)
+	ExpireOlderThan(ctx context.Context, now time.Time, limit int64) (int64, error)
+	PruneTerminalOlderThan(ctx context.Context, cutoff time.Time, limit int64) (int64, error)
 }
 
 // UserService is the subset of user.Service used by the invitation flow.

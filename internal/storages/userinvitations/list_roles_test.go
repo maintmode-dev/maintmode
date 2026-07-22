@@ -55,6 +55,10 @@ func TestListPendingRoles(t *testing.T) {
 		create([]entity.Role{entity.RoleEditor}, entity.InvitationStatusPending, now.Add(time.Hour))   // live → editor seat
 		create([]entity.Role{entity.RoleGuest}, entity.InvitationStatusPending, now.Add(-time.Hour))   // expired-pending → no seat
 		create([]entity.Role{entity.RoleReviewer}, entity.InvitationStatusRevoked, now.Add(time.Hour)) // revoked → no seat
+		// Persisted 'expired' (as the rotation sweep leaves it): must not hold a
+		// seat even though expires_at is in the future — the seat gate keys off the
+		// stored status, so a rotated invite frees its seat (RUK-211).
+		create([]entity.Role{entity.RoleGuest}, entity.InvitationStatusExpired, now.Add(time.Hour))
 
 		after, err := store.ListPendingRoles(ctx)
 		require.NoError(t, err)

@@ -8,16 +8,21 @@ import (
 
 // InvitationStatus is the lifecycle state of a user invitation.
 //
-// pending, accepted and revoked are stored in the DB. expired is DERIVED at
-// read time from (status=pending AND expires_at < now) and is never persisted —
-// see Invitation.EffectiveStatus.
+// pending, accepted and revoked are stored in the DB. expired is DERIVED at read
+// time from (status=pending AND expires_at < now) by EffectiveStatus AND is also
+// persisted by the invitation-rotation sweep, which flips pending rows past
+// expiry to status='expired'. A read must therefore treat both a persisted
+// 'expired' row and a not-yet-rotated pending-past-expiry row as expired — see
+// Invitation.EffectiveStatus and the "expired" filter in the store's List.
 type InvitationStatus string
 
 const (
 	InvitationStatusPending  InvitationStatus = "pending"
 	InvitationStatusAccepted InvitationStatus = "accepted"
 	InvitationStatusRevoked  InvitationStatus = "revoked"
-	InvitationStatusExpired  InvitationStatus = "expired" // derived only, never stored
+	// InvitationStatusExpired is persisted by the rotation sweep and also derived
+	// on read for pending rows past expiry that rotation has not yet flipped.
+	InvitationStatusExpired InvitationStatus = "expired"
 )
 
 // InvitationPreviewStatus is the minimal, privacy-safe status reported to the

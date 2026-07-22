@@ -9,6 +9,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestInvitationRotationTaskTypes_RegisteredInGuard(t *testing.T) {
+	// The startup coverage guard reads ActiveProcessorTaskTypes: every rotation
+	// task type (task + its .cron pair) must be present, or the periodic job it
+	// backs is registered without the guard expecting it and startup panics.
+	for _, taskType := range []string{
+		ProcessorTaskInvitationRotate,
+		ProcessorTaskInvitationRotateCron,
+		ProcessorTaskInvitationPrune,
+		ProcessorTaskInvitationPruneCron,
+	} {
+		_, ok := ActiveProcessorTaskTypes[taskType]
+		require.Truef(t, ok, "task type %q must be in ActiveProcessorTaskTypes", taskType)
+	}
+}
+
+func TestProcessorTaskPayloadInvitationPrune_JSONRoundTrip(t *testing.T) {
+	want := ProcessorTaskPayloadInvitationPrune{
+		Retention:  8760 * time.Hour,
+		BatchLimit: 1000,
+	}
+
+	raw, err := json.Marshal(want)
+	require.NoError(t, err)
+
+	var got ProcessorTaskPayloadInvitationPrune
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, want, got)
+}
+
+func TestProcessorTaskPayloadInvitationRotate_JSONRoundTrip(t *testing.T) {
+	want := ProcessorTaskPayloadInvitationRotate{BatchLimit: 500}
+
+	raw, err := json.Marshal(want)
+	require.NoError(t, err)
+
+	var got ProcessorTaskPayloadInvitationRotate
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, want, got)
+}
+
 func TestProcessorTaskPayloadAuditWrite_JSONRoundTrip(t *testing.T) {
 	eventID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	occurred := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)

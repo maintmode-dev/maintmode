@@ -82,6 +82,45 @@ func (c *MockStoreCreateCall) DoAndReturn(f func(context.Context, *entity.Invita
 	return c
 }
 
+// ExpireOlderThan mocks base method.
+func (m *MockStore) ExpireOlderThan(ctx context.Context, now time.Time, limit int64) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExpireOlderThan", ctx, now, limit)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExpireOlderThan indicates an expected call of ExpireOlderThan.
+func (mr *MockStoreMockRecorder) ExpireOlderThan(ctx, now, limit any) *MockStoreExpireOlderThanCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpireOlderThan", reflect.TypeOf((*MockStore)(nil).ExpireOlderThan), ctx, now, limit)
+	return &MockStoreExpireOlderThanCall{Call: call}
+}
+
+// MockStoreExpireOlderThanCall wrap *gomock.Call
+type MockStoreExpireOlderThanCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStoreExpireOlderThanCall) Return(arg0 int64, arg1 error) *MockStoreExpireOlderThanCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStoreExpireOlderThanCall) Do(f func(context.Context, time.Time, int64) (int64, error)) *MockStoreExpireOlderThanCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStoreExpireOlderThanCall) DoAndReturn(f func(context.Context, time.Time, int64) (int64, error)) *MockStoreExpireOlderThanCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetActivePendingByEmail mocks base method.
 func (m *MockStore) GetActivePendingByEmail(ctx context.Context, email string) (*entity.Invitation, error) {
 	m.ctrl.T.Helper()
@@ -312,6 +351,45 @@ func (c *MockStoreMarkAcceptedCall) Do(f func(context.Context, uuid.UUID) (bool,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStoreMarkAcceptedCall) DoAndReturn(f func(context.Context, uuid.UUID) (bool, error)) *MockStoreMarkAcceptedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PruneTerminalOlderThan mocks base method.
+func (m *MockStore) PruneTerminalOlderThan(ctx context.Context, cutoff time.Time, limit int64) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PruneTerminalOlderThan", ctx, cutoff, limit)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PruneTerminalOlderThan indicates an expected call of PruneTerminalOlderThan.
+func (mr *MockStoreMockRecorder) PruneTerminalOlderThan(ctx, cutoff, limit any) *MockStorePruneTerminalOlderThanCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PruneTerminalOlderThan", reflect.TypeOf((*MockStore)(nil).PruneTerminalOlderThan), ctx, cutoff, limit)
+	return &MockStorePruneTerminalOlderThanCall{Call: call}
+}
+
+// MockStorePruneTerminalOlderThanCall wrap *gomock.Call
+type MockStorePruneTerminalOlderThanCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorePruneTerminalOlderThanCall) Return(arg0 int64, arg1 error) *MockStorePruneTerminalOlderThanCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorePruneTerminalOlderThanCall) Do(f func(context.Context, time.Time, int64) (int64, error)) *MockStorePruneTerminalOlderThanCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorePruneTerminalOlderThanCall) DoAndReturn(f func(context.Context, time.Time, int64) (int64, error)) *MockStorePruneTerminalOlderThanCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

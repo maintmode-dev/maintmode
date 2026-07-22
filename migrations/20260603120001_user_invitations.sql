@@ -6,16 +6,19 @@
 -- stores its sha256 hash. Lookups (preview/accept) hash the incoming token and
 -- match by token_hash, so a DB read never reveals a usable token.
 --
--- Stored status is one of pending|accepted|revoked. The "expired" status is
--- DERIVED at read time from (status='pending' AND expires_at < now()); it is
--- never persisted, which keeps the partial-unique "one active pending per
--- email" index meaningful.
+-- Stored status is one of pending|accepted|revoked|expired. "expired" is DERIVED
+-- at read time from (status='pending' AND expires_at < now()) AND — since
+-- RUK-211 — also PERSISTED by the invitation-rotation sweep, which flips pending
+-- rows past expiry to status='expired'. Either way an expired row leaves the
+-- partial-unique "one active pending per email" index (WHERE status='pending'),
+-- so the "one active pending per email" invariant still holds and the email slot
+-- is freed for a fresh invite.
 CREATE TABLE user_invitations (
     id            UUID        PRIMARY KEY DEFAULT uuidv7(),
     email         TEXT        NOT NULL,
     roles         TEXT[]      NOT NULL DEFAULT '{}',
     token_hash    TEXT        NOT NULL, -- sha256 hex of the raw token (raw only in the email link)
-    status        TEXT        NOT NULL DEFAULT 'pending', -- pending|accepted|revoked (expired is derived)
+    status        TEXT        NOT NULL DEFAULT 'pending', -- pending|accepted|revoked|expired (expired derived on read + persisted by rotation, RUK-211)
     invited_by_id UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at    TIMESTAMPTZ NOT NULL,
     sent_at       TIMESTAMPTZ NOT NULL DEFAULT now(),

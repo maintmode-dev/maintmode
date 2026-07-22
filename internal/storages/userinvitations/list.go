@@ -26,9 +26,11 @@ type listRow struct {
 // List returns admin-view invitations (with the inviter's profile) filtered by
 // status, ordered by sent_at DESC with id DESC as a stable tie-breaker.
 //
-// The "expired" filter is derived: status='pending' AND expires_at < now. The
-// "pending" filter is the live complement: status='pending' AND expires_at >=
-// now. accepted/revoked filter on the stored status directly.
+// The "expired" filter unifies persisted and derived expiry: status='expired'
+// (as the rotation sweep leaves it) OR status='pending' AND expires_at < now
+// (past expiry but not yet rotated). The "pending" filter is the live
+// complement: status='pending' AND expires_at >= now. accepted/revoked filter on
+// the stored status directly.
 func (s *Store) List(ctx context.Context, cmd *entity.ListInvitationsCmd) ([]*entity.InvitationListItem, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserInvitations.List")
 	defer span.End()
@@ -72,7 +74,9 @@ func listWhereExpr(cmd *entity.ListInvitationsCmd) postgres.BoolExpression {
 	case entity.InvitationStatusPending:
 		return pending.AND(table.UserInvitations.ExpiresAt.GT_EQ(now))
 	case entity.InvitationStatusExpired:
-		return pending.AND(table.UserInvitations.ExpiresAt.LT(now))
+		// Persisted (rotated) OR derived (past expiry, not yet rotated).
+		persistedExpired := table.UserInvitations.Status.EQ(postgres.String(string(entity.InvitationStatusExpired)))
+		return persistedExpired.OR(pending.AND(table.UserInvitations.ExpiresAt.LT(now)))
 	case entity.InvitationStatusAccepted, entity.InvitationStatusRevoked:
 		return table.UserInvitations.Status.EQ(postgres.String(string(cmd.Status)))
 	default:

@@ -233,6 +233,8 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/autocancelprocessor/processor.go -source ./internal/goque_processors/autocancelprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/auditpruneprocessor/processor.go -source ./internal/goque_processors/auditpruneprocessor/processor.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/invitationrotateprocessor/processor.go -source ./internal/goque_processors/invitationrotateprocessor/processor.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/invitationpruneprocessor/processor.go -source ./internal/goque_processors/invitationpruneprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/licenseheartbeatprocessor/processor.go -source ./internal/goque_processors/licenseheartbeatprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/license/service.go -source ./internal/services/license/service.go

@@ -53,6 +53,23 @@ const (
 	// see ExpectedProcessorTaskTypes.
 	ProcessorTaskLicenseHeartbeat     = "license.heartbeat"
 	ProcessorTaskLicenseHeartbeatCron = "license.heartbeat.cron"
+	// ProcessorTaskInvitationRotate is the goque task type produced by the
+	// invitation-rotation periodic job. Its processor flips pending invitations
+	// whose expires_at has passed to the persisted 'expired' status in bounded
+	// batches, so the stored status matches reality (until now 'expired' was only
+	// derived on read). A rotated row leaves the partial-unique pending index,
+	// freeing the email slot for a fresh invite. The payload carries the batch
+	// limit (from config); the expiry boundary is process time, not snapshotted.
+	ProcessorTaskInvitationRotate     = "invitation.rotate"
+	ProcessorTaskInvitationRotateCron = "invitation.rotate.cron"
+	// ProcessorTaskInvitationPrune is the goque task type produced by the
+	// invitation-retention periodic job. Its processor deletes terminal
+	// invitations (expired/accepted/revoked) whose created_at is older than the
+	// retention window in bounded batches. pending rows are never pruned (they
+	// leave via rotation first). The payload carries the retention window and
+	// batch limit (from config).
+	ProcessorTaskInvitationPrune     = "invitation.prune"
+	ProcessorTaskInvitationPruneCron = "invitation.prune.cron"
 )
 
 // ActiveProcessorTaskTypes is the set of goque task types the process must
@@ -68,14 +85,18 @@ const (
 // ProcessorTask* const declared. The string then stays reserved (no accidental
 // re-use) while the guard no longer expects it to be drained.
 var ActiveProcessorTaskTypes = map[string]struct{}{
-	ProcessorTaskMessagingSend:       {},
-	ProcessorTaskMaintReminder:       {},
-	ProcessorTaskMaintAutoCancel:     {},
-	ProcessorTaskMaintAutoCancelCron: {},
-	ProcessorTaskInvitationEmailSend: {},
-	ProcessorTaskAuditWrite:          {},
-	ProcessorTaskAuditPrune:          {},
-	ProcessorTaskAuditPruneCron:      {},
+	ProcessorTaskMessagingSend:        {},
+	ProcessorTaskMaintReminder:        {},
+	ProcessorTaskMaintAutoCancel:      {},
+	ProcessorTaskMaintAutoCancelCron:  {},
+	ProcessorTaskInvitationEmailSend:  {},
+	ProcessorTaskAuditWrite:           {},
+	ProcessorTaskAuditPrune:           {},
+	ProcessorTaskAuditPruneCron:       {},
+	ProcessorTaskInvitationRotate:     {},
+	ProcessorTaskInvitationRotateCron: {},
+	ProcessorTaskInvitationPrune:      {},
+	ProcessorTaskInvitationPruneCron:  {},
 }
 
 // ExpectedProcessorTaskTypes returns the exact task-type set the process must
@@ -123,6 +144,24 @@ type ProcessorTaskPayloadMaintAutoCancel struct {
 // stays config-free: Retention is the age threshold past which a row is deleted,
 // BatchLimit bounds how many rows one DELETE statement removes.
 type ProcessorTaskPayloadAuditPrune struct {
+	Retention  time.Duration `json:"retention"`
+	BatchLimit int64         `json:"batch_limit"`
+}
+
+// ProcessorTaskPayloadInvitationRotate is the payload of an invitation-rotation
+// sweep task. The cron job stamps the batch limit (from config) so the processor
+// stays config-free. There is no retention field: rotation flips pending rows
+// whose expires_at is past process time, so the boundary is "now", computed at
+// fire time.
+type ProcessorTaskPayloadInvitationRotate struct {
+	BatchLimit int64 `json:"batch_limit"`
+}
+
+// ProcessorTaskPayloadInvitationPrune is the payload of an invitation-retention
+// sweep task. The cron job stamps the tunables (from config) so the processor
+// stays config-free: Retention is the age (by created_at) past which a terminal
+// invitation is deleted, BatchLimit bounds how many rows one DELETE removes.
+type ProcessorTaskPayloadInvitationPrune struct {
 	Retention  time.Duration `json:"retention"`
 	BatchLimit int64         `json:"batch_limit"`
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +35,40 @@ func TestValidate_UseStubEnvironmentGate(t *testing.T) {
 			cfg.NotifyTransport.UseStub = tc.useStub
 
 			err := cfg.validateUseStubInDev()
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// A negative retention would push the prune cutoff into the future and make
+// every terminal invitation eligible for deletion. The service clamps it to a
+// safe default, but a negative value in config is always an operator typo — so
+// validate() rejects it loudly at startup rather than silently substituting.
+func TestValidate_InvitationPruneRetention(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		retention time.Duration
+		wantErr   bool
+	}{
+		{name: "positive retention is allowed", retention: 8760 * time.Hour},
+		{name: "zero retention is allowed (service defaults it)", retention: 0},
+		{name: "negative retention is rejected", retention: -time.Hour, wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &AppConfig{}
+			cfg.TaskProcessor.InvitationPrune.Retention = tc.retention
+
+			err := cfg.validateInvitationRetention()
 			if tc.wantErr {
 				require.Error(t, err)
 				return

@@ -168,6 +168,42 @@ func TestListStatusFilter(t *testing.T) {
 	})
 }
 
+// TestListExpiredFilterUnifiesPersistedAndDerived guards the RUK-211 read-path
+// fix: once rotation persists status='expired', the "expired" filter must return
+// both persisted-expired rows AND pending rows already past expiry that rotation
+// has not yet flipped — otherwise a rotated invite would vanish from the admin
+// list's expired view.
+func TestListExpiredFilterUnifiesPersistedAndDerived(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	inviter := makeInviter(ctx, t, "ExpiredUnion "+uuid.NewString())
+	now := xtime.UTCNow()
+
+	// Persisted expired: status='expired' (as rotation would leave it). expires_at
+	// is in the future to prove the filter keys off the stored status, not the time.
+	persistedExpired := makeInvitation(ctx, t, inviter.ID,
+		uuid.NewString()+"@email.com",
+		entity.InvitationStatusExpired, now.Add(24*time.Hour))
+
+	// Derived expired: still stored pending but past expiry (not yet rotated).
+	derivedExpired := makeInvitation(ctx, t, inviter.ID,
+		uuid.NewString()+"@email.com",
+		entity.InvitationStatusPending, now.Add(-24*time.Hour))
+
+	// Live pending: must NOT appear under the expired filter.
+	livePending := makeInvitation(ctx, t, inviter.ID,
+		uuid.NewString()+"@email.com",
+		entity.InvitationStatusPending, now.Add(24*time.Hour))
+
+	items, err := store.List(ctx, &entity.ListInvitationsCmd{Status: entity.InvitationStatusExpired})
+	require.NoError(t, err)
+
+	require.NotNil(t, findItem(items, persistedExpired.ID), "persisted expired must appear")
+	require.NotNil(t, findItem(items, derivedExpired.ID), "not-yet-rotated expired must appear")
+	require.Nil(t, findItem(items, livePending.ID), "live pending must not appear under expired")
+}
+
 // TestListOrdersBySentAtDesc verifies the sent_at DESC ordering: the most
 // recently sent invitation among this test's rows comes before the older one.
 func TestListOrdersBySentAtDesc(t *testing.T) {

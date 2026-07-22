@@ -154,9 +154,11 @@ type NotifyTransportConfig struct {
 }
 
 type TaskProcessorConfig struct {
-	Messaging       TaskProcessorMessagingConfig       `mapstructure:"messaging"`
-	MaintAutoCancel TaskProcessorMaintAutoCancelConfig `mapstructure:"maint_auto_cancel"`
-	AuditPrune      TaskProcessorAuditPruneConfig      `mapstructure:"audit_prune"`
+	Messaging        TaskProcessorMessagingConfig        `mapstructure:"messaging"`
+	MaintAutoCancel  TaskProcessorMaintAutoCancelConfig  `mapstructure:"maint_auto_cancel"`
+	AuditPrune       TaskProcessorAuditPruneConfig       `mapstructure:"audit_prune"`
+	InvitationRotate TaskProcessorInvitationRotateConfig `mapstructure:"invitation_rotate"`
+	InvitationPrune  TaskProcessorInvitationPruneConfig  `mapstructure:"invitation_prune"`
 }
 
 // CryptoConfig addresses the master keys (KEKs) that wrap the data-encryption
@@ -247,6 +249,35 @@ type TaskProcessorAuditPruneConfig struct {
 	CronSpec string `mapstructure:"cron_spec"`
 	// Retention is the age threshold: audit rows whose created_at is older than
 	// now-Retention are deleted (e.g. 8760h = 365 days).
+	Retention time.Duration `mapstructure:"retention"`
+	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
+	// batches until the table is drained for the cutoff.
+	BatchLimit int64 `mapstructure:"batch_limit"`
+}
+
+// TaskProcessorInvitationRotateConfig tunes the invitation-rotation sweep that
+// flips pending invitations past their expiry to the persisted 'expired' status
+// (see services/invitation.Service.Rotate).
+type TaskProcessorInvitationRotateConfig struct {
+	// CronSpec is the 5-field schedule for the producer job (e.g. "0 3 * * *" =
+	// daily at 03:00). The task is day-bucketed, so firing more often than daily
+	// just dedupes to one rotation per day.
+	CronSpec string `mapstructure:"cron_spec"`
+	// BatchLimit bounds how many rows one UPDATE statement flips; the sweep loops
+	// batches until nothing is left past the expiry boundary.
+	BatchLimit int64 `mapstructure:"batch_limit"`
+}
+
+// TaskProcessorInvitationPruneConfig tunes the invitation retention sweep that
+// deletes terminal invitations older than the window (see
+// services/invitation.Service.Prune).
+type TaskProcessorInvitationPruneConfig struct {
+	// CronSpec is the 5-field schedule for the producer job (e.g. "0 3 * * *" =
+	// daily at 03:00). The task is day-bucketed, so firing more often than daily
+	// just dedupes to one prune per day.
+	CronSpec string `mapstructure:"cron_spec"`
+	// Retention is the age threshold: terminal invitations whose created_at is
+	// older than now-Retention are deleted (e.g. 8760h = 365 days).
 	Retention time.Duration `mapstructure:"retention"`
 	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
 	// batches until the table is drained for the cutoff.
@@ -355,6 +386,10 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateInvitationRetention(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	return cfg
 }
 
@@ -370,6 +405,23 @@ func (c *AppConfig) validateUseStubInDev() error {
 		return fmt.Errorf(
 			"notify_transport.use_stub is only valid in a dev environment, got environment %q",
 			c.Environment,
+		)
+	}
+	return nil
+}
+
+// validateInvitationRetention rejects a negative invitation-prune retention at
+// startup. A negative retention would push the prune cutoff into the future and
+// make every terminal invitation eligible for deletion; the service defensively
+// clamps it, but a negative value in config is always an operator typo, so
+// surface it loudly here rather than silently substituting a default. Zero is
+// allowed — it means "unset" and the service applies its default. It
+// panics-via-caller (initConfig) so the misconfiguration surfaces at startup.
+func (c *AppConfig) validateInvitationRetention() error {
+	if c.TaskProcessor.InvitationPrune.Retention < 0 {
+		return fmt.Errorf(
+			"task_processor.invitation_prune.retention must not be negative, got %s",
+			c.TaskProcessor.InvitationPrune.Retention,
 		)
 	}
 	return nil

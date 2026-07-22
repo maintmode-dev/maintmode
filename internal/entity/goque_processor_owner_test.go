@@ -21,6 +21,10 @@ var allDeclaredTaskTypes = []string{
 	ProcessorTaskAuditPrune,
 	ProcessorTaskAuditPruneCron,
 	ProcessorTaskAuditWrite,
+	ProcessorTaskInvitationRotate,
+	ProcessorTaskInvitationRotateCron,
+	ProcessorTaskInvitationPrune,
+	ProcessorTaskInvitationPruneCron,
 }
 
 // TestActiveProcessorTaskTypes guards the active set against drift: every active

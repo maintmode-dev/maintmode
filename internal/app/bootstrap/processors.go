@@ -11,6 +11,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/goque_processors/auditprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/auditpruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/autocancelprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/invitationpruneprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/invitationrotateprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/licenseheartbeatprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
 
@@ -137,6 +139,13 @@ func NewTaskProcessors(
 	}
 	reg.RegisterPeriodicJob(auditPruneJob)
 
+	// invitation.rotate + invitation.prune: the invitation lifecycle's daily
+	// retention pair (flip pending-past-expiry to persisted 'expired', then delete
+	// old terminal rows). Extracted to keep this constructor within funlen.
+	if err := registerInvitationRotation(reg, cfg, services); err != nil {
+		return nil, err
+	}
+
 	// license.heartbeat: SaaS mode only — the concrete license service exists
 	// exactly when the license is configured, so its presence is the single
 	// source of truth for registration (no config/service mismatch possible).
@@ -171,4 +180,58 @@ func NewTaskProcessors(
 	}
 
 	return goq, nil
+}
+
+// registerInvitationRotation registers the invitation lifecycle's daily
+// retention pair on reg:
+//
+//   - invitation.rotate flips pending invitations past their expiry to the
+//     persisted 'expired' status in bounded batches, so the stored status is
+//     honest and the email's pending slot is freed.
+//   - invitation.prune deletes terminal invitations (by created_at) older than
+//     the retention window in bounded batches; pending rows are never pruned.
+//
+// Both run one worker (a single drained loop that must not run concurrently with
+// itself) and use a day-bucketed external id, collapsing multi-replica ticks to
+// one enqueue per day — the same shape as audit.prune.
+func registerInvitationRotation(reg *processorRegistrar, cfg config.TaskProcessorConfig, services *Services) error {
+	rotateCfg := cfg.InvitationRotate
+	reg.RegisterProcessor(
+		entity.ProcessorTaskInvitationRotate,
+		invitationrotateprocessor.NewTaskProcessor(services.Invitation),
+		goque.WithWorkersCount(1),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	rotateJob, err := goque.NewCronJob(
+		entity.ProcessorTaskInvitationRotateCron,
+		rotateCfg.CronSpec,
+		time.UTC,
+		invitationrotateprocessor.NewTaskFactory(rotateCfg.BatchLimit),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build invitation-rotate cron job: %w", err)
+	}
+	reg.RegisterPeriodicJob(rotateJob)
+
+	pruneCfg := cfg.InvitationPrune
+	reg.RegisterProcessor(
+		entity.ProcessorTaskInvitationPrune,
+		invitationpruneprocessor.NewTaskProcessor(services.Invitation),
+		goque.WithWorkersCount(1),
+		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+	)
+
+	pruneJob, err := goque.NewCronJob(
+		entity.ProcessorTaskInvitationPruneCron,
+		pruneCfg.CronSpec,
+		time.UTC,
+		invitationpruneprocessor.NewTaskFactory(pruneCfg.Retention, pruneCfg.BatchLimit),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build invitation-prune cron job: %w", err)
+	}
+	reg.RegisterPeriodicJob(pruneJob)
+
+	return nil
 }

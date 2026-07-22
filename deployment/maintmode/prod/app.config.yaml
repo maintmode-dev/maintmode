@@ -139,6 +139,16 @@ task_processor:
     cron_spec: "0 3 * * *"
     retention: 8760h
     batch_limit: 1000
+  # invitation_rotate/invitation_prune (RUK-211): the merged process owns the
+  # invitation lifecycle, so these cron specs must be set or NewTaskProcessors
+  # panics building the cron job ("empty spec string").
+  invitation_rotate:
+    cron_spec: "0 3 * * *"
+    batch_limit: 1000
+  invitation_prune:
+    cron_spec: "0 3 * * *"
+    retention: 8760h
+    batch_limit: 1000
 
 # crypto addresses the master key (KEK) that wraps the data-encryption keys
 # protecting integration secrets at rest. A KEK is addressed by URI:

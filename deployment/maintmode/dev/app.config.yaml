@@ -133,6 +133,17 @@ task_processor:
     # 365 days. Rows older than this are deleted in batches.
     retention: 8760h
     batch_limit: 1000
+  # invitation_rotate flips pending invitations past their expiry to the stored
+  # 'expired' status; invitation_prune deletes terminal invitations older than
+  # retention. Day-bucketed daily crons (RUK-211).
+  invitation_rotate:
+    cron_spec: "0 3 * * *"
+    batch_limit: 1000
+  invitation_prune:
+    cron_spec: "0 3 * * *"
+    # 365 days by created_at. Terminal rows older than this are deleted in batches.
+    retention: 8760h
+    batch_limit: 1000
 
 # crypto addresses the master key (KEK) that wraps the data-encryption keys
 # protecting integration secrets at rest. A KEK is addressed by URI:
