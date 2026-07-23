@@ -340,6 +340,44 @@ func (c *MockUsersStoreListCall) DoAndReturn(f func(context.Context, *entity.Lis
 	return c
 }
 
+// LockAdminMutations mocks base method.
+func (m *MockUsersStore) LockAdminMutations(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockAdminMutations", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LockAdminMutations indicates an expected call of LockAdminMutations.
+func (mr *MockUsersStoreMockRecorder) LockAdminMutations(ctx any) *MockUsersStoreLockAdminMutationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockAdminMutations", reflect.TypeOf((*MockUsersStore)(nil).LockAdminMutations), ctx)
+	return &MockUsersStoreLockAdminMutationsCall{Call: call}
+}
+
+// MockUsersStoreLockAdminMutationsCall wrap *gomock.Call
+type MockUsersStoreLockAdminMutationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUsersStoreLockAdminMutationsCall) Return(arg0 error) *MockUsersStoreLockAdminMutationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUsersStoreLockAdminMutationsCall) Do(f func(context.Context) error) *MockUsersStoreLockAdminMutationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUsersStoreLockAdminMutationsCall) DoAndReturn(f func(context.Context) error) *MockUsersStoreLockAdminMutationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Update mocks base method.
 func (m *MockUsersStore) Update(ctx context.Context, user *entity.User) error {
 	m.ctrl.T.Helper()

@@ -49,6 +49,19 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 			return apperr.ErrNotChanged
 		}
 
+		// Lockout protection: a replace that strips admin from the last active
+		// admin is the same hole as revoking the admin role directly — guard it
+		// the same way. The guard only matters when this replace actually removes
+		// admin: admin was in the old set and is gone from the new one. A replace
+		// that keeps admin, or never had it, cannot shrink the admin count.
+		strippingAdmin := slices.Contains(oldRoles, entity.RoleAdmin) &&
+			!slices.Contains(newRoles, entity.RoleAdmin)
+		if strippingAdmin {
+			if err := s.ensureNotLastActiveAdmin(ctx, user); err != nil {
+				return err
+			}
+		}
+
 		user.Roles = newRoles
 		return nil
 	})

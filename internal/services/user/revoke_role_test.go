@@ -142,3 +142,64 @@ func TestRevokeRole_LastAdminGuard(t *testing.T) {
 	})
 	require.ErrorIs(t, err, apperr.ErrLastAdmin)
 }
+
+// TestRevokeRole_BlockedAdminSkipsLastAdminGuard verifies the guard's "active"
+// qualifier: a blocked admin does not count towards admin availability, so
+// stripping the admin role from them must pass even when the active-admin
+// count is at the lockout threshold. If the guard checked IsAdmin instead of
+// IsActiveAdmin, cleaning up a blocked admin's roles would be impossible once
+// only one active admin remains.
+func TestRevokeRole_BlockedAdminSkipsLastAdminGuard(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	// Block the target while the forced count reports 2 active admins, so the
+	// block itself passes the guard.
+	blockSrv := initServiceWithAdminCount(t, 2)
+	actor := makeUser(ctx, t, blockSrv, entity.RoleAdmin)
+	target := makeUser(ctx, t, blockSrv, entity.RoleAdmin)
+	require.NoError(t, blockSrv.BlockUser(ctx, &entity.BlockUserCmd{Actor: actor, UserID: target.ID}))
+
+	// count=1: if the guard ran for the blocked target, it would reject. A
+	// blocked admin is not an active admin — the guard must early-return
+	// (before taking the serialization lock) and let the revoke through.
+	revokeSrv := initServiceWithAdminCount(t, 1)
+	err := revokeSrv.RevokeRole(ctx, &entity.RevokeRoleCmd{
+		Actor:  actor,
+		UserID: target.ID,
+		Role:   entity.RoleAdmin,
+	})
+	require.NoError(t, err)
+
+	roles, err := revokeSrv.GetRoles(ctx, target.ID)
+	require.NoError(t, err)
+	require.NotContains(t, roles, entity.RoleAdmin)
+}
+
+// TestRevokeRole_NonAdminRoleSkipsLastAdminGuard verifies revoking a non-admin
+// role is never serialized or rejected by the last-admin guard: it cannot
+// shrink the admin count, so it must pass even when the target is the last
+// active admin. Pins the "no new contention for ordinary role mutations"
+// property of the guard's call sites.
+func TestRevokeRole_NonAdminRoleSkipsLastAdminGuard(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	// count=1: if the guard ran for an editor revoke, it would reject because
+	// the target is an active admin at the lockout threshold.
+	srv := initServiceWithAdminCount(t, 1)
+	actor := makeUser(ctx, t, srv, entity.RoleAdmin)
+	target := makeUser(ctx, t, srv, entity.RoleAdmin, entity.RoleEditor)
+
+	err := srv.RevokeRole(ctx, &entity.RevokeRoleCmd{
+		Actor:  actor,
+		UserID: target.ID,
+		Role:   entity.RoleEditor,
+	})
+	require.NoError(t, err)
+
+	roles, err := srv.GetRoles(ctx, target.ID)
+	require.NoError(t, err)
+	require.Contains(t, roles, entity.RoleAdmin)
+	require.NotContains(t, roles, entity.RoleEditor)
+}

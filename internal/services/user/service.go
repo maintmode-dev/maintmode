@@ -33,6 +33,7 @@ type UsersStore interface {
 	List(ctx context.Context, cmd *entity.ListUsersCmd) ([]*entity.User, int64, error)
 	Update(ctx context.Context, user *entity.User) error
 	CountActiveAdmins(ctx context.Context) (int64, error)
+	LockAdminMutations(ctx context.Context) error
 }
 
 // AuditPublisher enqueues an audited action to the durable outbox. Defined
@@ -118,11 +119,21 @@ func (s *Service) updateWithApply(ctx context.Context, userID uuid.UUID, fn func
 
 // ensureNotLastActiveAdmin returns ErrLastAdmin when removing/blocking this user
 // would leave the organization without an active admin. It is a no-op for users
-// that are not active admins. Call this inside the update transaction (the target
-// row is already locked) so the admin count is consistent with the mutation.
+// that are not active admins. Call this inside the update transaction, after the
+// target row's FOR UPDATE lock (every caller must keep that "row lock ->
+// advisory lock" order so lock acquisition can never cycle).
 func (s *Service) ensureNotLastActiveAdmin(ctx context.Context, user *entity.User) error {
 	if !user.IsActiveAdmin() {
 		return nil
+	}
+
+	// Serialize the count-then-write decision across concurrent admin
+	// mutations — without the lock the guard is prone to write-skew (mechanics
+	// on dbtx.AdvisoryLockKeyAdminMutations). The xact-scoped lock is released
+	// on commit/rollback; a waiting transaction then recounts and observes the
+	// committed state.
+	if err := s.usersStore.LockAdminMutations(ctx); err != nil {
+		return fmt.Errorf("lock admin mutations: %w", err)
 	}
 
 	admins, err := s.usersStore.CountActiveAdmins(ctx)
