@@ -1,13 +1,36 @@
 package license
 
 import (
+	"os"
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/mock/gomock"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	mock_license "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/license"
+	"github.com/ruko1202/maintmode/internal/utils/closer"
+	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
+
+// db backs the DB-backed guard tests: EnsureSeatAvailable takes a real
+// transaction-scoped advisory lock, so its paths that reach the lock need a live
+// tx (the mock stores still supply the role lists). Paths that return before the
+// lock (nil license / nil cap / Noop) need no DB.
+var db *sqlx.DB
+
+func TestMain(m *testing.M) {
+	db = testdbconnutils.NewDB(config.LoadAppConfig())
+	closer.Add(db.Close)
+
+	os.Exit(m.Run())
+}
+
+// txManager builds a transaction manager over the shared test DB so guard tests
+// can invoke EnsureSeatAvailable inside a real tx.
+func txManager() *dbtx.TxManager { return dbtx.NewTxManager(db) }
 
 type serviceMocks struct {
 	users       *mock_license.MockUsersStore

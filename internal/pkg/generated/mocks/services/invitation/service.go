@@ -675,6 +675,68 @@ func (c *MockTokenIssuerIssueTokenPairCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// MockSeatGuard is a mock of SeatGuard interface.
+type MockSeatGuard struct {
+	ctrl     *gomock.Controller
+	recorder *MockSeatGuardMockRecorder
+	isgomock struct{}
+}
+
+// MockSeatGuardMockRecorder is the mock recorder for MockSeatGuard.
+type MockSeatGuardMockRecorder struct {
+	mock *MockSeatGuard
+}
+
+// NewMockSeatGuard creates a new mock instance.
+func NewMockSeatGuard(ctrl *gomock.Controller) *MockSeatGuard {
+	mock := &MockSeatGuard{ctrl: ctrl}
+	mock.recorder = &MockSeatGuardMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSeatGuard) EXPECT() *MockSeatGuardMockRecorder {
+	return m.recorder
+}
+
+// EnsureSeatAvailable mocks base method.
+func (m *MockSeatGuard) EnsureSeatAvailable(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureSeatAvailable", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureSeatAvailable indicates an expected call of EnsureSeatAvailable.
+func (mr *MockSeatGuardMockRecorder) EnsureSeatAvailable(ctx any) *MockSeatGuardEnsureSeatAvailableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSeatAvailable", reflect.TypeOf((*MockSeatGuard)(nil).EnsureSeatAvailable), ctx)
+	return &MockSeatGuardEnsureSeatAvailableCall{Call: call}
+}
+
+// MockSeatGuardEnsureSeatAvailableCall wrap *gomock.Call
+type MockSeatGuardEnsureSeatAvailableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSeatGuardEnsureSeatAvailableCall) Return(arg0 error) *MockSeatGuardEnsureSeatAvailableCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSeatGuardEnsureSeatAvailableCall) Do(f func(context.Context) error) *MockSeatGuardEnsureSeatAvailableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSeatGuardEnsureSeatAvailableCall) DoAndReturn(f func(context.Context) error) *MockSeatGuardEnsureSeatAvailableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockMessageSender is a mock of MessageSender interface.
 type MockMessageSender struct {
 	ctrl     *gomock.Controller

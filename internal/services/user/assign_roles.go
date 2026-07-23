@@ -43,7 +43,21 @@ func (s *Service) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (
 			return apperr.ErrNotChanged
 		}
 
-		user.Roles = append(slices.Clone(user.Roles), added...)
+		newRoles := append(slices.Clone(user.Roles), added...)
+
+		// Seats-cap guard: fire only on a real non-seat→seat transition, and only
+		// after the no-op check above (a net-zero re-assign never reaches here).
+		// The count runs before Update persists newRoles, so occupied+1 excludes
+		// this in-flight grant. Union that keeps an existing seat consumes no new
+		// seat and skips the guard.
+		if !entity.RoleOccupiesSeat(entity.HighestRole(user.Roles)) &&
+			entity.RoleOccupiesSeat(entity.HighestRole(newRoles)) {
+			if err := s.seatGuard.EnsureSeatAvailable(ctx); err != nil {
+				return err
+			}
+		}
+
+		user.Roles = newRoles
 		return nil
 	})
 	if err != nil {

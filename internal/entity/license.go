@@ -68,6 +68,17 @@ func (u SeatUsage) SeatsUsed() int64 {
 	return u.Admin.Active + u.Reviewer.Active + u.Editor.Active
 }
 
+// SeatsOccupied is the number of seats consumed for the cap guard: active
+// seat-users PLUS live pending seat-invites. It is deliberately distinct from
+// SeatsUsed (Active-only, heartbeat report): a pending invite reserves a seat
+// from send time (Variant A), so the cap check must count both. Guests never
+// occupy a seat.
+func (u SeatUsage) SeatsOccupied() int64 {
+	return u.Admin.Active + u.Admin.Pending +
+		u.Reviewer.Active + u.Reviewer.Pending +
+		u.Editor.Active + u.Editor.Pending
+}
+
 // HeartbeatReport is the instance-side half of the heartbeat contract: seat
 // usage, last domain activity and the running build version. Collected fresh
 // at send time. LastActivityAt is nil for an instance with no domain activity

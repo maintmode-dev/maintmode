@@ -28,6 +28,15 @@ var rolesLevel = map[Role]int{
 	RoleAdmin:    3,
 }
 
+// RoleOccupiesSeat reports whether a role consumes a licensed seat: any role
+// ranked above guest (admin/reviewer/editor). Guest, empty and unknown roles do
+// not — an unknown role is absent from rolesLevel and reads as level 0, the same
+// as guest. Derived from the rolesLevel ordering so there is one source of truth
+// for "which roles are seat-occupying".
+func RoleOccupiesSeat(role Role) bool {
+	return rolesLevel[role] > rolesLevel[RoleGuest]
+}
+
 // Valid checks whether the role is one of the known roles.
 func (r Role) Valid(ctx context.Context) bool {
 	switch r {

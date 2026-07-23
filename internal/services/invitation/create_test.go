@@ -89,4 +89,47 @@ func TestCreate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, entity.InvitationStatusRevoked, got.Status)
 	})
+
+	t.Run("seat-role invite at full cap is rejected", func(t *testing.T) {
+		t.Parallel()
+		svc, mocks := initService(t)
+		mocks.seatGuard.err = apperr.ErrSeatsLimitExceeded // license reports the cap is full
+
+		_, err := svc.Create(ctx, &entity.CreateInvitationCmd{
+			Actor: makeAdmin(ctx, t, svc),
+			Email: uniqueEmail(t),
+			Roles: []entity.Role{entity.RoleEditor},
+		})
+		require.ErrorIs(t, err, apperr.ErrSeatsLimitExceeded)
+		require.Equal(t, 1, mocks.seatGuard.called, "a seat-role invite must consult the guard")
+	})
+
+	t.Run("guest invite passes even at full cap", func(t *testing.T) {
+		t.Parallel()
+		svc, mocks := initService(t)
+		mocks.seatGuard.err = apperr.ErrSeatsLimitExceeded // cap full, but a guest takes no seat
+
+		inv, err := svc.Create(ctx, &entity.CreateInvitationCmd{
+			Actor: makeAdmin(ctx, t, svc),
+			Email: uniqueEmail(t),
+			Roles: []entity.Role{entity.RoleGuest},
+		})
+		require.NoError(t, err)
+		require.Equal(t, []entity.Role{entity.RoleGuest}, inv.Roles)
+		require.Zero(t, mocks.seatGuard.called, "a guest invite must not consult the seat guard")
+	})
+
+	t.Run("seat-role invite passes when the guard reports room", func(t *testing.T) {
+		t.Parallel()
+		svc, mocks := initService(t)
+		// seatGuard.err stays nil: the last seat is grantable.
+
+		_, err := svc.Create(ctx, &entity.CreateInvitationCmd{
+			Actor: makeAdmin(ctx, t, svc),
+			Email: uniqueEmail(t),
+			Roles: []entity.Role{entity.RoleReviewer},
+		})
+		require.NoError(t, err)
+		require.Equal(t, 1, mocks.seatGuard.called)
+	})
 }

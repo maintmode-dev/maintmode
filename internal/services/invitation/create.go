@@ -74,6 +74,19 @@ func (s *Service) Create(ctx context.Context, cmd *entity.CreateInvitationCmd) (
 			return err
 		}
 
+		// Seats-cap guard: a seat-role invite reserves a seat from send time
+		// (Variant A), so enforce the cap before inserting. The row does not exist
+		// yet, so occupied+1 is unconditionally correct. A pure-guest invite takes
+		// no seat and skips the guard. Runs after the stale revoke (which frees the
+		// prior pending seat for this email) so re-inviting the same address never
+		// double-counts. It also runs after that revoke's FOR UPDATE, keeping the
+		// row-lock → advisory-lock order.
+		if entity.RoleOccupiesSeat(entity.HighestRole(cmd.Roles)) {
+			if err := s.seatGuard.EnsureSeatAvailable(ctx); err != nil {
+				return err
+			}
+		}
+
 		created, err = s.store.Create(ctx, &entity.Invitation{
 			Email:       cmd.Email,
 			Roles:       cmd.Roles,

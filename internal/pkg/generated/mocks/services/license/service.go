@@ -42,6 +42,44 @@ func (m *MockEnforcement) EXPECT() *MockEnforcementMockRecorder {
 	return m.recorder
 }
 
+// EnsureSeatAvailable mocks base method.
+func (m *MockEnforcement) EnsureSeatAvailable(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureSeatAvailable", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureSeatAvailable indicates an expected call of EnsureSeatAvailable.
+func (mr *MockEnforcementMockRecorder) EnsureSeatAvailable(ctx any) *MockEnforcementEnsureSeatAvailableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSeatAvailable", reflect.TypeOf((*MockEnforcement)(nil).EnsureSeatAvailable), ctx)
+	return &MockEnforcementEnsureSeatAvailableCall{Call: call}
+}
+
+// MockEnforcementEnsureSeatAvailableCall wrap *gomock.Call
+type MockEnforcementEnsureSeatAvailableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEnforcementEnsureSeatAvailableCall) Return(arg0 error) *MockEnforcementEnsureSeatAvailableCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEnforcementEnsureSeatAvailableCall) Do(f func(context.Context) error) *MockEnforcementEnsureSeatAvailableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEnforcementEnsureSeatAvailableCall) DoAndReturn(f func(context.Context) error) *MockEnforcementEnsureSeatAvailableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // License mocks base method.
 func (m *MockEnforcement) License(ctx context.Context) *entity.License {
 	m.ctrl.T.Helper()

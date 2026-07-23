@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/services/license"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -57,6 +58,7 @@ func initPolicyService(t *testing.T, store UsersStore, allowOpenSignup bool) (*S
 		useridentities.NewStore(db),
 		rec,
 		&fakeTokenRevoker{},
+		license.NewNoop(),
 		allowOpenSignup,
 	)
 	return srv, rec

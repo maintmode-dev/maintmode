@@ -15,3 +15,7 @@ type Noop struct{}
 func NewNoop() Noop { return Noop{} }
 
 func (Noop) License(context.Context) *entity.License { return nil }
+
+// EnsureSeatAvailable never enforces a cap on a self-hosted instance: without a
+// license every seat grant is unlimited.
+func (Noop) EnsureSeatAvailable(context.Context) error { return nil }

@@ -43,6 +43,14 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
+// SeatGuard is the seats-cap guard the role-granting paths call inside their
+// mutation tx before persisting. Defined consumer-side (a subset of
+// license.Enforcement) so the user service depends only on the guard and can be
+// tested with a fake; self-hosted wires license.Noop, which is a no-op.
+type SeatGuard interface {
+	EnsureSeatAvailable(ctx context.Context) error
+}
+
 // Service manages user-related operations including role management.
 type Service struct {
 	txManager       *dbtx.TxManager
@@ -50,6 +58,7 @@ type Service struct {
 	identitiesStore *useridentities.Store
 	auditPublisher  AuditPublisher
 	tokenRevoker    TokenRevoker
+	seatGuard       SeatGuard
 	// allowOpenSignup lets an unknown, uninvited user self-register as guest on
 	// OAuth login (cfg.Auth.AllowOpenSignup, read once at wiring time).
 	allowOpenSignup bool
@@ -61,6 +70,7 @@ func NewService(
 	identitiesStore *useridentities.Store,
 	auditPublisher AuditPublisher,
 	tokenRevoker TokenRevoker,
+	seatGuard SeatGuard,
 	allowOpenSignup bool,
 ) *Service {
 	return &Service{
@@ -69,6 +79,7 @@ func NewService(
 		usersStore:      usersStore,
 		identitiesStore: identitiesStore,
 		tokenRevoker:    tokenRevoker,
+		seatGuard:       seatGuard,
 		allowOpenSignup: allowOpenSignup,
 	}
 }

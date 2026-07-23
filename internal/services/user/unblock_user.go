@@ -19,9 +19,21 @@ func (s *Service) UnblockUser(ctx context.Context, cmd *entity.UnblockUserCmd) e
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.UnblockUser")
 	defer span.End()
 
-	user, err := s.updateWithApply(ctx, cmd.UserID, func(_ context.Context, user *entity.User) error {
+	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		if !user.IsBlocked() {
 			return apperr.ErrNotChanged
+		}
+
+		// Seats-cap guard: unblocking restores the user's preserved roles, so a
+		// seat-role user reclaims a seat. Runs while the user is still blocked
+		// (BlockedAt not yet cleared), so ListActiveRoles still excludes them and
+		// occupied+1 models the restored seat. Gated behind the IsBlocked no-op
+		// check above, so unblocking an already-active user never fires it. A
+		// guest holds no seat and skips the guard.
+		if entity.RoleOccupiesSeat(entity.HighestRole(user.Roles)) {
+			if err := s.seatGuard.EnsureSeatAvailable(ctx); err != nil {
+				return err
+			}
 		}
 
 		user.BlockedAt = nil

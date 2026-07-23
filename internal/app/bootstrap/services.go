@@ -110,7 +110,7 @@ func NewServices(ctx context.Context,
 	// client in SaaS mode, Noop otherwise.
 	enforcement, heartbeatSrv := newLicenseService(cfg, stores)
 
-	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher)
+	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher, enforcement)
 
 	// authorizer is the single RBAC authorizer shared by the core (scenario
 	// middleware) and the auth admin routes.
@@ -156,6 +156,7 @@ func NewServices(ctx context.Context,
 		authSrv,
 		oauthProviders,
 		messageSender,
+		enforcement,
 	)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue, transportResolver)
@@ -215,6 +216,7 @@ func newTokenAndUserServices(
 	cfg *config.AppConfig,
 	stores *Stores,
 	auditPublisher *auditpublisher.Publisher,
+	seatGuard user.SeatGuard,
 ) (tokenSvc *token.Service, userSvc *user.Service) {
 	tokenSrv := token.NewService(
 		stores.TxManager,
@@ -230,6 +232,7 @@ func newTokenAndUserServices(
 		stores.UserIdentities,
 		auditPublisher,
 		tokenSrv,
+		seatGuard,
 		cfg.Auth.AllowOpenSignup,
 	)
 

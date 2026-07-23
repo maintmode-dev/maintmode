@@ -25,6 +25,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/user"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/services/license"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
@@ -101,6 +102,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			useridentities.NewStore(db),
 			newTestAuditPublisher(t),
 			tokenSrv,
+			license.NewNoop(), // auth tests do not exercise the seat cap
 			// allowOpenSignup mirrors the local/dev config: a plain exchange of an
 			// unknown user provisions a guest, so login tests need no invitation.
 			true,

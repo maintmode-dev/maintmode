@@ -152,3 +152,75 @@ func TestReplaceRoles(t *testing.T) {
 		require.ElementsMatch(t, user.Roles, roles)
 	})
 }
+
+func TestReplaceRoles_SeatCap(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	setup := initService(t) // Noop-guard: fixtures are never capped
+
+	t.Run("non-seat to seat at full cap is rejected", func(t *testing.T) {
+		t.Parallel()
+		guard := &fakeSeatGuard{err: apperr.ErrSeatsLimitExceeded}
+		srv := initServiceWithSeatGuard(t, guard)
+		u := makeUser(ctx, t, setup, entity.RoleGuest) // non-seat
+
+		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
+			Actor:  &entity.User{},
+			UserID: u.ID,
+			Roles:  []entity.Role{entity.RoleEditor},
+		})
+		require.ErrorIs(t, err, apperr.ErrSeatsLimitExceeded)
+		require.Equal(t, 1, guard.called)
+
+		// Rejected replace leaves the role set untouched.
+		roles, err := setup.GetRoles(ctx, u.ID)
+		require.NoError(t, err)
+		require.ElementsMatch(t, []entity.Role{entity.RoleGuest}, roles)
+	})
+
+	t.Run("non-seat to seat filling the last seat passes (off-by-one)", func(t *testing.T) {
+		t.Parallel()
+		guard := &fakeSeatGuard{} // room for the last seat
+		srv := initServiceWithSeatGuard(t, guard)
+		u := makeUser(ctx, t, setup, entity.RoleGuest)
+
+		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
+			Actor:  &entity.User{},
+			UserID: u.ID,
+			Roles:  []entity.Role{entity.RoleReviewer},
+		})
+		require.NoError(t, err)
+		require.Equal(t, 1, guard.called)
+	})
+
+	t.Run("replace that keeps an existing seat skips the guard", func(t *testing.T) {
+		t.Parallel()
+		guard := &fakeSeatGuard{err: apperr.ErrSeatsLimitExceeded} // cap full, but seat→seat
+		srv := initServiceWithSeatGuard(t, guard)
+		u := makeUser(ctx, t, setup, entity.RoleEditor) // already a seat
+
+		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
+			Actor:  &entity.User{},
+			UserID: u.ID,
+			Roles:  []entity.Role{entity.RoleReviewer},
+		})
+		require.NoError(t, err, "seat→seat consumes no new seat")
+		require.Zero(t, guard.called)
+	})
+
+	t.Run("seat to non-seat (downgrade) never fires the guard", func(t *testing.T) {
+		t.Parallel()
+		guard := &fakeSeatGuard{err: apperr.ErrSeatsLimitExceeded}
+		srv := initServiceWithSeatGuard(t, guard)
+		u := makeUser(ctx, t, setup, entity.RoleEditor)
+
+		err := srv.ReplaceRoles(ctx, &entity.ReplaceRolesCmd{
+			Actor:  &entity.User{},
+			UserID: u.ID,
+			Roles:  []entity.Role{entity.RoleGuest},
+		})
+		require.NoError(t, err, "downgrade frees a seat, never consumes one")
+		require.Zero(t, guard.called)
+	})
+}

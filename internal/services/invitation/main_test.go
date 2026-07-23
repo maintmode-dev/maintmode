@@ -55,9 +55,27 @@ type serviceMocks struct {
 	tokenRevoker  *mock_user.MockTokenRevoker
 	sender        *mock_invitation.MockMessageSender
 
+	// seatGuard is the seats-cap guard shared by the invitation service (Create)
+	// and the underlying user service (Accept → AssignRoles). Tests flip its err
+	// to simulate a full cap and read called to assert whether the guard fired.
+	seatGuard *fakeSeatGuard
+
 	// sentEmail captures the last message enqueued for email delivery so tests
 	// can read the recipient and pull the accept link out of the body.
 	sentEmail *sentEmail
+}
+
+// fakeSeatGuard is a controllable SeatGuard: EnsureSeatAvailable returns err and
+// counts invocations, so cap tests can drive the outcome and assert the guard
+// only fires on a real seat-granting transition.
+type fakeSeatGuard struct {
+	err    error
+	called int
+}
+
+func (f *fakeSeatGuard) EnsureSeatAvailable(context.Context) error {
+	f.called++
+	return f.err
 }
 
 // sentEmail records what the email transport was asked to deliver.
@@ -77,6 +95,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		tokenRevoker:  mock_user.NewMockTokenRevoker(ctrl),
 		oauthProvider: mock_oauthprovider.NewMockOAuthProvider(ctrl),
 		sender:        mock_invitation.NewMockMessageSender(ctrl),
+		seatGuard:     &fakeSeatGuard{}, // passes by default; cap tests flip err
 		sentEmail:     &sentEmail{},
 	}
 	mocks.oauthProvider.EXPECT().
@@ -105,11 +124,13 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			useridentities.NewStore(db),
 			newTestAuditPublisher(t),
 			mocks.tokenRevoker,
-			false, // allowOpenSignup: the accept flow must authorize creation itself
+			mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
+			false,           // allowOpenSignup: the accept flow must authorize creation itself
 		),
 		mocks.tokenIssuer,
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		mocks.sender,
+		mocks.seatGuard, // Create runs the guard directly
 	), mocks
 }
 

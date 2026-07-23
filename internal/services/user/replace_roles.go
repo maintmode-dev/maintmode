@@ -62,6 +62,18 @@ func (s *Service) ReplaceRoles(ctx context.Context, cmd *entity.ReplaceRolesCmd)
 			}
 		}
 
+		// Seats-cap guard: fire only when this replace lifts the user from
+		// non-seat to seat. Runs AFTER the last-admin guard so advisory keys are
+		// taken in ascending order (admin=1 before seat=2, per advisory_lock.go).
+		// The count runs before Update persists newRoles, so occupied+1 excludes
+		// this in-flight grant. Replace that keeps/lowers seat status skips it.
+		if !entity.RoleOccupiesSeat(entity.HighestRole(oldRoles)) &&
+			entity.RoleOccupiesSeat(entity.HighestRole(newRoles)) {
+			if err := s.seatGuard.EnsureSeatAvailable(ctx); err != nil {
+				return err
+			}
+		}
+
 		user.Roles = newRoles
 		return nil
 	})

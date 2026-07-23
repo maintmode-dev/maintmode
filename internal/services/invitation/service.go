@@ -52,6 +52,14 @@ type TokenIssuer interface {
 	IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error)
 }
 
+// SeatGuard is the seats-cap guard Create calls inside its tx before inserting a
+// seat-role invite. Defined consumer-side (a subset of license.Enforcement) so
+// the service depends only on the guard and can be tested with a fake;
+// self-hosted wires license.Noop, which is a no-op.
+type SeatGuard interface {
+	EnsureSeatAvailable(ctx context.Context) error
+}
+
 // MessageSender enqueues an invitation email through the messaging outbox.
 // Implemented by messaging/sender.Service. Defined consumer-side so tests can
 // substitute a fake. The enqueue joins the caller's tx (transactional outbox)
@@ -72,6 +80,7 @@ type Service struct {
 	tokenIssuer    TokenIssuer
 	oauthProviders *oauthprovider.Providers
 	sender         MessageSender
+	seatGuard      SeatGuard
 	ttl            time.Duration
 	frontendURL    string
 	emailMatch     emailMatcherFunc
@@ -85,6 +94,7 @@ func NewService(
 	tokenIssuer TokenIssuer,
 	oauthProviders *oauthprovider.Providers,
 	sender MessageSender,
+	seatGuard SeatGuard,
 ) *Service {
 	invitationTTL := cfg.App.InvitationTTL
 	if invitationTTL <= 0 {
@@ -98,6 +108,7 @@ func NewService(
 		tokenIssuer:    tokenIssuer,
 		oauthProviders: oauthProviders,
 		sender:         sender,
+		seatGuard:      seatGuard,
 		ttl:            invitationTTL,
 		frontendURL:    cfg.App.FrontendURL,
 		emailMatch:     emailMatchesIgnoreCase,

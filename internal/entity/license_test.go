@@ -82,3 +82,68 @@ func TestBucketSeats(t *testing.T) {
 	// The cap invariant: every active row lands in exactly one bucket.
 	require.EqualValues(t, len(active), usage.TotalActive())
 }
+
+func TestSeatUsage_SeatsOccupied(t *testing.T) {
+	t.Parallel()
+
+	t.Run("counts active and pending across seat roles, excludes guest", func(t *testing.T) {
+		t.Parallel()
+
+		usage := SeatUsage{
+			Admin:    SeatBucket{Active: 1, Pending: 1},
+			Reviewer: SeatBucket{Active: 2, Pending: 0},
+			Editor:   SeatBucket{Active: 1, Pending: 3},
+			Guest:    SeatBucket{Active: 5, Pending: 4}, // never counted
+		}
+
+		require.EqualValues(t, 1+1+2+0+1+3, usage.SeatsOccupied())
+	})
+
+	t.Run("differs from SeatsUsed when pending invites exist", func(t *testing.T) {
+		t.Parallel()
+
+		// SeatsUsed (heartbeat) is Active-only; SeatsOccupied (guard) is
+		// Active+Pending. A fixture with pending seat-invites must separate them,
+		// or the guard would silently drop pending invites from the cap.
+		usage := BucketSeats(
+			[][]Role{{RoleAdmin}, {RoleEditor}},    // 2 active seats
+			[][]Role{{RoleReviewer}, {RoleEditor}}, // 2 pending seats
+		)
+
+		require.EqualValues(t, 2, usage.SeatsUsed(), "Active-only")
+		require.EqualValues(t, 4, usage.SeatsOccupied(), "Active+Pending")
+		require.NotEqual(t, usage.SeatsUsed(), usage.SeatsOccupied())
+	})
+
+	t.Run("guest-only pending invites never occupy a seat", func(t *testing.T) {
+		t.Parallel()
+
+		usage := BucketSeats(nil, [][]Role{{RoleGuest}, {RoleGuest}})
+		require.Zero(t, usage.SeatsOccupied())
+	})
+}
+
+func TestRoleOccupiesSeat(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		role Role
+		want bool
+	}{
+		{name: "admin occupies a seat", role: RoleAdmin, want: true},
+		{name: "reviewer occupies a seat", role: RoleReviewer, want: true},
+		{name: "editor occupies a seat", role: RoleEditor, want: true},
+		{name: "guest does not occupy a seat", role: RoleGuest, want: false},
+		{name: "unknown role does not occupy a seat", role: Role("bogus"), want: false},
+		{name: "empty role does not occupy a seat", role: Role(""), want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, RoleOccupiesSeat(tc.role))
+		})
+	}
+}

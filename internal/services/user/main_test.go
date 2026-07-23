@@ -15,6 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
+	"github.com/ruko1202/maintmode/internal/services/license"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -74,7 +75,8 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 		useridentities.NewStore(db),
 		newTestAuditPublisher(t),
 		revoker,
-		false, // allowOpenSignup: tests authorize creation per call via the policy
+		license.NewNoop(), // default: seat cap disabled (self-hosted-like)
+		false,             // allowOpenSignup: tests authorize creation per call via the policy
 	)
 	return srv, revoker
 }
@@ -105,6 +107,38 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 		useridentities.NewStore(db),
 		newTestAuditPublisher(t),
 		&fakeTokenRevoker{},
+		license.NewNoop(),
+		false,
+	)
+}
+
+// fakeSeatGuard is a controllable SeatGuard: it returns err from
+// EnsureSeatAvailable and records how many times the guard fired, so seat-cap
+// tests can assert both the outcome (over-cap rejects) and that the guard is
+// only called on a real non-seat→seat transition (no-ops skip it).
+type fakeSeatGuard struct {
+	err    error
+	called int
+}
+
+func (f *fakeSeatGuard) EnsureSeatAvailable(context.Context) error {
+	f.called++
+	return f.err
+}
+
+// initServiceWithSeatGuard builds a service whose seat guard is the supplied
+// fake, so seat-cap enforcement at each mutation point can be exercised without
+// a real license. Every other dependency hits the real test DB.
+func initServiceWithSeatGuard(t *testing.T, guard SeatGuard) *Service {
+	t.Helper()
+
+	return NewService(
+		dbtx.NewTxManager(db),
+		users.NewStore(db),
+		useridentities.NewStore(db),
+		newTestAuditPublisher(t),
+		&fakeTokenRevoker{},
+		guard,
 		false,
 	)
 }

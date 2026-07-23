@@ -16,13 +16,22 @@ import (
 )
 
 // Enforcement is the license surface every consumer sees: the current license
-// (the suspend-gate source). Implemented by Service (SaaS mode) and Noop
-// (self-hosted) — callers never branch on "is the license configured".
+// (the suspend-gate source) and the seats-cap guard. Implemented by Service
+// (SaaS mode) and Noop (self-hosted) — callers never branch on "is the license
+// configured".
 type Enforcement interface {
 	// License returns the current license, read through a short-TTL cache in
 	// front of the shared license_cache row so every replica converges on the
 	// same block state within the TTL. nil means nothing to enforce yet.
 	License(ctx context.Context) *entity.License
+
+	// EnsureSeatAvailable rejects granting a seat-occupying role once the org has
+	// reached its licensed seats_purchased. It is a pure cap check: the caller
+	// decides whether a real non-seat→seat transition is happening, and calls it
+	// inside the mutation transaction after the target row's FOR UPDATE and
+	// BEFORE the role change is persisted. Returns nil when there is no license
+	// (self-hosted) or no reported cap yet.
+	EnsureSeatAvailable(ctx context.Context) error
 }
 
 // UsersStore lists the role sets of active (non-blocked) users. Defined
