@@ -27,11 +27,23 @@ var allDeclaredTaskTypes = []string{
 	ProcessorTaskInvitationPruneCron,
 }
 
+// disabledTaskTypes is every declared type whose processor is intentionally not
+// registered. The string stays reserved (the const remains declared) so it cannot
+// be reused for something else, while the startup coverage guard no longer
+// expects anything to drain it.
+//
+// messaging.send has no producer: maintenance notifications are delivered inline
+// by dispatchSync, and the queue-backed path that used to enqueue them was
+// removed. Invitation e-mails ride their own type, invitation.email.
+var disabledTaskTypes = []string{
+	ProcessorTaskMessagingSend,
+}
+
 // TestActiveProcessorTaskTypes guards the active set against drift: every active
 // type must be a real declared const (a typo'd key would make the startup guard
-// demand a processor for a nonexistent type), and — while all types are
-// currently active — the set must cover every declared type so none silently
-// goes undrained.
+// demand a processor for a nonexistent type), and the active set plus the
+// deliberately disabled ones must account for every declared type, so nothing
+// silently goes undrained.
 func TestActiveProcessorTaskTypes(t *testing.T) {
 	declared := make(map[string]struct{}, len(allDeclaredTaskTypes))
 	for _, taskType := range allDeclaredTaskTypes {
@@ -43,8 +55,23 @@ func TestActiveProcessorTaskTypes(t *testing.T) {
 		require.Truef(t, ok, "ActiveProcessorTaskTypes has %q which is not a declared task type", taskType)
 	}
 
-	// No type is disabled today, so the active set covers every declared type.
-	// If you disable one, move it out of this assertion deliberately.
-	require.Len(t, ActiveProcessorTaskTypes, len(allDeclaredTaskTypes),
-		"every declared task type must be active (none is currently disabled)")
+	require.Len(t, ActiveProcessorTaskTypes, len(allDeclaredTaskTypes)-len(disabledTaskTypes),
+		"every declared task type must be either active or explicitly disabled")
+}
+
+// TestDisabledTaskTypesStayDeclared pins the declared-but-disabled contract: the
+// const keeps existing (so the string is never recycled) while the type is absent
+// from the active set (so the startup guard does not demand a processor for it).
+func TestDisabledTaskTypesStayDeclared(t *testing.T) {
+	declared := make(map[string]struct{}, len(allDeclaredTaskTypes))
+	for _, taskType := range allDeclaredTaskTypes {
+		declared[taskType] = struct{}{}
+	}
+
+	for _, taskType := range disabledTaskTypes {
+		require.Containsf(t, declared, taskType,
+			"disabled type %q must stay declared so its string is not reused", taskType)
+		require.NotContainsf(t, ActiveProcessorTaskTypes, taskType,
+			"disabled type %q must be absent from the active set", taskType)
+	}
 }

@@ -68,6 +68,13 @@ type User struct {
 	// nil means "not selected" — the frontend falls back to browser auto-detect.
 	// Stored as an IANA string (never a numeric offset) so it survives DST.
 	Timezone *string
+	// TelegramTag and SlackTag are the user's messenger handles, stored exactly
+	// as entered — a leading "@" is preserved only if the user typed one, because
+	// the stored value is pasted verbatim into the outgoing notification. nil
+	// means "not provided": the notification degrades to the display name, which
+	// is also the feature's switched-off state.
+	TelegramTag *string
+	SlackTag    *string
 }
 
 // IsBlocked reports whether the user is currently blocked.

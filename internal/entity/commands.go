@@ -304,6 +304,64 @@ type UnblockUserCmd struct {
 	UserID uuid.UUID
 }
 
+// UpdateUserTagsCmd is an admin's partial update of another user's messenger
+// tags. Actor is the admin performing the edit (recorded in the audit trail),
+// UserID the target being edited.
+//
+// Each tag is guarded by its own Set* flag rather than by the pointer being
+// non-nil, because nil is a meaningful value here: it is the explicit reset to
+// NULL. "Field absent from the request" and "field explicitly set to null" are
+// therefore distinct inputs, and only the flag can tell them apart — the same
+// convention as the self-service UpdatePreferencesCmd.
+//
+// Timezone is deliberately absent: it only affects how the owner sees their own
+// interface, so an admin changing it would break someone's display without
+// leaving any effect on notification delivery, which is what the admin is
+// actually responsible for.
+type UpdateUserTagsCmd struct {
+	Actor  *User
+	UserID uuid.UUID
+
+	SetTelegramTag bool
+	TelegramTag    *string
+
+	SetSlackTag bool
+	SlackTag    *string
+}
+
+// IsEmpty reports whether the command carries no tag field at all, i.e. the
+// admin sent a patch that touches nothing.
+func (c UpdateUserTagsCmd) IsEmpty() bool {
+	return !c.SetTelegramTag && !c.SetSlackTag
+}
+
+// UpdatePreferencesCmd is a partial update of the caller's own preferences.
+//
+// Each field is guarded by its own Set* flag rather than by the pointer being
+// non-nil, because nil is a meaningful value here: it is the explicit reset to
+// NULL. "Field absent from the request" and "field explicitly set to null" are
+// therefore distinct inputs, and only the flag can tell them apart.
+//
+// This is the opposite convention to entity.UpdateNotifyChannelCmd, where a nil
+// field is simply left unchanged. The difference is deliberate: that command has
+// no resettable field, this one has three.
+type UpdatePreferencesCmd struct {
+	SetTimezone bool
+	Timezone    *string
+
+	SetTelegramTag bool
+	TelegramTag    *string
+
+	SetSlackTag bool
+	SlackTag    *string
+}
+
+// IsEmpty reports whether the command carries no field at all, i.e. the caller
+// sent a patch that touches nothing.
+func (c UpdatePreferencesCmd) IsEmpty() bool {
+	return !c.SetTimezone && !c.SetTelegramTag && !c.SetSlackTag
+}
+
 // --- Audit log commands ---
 
 type GetAuditLogsCmd struct {

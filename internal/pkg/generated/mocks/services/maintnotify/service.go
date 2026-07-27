@@ -80,44 +80,6 @@ func (c *MockMessageSenderSendCall) DoAndReturn(f func(context.Context, entity.N
 	return c
 }
 
-// SendAsync mocks base method.
-func (m *MockMessageSender) SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendAsync", ctx, taskType, trName, target, msg, idempotencyKey)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendAsync indicates an expected call of SendAsync.
-func (mr *MockMessageSenderMockRecorder) SendAsync(ctx, taskType, trName, target, msg, idempotencyKey any) *MockMessageSenderSendAsyncCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAsync", reflect.TypeOf((*MockMessageSender)(nil).SendAsync), ctx, taskType, trName, target, msg, idempotencyKey)
-	return &MockMessageSenderSendAsyncCall{Call: call}
-}
-
-// MockMessageSenderSendAsyncCall wrap *gomock.Call
-type MockMessageSenderSendAsyncCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMessageSenderSendAsyncCall) Return(arg0 error) *MockMessageSenderSendAsyncCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMessageSenderSendAsyncCall) Do(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockMessageSenderSendAsyncCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMessageSenderSendAsyncCall) DoAndReturn(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockMessageSenderSendAsyncCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockNotifyTargetsStore is a mock of NotifyTargetsStore interface.
 type MockNotifyTargetsStore struct {
 	ctrl     *gomock.Controller
@@ -177,6 +139,68 @@ func (c *MockNotifyTargetsStoreListByMaintCall) Do(f func(context.Context, uuid.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNotifyTargetsStoreListByMaintCall) DoAndReturn(f func(context.Context, uuid.UUID) ([]*entity.NotifyTarget, error)) *MockNotifyTargetsStoreListByMaintCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockOwnerResolver is a mock of OwnerResolver interface.
+type MockOwnerResolver struct {
+	ctrl     *gomock.Controller
+	recorder *MockOwnerResolverMockRecorder
+	isgomock struct{}
+}
+
+// MockOwnerResolverMockRecorder is the mock recorder for MockOwnerResolver.
+type MockOwnerResolverMockRecorder struct {
+	mock *MockOwnerResolver
+}
+
+// NewMockOwnerResolver creates a new mock instance.
+func NewMockOwnerResolver(ctrl *gomock.Controller) *MockOwnerResolver {
+	mock := &MockOwnerResolver{ctrl: ctrl}
+	mock.recorder = &MockOwnerResolverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOwnerResolver) EXPECT() *MockOwnerResolverMockRecorder {
+	return m.recorder
+}
+
+// ResolveOwner mocks base method.
+func (m *MockOwnerResolver) ResolveOwner(ctx context.Context, id uuid.UUID) *entity.UserMention {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveOwner", ctx, id)
+	ret0, _ := ret[0].(*entity.UserMention)
+	return ret0
+}
+
+// ResolveOwner indicates an expected call of ResolveOwner.
+func (mr *MockOwnerResolverMockRecorder) ResolveOwner(ctx, id any) *MockOwnerResolverResolveOwnerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveOwner", reflect.TypeOf((*MockOwnerResolver)(nil).ResolveOwner), ctx, id)
+	return &MockOwnerResolverResolveOwnerCall{Call: call}
+}
+
+// MockOwnerResolverResolveOwnerCall wrap *gomock.Call
+type MockOwnerResolverResolveOwnerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOwnerResolverResolveOwnerCall) Return(arg0 *entity.UserMention) *MockOwnerResolverResolveOwnerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOwnerResolverResolveOwnerCall) Do(f func(context.Context, uuid.UUID) *entity.UserMention) *MockOwnerResolverResolveOwnerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOwnerResolverResolveOwnerCall) DoAndReturn(f func(context.Context, uuid.UUID) *entity.UserMention) *MockOwnerResolverResolveOwnerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -19,6 +19,11 @@ const (
 	AuditActionUserBlocked   AuditAction = "user.blocked"
 	AuditActionUserUnblocked AuditAction = "user.unblocked"
 
+	// AuditActionUserTagsChanged records an admin editing another user's
+	// messenger tags. Self-service edits of one's own tags are deliberately not
+	// audited — see the audit.UserTagsChanged doc block.
+	AuditActionUserTagsChanged AuditAction = "user.tags_changed"
+
 	// Maintenance lifecycle/CRUD actions (RUK-182). AuditActionMaintAutoCanceled
 	// is the automatic overdue-cancel path (RUK-181) — system actor, no human.
 	// Values use the project's "canceled" spelling (matches MaintenanceStatusCancelled = "canceled").
@@ -47,6 +52,7 @@ func (a AuditAction) IsValid() bool {
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
 		AuditActionUserUnblocked,
+		AuditActionUserTagsChanged,
 		AuditActionMaintCreated,
 		AuditActionMaintUpdated,
 		AuditActionMaintApproved,
@@ -122,7 +128,9 @@ const (
 //   - logout_success: SessionID, LogoutKind;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
 //   - replaced: Roles (итоговый набор), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
-//   - blocked / unblocked: TargetEmail, TargetDisplayName.
+//   - blocked / unblocked: TargetEmail, TargetDisplayName;
+//   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
+//     TargetDisplayName.
 type AuditMetadata struct {
 	IP                string             `json:"ip,omitempty"`
 	UserAgent         string             `json:"user_agent,omitempty"`
@@ -145,10 +153,12 @@ type AuditMetadata struct {
 	Changes    []AuditFieldChange `json:"changes,omitempty"`
 }
 
-// AuditFieldChange is one before/after entry in a maintenance.updated diff.
-// Old/New are rendered string snapshots of a scalar field (title, planned
-// window, scope, impact, approver). Collection fields (steps, targets) record a
-// changed flag via Field with empty Old/New rather than noisy element diffs.
+// AuditFieldChange is one before/after entry in a diff (maintenance.updated,
+// user.tags_changed). Old/New are rendered string snapshots of a scalar field
+// (title, planned window, scope, impact, approver; messenger tags). An empty
+// Old or New means the field was unset on that side. Collection fields (steps,
+// targets) record a changed flag via Field with empty Old/New rather than noisy
+// element diffs.
 type AuditFieldChange struct {
 	Field string `json:"field"`
 	Old   string `json:"old,omitempty"`
@@ -173,7 +183,14 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionLoginFailed:   AuditCategoryAuth,
 	AuditActionLogoutSuccess: AuditCategoryAuth,
 
-	AuditActionRolesChanged: AuditCategoryRoles,
+	// user.tags_changed rides the roles category on purpose. Categories are the
+	// FE filter chips (see AuditCategory) and are fanned out by a switch in
+	// services/auditor/get_logs.go; a new category would need both that switch
+	// updated and a new chip in a UI that never asked for one. Roles is the
+	// closest fit in meaning — "an admin manages someone else's profile". Not
+	// Block: this is not a blocking action.
+	AuditActionRolesChanged:    AuditCategoryRoles,
+	AuditActionUserTagsChanged: AuditCategoryRoles,
 
 	AuditActionUserBlocked:   AuditCategoryBlock,
 	AuditActionUserUnblocked: AuditCategoryBlock,
@@ -207,6 +224,7 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 	},
 	AuditCategoryRoles: {
 		AuditActionRolesChanged,
+		AuditActionUserTagsChanged,
 	},
 	AuditCategoryBlock: {
 		AuditActionUserBlocked,

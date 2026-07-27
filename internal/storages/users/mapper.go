@@ -9,22 +9,26 @@ import (
 
 func fromDBUser(r *model.Users) *entity.User {
 	return &entity.User{
-		ID:        r.ID,
-		Email:     r.Email,
-		Name:      r.Name,
-		Roles:     lo.Map(r.Roles, func(item string, _ int) entity.Role { return entity.Role(item) }),
-		CreatedAt: r.CreatedAt,
-		BlockedAt: r.BlockedAt,
-		Timezone:  r.Timezone,
+		ID:          r.ID,
+		Email:       r.Email,
+		Name:        r.Name,
+		Roles:       lo.Map(r.Roles, func(item string, _ int) entity.Role { return entity.Role(item) }),
+		CreatedAt:   r.CreatedAt,
+		BlockedAt:   r.BlockedAt,
+		Timezone:    r.Timezone,
+		TelegramTag: r.TelegramTag,
+		SlackTag:    r.SlackTag,
 	}
 }
 
 func toDBUser(r *entity.User) *model.Users {
 	return &model.Users{
-		Email:     r.Email,
-		Name:      r.Name,
-		Roles:     lo.Map(r.Roles, func(item entity.Role, _ int) string { return string(item) }),
-		BlockedAt: r.BlockedAt,
-		Timezone:  r.Timezone,
+		Email:       r.Email,
+		Name:        r.Name,
+		Roles:       lo.Map(r.Roles, func(item entity.Role, _ int) string { return string(item) }),
+		BlockedAt:   r.BlockedAt,
+		Timezone:    r.Timezone,
+		TelegramTag: r.TelegramTag,
+		SlackTag:    r.SlackTag,
 	}
 }

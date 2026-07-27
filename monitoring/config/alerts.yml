@@ -76,6 +76,29 @@ groups:
           description: "The audit-write processor has been failing to insert audit_log rows for 5m. Audit events are queued and retried, but the trail is behind — investigate the audit store / DB health."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#auditwriteerrors"
 
+  - name: maintmode.notify
+    interval: 30s
+    rules:
+      - alert: MaintNotifyOwnerMentionRejected
+        # The renderer refuses a stored messenger handle that carries control
+        # characters or Slack markup metacharacters, and falls back to the
+        # owner's display name. Input validation already rejects those, so a
+        # rejection means a value reached the database around it — direct SQL, a
+        # migration, or a validation gap. The notification still goes out, so
+        # nothing else surfaces this.
+        #
+        # Only reason="rejected" is alerted. reason="unresolved" tracks the auth
+        # service being unreachable from a background task, which its own
+        # availability alerts already cover and which is transient by nature.
+        expr: sum(rate(maint_notify_owner_mention_degraded_total{reason="rejected"}[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Owner messenger handles are being rejected by the notification sanitizer"
+          description: "A stored messenger handle has been failing the render-time sanitizer for 15m. Input validation should have made this impossible — find the row and how the value got in."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintnotifyownermentionrejected"
+
   - name: maintmode.storage
     interval: 30s
     rules:

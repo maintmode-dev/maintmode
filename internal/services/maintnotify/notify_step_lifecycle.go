@@ -33,28 +33,6 @@ func (n *Service) NotifyStepLifecycle(
 	})
 }
 
-func (n *Service) NotifyAsyncStepLifecycle(
-	ctx context.Context,
-	kind entity.NotifyEventKind,
-	maint *entity.Maintenance,
-	step *entity.MaintenanceStep,
-) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.MaintNotify.NotifyAsyncStepLifecycle",
-		xfield.String("event", string(kind)),
-		xfield.String("maintID", maint.ID.String()),
-	)
-	defer span.End()
-
-	n.notifyStepLifecycle(ctx, n.dispatchAsync, entity.NotifyEvent{
-		Kind:            kind,
-		MaintID:         maint.ID,
-		MaintTitle:      maint.Title,
-		StepID:          step.ID,
-		StepOrder:       step.Order,
-		StepDescription: step.Description,
-	})
-}
-
 func (n *Service) notifyStepLifecycle(ctx context.Context,
 	notifyFunc func(ctx context.Context, evt entity.NotifyEvent) error,
 	event entity.NotifyEvent,

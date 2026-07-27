@@ -161,6 +161,13 @@ components:
                         type: string
                     type: array
                     uniqueItems: false
+                slack_tag:
+                    type: string
+                telegram_tag:
+                    description: |-
+                        TelegramTag and SlackTag are the user's messenger handles, returned exactly
+                        as entered (a leading "@" only if the user typed one), or null when not set.
+                    type: string
                 timezone:
                     description: |-
                         Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
@@ -178,6 +185,10 @@ components:
             type: object
         apiauthmodels.UpdateMeRequest:
             properties:
+                slack_tag:
+                    type: string
+                telegram_tag:
+                    type: string
                 timezone:
                     type: string
             type: object
@@ -320,6 +331,13 @@ components:
                 - RoleEditor
                 - RoleReviewer
                 - RoleAdmin
+        apimodels.UpdateUserTagsRequest:
+            properties:
+                slack_tag:
+                    type: string
+                telegram_tag:
+                    type: string
+            type: object
         apimodels.User:
             properties:
                 blocked_at:
@@ -353,6 +371,19 @@ components:
                         type: string
                     type: array
                     uniqueItems: false
+                slack_tag:
+                    type: string
+                telegram_tag:
+                    description: |-
+                        TelegramTag and SlackTag are the user's messenger handles, shown exactly as
+                        the user entered them, or null when not set. They are read-only here: only
+                        the user themselves can change their own handles, via PATCH /me.
+
+                        Surfacing them to admins is the feature's accountability mechanism, not
+                        decoration. A handle is free text and unverified, so nothing stops someone
+                        entering a colleague's handle and having maintenance notifications ping them;
+                        this listing is what makes that attributable to a person.
+                    type: string
             type: object
         auth.refreshTokenJSONRequest:
             properties:
@@ -367,6 +398,7 @@ components:
                 - roles.changed
                 - user.blocked
                 - user.unblocked
+                - user.tags_changed
                 - maintenance.created
                 - maintenance.updated
                 - maintenance.approved
@@ -386,6 +418,7 @@ components:
                 - AuditActionRolesChanged
                 - AuditActionUserBlocked
                 - AuditActionUserUnblocked
+                - AuditActionUserTagsChanged
                 - AuditActionMaintCreated
                 - AuditActionMaintUpdated
                 - AuditActionMaintApproved
@@ -724,7 +757,7 @@ paths:
             tags:
                 - Auth
         patch:
-            description: Updates the caller's timezone preference. Accepts an IANA identifier (e.g. "Asia/Nicosia"); null, empty or whitespace resets to browser auto-detect. An invalid identifier returns 400.
+            description: 'Updates the caller''s own preferences: timezone, telegram_tag, slack_tag. This is a true patch — only the keys actually present in the JSON object are applied, an omitted key leaves its preference untouched, and an explicit null resets it. Sending an empty object (or no body) therefore changes nothing. Timezone accepts an IANA identifier (e.g. "Asia/Nicosia"); null, empty or whitespace resets it to browser auto-detect. The messenger tags are stored exactly as entered — a leading "@" is preserved only if typed — and null, empty or whitespace clears them. An invalid timezone or an unacceptable handle returns 400 and leaves the whole patch unapplied.'
             requestBody:
                 content:
                     application/json:
@@ -744,7 +777,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Invalid timezone
+                    description: Invalid timezone or messenger tag
                 "401":
                     content:
                         application/json:
@@ -1054,6 +1087,71 @@ paths:
             summary: List user roles
             tags:
                 - Roles
+    /api/v1/users/{id}:
+        patch:
+            description: |-
+                Updates the messenger handles of the user identified by {id}. Admin-only: this is the counterpart to PATCH /me, for the case where an admin spots a wrong or someone else's handle in the user list and the owner cannot or will not fix it. The edit is recorded in the audit log with the old and new value of every field that actually changed.
+                This is a true patch: only the keys physically present in the JSON object are applied. An omitted key leaves that handle untouched, and an explicit null (or an empty/whitespace string) clears it. Sending an empty object, or no body at all, therefore changes nothing and still returns 200 with the current profile.
+                A handle is stored exactly as entered — a leading "@" is neither added nor stripped, because the stored value is pasted verbatim into the outgoing notification. An unacceptable handle returns 400 and leaves the whole patch unapplied.
+                Note on slack_tag: for Slack the handle is addressing, not a guaranteed push. It makes the notification text name the right person, but a real Slack mention requires the user's Slack user ID, which this field does not carry.
+                Timezone is not part of this contract and is rejected as unknown input: it only affects the owner's own display, which is not the admin's to change.
+            parameters:
+                - description: User ID (UUID)
+                  in: path
+                  name: id
+                  required: true
+                  schema:
+                    format: uuid
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apimodels.UpdateUserTagsRequest'
+                description: Messenger tags patch
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apimodels.User'
+                    description: Updated user
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Invalid user ID or messenger tag
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: User not found
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - BearerAuth: []
+            summary: Update another user's messenger tags
+            tags:
+                - Users
     /api/v1/users/{id}/block:
         post:
             description: 'Blocks a user: sets blocked_at and revokes their refresh tokens. Roles are preserved. Idempotent. Requires admin privileges.'

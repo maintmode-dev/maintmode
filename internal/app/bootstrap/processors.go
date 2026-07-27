@@ -21,12 +21,12 @@ import (
 )
 
 // NewTaskProcessors builds the single goque worker for the maintmode process and
-// registers every task type the merged process owns (RUK-194): messaging.send,
-// maint.reminder, maint.auto.cancel (+ cron), invitation.email, audit.write and
-// audit.prune (+ cron), plus license.heartbeat (+ cron) when SaaS license mode
-// is enabled. Everything is registered on one registrar, and verify()
-// runs once at the end to assert the registered set matches
-// entity.ExpectedProcessorTaskTypes for this process's toggles.
+// registers every task type the merged process owns: maint.reminder,
+// maint.auto.cancel (+ cron), invitation.email, audit.write and audit.prune
+// (+ cron), plus license.heartbeat (+ cron) when SaaS license mode is enabled.
+// Everything is registered on one registrar, and verify() runs once at the end to
+// assert the registered set matches entity.ExpectedProcessorTaskTypes for this
+// process's toggles.
 func NewTaskProcessors(
 	cfg config.TaskProcessorConfig,
 	licenseCfg config.LicenseConfig,
@@ -35,13 +35,6 @@ func NewTaskProcessors(
 ) (*goque.Goque, error) {
 	goq := goque.NewGoque(stores.taskStorage)
 	reg := newProcessorRegistrar(goq)
-
-	reg.RegisterProcessor(
-		entity.ProcessorTaskMessagingSend,
-		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
-		goque.WithWorkersCount(cfg.Messaging.Workers),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
-	)
 
 	// maint.reminder tasks resolve the maintenance's current notify targets and
 	// render the reminder at fire time, so they share the maint store + notifier
@@ -89,9 +82,11 @@ func NewTaskProcessors(
 	// invitation.email: invitation emails enqueued via the outbox deliver through
 	// the same notify-transport registry the invitation service targets.
 	//
-	// It is a distinct task type from messaging.send on purpose: although both are
-	// now drained by this one process, keeping invitation emails on their own type
-	// preserves the registry-routing boundary and lets the owner map stay explicit.
+	// This is now the only queue-backed delivery path — maintenance notifications
+	// are sent inline by the notifier. Invitations keep their own task type rather
+	// than a generic one so the registry-routing boundary stays explicit: task
+	// types share the goque_task table, and a dedicated type is what binds these
+	// messages to the invitation email transport.
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),

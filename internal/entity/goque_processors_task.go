@@ -8,14 +8,19 @@ import (
 )
 
 const (
-	// ProcessorTaskMessagingSend is the goque task type for sending messages.
+	// ProcessorTaskMessagingSend was the goque task type for queue-backed
+	// notification delivery. It is retired: maintenance notifications are sent
+	// inline by the notifier, so nothing enqueues this type and no processor is
+	// registered for it. The const stays declared, and the type is listed in
+	// disabledTaskTypes rather than ActiveProcessorTaskTypes, so the string cannot
+	// be recycled for unrelated work while the startup guard stops expecting a
+	// drainer for it.
 	ProcessorTaskMessagingSend = "messaging.send"
 	// ProcessorTaskInvitationEmailSend is the goque task type for invitation
-	// emails. It is distinct from ProcessorTaskMessagingSend so the invitation path
-	// drains through the invitation email transport, not the generic messaging
-	// registry: both task types share the goque_task table, and a misrouted
-	// invitation must never be picked up by the messaging.send processor and sent
-	// through its differently-configured registry.
+	// emails. It is deliberately its own type rather than a generic "send a
+	// message" one: task types share the goque_task table, and routing invitations
+	// through a dedicated type keeps them bound to the invitation email transport
+	// instead of whichever registry a general-purpose sender happens to carry.
 	ProcessorTaskInvitationEmailSend = "invitation.email"
 	// ProcessorTaskMaintReminder is the goque task type for deferred reminders.
 	// Its string value coincides with NotifyEventMaintReminder but they are
@@ -85,7 +90,6 @@ const (
 // ProcessorTask* const declared. The string then stays reserved (no accidental
 // re-use) while the guard no longer expects it to be drained.
 var ActiveProcessorTaskTypes = map[string]struct{}{
-	ProcessorTaskMessagingSend:        {},
 	ProcessorTaskMaintReminder:        {},
 	ProcessorTaskMaintAutoCancel:      {},
 	ProcessorTaskMaintAutoCancelCron:  {},

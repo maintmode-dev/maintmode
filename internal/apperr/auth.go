@@ -56,6 +56,10 @@ var (
 	// ErrInvalidTimezone is returned when a timezone preference is not a valid
 	// IANA identifier (checked via time.LoadLocation). Wraps ErrValidation → 400.
 	ErrInvalidTimezone = fmt.Errorf("%w: invalid timezone", ErrValidation)
+	// ErrInvalidMessengerTag is returned when a messenger handle fails the
+	// charset/length allowlist, or is a Slack broadcast value (here / channel /
+	// everyone). Wraps ErrValidation → 400.
+	ErrInvalidMessengerTag = fmt.Errorf("%w: invalid messenger tag", ErrValidation)
 )
 
 // User invitation errors.

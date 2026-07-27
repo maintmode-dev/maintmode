@@ -15,7 +15,13 @@ func (s *Store) Update(ctx context.Context, user *entity.User) error {
 	defer span.End()
 
 	stmt := table.Users.
-		UPDATE(table.Users.Roles, table.Users.BlockedAt, table.Users.Timezone).
+		UPDATE(
+			table.Users.Roles,
+			table.Users.BlockedAt,
+			table.Users.Timezone,
+			table.Users.TelegramTag,
+			table.Users.SlackTag,
+		).
 		MODEL(toDBUser(user)).
 		WHERE(table.Users.ID.EQ(postgres.UUID(user.ID)))
 

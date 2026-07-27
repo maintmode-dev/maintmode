@@ -39,10 +39,10 @@ func TestSendAsync(t *testing.T) {
 		spy := &schedulerSpy{}
 		svc := NewService(nil, spy)
 
-		require.NoError(t, svc.SendAsync(ctx, entity.ProcessorTaskMessagingSend,
+		require.NoError(t, svc.SendAsync(ctx, entity.ProcessorTaskInvitationEmailSend,
 			entity.NotifyTransportSlack, "C1", msg, "idem-key"))
 
-		require.Equal(t, entity.ProcessorTaskMessagingSend, spy.taskType)
+		require.Equal(t, entity.ProcessorTaskInvitationEmailSend, spy.taskType)
 		require.Equal(t, "idem-key", spy.idemKey)
 		require.Equal(t, entity.ProcessorTaskPayloadEventNotify{
 			TransportName: entity.NotifyTransportSlack,
@@ -58,7 +58,7 @@ func TestSendAsync(t *testing.T) {
 		spy := &schedulerSpy{err: errors.New("outbox down")}
 		svc := NewService(nil, spy)
 
-		require.Error(t, svc.SendAsync(ctx, entity.ProcessorTaskMessagingSend,
+		require.Error(t, svc.SendAsync(ctx, entity.ProcessorTaskInvitationEmailSend,
 			entity.NotifyTransportSlack, "C1", msg, "idem-key"))
 	})
 }

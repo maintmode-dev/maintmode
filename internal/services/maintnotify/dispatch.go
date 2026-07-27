@@ -4,20 +4,25 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/metrics"
-	"github.com/ruko1202/maintmode/internal/utils/xhash"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
-// Both dispatchSync and dispatchAsync are best-effort: notification
-// delivery never fails the caller. sync is called post-commit (lifecycle
-// already durable); async is fire-and-forget. In neither case it makes
-// sense to surface a notify error to the API client whose business
-// operation already succeeded.
+// dispatchSync is best-effort: notification delivery never fails the
+// caller. It is called post-commit, when the lifecycle transition is
+// already durable, so surfacing a notify error to the API client whose
+// business operation already succeeded would be misleading.
+//
+// It has no idempotency key: sender.Send delivers inline rather than
+// through the queue, so a caller that retries — notably the reminder
+// processor, which turns a returned error into a goque retry — re-sends
+// to every target. Any code path added inside dispatch must therefore
+// avoid returning an error after the send loop has begun.
 //
 // The "no blocking network call inside a DB tx" invariant is enforced
 // one layer below in sender.Send — it refuses to run when ctx carries
@@ -28,15 +33,7 @@ func (n *Service) dispatchSync(ctx context.Context, event entity.NotifyEvent) er
 	})
 }
 
-func (n *Service) dispatchAsync(ctx context.Context, event entity.NotifyEvent) error {
-	return n.dispatch(ctx, event, func(ctx context.Context, msg entity.NotifyMessage, target *entity.NotifyTarget) error {
-		return n.sender.SendAsync(ctx, entity.ProcessorTaskMessagingSend, target.Transport, target.TransportChannelID, msg,
-			idempotencyKey(event, target),
-		)
-	})
-}
-
-// dispatch renders the message once and fans it out to all routes.
+// dispatch renders the message once per transport and fans it out to all routes.
 func (n *Service) dispatch(
 	ctx context.Context,
 	event entity.NotifyEvent,
@@ -59,14 +56,21 @@ func (n *Service) dispatch(
 
 	event = n.fillEvent(event)
 
-	msg, err := n.renderer.Render(ctx, event)
+	// Step events leave CreatedByUserID zero, so they skip this without the
+	// dispatch code ever naming them. The resolver cannot fail by contract (see
+	// OwnerResolver), so this adds no error path to the send loop below.
+	if event.CreatedByUserID != uuid.Nil {
+		event.OwnerMention = n.ownerResolver.ResolveOwner(ctx, event.CreatedByUserID)
+	}
+
+	messages, err := n.renderPerTransport(ctx, event, notifyTargets)
 	if err != nil {
 		metrics.MaintNotifyDispatchRenderError(ctx)
 		return fmt.Errorf("render %s: %w", event.Kind, err)
 	}
 
 	for _, notifyTarget := range notifyTargets {
-		if err := senderF(ctx, msg, notifyTarget); err != nil {
+		if err := senderF(ctx, messages[notifyTarget.Transport], notifyTarget); err != nil {
 			xlog.Error(ctx, "notification delivery failed",
 				xfield.String("transport", string(notifyTarget.Transport)),
 				xfield.String("channel_id", notifyTarget.ChannelID.String()),
@@ -76,6 +80,51 @@ func (n *Service) dispatch(
 	}
 
 	return nil
+}
+
+// renderPerTransport renders one message per distinct transport among the
+// targets — transports number two, targets number N — and returns them all or
+// nothing.
+//
+// Rendering every transport before the send loop starts is the invariant, not an
+// optimization. Rendering lazily inside the loop would let transport A receive
+// its message, transport B fail to render, and dispatch return an error that
+// makes goque retry the whole task — delivering to A twice, since dispatchSync
+// carries no idempotency key. "A render failure means zero sends" only holds
+// while every render happens first.
+//
+// The map is keyed by the transport itself, so distinct transports can never
+// share an entry. A target whose Transport is empty — the zero value carried by
+// instances built from persisted columns alone, which ListByMaint should not
+// produce — groups only with other empty ones and renders through the name
+// fallback. It is logged and still delivered: the mention is a decoration, and
+// dropping a recipient over it would be a worse failure.
+func (n *Service) renderPerTransport(
+	ctx context.Context,
+	event entity.NotifyEvent,
+	notifyTargets []*entity.NotifyTarget,
+) (map[entity.NotifyTransport]entity.NotifyMessage, error) {
+	messages := make(map[entity.NotifyTransport]entity.NotifyMessage, len(notifyTargets))
+
+	for _, notifyTarget := range notifyTargets {
+		if _, ok := messages[notifyTarget.Transport]; ok {
+			continue
+		}
+
+		if notifyTarget.Transport == "" {
+			xlog.Warn(ctx, "notify target has no transport, owner mention falls back to name",
+				xfield.String("channel_id", notifyTarget.ChannelID.String()))
+		}
+
+		msg, err := n.renderer.Render(ctx, notifyTarget.Transport, event)
+		if err != nil {
+			return nil, err
+		}
+
+		messages[notifyTarget.Transport] = msg
+	}
+
+	return messages, nil
 }
 
 // fillEvent populates derived fields (OccurredAt, FrontendURL) when the
@@ -90,15 +139,4 @@ func (n *Service) fillEvent(evt entity.NotifyEvent) entity.NotifyEvent {
 	}
 
 	return evt
-}
-
-// idempotencyKey makes goque's unique (type, external_id) index collapse
-// retries of the same (event, maint, step, channel) tuple. Keyed by the
-// catalog channel uuid — not the delivery address — so editing a channel's
-// transport_channel_id between retries cannot double-send the same event.
-func idempotencyKey(evt entity.NotifyEvent, target *entity.NotifyTarget) string {
-	return xhash.HashSha256(fmt.Appendf(nil,
-		"maint|%s|%s|%s|%s",
-		evt.Kind, evt.MaintID, evt.StepID, target.ChannelID,
-	))
 }

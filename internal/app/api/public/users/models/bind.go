@@ -70,6 +70,8 @@ func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []enti
 		LastSeenAt:  nil,
 		IsLastAdmin: u.IsActiveAdmin() && activeAdminCount == 1,
 		BlockedAt:   u.BlockedAt,
+		TelegramTag: u.TelegramTag,
+		SlackTag:    u.SlackTag,
 	}
 }
 

@@ -18,8 +18,9 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	sender       *mock_maintnotify.MockMessageSender
-	notifyTarget *mock_maintnotify.MockNotifyTargetsStore
+	sender        *mock_maintnotify.MockMessageSender
+	notifyTarget  *mock_maintnotify.MockNotifyTargetsStore
+	ownerResolver *mock_maintnotify.MockOwnerResolver
 }
 
 func initNotifier(t *testing.T) (*Service, *serviceMocks) {
@@ -27,8 +28,9 @@ func initNotifier(t *testing.T) (*Service, *serviceMocks) {
 	ctrl := gomock.NewController(t)
 
 	mocks := &serviceMocks{
-		sender:       mock_maintnotify.NewMockMessageSender(ctrl),
-		notifyTarget: mock_maintnotify.NewMockNotifyTargetsStore(ctrl),
+		sender:        mock_maintnotify.NewMockMessageSender(ctrl),
+		notifyTarget:  mock_maintnotify.NewMockNotifyTargetsStore(ctrl),
+		ownerResolver: mock_maintnotify.NewMockOwnerResolver(ctrl),
 	}
 
 	cfg := &config.AppConfig{
@@ -37,6 +39,7 @@ func initNotifier(t *testing.T) (*Service, *serviceMocks) {
 	n, err := NewNotifier(cfg,
 		mocks.sender,
 		mocks.notifyTarget,
+		mocks.ownerResolver,
 	)
 	require.NoError(t, err)
 

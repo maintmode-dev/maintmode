@@ -33,11 +33,42 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Usersummary.ResolveMany")
 	defer span.End()
 
+	users := s.resolveUsers(ctx, ids)
+
+	out := make(map[uuid.UUID]*entity.UserSummary, len(users))
+	for id, user := range users {
+		if user == nil {
+			// Unknown user or auth down: label and move on. The degraded entry is
+			// kept so every non-nil input id has a result.
+			xlog.Warn(ctx, "user summary unresolved, using unknown label", xfield.String("id", id.String()))
+			out[id] = entity.NewUnknownUserSummary(id)
+			continue
+		}
+		out[id] = user.ToUserSummary()
+	}
+
+	return out
+}
+
+// resolveUsers is the shared resolution layer behind ResolveMany and
+// ResolveOwner: it dedupes the ids, serves cache hits, fetches the misses from
+// the user service in one query and caches what came back. It returns the RAW
+// users — not summaries — because ResolveOwner needs the messenger tags, which
+// UserSummary deliberately does not carry (it is the privacy-safe API view).
+//
+// The map holds an entry for every non-nil input id, with a nil value for the
+// ids that could not be resolved (unknown user, or the user service failing).
+// Each caller decides how to degrade that nil, so ResolveMany keeps its exact
+// prior behavior. Nothing here returns an error: a failing lookup is logged and
+// treated as "resolved nothing" so reads and notifications degrade instead of
+// failing. Unresolved ids are not cached — an id may resolve once auth recovers
+// or the user is recreated.
+func (s *Service) resolveUsers(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]*entity.User {
 	uniqIDs := lo.Filter(lo.Uniq(ids), func(item uuid.UUID, _ int) bool {
 		return item != uuid.Nil
 	})
 
-	out := make(map[uuid.UUID]*entity.UserSummary, len(uniqIDs))
+	out := make(map[uuid.UUID]*entity.User, len(uniqIDs))
 	if len(uniqIDs) == 0 {
 		return out
 	}
@@ -46,7 +77,7 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 	misses := make([]uuid.UUID, 0, len(uniqIDs))
 	for _, id := range uniqIDs {
 		if item := s.cache.Get(id); item != nil {
-			out[id] = item.Value().ToUserSummary()
+			out[id] = item.Value()
 			continue
 		}
 		misses = append(misses, id)
@@ -58,8 +89,7 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 
 	resolved, err := s.getUsersByIDs(ctx, misses)
 	if err != nil {
-		// Auth unavailable: degrade every miss to the labeled fallback rather
-		// than failing the read.
+		// Auth unavailable: report every miss as unresolved rather than failing.
 		xlog.Error(ctx, "resolve user summaries failed, degrading to unknown", xfield.Error(err))
 		resolved = nil
 	}
@@ -67,14 +97,11 @@ func (s *Service) ResolveMany(ctx context.Context, ids []uuid.UUID) map[uuid.UUI
 	for _, id := range misses {
 		user, ok := resolved[id]
 		if !ok {
-			// Unknown user or auth down: label and move on (not cached — an id
-			// may resolve once auth recovers or the user is recreated).
-			xlog.Warn(ctx, "user summary unresolved, using unknown label", xfield.String("id", id.String()))
-			out[id] = entity.NewUnknownUserSummary(id)
+			out[id] = nil
 			continue
 		}
 		s.cache.Set(id, user, ttlcache.DefaultTTL)
-		out[id] = user.ToUserSummary()
+		out[id] = user
 	}
 
 	return out

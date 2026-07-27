@@ -1,4 +1,6 @@
 Maintenance started: {{.MaintTitle}}
 
-Started at {{.OccurredAt.Format "2006-01-02 15:04 MST"}}.
+{{if .OwnerMention}}Owner: {{.OwnerMention}}
+
+{{end}}Started at {{.OccurredAt.Format "2006-01-02 15:04 MST"}}.
 Details: {{.MaintURL}}

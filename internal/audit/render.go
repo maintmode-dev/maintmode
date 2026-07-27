@@ -97,6 +97,9 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 	return nil
 }
 
+// fillRolesPayload handles the actions in the roles category. Despite the name
+// that is not only roles.changed: user.tags_changed shares the category (an
+// admin acting on someone else's profile), so it renders here too.
 func fillRolesPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case RolesChanged:
@@ -107,6 +110,15 @@ func fillRolesPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 			Roles:             roleNames(a.Change.Roles),
 			RolesAdded:        roleNames(a.Change.Added),
 			RolesRemoved:      roleNames(a.Change.Removed),
+			TargetEmail:       a.Target.Email,
+			TargetDisplayName: a.Target.Name,
+		}
+	case UserTagsChanged:
+		setActor(payload, a.Actor)
+		payload.EntityID = a.Target.ID.String()
+		payload.Details = fmt.Sprintf("messenger tags of %s changed by %s", a.Target.Email, a.Actor.Email)
+		payload.Metadata = &entity.AuditMetadata{
+			Changes:           a.Changes,
 			TargetEmail:       a.Target.Email,
 			TargetDisplayName: a.Target.Name,
 		}

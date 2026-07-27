@@ -17,13 +17,15 @@ type usersTable struct {
 	postgres.Table
 
 	// Columns
-	ID        postgres.ColumnString
-	Email     postgres.ColumnString
-	Name      postgres.ColumnString
-	Roles     postgres.ColumnStringArray
-	CreatedAt postgres.ColumnTimestampz
-	BlockedAt postgres.ColumnTimestampz
-	Timezone  postgres.ColumnString
+	ID          postgres.ColumnString
+	Email       postgres.ColumnString
+	Name        postgres.ColumnString
+	Roles       postgres.ColumnStringArray
+	CreatedAt   postgres.ColumnTimestampz
+	BlockedAt   postgres.ColumnTimestampz
+	Timezone    postgres.ColumnString
+	TelegramTag postgres.ColumnString
+	SlackTag    postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -65,29 +67,33 @@ func newUsersTable(schemaName, tableName, alias string) *UsersTable {
 
 func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 	var (
-		IDColumn        = postgres.StringColumn("id")
-		EmailColumn     = postgres.StringColumn("email")
-		NameColumn      = postgres.StringColumn("name")
-		RolesColumn     = postgres.StringArrayColumn("roles")
-		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		BlockedAtColumn = postgres.TimestampzColumn("blocked_at")
-		TimezoneColumn  = postgres.StringColumn("timezone")
-		allColumns      = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn}
-		mutableColumns  = postgres.ColumnList{EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn}
-		defaultColumns  = postgres.ColumnList{IDColumn, NameColumn, RolesColumn, CreatedAtColumn}
+		IDColumn          = postgres.StringColumn("id")
+		EmailColumn       = postgres.StringColumn("email")
+		NameColumn        = postgres.StringColumn("name")
+		RolesColumn       = postgres.StringArrayColumn("roles")
+		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
+		BlockedAtColumn   = postgres.TimestampzColumn("blocked_at")
+		TimezoneColumn    = postgres.StringColumn("timezone")
+		TelegramTagColumn = postgres.StringColumn("telegram_tag")
+		SlackTagColumn    = postgres.StringColumn("slack_tag")
+		allColumns        = postgres.ColumnList{IDColumn, EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn, TelegramTagColumn, SlackTagColumn}
+		mutableColumns    = postgres.ColumnList{EmailColumn, NameColumn, RolesColumn, CreatedAtColumn, BlockedAtColumn, TimezoneColumn, TelegramTagColumn, SlackTagColumn}
+		defaultColumns    = postgres.ColumnList{IDColumn, NameColumn, RolesColumn, CreatedAtColumn}
 	)
 
 	return usersTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:        IDColumn,
-		Email:     EmailColumn,
-		Name:      NameColumn,
-		Roles:     RolesColumn,
-		CreatedAt: CreatedAtColumn,
-		BlockedAt: BlockedAtColumn,
-		Timezone:  TimezoneColumn,
+		ID:          IDColumn,
+		Email:       EmailColumn,
+		Name:        NameColumn,
+		Roles:       RolesColumn,
+		CreatedAt:   CreatedAtColumn,
+		BlockedAt:   BlockedAtColumn,
+		Timezone:    TimezoneColumn,
+		TelegramTag: TelegramTagColumn,
+		SlackTag:    SlackTagColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -159,9 +159,21 @@ func NewServices(ctx context.Context,
 		enforcement,
 	)
 
-	core, err := newCoreServices(ctx, cfg, stores, queue, transportResolver)
+	core, err := newCoreServices(ctx, cfg, stores, queue)
 	if err != nil {
 		return nil, err
+	}
+
+	// userSummarySrv resolves authorship for read paths and, for the notifier,
+	// the maintenance owner's messenger handles.
+	userSummarySrv := usersummary.NewService(userSrv)
+
+	// The notifier straddles both blocks — core stores for its targets, the auth
+	// module for the owner mention — so it is built here rather than in
+	// newCoreServices, which stays free of auth-module dependencies.
+	notifier, err := maintnotify.NewNotifier(cfg, messageSender, stores.NotifyTargets, userSummarySrv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init maintnotify: %w", err)
 	}
 
 	return &Services{
@@ -171,7 +183,7 @@ func NewServices(ctx context.Context,
 			stores.Resources,
 			core.notifyTargets,
 			core.conflicts,
-			core.notifier,
+			notifier,
 			core.deferred,
 			userSrv,
 			auditPublisher,
@@ -191,9 +203,9 @@ func NewServices(ctx context.Context,
 		RBAC:              authorizer,
 		JWTVerifier:       core.jwtVerifier,
 		NotifyTargets:     core.notifyTargets,
-		Notifier:          core.notifier,
+		Notifier:          notifier,
 		UserPicker:        userpicker.NewService(userSrv),
-		UserSummary:       usersummary.NewService(userSrv),
+		UserSummary:       userSummarySrv,
 		Integration:       integrationSrv,
 		TransportResolver: transportResolver,
 
@@ -283,19 +295,24 @@ type coreServices struct {
 	conflicts     *conflictsSvr.Service
 	jwtVerifier   *jwtverifier.Service
 	notifyTargets *notifytargets.Service
-	notifier      *maintnotify.Service
 	deferred      *deferrednotifications.Service
 }
 
 // newCoreServices builds the core (maintenance/calendar/resource/notify) domain
-// services. It depends only on stores, config, the transport resolver and the
-// shared goque queue manager — not on the auth-module services.
+// services. It depends only on stores, config and the shared goque queue manager
+// — not on the auth-module services.
+//
+// maintnotify is deliberately NOT built here. It now needs an owner resolver to
+// put the maintenance owner's messenger handle into notifications, and the only
+// implementation (usersummary) is built on top of the auth-module user service.
+// Constructing it here would drag that dependency in and cost this function the
+// independence stated above, so NewServices assembles the notifier itself once
+// both blocks exist.
 func newCoreServices(
 	ctx context.Context,
 	cfg *config.AppConfig,
 	stores *Stores,
 	queue goque.TaskQueueManager,
-	transportResolver notifytransport.TransportResolver,
 ) (*coreServices, error) {
 	conflictsService := conflictsSvr.NewService(
 		stores.Conflicts,
@@ -313,16 +330,9 @@ func newCoreServices(
 		stores.NotifyTargets,
 	)
 
-	// scheduler owns all goque enqueue/cancel plumbing. The message sender
-	// (delivery) and deferred reminders both schedule through it.
+	// scheduler owns all goque enqueue/cancel plumbing; deferred reminders
+	// schedule through it.
 	taskScheduler := scheduler.NewService(queue)
-
-	messageSender := messagesender.NewService(transportResolver, taskScheduler)
-
-	notifier, err := maintnotify.NewNotifier(cfg, messageSender, stores.NotifyTargets)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init maintnotify: %w", err)
-	}
 
 	deferred := deferrednotifications.NewService(
 		stores.TxManager,
@@ -334,7 +344,6 @@ func newCoreServices(
 		conflicts:     conflictsService,
 		jwtVerifier:   jwtVerifier,
 		notifyTargets: notifyTargets,
-		notifier:      notifier,
 		deferred:      deferred,
 	}, nil
 }

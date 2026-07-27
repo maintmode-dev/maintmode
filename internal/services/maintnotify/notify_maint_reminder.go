@@ -20,9 +20,10 @@ func (n *Service) NotifyMaintReminder(ctx context.Context, maint *entity.Mainten
 	defer span.End()
 
 	return n.dispatchSync(ctx, entity.NotifyEvent{
-		Kind:         entity.NotifyEventMaintReminder,
-		MaintID:      maint.ID,
-		MaintTitle:   maint.Title,
-		PlannedStart: maint.PlannedPeriod.Start,
+		Kind:            entity.NotifyEventMaintReminder,
+		MaintID:         maint.ID,
+		MaintTitle:      maint.Title,
+		PlannedStart:    maint.PlannedPeriod.Start,
+		CreatedByUserID: maint.CreatedByUserID,
 	})
 }

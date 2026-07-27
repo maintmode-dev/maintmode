@@ -82,6 +82,7 @@ const (
 	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
 	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
 	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
+	AuditActionUserTagsChanged    EntityAuditAction = "user.tags_changed"
 	AuditActionUserUnblocked      EntityAuditAction = "user.unblocked"
 )
 
@@ -119,6 +120,8 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionRolesChanged:
 		return true
 	case AuditActionUserBlocked:
+		return true
+	case AuditActionUserTagsChanged:
 		return true
 	case AuditActionUserUnblocked:
 		return true
@@ -339,6 +342,11 @@ type ApiauthmodelsMeResponse struct {
 	Id                 *string   `json:"id,omitempty"`
 	OauthProvider      *string   `json:"oauth_provider,omitempty"`
 	Roles              *[]string `json:"roles,omitempty"`
+	SlackTag           *string   `json:"slack_tag,omitempty"`
+
+	// TelegramTag TelegramTag and SlackTag are the user's messenger handles, returned exactly
+	// as entered (a leading "@" only if the user typed one), or null when not set.
+	TelegramTag *string `json:"telegram_tag,omitempty"`
 
 	// Timezone Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
 	// null when not selected — the frontend then falls back to browser auto-detect.
@@ -354,7 +362,9 @@ type ApiauthmodelsTokenPairResponse struct {
 
 // ApiauthmodelsUpdateMeRequest defines model for apiauthmodels.UpdateMeRequest.
 type ApiauthmodelsUpdateMeRequest struct {
-	Timezone *string `json:"timezone,omitempty"`
+	SlackTag    *string `json:"slack_tag,omitempty"`
+	TelegramTag *string `json:"telegram_tag,omitempty"`
+	Timezone    *string `json:"timezone,omitempty"`
 }
 
 // ApimodelsAcceptInvitationRequest defines model for apimodels.AcceptInvitationRequest.
@@ -435,6 +445,12 @@ type ApimodelsRevokeRoleRequest struct {
 // ApimodelsRole defines model for apimodels.Role.
 type ApimodelsRole string
 
+// ApimodelsUpdateUserTagsRequest defines model for apimodels.UpdateUserTagsRequest.
+type ApimodelsUpdateUserTagsRequest struct {
+	SlackTag    *string `json:"slack_tag,omitempty"`
+	TelegramTag *string `json:"telegram_tag,omitempty"`
+}
+
 // ApimodelsUser defines model for apimodels.User.
 type ApimodelsUser struct {
 	BlockedAt          *time.Time `json:"blocked_at,omitempty"`
@@ -447,6 +463,17 @@ type ApimodelsUser struct {
 	LastSeenAt         *time.Time `json:"last_seen_at,omitempty"`
 	OauthProvider      *string    `json:"oauth_provider,omitempty"`
 	Roles              *[]string  `json:"roles,omitempty"`
+	SlackTag           *string    `json:"slack_tag,omitempty"`
+
+	// TelegramTag TelegramTag and SlackTag are the user's messenger handles, shown exactly as
+	// the user entered them, or null when not set. They are read-only here: only
+	// the user themselves can change their own handles, via PATCH /me.
+	//
+	// Surfacing them to admins is the feature's accountability mechanism, not
+	// decoration. A handle is free text and unverified, so nothing stops someone
+	// entering a colleague's handle and having maintenance notifications ping them;
+	// this listing is what makes that attributable to a person.
+	TelegramTag *string `json:"telegram_tag,omitempty"`
 }
 
 // AuthRefreshTokenJSONRequest defines model for auth.refreshTokenJSONRequest.
@@ -585,6 +612,9 @@ type PostApiV1UsersInvitationsAcceptJSONRequestBody = ApimodelsAcceptInvitationR
 
 // PostApiV1UsersInviteJSONRequestBody defines body for PostApiV1UsersInvite for application/json ContentType.
 type PostApiV1UsersInviteJSONRequestBody = ApimodelsCreateInvitationRequest
+
+// PatchApiV1UsersIdJSONRequestBody defines body for PatchApiV1UsersId for application/json ContentType.
+type PatchApiV1UsersIdJSONRequestBody = ApimodelsUpdateUserTagsRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -739,6 +769,11 @@ type ClientInterface interface {
 
 	// GetApiV1UsersList request
 	GetApiV1UsersList(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiV1UsersIdWithBody request with any body
+	PatchApiV1UsersIdWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchApiV1UsersId(ctx context.Context, id openapi_types.UUID, body PatchApiV1UsersIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1UsersIdBlock request
 	PostApiV1UsersIdBlock(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1097,6 +1132,30 @@ func (c *Client) PostApiV1UsersInvite(ctx context.Context, body PostApiV1UsersIn
 
 func (c *Client) GetApiV1UsersList(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1UsersListRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1UsersIdWithBody(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1UsersIdRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1UsersId(ctx context.Context, id openapi_types.UUID, body PatchApiV1UsersIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1UsersIdRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2090,6 +2149,53 @@ func NewGetApiV1UsersListRequest(server string, params *GetApiV1UsersListParams)
 	return req, nil
 }
 
+// NewPatchApiV1UsersIdRequest calls the generic PatchApiV1UsersId builder with application/json body
+func NewPatchApiV1UsersIdRequest(server string, id openapi_types.UUID, body PatchApiV1UsersIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiV1UsersIdRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPatchApiV1UsersIdRequestWithBody generates requests for PatchApiV1UsersId with any type of body
+func NewPatchApiV1UsersIdRequestWithBody(server string, id openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiV1UsersIdBlockRequest generates requests for PostApiV1UsersIdBlock
 func NewPostApiV1UsersIdBlockRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -2281,6 +2387,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiV1UsersListWithResponse request
 	GetApiV1UsersListWithResponse(ctx context.Context, params *GetApiV1UsersListParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersListResponse, error)
+
+	// PatchApiV1UsersIdWithBodyWithResponse request with any body
+	PatchApiV1UsersIdWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1UsersIdResponse, error)
+
+	PatchApiV1UsersIdWithResponse(ctx context.Context, id openapi_types.UUID, body PatchApiV1UsersIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1UsersIdResponse, error)
 
 	// PostApiV1UsersIdBlockWithResponse request
 	PostApiV1UsersIdBlockWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*PostApiV1UsersIdBlockResponse, error)
@@ -2982,6 +3093,41 @@ func (r GetApiV1UsersListResponse) ContentType() string {
 	return ""
 }
 
+type PatchApiV1UsersIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsUser
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiV1UsersIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiV1UsersIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiV1UsersIdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiV1UsersIdBlockResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3308,6 +3454,23 @@ func (c *ClientWithResponses) GetApiV1UsersListWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetApiV1UsersListResponse(rsp)
+}
+
+// PatchApiV1UsersIdWithBodyWithResponse request with arbitrary body returning *PatchApiV1UsersIdResponse
+func (c *ClientWithResponses) PatchApiV1UsersIdWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1UsersIdResponse, error) {
+	rsp, err := c.PatchApiV1UsersIdWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1UsersIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchApiV1UsersIdWithResponse(ctx context.Context, id openapi_types.UUID, body PatchApiV1UsersIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1UsersIdResponse, error) {
+	rsp, err := c.PatchApiV1UsersId(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1UsersIdResponse(rsp)
 }
 
 // PostApiV1UsersIdBlockWithResponse request returning *PostApiV1UsersIdBlockResponse
@@ -4302,6 +4465,67 @@ func ParseGetApiV1UsersListResponse(rsp *http.Response) (*GetApiV1UsersListRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiV1UsersIdResponse parses an HTTP response from a PatchApiV1UsersIdWithResponse call
+func ParsePatchApiV1UsersIdResponse(rsp *http.Response) (*PatchApiV1UsersIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiV1UsersIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsUser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest HttperrorsErrorResponse

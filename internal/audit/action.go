@@ -88,3 +88,19 @@ type UserUnblocked struct {
 }
 
 func (UserUnblocked) auditAction() entity.AuditAction { return entity.AuditActionUserUnblocked }
+
+// UserTagsChanged records an admin editing Target's messenger tags via
+// PATCH /users/{id}. Changes carries one before/after entry per tag the edit
+// actually touched.
+//
+// Only the admin path is audited. A user editing their own tags through
+// PATCH /me leaves no trail on purpose: you change your own quietly, someone
+// else's with a trace — the same asymmetry as user.blocked and roles.changed,
+// which are all actions taken on another person.
+type UserTagsChanged struct {
+	Actor   *entity.User
+	Target  *entity.User
+	Changes []entity.AuditFieldChange
+}
+
+func (UserTagsChanged) auditAction() entity.AuditAction { return entity.AuditActionUserTagsChanged }

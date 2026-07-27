@@ -13,12 +13,13 @@ import (
 // test is the guard. Update it deliberately when the contract changes.
 func TestAuditActionWireValues(t *testing.T) {
 	want := map[AuditAction]string{
-		AuditActionLoginSuccess:  "login.success",
-		AuditActionLoginFailed:   "login.failed",
-		AuditActionLogoutSuccess: "logout.success",
-		AuditActionRolesChanged:  "roles.changed",
-		AuditActionUserBlocked:   "user.blocked",
-		AuditActionUserUnblocked: "user.unblocked",
+		AuditActionLoginSuccess:    "login.success",
+		AuditActionLoginFailed:     "login.failed",
+		AuditActionLogoutSuccess:   "logout.success",
+		AuditActionRolesChanged:    "roles.changed",
+		AuditActionUserBlocked:     "user.blocked",
+		AuditActionUserUnblocked:   "user.unblocked",
+		AuditActionUserTagsChanged: "user.tags_changed",
 
 		AuditActionMaintCreated:   "maintenance.created",
 		AuditActionMaintUpdated:   "maintenance.updated",
@@ -59,4 +60,19 @@ func TestAuditMaintActions_ValidAndCategorized(t *testing.T) {
 		require.Truef(t, ok, "%q must have a category", action)
 		require.Equalf(t, AuditCategoryMaintenance, category, "%q must be in the maintenance category", action)
 	}
+}
+
+// TestAuditActionUserTagsChanged_ValidAndInRolesCategory guards the two lookups
+// the admin tag-edit action depends on: IsValid (else the read filter rejects
+// it) and the roles category in both directions — the action -> category map
+// feeds the facet counts, the reverse map expands the "roles" chip into the
+// action filter, so a one-sided entry would count entries the chip then hides.
+func TestAuditActionUserTagsChanged_ValidAndInRolesCategory(t *testing.T) {
+	require.True(t, AuditActionUserTagsChanged.IsValid())
+
+	category, ok := AuditActionCategory(AuditActionUserTagsChanged)
+	require.True(t, ok)
+	require.Equal(t, AuditCategoryRoles, category)
+
+	require.Contains(t, AuditCategoryAction(AuditCategoryRoles), AuditActionUserTagsChanged)
 }

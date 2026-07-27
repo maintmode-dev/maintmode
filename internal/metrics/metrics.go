@@ -67,6 +67,44 @@ func MaintNotifyDispatchRenderError(ctx context.Context) {
 	))
 }
 
+// maintNotifyOwnerMentionDegraded counts notifications delivered without the
+// owner's messenger handle when one was expected. The notification still goes
+// out — the mention is a decoration, never a delivery condition — so the
+// degradation is invisible in logs, which already carry unrelated usersummary
+// noise from read paths.
+//
+// An empty handle is deliberately NOT counted here: it is the feature's
+// switched-off state, true for every user who has not filled one in, and
+// counting it would make a rate>0 alert permanently red until someone silenced
+// it. Adoption, if it ever needs measuring, is a separate metric.
+var maintNotifyOwnerMentionDegraded = mustInt64Counter(
+	"maint_notify_owner_mention_degraded_total",
+	"Notifications sent with the owner's display name instead of a messenger handle, labeled by reason.",
+)
+
+// OwnerMentionReason labels a degraded owner mention. The type keeps call sites
+// from inventing new label values, which would fragment the metric.
+type OwnerMentionReason string
+
+const (
+	// OwnerMentionRejected: the stored handle failed the render-time sanitizer
+	// (control characters or Slack markup metacharacters). A value that got
+	// past input validation is in the database — investigate how.
+	OwnerMentionRejected OwnerMentionReason = "rejected"
+	// OwnerMentionUnresolved: the owner's user id could not be resolved at all,
+	// so the message names "Unknown user". Usually the auth service being
+	// unavailable to a background reminder task.
+	OwnerMentionUnresolved OwnerMentionReason = "unresolved"
+)
+
+// MaintNotifyOwnerMentionDegraded records one notification that lost its owner
+// mention.
+func MaintNotifyOwnerMentionDegraded(ctx context.Context, reason OwnerMentionReason) {
+	maintNotifyOwnerMentionDegraded.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", string(reason)),
+	))
+}
+
 // auditWriteErrors counts audit_log write failures in the audit-write goque
 // processor (RUK-179). The processor returns the error so goque retries, but a
 // sustained rate>0 means the audit trail is falling behind or a write is

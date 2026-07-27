@@ -21,6 +21,10 @@ type MeResponse struct {
 	// Timezone is the user's preferred IANA timezone (e.g. "Asia/Nicosia"), or
 	// null when not selected — the frontend then falls back to browser auto-detect.
 	Timezone *string `json:"timezone"`
+	// TelegramTag and SlackTag are the user's messenger handles, returned exactly
+	// as entered (a leading "@" only if the user typed one), or null when not set.
+	TelegramTag *string `json:"telegram_tag"`
+	SlackTag    *string `json:"slack_tag"`
 }
 
 func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeResponse {
@@ -38,5 +42,7 @@ func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeRespon
 		OAuthProvider:      string(entity.PrimaryOAuthProvider(providers)),
 		ConnectedProviders: connected,
 		Timezone:           u.Timezone,
+		TelegramTag:        u.TelegramTag,
+		SlackTag:           u.SlackTag,
 	}
 }

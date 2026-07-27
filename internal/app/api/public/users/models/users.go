@@ -23,6 +23,16 @@ type User struct {
 	LastSeenAt         *time.Time `json:"last_seen_at,omitempty" format:"date-time"`
 	IsLastAdmin        bool       `json:"is_last_admin"`
 	BlockedAt          *time.Time `json:"blocked_at,omitempty" format:"date-time"`
+	// TelegramTag and SlackTag are the user's messenger handles, shown exactly as
+	// the user entered them, or null when not set. They are read-only here: only
+	// the user themselves can change their own handles, via PATCH /me.
+	//
+	// Surfacing them to admins is the feature's accountability mechanism, not
+	// decoration. A handle is free text and unverified, so nothing stops someone
+	// entering a colleague's handle and having maintenance notifications ping them;
+	// this listing is what makes that attributable to a person.
+	TelegramTag *string `json:"telegram_tag,omitempty"`
+	SlackTag    *string `json:"slack_tag,omitempty"`
 }
 
 type ListUsersResponse struct {

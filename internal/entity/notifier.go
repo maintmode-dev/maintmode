@@ -74,6 +74,17 @@ type NotifyEvent struct {
 	MaintTitle   string
 	PlannedStart time.Time
 
+	// CreatedByUserID is the maintenance owner — the person the notification
+	// mentions. Maintenance lifecycle paths fill it from the maintenance row
+	// (where the column is NOT NULL); step paths deliberately leave it zero, so
+	// the zero value is the mechanism that keeps step events out of the owner
+	// resolve, not a defensive guard.
+	CreatedByUserID uuid.UUID
+	// OwnerMention is filled by dispatch, once per event, before any target is
+	// contacted; nil means "no owner to mention" (step events). The renderer
+	// picks the handle matching the target transport and falls back to Name.
+	OwnerMention *UserMention
+
 	StepID          uuid.UUID
 	StepOrder       int32
 	StepDescription string

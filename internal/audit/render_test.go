@@ -103,6 +103,29 @@ func TestRender_MapsEveryAction(t *testing.T) {
 			},
 		},
 		{
+			name: "user tags changed",
+			action: UserTagsChanged{
+				Actor: actor, Target: target,
+				Changes: []entity.AuditFieldChange{
+					{Field: "telegram_tag", Old: "@old", New: "@new"},
+					{Field: "slack_tag", Old: "@stale", New: ""},
+				},
+			},
+			wantAction:       entity.AuditActionUserTagsChanged,
+			wantActor:        actor.Email,
+			wantEntityID:     target.ID.String(),
+			wantDetailsParts: []string{"messenger tags", target.Email, actor.Email},
+			checkMetadata: func(t *testing.T, m *entity.AuditMetadata) {
+				t.Helper()
+				require.Equal(t, []entity.AuditFieldChange{
+					{Field: "telegram_tag", Old: "@old", New: "@new"},
+					{Field: "slack_tag", Old: "@stale", New: ""},
+				}, m.Changes)
+				require.Equal(t, target.Email, m.TargetEmail)
+				require.Equal(t, target.Name, m.TargetDisplayName)
+			},
+		},
+		{
 			name:             "user blocked",
 			action:           UserBlocked{Actor: actor, Target: target},
 			wantAction:       entity.AuditActionUserBlocked,

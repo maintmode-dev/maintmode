@@ -93,6 +93,7 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 		cfg,
 		messagesender.NewService(newStubResolver(), taskScheduler),
 		notifyTargetsStore,
+		stubOwnerResolver{},
 	)
 	require.NoError(t, err)
 
@@ -125,6 +126,16 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 // the DB-backed integration registry.
 func newStubResolver() notifytransport.TransportResolver {
 	return notifytransport.NewStubResolver()
+}
+
+// stubOwnerResolver names no one. Notifications are a side effect of the
+// maintenance transitions under test here, not their subject, and a nil mention
+// is the shape the renderer already handles (it simply omits the owner line), so
+// there is nothing to assert and nothing to configure.
+type stubOwnerResolver struct{}
+
+func (stubOwnerResolver) ResolveOwner(_ context.Context, _ uuid.UUID) *entity.UserMention {
+	return nil
 }
 
 // expectAnyApproverEligible stubs the user service so every approver-eligibility

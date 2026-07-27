@@ -662,6 +662,16 @@ linters:
         linters:
           - revive
 
+      # The notification templates ship the British "cancelled" (it is also the
+      # maint_cancelled.tmpl filename). The render tests assert message bodies
+      # byte-for-byte, so their literals must reproduce that spelling exactly —
+      # "fixing" it to US English would break the assertions rather than the
+      # product text.
+      - path: services/maintnotify/render/.*_test\.go
+        text: "`[Cc]ancelled` is a misspelling"
+        linters:
+          - misspell
+
 issues:
   # Maximum issues per linter (0 = unlimited)
   max-issues-per-linter: 0

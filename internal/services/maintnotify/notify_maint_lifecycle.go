@@ -21,22 +21,7 @@ func (n *Service) NotifyMaintLifecycle(ctx context.Context, kind entity.NotifyEv
 		Kind:                kind,
 		MaintID:             maint.ID,
 		MaintTitle:          maint.Title,
-		CancelReason:        maint.CancelReason,
-		CancelReasonComment: maint.CancelReasonComment,
-	})
-}
-
-func (n *Service) NotifyAsyncMaintLifecycle(ctx context.Context, kind entity.NotifyEventKind, maint *entity.Maintenance) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.MaintNotify.NotifyAsyncMaintLifecycle",
-		xfield.String("event", string(kind)),
-		xfield.String("maintID", maint.ID.String()),
-	)
-	defer span.End()
-
-	n.notifyMaintLifecycle(ctx, n.dispatchAsync, entity.NotifyEvent{
-		Kind:                kind,
-		MaintID:             maint.ID,
-		MaintTitle:          maint.Title,
+		CreatedByUserID:     maint.CreatedByUserID,
 		CancelReason:        maint.CancelReason,
 		CancelReasonComment: maint.CancelReasonComment,
 	})

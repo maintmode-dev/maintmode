@@ -280,8 +280,9 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 // admin and audit read.
 //
 // Route ordering: every STATIC /users/... route (list, invite, invitations*) is
-// registered before the /users/:id/... param routes (block/unblock) so Echo v5
-// does not shadow a static segment with the :id param.
+// registered before the /users/:id... param routes (block/unblock, tags patch).
+// That grouping is a readability convention, not a correctness guard — see the
+// note at the /users/:id registration for what the router actually does.
 func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	withAuthorize := gr.Group("",
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
@@ -342,6 +343,18 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	)
 	withAuthorize.Add(http.MethodPost, "/users/:id/unblock",
 		s.handlers.Users.UnblockUser,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+	// The bare /users/:id path is the most greedy of the lot — it matches any
+	// single segment — so it is written last, after every static sibling.
+	//
+	// Note that the router, not this ordering, is what keeps /users/list intact:
+	// Echo v5 prefers a static segment over a param regardless of registration
+	// order. The consequence to keep in mind is method-scoped — PATCH on a
+	// static /users/... path has no handler of its own and falls through to
+	// here, where the segment is rejected as a malformed uuid.
+	withAuthorize.Add(http.MethodPatch, "/users/:id",
+		s.handlers.Users.UpdateUserTags,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
 	)
 
