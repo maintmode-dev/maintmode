@@ -183,10 +183,9 @@ func ToAPINotifyTargetViews(targets []*entity.NotifyTarget) []*NotifyTargetView 
 }
 
 // FromAPIDeferredNotifications maps the contract's deferred_notifications to
-// domain inputs. nil/empty stays nil so callers treat it as "unchanged / none"
-// (same convention as notify_targets). A side effect of this convention: on
-// update an empty array cannot clear existing reminders — only a non-empty array
-// replaces them. Clearing is not currently a supported operation.
+// domain inputs. It works on a flat slice and carries no "unchanged" state:
+// create has none to express, and update encodes that state in the pointer
+// around the slice, which its caller unwraps before mapping.
 func FromAPIDeferredNotifications(notifications []*DeferredNotification) []*entity.DeferredNotificationInput {
 	return lo.Map(notifications, func(item *DeferredNotification, _ int) *entity.DeferredNotificationInput {
 		return &entity.DeferredNotificationInput{

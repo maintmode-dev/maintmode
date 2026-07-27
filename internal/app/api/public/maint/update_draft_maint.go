@@ -17,9 +17,20 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
+// maxDeferredNotifications rejects an oversized reminder set at the API
+// boundary, before binding and actor resolution. The service enforces the same
+// cap as the authoritative gate (every path reaches it); this one only fails
+// fast, so the two are expected to match.
+const maxDeferredNotifications = 10
+
 // UpdateDraftMaint godoc
 // @Summary Update maintenance draft
 // @Description Updates an existing maintenance draft from planned_start and steps.
+// @Description
+// @Description deferred_notifications is tri-state and the states cannot be expressed
+// @Description in the schema below: omitting the field or sending null leaves the
+// @Description existing reminders untouched, sending an empty array clears them all,
+// @Description and sending a non-empty array replaces them.
 // @Tags Maintenances
 // @Accept json
 // @Produce json
@@ -101,17 +112,27 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 	}
 
 	cmd := &entity.UpdateMaintenanceCmd{
-		MaintID:               maintID,
-		Title:                 lo.ToPtr(req.Title),
-		Description:           lo.ToPtr(req.Description),
-		PlannedStart:          lo.ToPtr(req.PlannedStart),
-		Scope:                 lo.ToPtr(scope),
-		Impact:                lo.ToPtr(impact),
-		Resources:             apimodels.FromAPIResources(req.Resources),
-		Steps:                 steps,
-		NotifyTargets:         notifyTargets,
-		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
-		ApproverUserID:        req.ApproverUserID,
+		MaintID:        maintID,
+		Title:          lo.ToPtr(req.Title),
+		Description:    lo.ToPtr(req.Description),
+		PlannedStart:   lo.ToPtr(req.PlannedStart),
+		Scope:          lo.ToPtr(scope),
+		Impact:         lo.ToPtr(impact),
+		Resources:      apimodels.FromAPIResources(req.Resources),
+		Steps:          steps,
+		NotifyTargets:  notifyTargets,
+		ApproverUserID: req.ApproverUserID,
+	}
+
+	// deferred_notifications is tri-state and the pointer carries the
+	// distinction: nil (field absent or null) leaves the reminders alone, while
+	// a supplied set — empty included — replaces them. Mapping only when the
+	// request carried the field keeps nil meaning "unchanged" all the way to the
+	// service gate.
+	if req.DeferredNotifications != nil {
+		cmd.DeferredNotifications = lo.ToPtr(
+			apimodels.FromAPIDeferredNotifications(lo.FromPtr(req.DeferredNotifications)),
+		)
 	}
 
 	return cmd, nil
@@ -119,7 +140,7 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 
 //nolint:dupl // create vs update are separate by design; see validateCreateMaintDraftRequest
 func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMaintRequest) error {
-	return validation.ValidateStructWithContext(ctx, r,
+	if err := validation.ValidateStructWithContext(ctx, r,
 		validation.Field(&r.Title, validation.Required),
 		validation.Field(&r.Description, validation.Required),
 		validation.Field(&r.PlannedStart, validation.Required),
@@ -131,6 +152,22 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 		),
 		validation.Field(&r.Steps, validation.Required, validation.Each(validation.WithContext(validateStep))),
 		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
-		validation.Field(&r.DeferredNotifications, validation.Each(validation.WithContext(validateDeferredNotification))),
-	)
+	); err != nil {
+		return err
+	}
+
+	// Each must receive the dereferenced slice: EachRule switches on
+	// reflect.Kind and rejects a pointer as "must be an iterable", which would
+	// also mask the per-element rules. A nil pointer yields an empty slice, so
+	// the "unchanged" case validates trivially. Running outside
+	// ValidateStructWithContext costs the field name, so the result is re-keyed
+	// to keep client errors as locatable as the struct-level ones.
+	if err := validation.ValidateWithContext(ctx, lo.FromPtr(r.DeferredNotifications),
+		validation.Length(0, maxDeferredNotifications),
+		validation.Each(validation.WithContext(validateDeferredNotification)),
+	); err != nil {
+		return validation.Errors{"deferred_notifications": err}
+	}
+
+	return nil
 }

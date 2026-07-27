@@ -40,6 +40,12 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		return nil, err
 	}
 
+	deferredNotifications, err := s.deferred.ListByMaint(ctx, maint.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to get maint deferred notifications", xfield.Error(err))
+		return nil, err
+	}
+
 	return &calendardto.Maintenance{
 		ID:                  maint.ID,
 		Title:               maint.Title,
@@ -72,6 +78,14 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 				ID:        item.ChannelID,
 				Name:      item.ChannelName,
 				Transport: item.Transport,
+			}
+		}),
+		// The store already orders by fire_at ASC, id ASC — keep that order.
+		DeferredNotifications: lo.Map(deferredNotifications, func(item *entity.DeferredNotification, _ int) *calendardto.MaintenanceDeferredNotification {
+			return &calendardto.MaintenanceDeferredNotification{
+				ID:        item.ID,
+				FireAt:    item.FireAt,
+				Scheduled: item.IsScheduled(),
 			}
 		}),
 	}, nil

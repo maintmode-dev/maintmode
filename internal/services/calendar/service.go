@@ -20,10 +20,20 @@ type NotifyTargetsReader interface {
 	ListByMaint(ctx context.Context, maintID uuid.UUID) ([]*entity.NotifyTarget, error)
 }
 
+// DeferredNotificationsReader reads the deferred-notification schedule of a
+// maintenance. Defined consumer-side (like NotifyTargetsReader) so calendar does
+// not import another module's storage directly — that cross-module storage
+// import is forbidden by the depguard storage-fortress rule (RUK-193). Backed by
+// deferrednotifications.Store.
+type DeferredNotificationsReader interface {
+	ListByMaint(ctx context.Context, maintID uuid.UUID) ([]*entity.DeferredNotification, error)
+}
+
 type Service struct {
 	maintStore     *maintenances.Store
 	resourcesStore *resources.Store
 	notifyTargets  NotifyTargetsReader
+	deferred       DeferredNotificationsReader
 	conflictsSrv   *conflicts.Service
 }
 
@@ -31,12 +41,14 @@ func NewService(
 	maintStore *maintenances.Store,
 	resourcesStore *resources.Store,
 	notifyTargets NotifyTargetsReader,
+	deferred DeferredNotificationsReader,
 	conflictsSrv *conflicts.Service,
 ) *Service {
 	return &Service{
 		maintStore:     maintStore,
 		resourcesStore: resourcesStore,
 		notifyTargets:  notifyTargets,
+		deferred:       deferred,
 		conflictsSrv:   conflictsSrv,
 	}
 }

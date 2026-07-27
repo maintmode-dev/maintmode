@@ -181,6 +181,7 @@ func NewServices(ctx context.Context,
 			stores.Maintenances,
 			stores.Resources,
 			stores.NotifyTargets,
+			stores.DeferredNotifications,
 			core.conflicts,
 		),
 		Resources: resourcesSrv.NewService(

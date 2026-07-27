@@ -73,6 +73,15 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance, author, approver 
 				Transport: string(item.Transport),
 			}
 		}),
+		// lo.Map keeps the source order (fire_at ASC) and yields an empty, non-nil
+		// slice for an empty input, so the field serializes as [] and never null.
+		DeferredNotifications: lo.Map(maintEvent.DeferredNotifications, func(item *calendardto.MaintenanceDeferredNotification, _ int) *DeferredNotificationView {
+			return &DeferredNotificationView{
+				ID:        item.ID,
+				FireAt:    item.FireAt,
+				Scheduled: item.Scheduled,
+			}
+		}),
 	}
 
 	if maintEvent.ActualPeriod != nil {

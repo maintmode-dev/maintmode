@@ -95,12 +95,16 @@ func (s *Service) applyUpdate(
 		}
 	}
 
-	// Empty/nil means "not changing reminders" (same convention as
-	// NotifyTargets above), so we only replace when reminders are given.
+	// Unlike NotifyTargets above, reminders are tri-state: nil means "not
+	// changing reminders", while a supplied set — including an empty one —
+	// replaces them, so an empty set clears them. This gate is paired with the
+	// one in applyValuesFromUpdateCmd, which stages what Replace persists; they
+	// must agree, or clearing would rewrite the previous set instead of
+	// deleting it.
 	// Edits are only allowed while a maintenance is a draft, so no goque
 	// tasks exist yet — they're enqueued on approve. Persisting here is
 	// enough; no re-enqueue needed (see deferrednotifications.Replace).
-	if len(cmd.DeferredNotifications) > 0 {
+	if cmd.DeferredNotifications != nil {
 		if err := s.deferred.Replace(ctx, maint.ID, maint.DeferredNotifications); err != nil {
 			xlog.Error(ctx, "replace deferred notifications failed", xfield.Error(err))
 			return err
@@ -157,8 +161,12 @@ func applyValuesFromUpdateCmd(
 		maint.NotifyTargets = notifyTargets
 	}
 
-	if len(cmd.DeferredNotifications) > 0 {
-		maint.DeferredNotifications = deferredNotificationsFromCmd(cmd.MaintID, cmd.DeferredNotifications)
+	// Paired with the Replace gate in applyUpdate: a supplied set (empty
+	// included) is staged here and persisted there. An empty set stages an
+	// empty collection, which is what makes clearing delete rather than
+	// rewrite the previous reminders.
+	if cmd.DeferredNotifications != nil {
+		maint.DeferredNotifications = deferredNotificationsFromCmd(cmd.MaintID, lo.FromPtr(cmd.DeferredNotifications))
 	}
 
 	maint.Normalize()
@@ -192,7 +200,7 @@ func (s *Service) replaceSteps(ctx context.Context, maint *entity.Maintenance) e
 }
 
 func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error {
-	return validation.ValidateStructWithContext(ctx, cmd,
+	if err := validation.ValidateStructWithContext(ctx, cmd,
 		validation.Field(&cmd.Title, validation.NilOrNotEmpty),
 		validation.Field(&cmd.Description, validation.NilOrNotEmpty),
 		validation.Field(&cmd.ApproverUserID, validation.NilOrNotEmpty,
@@ -209,11 +217,20 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 			validation.Length(0, maxNotifyTargets),
 			validation.Each(validation.WithContext(validateNotifyTargetsInput)),
 		),
-		validation.Field(&cmd.DeferredNotifications,
-			validation.Length(0, maxDeferredNotifications),
-			validation.Each(validation.WithContext(validateDeferredNotificationInput)),
-		),
-	)
+		// Length works on the pointer field directly — LengthRule dereferences
+		// via Indirect. Each does not, so it runs separately below.
+		validation.Field(&cmd.DeferredNotifications, validation.Length(0, maxDeferredNotifications)),
+	); err != nil {
+		return err
+	}
+
+	// Each must receive the dereferenced slice: EachRule switches on
+	// reflect.Kind and rejects a pointer as "must be an iterable", which would
+	// also mask the per-element rules (a missing fire_at would stop being
+	// caught). A nil pointer yields an empty slice, so "unchanged" validates
+	// trivially.
+	return validation.ValidateWithContext(ctx, lo.FromPtr(cmd.DeferredNotifications),
+		validation.Each(validation.WithContext(validateDeferredNotificationInput)))
 }
 
 func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) (prev, current *entity.Maintenance, err error) {
@@ -336,9 +353,10 @@ func maintLifecycleEvent(from, to entity.MaintenanceStatus) (entity.NotifyEventK
 // loaded onto prev, so they cannot be diffed by content here; instead the
 // changed flag mirrors the update's own replace rule — a collection is recorded
 // as changed exactly when the command supplied a replacement set (the same
-// `len(cmd.X) > 0` condition applyUpdate uses to replace it). This avoids an
-// extra hydrating read on every draft edit and reports "the update replaced this
-// collection", which is what applyUpdate actually did.
+// condition applyUpdate uses to replace it — non-empty for steps, resources
+// and notify targets; non-nil for the tri-state deferred notifications). This
+// avoids an extra hydrating read on every draft edit and reports "the update
+// replaced this collection", which is what applyUpdate actually did.
 func maintUpdateChanges(prev, current *entity.Maintenance, cmd *entity.UpdateMaintenanceCmd) []entity.AuditFieldChange {
 	var changes []entity.AuditFieldChange
 
@@ -363,7 +381,10 @@ func maintUpdateChanges(prev, current *entity.Maintenance, cmd *entity.UpdateMai
 	addCollection("steps", len(cmd.Steps) > 0)
 	addCollection("resources", len(cmd.Resources) > 0 || lo.FromPtr(cmd.Scope) == entity.MaintenanceScopeGlobal)
 	addCollection("notify_targets", len(cmd.NotifyTargets) > 0)
-	addCollection("deferred_notifications", len(cmd.DeferredNotifications) > 0)
+	// Mirrors applyUpdate's tri-state gate: a supplied set is a change even when
+	// empty. Clearing hard-deletes the reminders, so this audit entry is the
+	// only record that it happened.
+	addCollection("deferred_notifications", cmd.DeferredNotifications != nil)
 
 	return changes
 }

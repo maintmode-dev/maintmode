@@ -90,6 +90,18 @@ func initImpl(t *testing.T) *Implementation {
 func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintResponse {
 	t.Helper()
 
+	return makeMaintWithDeferred(ctx, t, nil)
+}
+
+// makeMaintWithDeferred is makeMaint with an explicit reminder schedule, for
+// tests that need the maintenance to carry deferred notifications.
+func makeMaintWithDeferred(
+	ctx context.Context,
+	t *testing.T,
+	deferred []*maintmodels.DeferredNotification,
+) *maintmodels.CreateDraftMaintResponse {
+	t.Helper()
+
 	services := newServices(ctx, t)
 	maintImpl := maintapi.New(services.Maint, services.UserSummary)
 
@@ -113,7 +125,8 @@ func makeMaint(ctx context.Context, t *testing.T) *maintmodels.CreateDraftMaintR
 		NotifyTargets: &maintmodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
-		ApproverUserID: approver.ID,
+		DeferredNotifications: deferred,
+		ApproverUserID:        approver.ID,
 	}
 
 	c, rec := echotest.ContextConfig{

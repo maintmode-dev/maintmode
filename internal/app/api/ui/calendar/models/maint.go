@@ -26,6 +26,15 @@ type NotifyTargetView struct {
 	Transport string    `json:"transport" example:"slack"`
 }
 
+// DeferredNotificationView is one scheduled reminder of the maintenance view.
+// Scheduled is false while the maintenance is a draft and becomes true once the
+// reminder has been enqueued on approve.
+type DeferredNotificationView struct {
+	ID        uuid.UUID `json:"id" format:"uuid"`
+	FireAt    time.Time `json:"fire_at" format:"date-time"`
+	Scheduled bool      `json:"scheduled"`
+}
+
 type MaintenanceStep struct {
 	ID                  uuid.UUID `json:"id" format:"uuid"`
 	Order               int32     `json:"order"`
@@ -73,6 +82,10 @@ type MaintenanceView struct {
 	// NotifyTargets lists the maintenance's notify channels resolved from the
 	// catalog, for the read-only Notify channels section (transport glyph + name).
 	NotifyTargets []*NotifyTargetView `json:"notify_targets"`
+	// DeferredNotifications lists the maintenance's reminders ordered by fire_at,
+	// so the edit screen can hydrate the already saved schedule. Always an array;
+	// empty when no reminders are set.
+	DeferredNotifications []*DeferredNotificationView `json:"deferred_notifications"`
 }
 
 type ConflictView struct {

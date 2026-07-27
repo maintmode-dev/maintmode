@@ -223,6 +223,27 @@ func TestUpdateDraft(t *testing.T) {
 						}},
 					},
 					expectedErr: "Steps: (0: (Order: cannot be blank.).).",
+				}, {
+					// Proves the per-element rule really runs through the
+					// pointer: if Each silently skipped it, a zero fire_at
+					// would reach the store and fire immediately.
+					name: "deferred notification without fire_at",
+					cmd: &entity.UpdateMaintenanceCmd{
+						DeferredNotifications: lo.ToPtr([]*entity.DeferredNotificationInput{
+							{FireAt: time.Time{}},
+						}),
+					},
+					expectedErr: "0: (FireAt: cannot be blank.).",
+				}, {
+					// Proves the cap survived moving Each out of the field rules.
+					name: "too many deferred notifications",
+					cmd: &entity.UpdateMaintenanceCmd{
+						DeferredNotifications: lo.ToPtr(lo.RepeatBy(maxDeferredNotifications+1,
+							func(_ int) *entity.DeferredNotificationInput {
+								return &entity.DeferredNotificationInput{FireAt: time.Now().Add(time.Hour)}
+							})),
+					},
+					expectedErr: "DeferredNotifications: the length must be no more than 10.",
 				},
 			} {
 				t.Run(tc.name, func(t *testing.T) {

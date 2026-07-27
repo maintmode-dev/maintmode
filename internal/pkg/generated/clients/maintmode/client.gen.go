@@ -510,7 +510,12 @@ type ApimodelsUpdateChannelRequest struct {
 
 // ApimodelsUpdateDraftMaintRequest defines model for apimodels.UpdateDraftMaintRequest.
 type ApimodelsUpdateDraftMaintRequest struct {
-	ApproverUserId        *openapi_types.UUID              `json:"approver_user_id,omitempty"`
+	ApproverUserId *openapi_types.UUID `json:"approver_user_id,omitempty"`
+
+	// DeferredNotifications DeferredNotifications is tri-state on update: a missing field or null
+	// leaves the reminders unchanged, an empty array clears them, and a
+	// non-empty array replaces them. The distinction is carried by the pointer,
+	// so it must stay a pointer all the way down to the service gate.
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
@@ -619,6 +624,13 @@ type UimodelsConflictView struct {
 	Title         *string                            `json:"title,omitempty"`
 }
 
+// UimodelsDeferredNotificationView defines model for uimodels.DeferredNotificationView.
+type UimodelsDeferredNotificationView struct {
+	FireAt    *time.Time          `json:"fire_at,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	Scheduled *bool               `json:"scheduled,omitempty"`
+}
+
 // UimodelsMaintenanceActions defines model for uimodels.MaintenanceActions.
 type UimodelsMaintenanceActions struct {
 	CanApprove  *bool `json:"can_approve,omitempty"`
@@ -659,10 +671,15 @@ type UimodelsMaintenanceView struct {
 	// CreatedBy CreatedBy is the author resolved from auth; always present (degrades to the
 	// "Unknown user" label when unresolvable). Approver is the assigned approver,
 	// or null when none is set (e.g. a draft).
-	CreatedBy   *UimodelsUserSummary `json:"created_by,omitempty"`
-	Description *string              `json:"description,omitempty"`
-	Id          *openapi_types.UUID  `json:"id,omitempty"`
-	Impact      *string              `json:"impact,omitempty"`
+	CreatedBy *UimodelsUserSummary `json:"created_by,omitempty"`
+
+	// DeferredNotifications DeferredNotifications lists the maintenance's reminders ordered by fire_at,
+	// so the edit screen can hydrate the already saved schedule. Always an array;
+	// empty when no reminders are set.
+	DeferredNotifications *[]UimodelsDeferredNotificationView `json:"deferred_notifications,omitempty"`
+	Description           *string                             `json:"description,omitempty"`
+	Id                    *openapi_types.UUID                 `json:"id,omitempty"`
+	Impact                *string                             `json:"impact,omitempty"`
 
 	// NotifyTargets NotifyTargets lists the maintenance's notify channels resolved from the
 	// catalog, for the read-only Notify channels section (transport glyph + name).

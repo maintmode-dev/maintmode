@@ -766,6 +766,7 @@
                         "type": "string"
                     },
                     "deferred_notifications": {
+                        "description": "DeferredNotifications is tri-state on update: a missing field or null\nleaves the reminders unchanged, an empty array clears them, and a\nnon-empty array replaces them. The distinction is carried by the pointer,\nso it must stay a pointer all the way down to the service gate.",
                         "items": {
                             "$ref": "#/components/schemas/apimodels.DeferredNotification"
                         },
@@ -1003,6 +1004,22 @@
                 },
                 "type": "object"
             },
+            "uimodels.DeferredNotificationView": {
+                "properties": {
+                    "fire_at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "format": "uuid",
+                        "type": "string"
+                    },
+                    "scheduled": {
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
             "uimodels.MaintenanceActions": {
                 "properties": {
                     "can_approve": {
@@ -1097,6 +1114,14 @@
                     },
                     "created_by": {
                         "$ref": "#/components/schemas/uimodels.UserSummary"
+                    },
+                    "deferred_notifications": {
+                        "description": "DeferredNotifications lists the maintenance's reminders ordered by fire_at,\nso the edit screen can hydrate the already saved schedule. Always an array;\nempty when no reminders are set.",
+                        "items": {
+                            "$ref": "#/components/schemas/uimodels.DeferredNotificationView"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "description": {
                         "type": "string"
@@ -2103,7 +2128,7 @@
         },
         "/api/v1/maintenances/{id}/edit": {
             "post": {
-                "description": "Updates an existing maintenance draft from planned_start and steps.",
+                "description": "Updates an existing maintenance draft from planned_start and steps.\n\ndeferred_notifications is tri-state and the states cannot be expressed\nin the schema below: omitting the field or sending null leaves the\nexisting reminders untouched, sending an empty array clears them all,\nand sending a non-empty array replaces them.",
                 "parameters": [
                     {
                         "description": "Maintenance ID",

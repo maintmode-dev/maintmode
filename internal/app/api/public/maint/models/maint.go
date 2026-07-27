@@ -153,16 +153,20 @@ type CreateDraftMaintResponse struct {
 }
 
 type UpdateDraftMaintRequest struct {
-	Title                 string                  `json:"title" example:"DB migration"`
-	Description           string                  `json:"description" example:"PostgreSQL major upgrade"`
-	PlannedStart          time.Time               `json:"planned_start" format:"date-time"`
-	Scope                 MaintenanceScope        `json:"scope"`
-	Impact                MaintenanceImpact       `json:"impact"`
-	Resources             []*ResourceRef          `json:"resources"`
-	Steps                 []*MaintenanceStepInput `json:"steps"`
-	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
-	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
-	ApproverUserID        *uuid.UUID              `json:"approver_user_id" format:"uuid"`
+	Title         string                  `json:"title" example:"DB migration"`
+	Description   string                  `json:"description" example:"PostgreSQL major upgrade"`
+	PlannedStart  time.Time               `json:"planned_start" format:"date-time"`
+	Scope         MaintenanceScope        `json:"scope"`
+	Impact        MaintenanceImpact       `json:"impact"`
+	Resources     []*ResourceRef          `json:"resources"`
+	Steps         []*MaintenanceStepInput `json:"steps"`
+	NotifyTargets *NotifyTargets          `json:"notify_targets"`
+	// DeferredNotifications is tri-state on update: a missing field or null
+	// leaves the reminders unchanged, an empty array clears them, and a
+	// non-empty array replaces them. The distinction is carried by the pointer,
+	// so it must stay a pointer all the way down to the service gate.
+	DeferredNotifications *[]*DeferredNotification `json:"deferred_notifications"`
+	ApproverUserID        *uuid.UUID               `json:"approver_user_id" format:"uuid"`
 }
 
 type CancelMaintRequest struct {

@@ -546,6 +546,11 @@ components:
                     format: uuid
                     type: string
                 deferred_notifications:
+                    description: |-
+                        DeferredNotifications is tri-state on update: a missing field or null
+                        leaves the reminders unchanged, an empty array clears them, and a
+                        non-empty array replaces them. The distinction is carried by the pointer,
+                        so it must stay a pointer all the way down to the service gate.
                     items:
                         $ref: '#/components/schemas/apimodels.DeferredNotification'
                     type: array
@@ -719,6 +724,17 @@ components:
                 title:
                     type: string
             type: object
+        uimodels.DeferredNotificationView:
+            properties:
+                fire_at:
+                    format: date-time
+                    type: string
+                id:
+                    format: uuid
+                    type: string
+                scheduled:
+                    type: boolean
+            type: object
         uimodels.MaintenanceActions:
             properties:
                 can_approve:
@@ -787,6 +803,15 @@ components:
                     type: string
                 created_by:
                     $ref: '#/components/schemas/uimodels.UserSummary'
+                deferred_notifications:
+                    description: |-
+                        DeferredNotifications lists the maintenance's reminders ordered by fire_at,
+                        so the edit screen can hydrate the already saved schedule. Always an array;
+                        empty when no reminders are set.
+                    items:
+                        $ref: '#/components/schemas/uimodels.DeferredNotificationView'
+                    type: array
+                    uniqueItems: false
                 description:
                     type: string
                 id:
@@ -1343,7 +1368,13 @@ paths:
                 - Maintenances
     /api/v1/maintenances/{id}/edit:
         post:
-            description: Updates an existing maintenance draft from planned_start and steps.
+            description: |-
+                Updates an existing maintenance draft from planned_start and steps.
+
+                deferred_notifications is tri-state and the states cannot be expressed
+                in the schema below: omitting the field or sending null leaves the
+                existing reminders untouched, sending an empty array clears them all,
+                and sending a non-empty array replaces them.
             parameters:
                 - description: Maintenance ID
                   in: path

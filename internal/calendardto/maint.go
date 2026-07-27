@@ -22,6 +22,16 @@ type MaintenanceNotifyTarget struct {
 	Transport entity.NotifyTransport
 }
 
+// MaintenanceDeferredNotification is one scheduled reminder of the maintenance
+// view: when it fires and whether it has been enqueued yet (false until the
+// maintenance is approved). The goque task id itself stays in the domain — the
+// view only needs the resolved flag.
+type MaintenanceDeferredNotification struct {
+	ID        uuid.UUID
+	FireAt    time.Time
+	Scheduled bool
+}
+
 type MaintenanceStep struct {
 	ID                  uuid.UUID
 	Order               int32
@@ -32,24 +42,25 @@ type MaintenanceStep struct {
 }
 
 type Maintenance struct {
-	ID                  uuid.UUID
-	Title               string
-	Description         string
-	PlannedPeriod       entity.Period
-	ActualPeriod        *entity.Period
-	Resources           []*MaintenanceResource
-	Scope               entity.MaintenanceScope
-	Impact              entity.MaintenanceImpact
-	Status              entity.MaintenanceStatus
-	CancelReason        entity.MaintenanceCancelReason
-	CancelReasonComment string
-	CreatedAt           time.Time
-	UpdatedAt           *time.Time
-	Revision            int64
-	CreatedByUserID     uuid.UUID
-	ApproverUserID      uuid.UUID
-	Steps               []*MaintenanceStep
-	NotifyTargets       []*MaintenanceNotifyTarget
+	ID                    uuid.UUID
+	Title                 string
+	Description           string
+	PlannedPeriod         entity.Period
+	ActualPeriod          *entity.Period
+	Resources             []*MaintenanceResource
+	Scope                 entity.MaintenanceScope
+	Impact                entity.MaintenanceImpact
+	Status                entity.MaintenanceStatus
+	CancelReason          entity.MaintenanceCancelReason
+	CancelReasonComment   string
+	CreatedAt             time.Time
+	UpdatedAt             *time.Time
+	Revision              int64
+	CreatedByUserID       uuid.UUID
+	ApproverUserID        uuid.UUID
+	Steps                 []*MaintenanceStep
+	NotifyTargets         []*MaintenanceNotifyTarget
+	DeferredNotifications []*MaintenanceDeferredNotification
 }
 
 type MaintenancesMeta struct {

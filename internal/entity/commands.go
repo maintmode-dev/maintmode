@@ -49,17 +49,24 @@ type CreateMaintenanceCmd struct {
 }
 
 type UpdateMaintenanceCmd struct {
-	MaintID               uuid.UUID
-	Title                 *string
-	Description           *string
-	PlannedStart          *time.Time
-	Scope                 *MaintenanceScope
-	Impact                *MaintenanceImpact
-	Resources             []uuid.UUID
-	Steps                 []*MaintenanceStepInput
-	NotifyTargets         []*NotifyTargetInput         // empty = unchanged
-	DeferredNotifications []*DeferredNotificationInput // empty = unchanged
-	ApproverUserID        *uuid.UUID                   // nil = unchanged (no clear-to-null)
+	MaintID      uuid.UUID
+	Title        *string
+	Description  *string
+	PlannedStart *time.Time
+	Scope        *MaintenanceScope
+	Impact       *MaintenanceImpact
+	Resources    []uuid.UUID
+	Steps        []*MaintenanceStepInput
+	// NotifyTargets stays a plain slice with "empty = unchanged": a maintenance
+	// must always keep at least one notify target, so zero targets is not a
+	// legal state and there is nothing to express beyond "unchanged".
+	NotifyTargets []*NotifyTargetInput // empty = unchanged
+	// DeferredNotifications is tri-state, unlike NotifyTargets above: zero
+	// reminders IS a legal state, so clearing must be distinguishable from
+	// leaving them alone. nil = unchanged, empty slice = clear, non-empty =
+	// replace.
+	DeferredNotifications *[]*DeferredNotificationInput
+	ApproverUserID        *uuid.UUID // nil = unchanged (no clear-to-null)
 	// Actor is the authenticated user performing the mutation, resolved at the
 	// API boundary for the audit snapshot. Always set on the public path
 	// (RUK-182).
