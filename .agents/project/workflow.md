@@ -36,21 +36,42 @@ make lint
 make fmt
 ```
 
-Backend tests are split into deterministic gates:
+The project ships as a **single binary**: `cmd/maintmode`. There is no separate
+`auth` (or notificator) process — since `c650ffc4` the codebase is a modular
+monolith. Module boundaries (core / auth / notificator / audit / integration /
+license) are logical, enforced at lint time by the `depguard` rules in
+`.golangci.yaml` (the store-fortress rules, commented there as
+"крепость сторов"), not by separate processes. A
+store belongs to exactly one module and may only be imported from that module;
+cross-module data access goes through a consumer-declared interface. Because
+everything runs in one process, there is no version skew *between* modules —
+do not plan around one binary knowing about a column another does not.
+
+Backend tests are split into deterministic gates (`.github/workflows/backend-ci.yml`):
 
 - CI runs lint through the official `golangci/golangci-lint-action` with the
-  repository `.golangci.yaml` configuration.
-- CI builds both service binaries with the official `goreleaser/goreleaser-action`
-  for `maintmode` and `auth`.
-- CI backend tests run `make docker-up` first, then `make tloc`.
-- CI API e2e tests load the images built by the image stage, run `make app-up`,
-  then `make tloc-api`. The API test suite waits for
+  repository `.golangci.yaml` configuration and `--build-tags=api`, so API e2e
+  test files are linted too.
+- CI runs `govulncheck` via `make vuln`.
+- CI builds the single `maintmode` binary with the official
+  `goreleaser/goreleaser-action` from
+  `deployment/maintmode/.build/.goreleaser.yaml`. This is the only place the
+  binary is built; the image job reuses the uploaded artifact instead of
+  rebuilding it in Docker.
+- CI backend tests run `make docker-up` first, then `make tloc-cov` — not
+  `make tloc`. `tloc-cov` is the only target running with `-race`, so the
+  concurrency tests actually exercise the race detector in CI.
+- CI builds Docker images for `maintmode` and `migrations` and publishes them
+  to `ghcr.io/<owner>/<repo>/maintmode` and
+  `ghcr.io/<owner>/<repo>/migrations`.
+- Image builds and API e2e tests run **only** on pushes to `main`/`master` and
+  `v*` tags. Pull requests run just lint, vuln, binary build, and backend tests.
+- CI API e2e tests pull the published `sha-`tagged image, retag it to the local
+  CI tag, run `make app-up`, then `make tloc-api`. The API test suite waits for
   `http://localhost:9001/maintmode/readiness` before executing test cases.
-- CI builds Docker images for `maintmode` and `auth`. Pull requests only build
-  images; pushes to `main`, `master`, or `v*` tags publish to GHCR under
-  `ghcr.io/<owner>/<repo>/<service>`.
 - `make tloc` runs unit and DB-backed internal Go tests together with local
-  config/secrets paths and no extra build tags.
+  config/secrets paths and no extra build tags. It is the default *local*
+  validation target; CI uses `tloc-cov` instead.
 - `make tloc-api` runs API e2e tests against an already available API with the
   `api` build tag.
 - `make tloc-all` runs `make tloc` and `make tloc-api` in sequence.

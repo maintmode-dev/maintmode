@@ -31,6 +31,12 @@ cluster, the system should make that risk explicit before work starts.
 
 ## Architecture Principles
 
+MaintMode is a **modular monolith**: one binary (`cmd/maintmode`), one
+deployable process. Modules (core, auth, notificator, audit, integration,
+license) are logical boundaries enforced by `depguard` in `.golangci.yaml`, not
+separate services. See [workflow.md](./workflow.md) for how CI builds and
+enforces this.
+
 - Keep domain logic in services and entities.
 - Keep HTTP binding and response shaping in API packages.
 - Keep SQL in storage packages.
@@ -55,7 +61,10 @@ indexes for time/resource conflict detection.
 
 ## Configuration And Secrets
 
-Runtime config lives under `deployment/<service>/<env>/`.
+Runtime config lives under `deployment/maintmode/<env>/`, where `<env>` is one
+of `local`, `dev`, `test`, `prod` (`deployment/maintmode/authz` holds authz
+policy). The sibling `deployment/` directories — `caddy`, `migrations`,
+`infra` — are infrastructure, not application services.
 
 - `app.config.yaml` contains non-secret configuration.
 - `app.secrets.yaml` contains `<secret:key>` references.
