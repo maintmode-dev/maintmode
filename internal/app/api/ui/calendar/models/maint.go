@@ -86,6 +86,18 @@ type MaintenanceView struct {
 	// so the edit screen can hydrate the already saved schedule. Always an array;
 	// empty when no reminders are set.
 	DeferredNotifications []*DeferredNotificationView `json:"deferred_notifications"`
+	// Mentions lists the users tagged alongside the owner in this maintenance's
+	// notifications. Always an array; empty when no one is mentioned.
+	Mentions []*MentionView `json:"mentions"`
+}
+
+// MentionView is one mention of the maintenance view: who was tagged, with the
+// display name resolved from auth. It deliberately carries no messenger-tag
+// information — the card shows who was mentioned, not who has a messenger
+// configured, and this view is readable by guests.
+type MentionView struct {
+	UserID      uuid.UUID `json:"user_id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
 }
 
 type ConflictView struct {

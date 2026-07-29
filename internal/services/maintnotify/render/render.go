@@ -15,12 +15,17 @@ import (
 
 // templateData is the value passed to the embedded text/template.
 //
-// OwnerMention shadows the embedded NotifyEvent.OwnerMention on purpose: the
-// templates need the already-chosen string for this transport, never the struct.
+// OwnerMention and Mentions shadow the embedded NotifyEvent fields on purpose:
+// the templates need the already-chosen string for this transport, never the
+// struct or the slice. For Mentions the shadowing is load-bearing rather than
+// merely convenient — {{if .Mentions}} on the event's slice is true for a
+// non-empty list of people who all filtered out, and would render a bare
+// "Mentions:" header with nothing after it.
 type templateData struct {
 	entity.NotifyEvent
 	MaintURL     string
 	OwnerMention string
+	Mentions     string
 }
 
 // Render produces the message for one transport. The transport selects which
@@ -28,9 +33,11 @@ type templateData struct {
 // Slack and a Telegram subscription is rendered once per transport rather than
 // once per event.
 //
-// The result is always TextMessageMIME. That is a safety invariant, not a
-// formatting preference: the owner handle is user-supplied text interpolated
-// into the body, and plain text means no markup context to escape it into.
+// The result is always TextMessageMIME, but that is a formatting label, NOT a
+// safety barrier — no transport reads the field, and the Slack gateway sends
+// with slack-go's escaping disabled, so mrkdwn in the body is parsed regardless.
+// Safety for user-supplied text interpolated into the body comes from isSafeTag
+// for handles and sanitizeDisplayName for display names, nothing else.
 func (r *Service) Render(
 	ctx context.Context,
 	transport entity.NotifyTransport,
@@ -71,6 +78,7 @@ func (r *Service) render(
 		NotifyEvent:  evt,
 		MaintURL:     maintURL,
 		OwnerMention: ownerMention(ctx, transport, evt.OwnerMention),
+		Mentions:     mentionsLine(ctx, transport, evt.Mentions),
 	}
 
 	buf := &bytes.Buffer{}

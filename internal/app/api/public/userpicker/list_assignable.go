@@ -25,7 +25,8 @@ const (
 // @Description Malformed pagination/filter params are coerced to defaults rather than rejected.
 // @Tags Maintenances
 // @Produce json
-// @Param search query string false "Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response carries neither, and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list."
+// @Description has_messenger_tag is always present. It reports only WHETHER the user has any messenger handle configured, never which one or its value, and it is meaningful only for callers permitted to plan maintenances (editor and above) — for anyone below it is hard false on every row.
+// @Param search query string false "Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response never carries their values (only the derived has_messenger_tag boolean), and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list."
 // @Param roles query []string false "Keep only users having ANY of these roles (guest|editor|reviewer|admin)" collectionFormat(multi)
 // @Param limit query int false "Page size (max 200)" default(50)
 // @Param offset query int false "Pagination offset" default(0)

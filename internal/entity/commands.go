@@ -21,6 +21,14 @@ type NotifyTargetInput struct {
 	ChannelID uuid.UUID
 }
 
+// MentionInput is one entry of the create/update contract's mentions array:
+// a MaintMode user tagged alongside the owner in the maintenance notification.
+// An object rather than a bare uuid so the contract can gain keys without a
+// breaking change, as with NotifyTargetInput above.
+type MentionInput struct {
+	UserID uuid.UUID
+}
+
 // DeferredNotificationInput is one entry of the create/update contract's
 // deferred_notifications array: a reminder to fire at FireAt. Recipients and
 // text are not part of the input — reminders go to the maintenance's notify
@@ -39,6 +47,7 @@ type CreateMaintenanceCmd struct {
 	Steps                 []*MaintenanceStepInput
 	NotifyTargets         []*NotifyTargetInput
 	DeferredNotifications []*DeferredNotificationInput
+	Mentions              []*MentionInput
 	ApproverUserID        uuid.UUID
 	CreatedByUserID       uuid.UUID
 	// Actor is the authenticated user creating the draft, resolved at the API
@@ -66,7 +75,11 @@ type UpdateMaintenanceCmd struct {
 	// leaving them alone. nil = unchanged, empty slice = clear, non-empty =
 	// replace.
 	DeferredNotifications *[]*DeferredNotificationInput
-	ApproverUserID        *uuid.UUID // nil = unchanged (no clear-to-null)
+	// Mentions is tri-state, like DeferredNotifications above: zero mentions IS
+	// a legal state, so clearing must be distinguishable from leaving them
+	// alone. nil = unchanged, empty slice = clear, non-empty = replace.
+	Mentions       *[]*MentionInput
+	ApproverUserID *uuid.UUID // nil = unchanged (no clear-to-null)
 	// Actor is the authenticated user performing the mutation, resolved at the
 	// API boundary for the audit snapshot. Always set on the public path
 	// (RUK-182).

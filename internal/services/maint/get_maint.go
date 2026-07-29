@@ -58,5 +58,12 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*entity.Main
 	}
 	maint.DeferredNotifications = deferred
 
+	mentions, err := s.maintStore.GetMaintMentions(ctx, maintID)
+	if err != nil {
+		xlog.Error(ctx, "failed to get maint mentions", xfield.Error(err))
+		return nil, err
+	}
+	maint.Mentions = mentions
+
 	return maint, nil
 }

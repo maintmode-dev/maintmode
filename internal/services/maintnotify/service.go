@@ -38,6 +38,32 @@ type OwnerResolver interface {
 	ResolveOwner(ctx context.Context, id uuid.UUID) *entity.UserMention
 }
 
+// MentionResolver turns the mentioned user ids into renderable mentions.
+//
+// It is declared separately from OwnerResolver rather than added to it because
+// the two degrade differently — a blocked owner stays named, a blocked mention is
+// dropped — and because widening OwnerResolver would force every existing
+// owner-path test double to grow a method it does not exercise. Both are
+// satisfied by *usersummary.Service.
+//
+// The absent error return is the same contract as OwnerResolver's, for the same
+// reason: an error here would become a goque retry and re-send to every target.
+type MentionResolver interface {
+	ResolveMentions(ctx context.Context, ids []uuid.UUID) []*entity.UserMention
+}
+
+// MentionsReader reads the ids of the users a maintenance mentions.
+//
+// The signature deliberately speaks only uuid.UUID. Mentions live in
+// storages/maintenances, a core store that depguard forbids the notificator
+// module from importing; declaring the dependency consumer-side keeps the import
+// out of this package while bootstrap supplies the concrete *maintenances.Store.
+// It is satisfied by the store directly rather than by the maint service, which
+// already holds this notifier — routing through it would close an import cycle.
+type MentionsReader interface {
+	GetMaintMentions(ctx context.Context, maintID uuid.UUID) ([]uuid.UUID, error)
+}
+
 // EventRenderer turns an event into the message body for one transport. It is
 // an interface rather than the concrete *render.Service so tests can drive the
 // "one transport renders, the next fails" case — the ordering hazard that the
@@ -50,11 +76,13 @@ type EventRenderer interface {
 
 // Service turns maintenance-lifecycle events into Sender.Send calls
 type Service struct {
-	frontendURL   string
-	notifyTargets NotifyTargetsStore
-	renderer      EventRenderer
-	sender        MessageSender
-	ownerResolver OwnerResolver
+	frontendURL     string
+	notifyTargets   NotifyTargetsStore
+	renderer        EventRenderer
+	sender          MessageSender
+	ownerResolver   OwnerResolver
+	mentions        MentionsReader
+	mentionResolver MentionResolver
 }
 
 func NewNotifier(
@@ -62,6 +90,8 @@ func NewNotifier(
 	sender MessageSender,
 	notifyTargets NotifyTargetsStore,
 	ownerResolver OwnerResolver,
+	mentions MentionsReader,
+	mentionResolver MentionResolver,
 ) (*Service, error) {
 	rend, err := render.New()
 	if err != nil {
@@ -69,10 +99,12 @@ func NewNotifier(
 	}
 
 	return &Service{
-		frontendURL:   cfg.App.FrontendURL,
-		notifyTargets: notifyTargets,
-		renderer:      rend,
-		sender:        sender,
-		ownerResolver: ownerResolver,
+		frontendURL:     cfg.App.FrontendURL,
+		notifyTargets:   notifyTargets,
+		renderer:        rend,
+		sender:          sender,
+		ownerResolver:   ownerResolver,
+		mentions:        mentions,
+		mentionResolver: mentionResolver,
 	}, nil
 }

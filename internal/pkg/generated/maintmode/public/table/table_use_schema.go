@@ -18,6 +18,7 @@ func UseSchema(schema string) {
 	LicenseCache = LicenseCache.FromSchema(schema)
 	MaintenanceConflictSnapshot = MaintenanceConflictSnapshot.FromSchema(schema)
 	MaintenanceDeferredNotifications = MaintenanceDeferredNotifications.FromSchema(schema)
+	MaintenanceMentions = MaintenanceMentions.FromSchema(schema)
 	MaintenanceNotifyTargets = MaintenanceNotifyTargets.FromSchema(schema)
 	MaintenanceResources = MaintenanceResources.FromSchema(schema)
 	MaintenanceSteps = MaintenanceSteps.FromSchema(schema)

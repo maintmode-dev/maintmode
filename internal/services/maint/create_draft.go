@@ -5,6 +5,7 @@ import (
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
@@ -30,6 +31,11 @@ const (
 	// maxDeferredNotifications and minDeferredNotifications caps how many deferred reminders a maintenance may carry
 	minDeferredNotifications = 0
 	maxDeferredNotifications = 10
+
+	// minMentions and maxMentions cap how many users a maintenance may tag in its
+	// notifications.
+	minMentions = 0
+	maxMentions = 10
 )
 
 func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenanceCmd) (*entity.Maintenance, error) {
@@ -93,6 +99,13 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 		}
 		maint.DeferredNotifications = deferred
 
+		mentions := lo.Uniq(lo.Map(cmd.Mentions, func(m *entity.MentionInput, _ int) uuid.UUID { return m.UserID }))
+		if err = s.maintStore.AddMentions(ctx, maint.ID, mentions); err != nil {
+			xlog.Error(ctx, "create maint mentions failed", xfield.Error(err))
+			return err
+		}
+		maint.Mentions = mentions
+
 		return nil
 	})
 	if err != nil {
@@ -143,6 +156,22 @@ func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error
 			validation.Length(minDeferredNotifications, maxDeferredNotifications),
 			validation.Each(validation.WithContext(validateDeferredNotificationInput)),
 		),
+		// Mentions are optional; validate each when present.
+		validation.Field(&cmd.Mentions,
+			validation.Length(minMentions, maxMentions),
+			validation.Each(validation.WithContext(validateMentionInput)),
+		),
+	)
+}
+
+func validateMentionInput(ctx context.Context, value any) error {
+	mention, err := xvalidation.Parse[entity.MentionInput](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, mention,
+		validation.Field(&mention.UserID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
 	)
 }
 

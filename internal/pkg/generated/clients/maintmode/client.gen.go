@@ -201,10 +201,21 @@ type ApimodelsApproveDraftMaintRequest struct {
 
 // ApimodelsAssignableUser defines model for apimodels.AssignableUser.
 type ApimodelsAssignableUser struct {
-	DisplayName *string   `json:"display_name,omitempty"`
-	Email       *string   `json:"email,omitempty"`
-	Id          *string   `json:"id,omitempty"`
-	Roles       *[]string `json:"roles,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Email       *string `json:"email,omitempty"`
+
+	// HasMessengerTag Whether the user has any messenger handle configured — an aggregate over
+	// telegram and slack, never a per-transport breakdown and never the handle
+	// values. Always false for callers not permitted to plan maintenances.
+	//
+	// Deliberately a plain bool without omitempty, so the key is present for
+	// every caller: the struct is flat, and a *bool is indistinguishable from a
+	// bool in the generated swagger, so key-absence could not express the gated
+	// case anyway — the frontend could not tell "not permitted" from "no tag".
+	// The gate lives in ToAPIAssignableUsers.
+	HasMessengerTag *bool     `json:"has_messenger_tag,omitempty"`
+	Id              *string   `json:"id,omitempty"`
+	Roles           *[]string `json:"roles,omitempty"`
 }
 
 // ApimodelsCancelMaintRequest defines model for apimodels.CancelMaintRequest.
@@ -270,12 +281,16 @@ type ApimodelsCreateDraftMaintRequest struct {
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
-	PlannedStart          *time.Time                       `json:"planned_start,omitempty"`
-	Resources             *[]ApimodelsResourceRef          `json:"resources,omitempty"`
-	Scope                 *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
-	Title                 *string                          `json:"title,omitempty"`
+
+	// Mentions Mentions tags additional MaintMode users in this maintenance's
+	// notifications. Optional; omit it or send an empty array to tag no one.
+	Mentions      *[]ApimodelsMention              `json:"mentions,omitempty"`
+	NotifyTargets *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
+	PlannedStart  *time.Time                       `json:"planned_start,omitempty"`
+	Resources     *[]ApimodelsResourceRef          `json:"resources,omitempty"`
+	Scope         *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
+	Steps         *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
+	Title         *string                          `json:"title,omitempty"`
 }
 
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
@@ -294,13 +309,18 @@ type ApimodelsCreateDraftMaintResponse struct {
 	Description           *string                                                               `json:"description,omitempty"`
 	Id                    *openapi_types.UUID                                                   `json:"id,omitempty"`
 	Impact                *string                                                               `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets                                               `json:"notify_targets,omitempty"`
-	PlannedPeriod         *ApimodelsPeriod                                                      `json:"planned_period,omitempty"`
-	Resources             *[]ApimodelsResourceRef                                               `json:"resources,omitempty"`
-	Scope                 *string                                                               `json:"scope,omitempty"`
-	Status                *string                                                               `json:"status,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStep                                           `json:"steps,omitempty"`
-	Title                 *string                                                               `json:"title,omitempty"`
+
+	// Mentions Mentions echoes back the tagged user ids so the form can read what it just
+	// wrote. This response is hand-assembled (not built by ToAPIMaintenance), so
+	// the field has to be carried here explicitly.
+	Mentions      *[]ApimodelsMention         `json:"mentions,omitempty"`
+	NotifyTargets *ApimodelsNotifyTargets     `json:"notify_targets,omitempty"`
+	PlannedPeriod *ApimodelsPeriod            `json:"planned_period,omitempty"`
+	Resources     *[]ApimodelsResourceRef     `json:"resources,omitempty"`
+	Scope         *string                     `json:"scope,omitempty"`
+	Status        *string                     `json:"status,omitempty"`
+	Steps         *[]ApimodelsMaintenanceStep `json:"steps,omitempty"`
+	Title         *string                     `json:"title,omitempty"`
 }
 
 // ApimodelsCreateIntegrationRequest defines model for apimodels.CreateIntegrationRequest.
@@ -378,6 +398,10 @@ type ApimodelsMaintenance struct {
 	Id                    *openapi_types.UUID                                                   `json:"id,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact                                           `json:"impact,omitempty"`
 
+	// Mentions Mentions lists the users tagged alongside the owner in this maintenance's
+	// notifications, with display names resolved from auth.
+	Mentions *[]ApimodelsMentionView `json:"mentions,omitempty"`
+
 	// NotifyTargets NotifyTargets lists the maintenance's notify channels resolved from the
 	// catalog for read-only rendering. Unlike the create/update requests (which
 	// take channel uuids via channel_ids), the detail view carries the full chip
@@ -421,6 +445,17 @@ type ApimodelsMaintenanceStepInput struct {
 
 // ApimodelsMaintenanceStepStatus defines model for apimodels.MaintenanceStepStatus.
 type ApimodelsMaintenanceStepStatus string
+
+// ApimodelsMention defines model for apimodels.Mention.
+type ApimodelsMention struct {
+	UserId *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// ApimodelsMentionView defines model for apimodels.MentionView.
+type ApimodelsMentionView struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	UserId      *openapi_types.UUID `json:"user_id,omitempty"`
+}
 
 // ApimodelsNotifyTargetView defines model for apimodels.NotifyTargetView.
 type ApimodelsNotifyTargetView struct {
@@ -519,12 +554,18 @@ type ApimodelsUpdateDraftMaintRequest struct {
 	DeferredNotifications *[]ApimodelsDeferredNotification `json:"deferred_notifications,omitempty"`
 	Description           *string                          `json:"description,omitempty"`
 	Impact                *ApimodelsMaintenanceImpact      `json:"impact,omitempty"`
-	NotifyTargets         *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
-	PlannedStart          *time.Time                       `json:"planned_start,omitempty"`
-	Resources             *[]ApimodelsResourceRef          `json:"resources,omitempty"`
-	Scope                 *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
-	Steps                 *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
-	Title                 *string                          `json:"title,omitempty"`
+
+	// Mentions Mentions is tri-state on update, like DeferredNotifications above: a
+	// missing field or null leaves the mentions unchanged, an empty array clears
+	// them, and a non-empty array replaces them. The distinction is carried by
+	// the pointer, so it must stay a pointer all the way down to the service gate.
+	Mentions      *[]ApimodelsMention              `json:"mentions,omitempty"`
+	NotifyTargets *ApimodelsNotifyTargets          `json:"notify_targets,omitempty"`
+	PlannedStart  *time.Time                       `json:"planned_start,omitempty"`
+	Resources     *[]ApimodelsResourceRef          `json:"resources,omitempty"`
+	Scope         *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
+	Steps         *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
+	Title         *string                          `json:"title,omitempty"`
 }
 
 // ApimodelsUpdateIntegrationRequest defines model for apimodels.UpdateIntegrationRequest.
@@ -681,6 +722,10 @@ type UimodelsMaintenanceView struct {
 	Id                    *openapi_types.UUID                 `json:"id,omitempty"`
 	Impact                *string                             `json:"impact,omitempty"`
 
+	// Mentions Mentions lists the users tagged alongside the owner in this maintenance's
+	// notifications. Always an array; empty when no one is mentioned.
+	Mentions *[]UimodelsMentionView `json:"mentions,omitempty"`
+
 	// NotifyTargets NotifyTargets lists the maintenance's notify channels resolved from the
 	// catalog, for the read-only Notify channels section (transport glyph + name).
 	NotifyTargets    *[]UimodelsNotifyTargetView        `json:"notify_targets,omitempty"`
@@ -706,6 +751,12 @@ type UimodelsMaintenanceViewResponse struct {
 	Actions     *UimodelsMaintenanceActions `json:"actions,omitempty"`
 	Conflicts   *[]UimodelsConflictView     `json:"conflicts,omitempty"`
 	Maintenance *UimodelsMaintenanceView    `json:"maintenance,omitempty"`
+}
+
+// UimodelsMentionView defines model for uimodels.MentionView.
+type UimodelsMentionView struct {
+	DisplayName *string             `json:"display_name,omitempty"`
+	UserId      *openapi_types.UUID `json:"user_id,omitempty"`
 }
 
 // UimodelsNotifyTargetView defines model for uimodels.NotifyTargetView.
@@ -756,7 +807,7 @@ type GetApiV1ResourcesListParams struct {
 
 // GetApiV1UsersAssignableParams defines parameters for GetApiV1UsersAssignable.
 type GetApiV1UsersAssignableParams struct {
-	// Search Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response carries neither, and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list.
+	// Search Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response never carries their values (only the derived has_messenger_tag boolean), and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list.
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
 	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)

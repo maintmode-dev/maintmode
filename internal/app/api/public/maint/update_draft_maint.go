@@ -23,6 +23,12 @@ import (
 // fast, so the two are expected to match.
 const maxDeferredNotifications = 10
 
+// maxMentions rejects an oversized mention set at the API boundary, before
+// binding and actor resolution. The service enforces the same cap as the
+// authoritative gate (every path reaches it); this one only fails fast, so the
+// two are expected to match — same arrangement as the reminders above.
+const maxMentions = 10
+
 // UpdateDraftMaint godoc
 // @Summary Update maintenance draft
 // @Description Updates an existing maintenance draft from planned_start and steps.
@@ -31,6 +37,10 @@ const maxDeferredNotifications = 10
 // @Description in the schema below: omitting the field or sending null leaves the
 // @Description existing reminders untouched, sending an empty array clears them all,
 // @Description and sending a non-empty array replaces them.
+// @Description
+// @Description mentions is tri-state on the same rule: omitting the field or sending
+// @Description null leaves the tagged users untouched, sending an empty array clears
+// @Description them all, and sending a non-empty array replaces them. At most 10.
 // @Tags Maintenances
 // @Accept json
 // @Produce json
@@ -135,6 +145,15 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		)
 	}
 
+	// mentions is tri-state on the same rule as deferred_notifications above, and
+	// the conditional matters most here: mapping unconditionally would turn
+	// "field absent" into an empty slice, which every downstream gate faithfully
+	// executes as "clear" — silently wiping the mentions on every edit that does
+	// not resend them.
+	if req.Mentions != nil {
+		cmd.Mentions = lo.ToPtr(apimodels.FromAPIMentions(lo.FromPtr(req.Mentions)))
+	}
+
 	return cmd, nil
 }
 
@@ -167,6 +186,14 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 		validation.Each(validation.WithContext(validateDeferredNotification)),
 	); err != nil {
 		return validation.Errors{"deferred_notifications": err}
+	}
+
+	// Same dereference requirement and re-keying as the reminders above.
+	if err := validation.ValidateWithContext(ctx, lo.FromPtr(r.Mentions),
+		validation.Length(0, maxMentions),
+		validation.Each(validation.WithContext(validateMention)),
+	); err != nil {
+		return validation.Errors{"mentions": err}
 	}
 
 	return nil

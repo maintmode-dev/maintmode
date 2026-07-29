@@ -84,6 +84,11 @@ type NotifyEvent struct {
 	// contacted; nil means "no owner to mention" (step events). The renderer
 	// picks the handle matching the target transport and falls back to Name.
 	OwnerMention *UserMention
+	// Mentions is filled by dispatch after the owner is filtered out and
+	// blocked users are dropped, before any target is contacted — the same
+	// once-per-event point as OwnerMention. Empty means there is no mention
+	// line to render.
+	Mentions []*UserMention
 
 	StepID          uuid.UUID
 	StepOrder       int32

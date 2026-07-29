@@ -111,7 +111,33 @@ func (s *Service) applyUpdate(
 		}
 	}
 
+	// Mentions are tri-state like the reminders above: nil means "not changing
+	// mentions", a supplied set — empty included — replaces them. Paired with the
+	// gate in applyValuesFromUpdateCmd, which stages what this block persists;
+	// they must agree, or clearing would rewrite the previous set instead of
+	// deleting it.
+	if cmd.Mentions != nil {
+		if err := s.replaceMentions(ctx, maint); err != nil {
+			xlog.Error(ctx, "replace mentions failed", xfield.Error(err))
+			return err
+		}
+	}
+
 	return nil
+}
+
+// replaceMentions swaps the whole mention set under the maintenance row lock
+// held by runUpdateWithApply, so the delete and the re-insert are one atomic
+// replacement rather than a window with no mentions.
+//
+// Neither failure is logged here: the caller already logs the returned error,
+// as it does for the notify targets and reminders beside it.
+func (s *Service) replaceMentions(ctx context.Context, maint *entity.Maintenance) error {
+	if err := s.maintStore.DeleteMentions(ctx, maint.ID); err != nil {
+		return err
+	}
+
+	return s.maintStore.AddMentions(ctx, maint.ID, maint.Mentions)
 }
 
 func applyValuesFromUpdateCmd(
@@ -169,6 +195,14 @@ func applyValuesFromUpdateCmd(
 		maint.DeferredNotifications = deferredNotificationsFromCmd(cmd.MaintID, lo.FromPtr(cmd.DeferredNotifications))
 	}
 
+	// Paired with the replace gate in applyUpdate, on the same rule as the
+	// reminders above: a supplied set (empty included) is staged here and
+	// persisted there, so an empty set stages an empty collection and clearing
+	// deletes rather than rewrites.
+	if cmd.Mentions != nil {
+		maint.Mentions = lo.Uniq(lo.Map(lo.FromPtr(cmd.Mentions), func(m *entity.MentionInput, _ int) uuid.UUID { return m.UserID }))
+	}
+
 	maint.Normalize()
 }
 
@@ -220,6 +254,7 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 		// Length works on the pointer field directly — LengthRule dereferences
 		// via Indirect. Each does not, so it runs separately below.
 		validation.Field(&cmd.DeferredNotifications, validation.Length(0, maxDeferredNotifications)),
+		validation.Field(&cmd.Mentions, validation.Length(minMentions, maxMentions)),
 	); err != nil {
 		return err
 	}
@@ -229,8 +264,20 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 	// also mask the per-element rules (a missing fire_at would stop being
 	// caught). A nil pointer yields an empty slice, so "unchanged" validates
 	// trivially.
-	return validation.ValidateWithContext(ctx, lo.FromPtr(cmd.DeferredNotifications),
-		validation.Each(validation.WithContext(validateDeferredNotificationInput)))
+	if err := validation.ValidateWithContext(ctx, lo.FromPtr(cmd.DeferredNotifications),
+		validation.Each(validation.WithContext(validateDeferredNotificationInput))); err != nil {
+		return err
+	}
+
+	// Same dereference requirement as the reminders above, plus the cross-element
+	// uniqueness rule ozzo cannot express per element.
+	if err := validation.ValidateWithContext(ctx, lo.FromPtr(cmd.Mentions),
+		validation.Each(validation.WithContext(validateMentionInput)),
+	); err != nil {
+		return validation.Errors{"Mentions": err}
+	}
+
+	return nil
 }
 
 func (s *Service) updateWithApply(ctx context.Context, maintID uuid.UUID, apply func(ctx context.Context, maint *entity.Maintenance) error) (prev, current *entity.Maintenance, err error) {
@@ -385,6 +432,10 @@ func maintUpdateChanges(prev, current *entity.Maintenance, cmd *entity.UpdateMai
 	// empty. Clearing hard-deletes the reminders, so this audit entry is the
 	// only record that it happened.
 	addCollection("deferred_notifications", cmd.DeferredNotifications != nil)
+	// Same tri-state gate as applyUpdate: a supplied set is a change even when
+	// empty, and clearing hard-deletes the mentions, so this entry is the only
+	// record that it happened.
+	addCollection("mentions", cmd.Mentions != nil)
 
 	return changes
 }

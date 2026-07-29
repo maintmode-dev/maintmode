@@ -32,7 +32,7 @@ func TestToAPIMaintenanceView_DeferredNotifications(t *testing.T) {
 		},
 	}
 
-	got := ToAPIMaintenanceView(maintEvent, nil, nil)
+	got := ToAPIMaintenanceView(maintEvent, nil)
 
 	require.Equal(t, []*DeferredNotificationView{
 		{ID: firstID, FireAt: earliest, Scheduled: true},
@@ -57,7 +57,7 @@ func TestToAPIMaintenanceView_DeferredNotificationsEmpty(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := ToAPIMaintenanceView(&calendardto.Maintenance{DeferredNotifications: tt.deferred}, nil, nil)
+			got := ToAPIMaintenanceView(&calendardto.Maintenance{DeferredNotifications: tt.deferred}, nil)
 
 			require.NotNil(t, got.DeferredNotifications)
 			require.Empty(t, got.DeferredNotifications)

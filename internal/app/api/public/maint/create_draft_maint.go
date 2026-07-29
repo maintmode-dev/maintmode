@@ -21,6 +21,10 @@ import (
 // CreateDraftMaint godoc
 // @Summary Create maintenance draft
 // @Description Creates a maintenance in draft status from planned_start and steps.
+// @Description
+// @Description mentions is optional: it tags up to 10 additional MaintMode users in
+// @Description this maintenance's notifications. Every user id must belong to an
+// @Description existing, unblocked user, and duplicates are rejected.
 // @Tags Maintenances
 // @Accept json
 // @Produce json
@@ -87,6 +91,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		Steps:                 apimodels.ToAPISteps(maint.Steps),
 		NotifyTargets:         apimodels.ToAPINotifyTargets(maint.NotifyTargets),
 		DeferredNotifications: apimodels.ToAPIDeferredNotifications(maint.DeferredNotifications),
+		Mentions:              apimodels.ToAPIMentions(maint.Mentions),
 	})
 }
 
@@ -125,6 +130,7 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		Steps:                 steps,
 		NotifyTargets:         notifyTargets,
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
+		Mentions:              apimodels.FromAPIMentions(req.Mentions),
 		ApproverUserID:        req.ApproverUserID,
 	}, nil
 }
@@ -161,6 +167,21 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 		validation.Field(&r.Steps, validation.Required, validation.Each(validation.WithContext(validateStep))),
 		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
 		validation.Field(&r.DeferredNotifications, validation.Each(validation.WithContext(validateDeferredNotification))),
+		validation.Field(&r.Mentions,
+			validation.Length(0, maxMentions),
+			validation.Each(validation.WithContext(validateMention)),
+		),
+	)
+}
+
+func validateMention(ctx context.Context, value any) error {
+	mention, err := xvalidation.Parse[apimodels.Mention](value)
+	if err != nil {
+		return err
+	}
+
+	return validation.ValidateStructWithContext(ctx, mention,
+		validation.Field(&mention.UserID, validation.Required, validation.By(xvalidation.UUIDNotNil)),
 	)
 }
 

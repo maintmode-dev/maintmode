@@ -16,6 +16,18 @@ components:
                     type: string
                 email:
                     type: string
+                has_messenger_tag:
+                    description: |-
+                        Whether the user has any messenger handle configured — an aggregate over
+                        telegram and slack, never a per-transport breakdown and never the handle
+                        values. Always false for callers not permitted to plan maintenances.
+
+                        Deliberately a plain bool without omitempty, so the key is present for
+                        every caller: the struct is flat, and a *bool is indistinguishable from a
+                        bool in the generated swagger, so key-absence could not express the gated
+                        case anyway — the frontend could not tell "not permitted" from "no tag".
+                        The gate lives in ToAPIAssignableUsers.
+                    type: boolean
                 id:
                     example: 550e8400-e29b-41d4-a716-446655440000
                     type: string
@@ -119,6 +131,14 @@ components:
                     type: string
                 impact:
                     $ref: '#/components/schemas/apimodels.MaintenanceImpact'
+                mentions:
+                    description: |-
+                        Mentions tags additional MaintMode users in this maintenance's
+                        notifications. Optional; omit it or send an empty array to tag no one.
+                    items:
+                        $ref: '#/components/schemas/apimodels.Mention'
+                    type: array
+                    uniqueItems: false
                 notify_targets:
                     $ref: '#/components/schemas/apimodels.NotifyTargets'
                 planned_start:
@@ -161,6 +181,15 @@ components:
                     type: string
                 impact:
                     type: string
+                mentions:
+                    description: |-
+                        Mentions echoes back the tagged user ids so the form can read what it just
+                        wrote. This response is hand-assembled (not built by ToAPIMaintenance), so
+                        the field has to be carried here explicitly.
+                    items:
+                        $ref: '#/components/schemas/apimodels.Mention'
+                    type: array
+                    uniqueItems: false
                 notify_targets:
                     $ref: '#/components/schemas/apimodels.NotifyTargets'
                 planned_period:
@@ -304,6 +333,14 @@ components:
                     type: string
                 impact:
                     $ref: '#/components/schemas/apimodels.MaintenanceImpact'
+                mentions:
+                    description: |-
+                        Mentions lists the users tagged alongside the owner in this maintenance's
+                        notifications, with display names resolved from auth.
+                    items:
+                        $ref: '#/components/schemas/apimodels.MentionView'
+                    type: array
+                    uniqueItems: false
                 notify_targets:
                     description: |-
                         NotifyTargets lists the maintenance's notify channels resolved from the
@@ -411,6 +448,20 @@ components:
                 - MaintenanceStepStatusStarted
                 - MaintenanceStepStatusCompleted
                 - MaintenanceStepStatusCanceled
+        apimodels.Mention:
+            properties:
+                user_id:
+                    format: uuid
+                    type: string
+            type: object
+        apimodels.MentionView:
+            properties:
+                display_name:
+                    type: string
+                user_id:
+                    format: uuid
+                    type: string
+            type: object
         apimodels.NotifyTargetView:
             properties:
                 id:
@@ -560,6 +611,16 @@ components:
                     type: string
                 impact:
                     $ref: '#/components/schemas/apimodels.MaintenanceImpact'
+                mentions:
+                    description: |-
+                        Mentions is tri-state on update, like DeferredNotifications above: a
+                        missing field or null leaves the mentions unchanged, an empty array clears
+                        them, and a non-empty array replaces them. The distinction is carried by
+                        the pointer, so it must stay a pointer all the way down to the service gate.
+                    items:
+                        $ref: '#/components/schemas/apimodels.Mention'
+                    type: array
+                    uniqueItems: false
                 notify_targets:
                     $ref: '#/components/schemas/apimodels.NotifyTargets'
                 planned_start:
@@ -819,6 +880,14 @@ components:
                     type: string
                 impact:
                     type: string
+                mentions:
+                    description: |-
+                        Mentions lists the users tagged alongside the owner in this maintenance's
+                        notifications. Always an array; empty when no one is mentioned.
+                    items:
+                        $ref: '#/components/schemas/uimodels.MentionView'
+                    type: array
+                    uniqueItems: false
                 notify_targets:
                     description: |-
                         NotifyTargets lists the maintenance's notify channels resolved from the
@@ -874,6 +943,14 @@ components:
                     uniqueItems: false
                 maintenance:
                     $ref: '#/components/schemas/uimodels.MaintenanceView'
+            type: object
+        uimodels.MentionView:
+            properties:
+                display_name:
+                    type: string
+                user_id:
+                    format: uuid
+                    type: string
             type: object
         uimodels.NotifyTargetView:
             properties:
@@ -1375,6 +1452,10 @@ paths:
                 in the schema below: omitting the field or sending null leaves the
                 existing reminders untouched, sending an empty array clears them all,
                 and sending a non-empty array replaces them.
+
+                mentions is tri-state on the same rule: omitting the field or sending
+                null leaves the tagged users untouched, sending an empty array clears
+                them all, and sending a non-empty array replaces them. At most 10.
             parameters:
                 - description: Maintenance ID
                   in: path
@@ -1718,7 +1799,12 @@ paths:
                 - Maintenances
     /api/v1/maintenances/create:
         post:
-            description: Creates a maintenance in draft status from planned_start and steps.
+            description: |-
+                Creates a maintenance in draft status from planned_start and steps.
+
+                mentions is optional: it tags up to 10 additional MaintMode users in
+                this maintenance's notifications. Every user id must belong to an
+                existing, unblocked user, and duplicates are rejected.
             requestBody:
                 content:
                     application/json:
@@ -2566,8 +2652,9 @@ paths:
             description: |-
                 Returns users eligible for maintenance assignment (reviewer/owner, notify targets), ordered by display_name ASC (id ASC tie-breaker). Blocked users are always excluded.
                 Malformed pagination/filter params are coerced to defaults rather than rejected.
+                has_messenger_tag is always present. It reports only WHETHER the user has any messenger handle configured, never which one or its value, and it is meaningful only for callers permitted to plan maintenances (editor and above) — for anyone below it is hard false on every row.
             parameters:
-                - description: Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response carries neither, and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list.
+                - description: Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response never carries their values (only the derived has_messenger_tag boolean), and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list.
                   in: query
                   name: search
                   schema:

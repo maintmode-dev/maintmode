@@ -202,11 +202,51 @@ func ToAPIDeferredNotifications(notifications []*entity.DeferredNotification) []
 	})
 }
 
+// FromAPIMentions maps the contract's mentions to domain inputs. Like
+// FromAPIDeferredNotifications it works on a flat slice and carries no
+// "unchanged" state: update encodes that in the pointer around the slice, which
+// its caller unwraps before mapping.
+func FromAPIMentions(mentions []*Mention) []*entity.MentionInput {
+	return lo.Map(mentions, func(item *Mention, _ int) *entity.MentionInput {
+		return &entity.MentionInput{UserID: item.UserID}
+	})
+}
+
+// ToAPIMentions maps mentioned user ids to the create/update response shape,
+// round-trippable with the mentions request field.
+func ToAPIMentions(userIDs []uuid.UUID) []*Mention {
+	return lo.Map(userIDs, func(id uuid.UUID, _ int) *Mention {
+		return &Mention{UserID: id}
+	})
+}
+
+// ToAPIMentionViews maps mentioned user ids to detail-view entries, naming each
+// from the resolved summaries. A missing summary degrades to the resolver's
+// "Unknown user" convention rather than dropping the person: someone was
+// mentioned, and the view must still say so.
+func ToAPIMentionViews(userIDs []uuid.UUID, summaries map[uuid.UUID]*entity.UserSummary) []*MentionView {
+	return lo.Map(userIDs, func(id uuid.UUID, _ int) *MentionView {
+		view := &MentionView{UserID: id, DisplayName: entity.UnknownUserName}
+		if summary, ok := summaries[id]; ok && summary != nil {
+			view.DisplayName = summary.Name
+		}
+
+		return view
+	})
+}
+
 // ToAPIMaintenance maps a maintenance entity to its API DTO. author is the
 // resolved author summary (from the auth resolver); pass nil when there is no
 // author to render — the resolver supplies a labeled "Unknown user" summary
-// rather than nil when auth cannot resolve the id.
-func ToAPIMaintenance(m *entity.Maintenance, author, approver *entity.UserSummary) *Maintenance {
+// rather than nil when auth cannot resolve the id. mentions carries the same
+// resolver's summaries keyed by user id, used to name the mentioned users; a nil
+// map names them all "Unknown user".
+func ToAPIMaintenance(
+	m *entity.Maintenance,
+	summaries map[uuid.UUID]*entity.UserSummary,
+) *Maintenance {
+	author, approver := summaries[m.CreatedByUserID], summaries[m.ApproverUserID]
+
 	maint := &Maintenance{
 		ID:                    m.ID,
 		Title:                 m.Title,
@@ -226,6 +266,7 @@ func ToAPIMaintenance(m *entity.Maintenance, author, approver *entity.UserSummar
 		Steps:                 ToAPISteps(m.Steps),
 		NotifyTargets:         ToAPINotifyTargetViews(m.NotifyTargets),
 		DeferredNotifications: ToAPIDeferredNotifications(m.DeferredNotifications),
+		Mentions:              ToAPIMentionViews(m.Mentions, summaries),
 	}
 
 	if m.ActualPeriod != nil {

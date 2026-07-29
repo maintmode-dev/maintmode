@@ -19,11 +19,11 @@ import (
 // provider at package init, so the reader has to be installed before that
 // happens — TestMain below does it. Without that, every count reads zero and
 // these assertions would pass no matter what the code does.
-func degradedCount(t *testing.T, reader sdkmetric.Reader, reason string) int64 {
+func degradedCount(t *testing.T, reason string) int64 {
 	t.Helper()
 
 	var rm metricdata.ResourceMetrics
-	require.NoError(t, reader.Collect(context.Background(), &rm))
+	require.NoError(t, testMetricReader.Collect(context.Background(), &rm))
 
 	var total int64
 
@@ -33,14 +33,11 @@ func degradedCount(t *testing.T, reader sdkmetric.Reader, reason string) int64 {
 				continue
 			}
 
-			sum, ok := m.Data.(metricdata.Sum[int64])
-			if !ok {
-				continue
-			}
-
-			for _, dp := range sum.DataPoints {
-				if v, found := dp.Attributes.Value("reason"); found && v.AsString() == reason {
-					total += dp.Value
+			if sum, ok := m.Data.(metricdata.Sum[int64]); ok {
+				for _, dp := range sum.DataPoints {
+					if v, found := dp.Attributes.Value("reason"); found && v.AsString() == reason {
+						total += dp.Value
+					}
 				}
 			}
 		}
@@ -110,11 +107,11 @@ func TestOwnerMentionDegradationCounted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			before := degradedCount(t, testMetricReader, tt.reason)
+			before := degradedCount(t, tt.reason)
 
 			got := ownerMention(ctx, entity.NotifyTransportSlack, tt.mention)
 
-			after := degradedCount(t, testMetricReader, tt.reason)
+			after := degradedCount(t, tt.reason)
 			assert.Equal(t, tt.wantIncrements, after-before)
 
 			// Whatever the outcome, delivery text never ends up empty for a

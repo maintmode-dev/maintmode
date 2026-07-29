@@ -68,6 +68,13 @@ func toDBMaintenanceResource(maintID, resourceID uuid.UUID) *model.MaintenanceRe
 	}
 }
 
+func toDBMaintenanceMention(maintID, userID uuid.UUID) *model.MaintenanceMentions {
+	return &model.MaintenanceMentions{
+		MaintenanceID: maintID,
+		UserID:        userID,
+	}
+}
+
 func uuidsToPgUUID(resourceIDs []uuid.UUID) []postgres.StringExpression {
 	return lo.Map(resourceIDs, func(item uuid.UUID, _ int) postgres.StringExpression {
 		return postgres.UUID(item)

@@ -270,8 +270,11 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	// the static segment is not shadowed.
 	{
 		usersAPI := gr.Group("/users", requireToken)
+		// Gated on maintenance.create, not .read: the picker only feeds the
+		// maintenance form, and its has_messenger_tag flag would otherwise let any
+		// guest enumerate the roster and learn who has a messenger connected.
 		usersAPI.Add(http.MethodGet, "/assignable", s.handlers.UserPicker.ListAssignableUsers,
-			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
+			s.scenarioMW(entity.AuthzScenarioMaintenanceCreate))
 	}
 }
 

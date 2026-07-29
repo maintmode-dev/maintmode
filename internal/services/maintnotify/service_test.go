@@ -18,6 +18,7 @@ func TestNotifyMaintLifecycle(t *testing.T) {
 		t.Parallel()
 
 		n, mocks := initNotifier(t)
+		expectNoMentions(mocks)
 
 		mocks.notifyTarget.EXPECT().
 			ListByMaint(gomock.Any(), gomock.Any()).
@@ -63,6 +64,7 @@ func TestNotifyMaintLifecycle(t *testing.T) {
 		t.Parallel()
 
 		n, mocks := initNotifier(t)
+		expectNoMentions(mocks)
 
 		mocks.notifyTarget.EXPECT().
 			ListByMaint(gomock.Any(), gomock.Any()).

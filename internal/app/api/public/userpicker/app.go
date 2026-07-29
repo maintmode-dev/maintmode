@@ -8,10 +8,6 @@ type Implementation struct {
 	pickerSrv *userpicker.Service
 }
 
-func New(
-	pickerSrv *userpicker.Service,
-) *Implementation {
-	return &Implementation{
-		pickerSrv: pickerSrv,
-	}
+func New(pickerSrv *userpicker.Service) *Implementation {
+	return &Implementation{pickerSrv: pickerSrv}
 }

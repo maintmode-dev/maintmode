@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/metrics"
@@ -63,6 +64,8 @@ func (n *Service) dispatch(
 		event.OwnerMention = n.ownerResolver.ResolveOwner(ctx, event.CreatedByUserID)
 	}
 
+	event.Mentions = n.resolveMentions(ctx, event)
+
 	messages, err := n.renderPerTransport(ctx, event, notifyTargets)
 	if err != nil {
 		metrics.MaintNotifyDispatchRenderError(ctx)
@@ -80,6 +83,53 @@ func (n *Service) dispatch(
 	}
 
 	return nil
+}
+
+// resolveMentions loads the maintenance's mentioned user ids and turns them into
+// renderable mentions, once per event and before the first target is contacted.
+//
+// The load happens HERE rather than in the event constructors because those have
+// already flattened the maintenance to scalars — NotifyMaintReminder in
+// particular receives a maintenance the reminder processor read from the raw
+// store, which hydrates no child collections. A caller-supplied list would
+// therefore be silently empty on the reminder path.
+//
+// A load failure is deliberately NOT returned. dispatchSync carries no
+// idempotency key, so any error escaping this function after the send loop can
+// begin turns into a goque retry that re-delivers to every target — a duplicate
+// notification is a far worse outcome than a missing decoration. The failure is
+// logged and counted instead, and the message goes out without mentions.
+func (n *Service) resolveMentions(ctx context.Context, event entity.NotifyEvent) []*entity.UserMention {
+	// Step notifications never carry mentions, so they skip the query entirely
+	// rather than paying for it on every step of every maintenance.
+	if event.Kind.IsStep() {
+		return nil
+	}
+
+	ids, err := n.mentions.GetMaintMentions(ctx, event.MaintID)
+	if err != nil {
+		// Logged, not counted on the dispatch-error metric: that one means the
+		// notification was dropped, and this one still goes out — just without
+		// its mention line.
+		xlog.Error(ctx, "failed to load maintenance mentions, sending without them",
+			xfield.String("maintID", event.MaintID.String()),
+			xfield.Error(err))
+
+		return nil
+	}
+
+	// The owner is dropped by id, before the resolve: entity.UserMention carries
+	// no ID, so neither the resolver nor the renderer could deduplicate later —
+	// they would have to compare by name (breaks on namesakes) or by handle
+	// (breaks when there is none).
+	ids = lo.Filter(ids, func(id uuid.UUID, _ int) bool {
+		return id != event.CreatedByUserID
+	})
+	if len(ids) == 0 {
+		return nil
+	}
+
+	return n.mentionResolver.ResolveMentions(ctx, ids)
 }
 
 // renderPerTransport renders one message per distinct transport among the

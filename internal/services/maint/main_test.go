@@ -89,17 +89,20 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 	require.NoError(t, err)
 
 	taskScheduler := scheduler.NewService(goque.NewTaskQueueManager(taskStorage))
+	maintenancesStore := maintenances.NewStore(db)
 	notifier, err := maintnotify.NewNotifier(
 		cfg,
 		messagesender.NewService(newStubResolver(), taskScheduler),
 		notifyTargetsStore,
 		stubOwnerResolver{},
+		maintenancesStore,
+		stubMentionResolver{},
 	)
 	require.NoError(t, err)
 
 	return NewService(
 		txManager,
-		maintenances.NewStore(db),
+		maintenancesStore,
 		resources.NewStore(db),
 		notifytargets.NewService(
 			txManager,
@@ -135,6 +138,14 @@ func newStubResolver() notifytransport.TransportResolver {
 type stubOwnerResolver struct{}
 
 func (stubOwnerResolver) ResolveOwner(_ context.Context, _ uuid.UUID) *entity.UserMention {
+	return nil
+}
+
+// stubMentionResolver names no one either, for the same reason. The mentions
+// themselves are read from the real store, so the delivery path stays wired.
+type stubMentionResolver struct{}
+
+func (stubMentionResolver) ResolveMentions(_ context.Context, _ []uuid.UUID) []*entity.UserMention {
 	return nil
 }
 

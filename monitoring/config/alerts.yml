@@ -99,6 +99,20 @@ groups:
           description: "A stored messenger handle has been failing the render-time sanitizer for 15m. Input validation should have made this impossible — find the row and how the value got in."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintnotifyownermentionrejected"
 
+      - alert: MaintNotifyDispatchErrors
+        # The dispatch path swallows these failures so a business operation that
+        # already committed still reports success. Each increment is therefore a
+        # lifecycle notification that was dropped with nothing else to show for
+        # it — no error surfaces to the API client and no retry follows.
+        expr: sum(rate(maint_notify_dispatch_errors_total[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Maintenance notifications are being dropped during dispatch"
+          description: "Notification dispatch has been failing for 15m (see the reason label: resolve = notify targets unreadable, render = template failure). Affected maintenances started, completed or were cancelled without notifying anyone."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintnotifydispatcherrors"
+
   - name: maintmode.storage
     interval: 30s
     rules:

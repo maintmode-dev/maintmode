@@ -2,5 +2,7 @@ Upcoming maintenance: {{.MaintTitle}}
 
 {{if .OwnerMention}}Owner: {{.OwnerMention}}
 
+{{end}}{{if .Mentions}}Mentions: {{.Mentions}}
+
 {{end}}Scheduled to start at {{.PlannedStart.Format "2006-01-02 15:04 MST"}}.
 Details: {{.MaintURL}}

@@ -81,6 +81,23 @@ type DeferredNotification struct {
 	FireAt time.Time `json:"fire_at" format:"date-time"`
 }
 
+// Mention is one entry of the create/update contract's mentions array: a
+// MaintMode user tagged alongside the owner in the maintenance notification.
+// An object rather than a bare uuid so the contract can gain keys without a
+// breaking change.
+type Mention struct {
+	UserID uuid.UUID `json:"user_id" format:"uuid"`
+}
+
+// MentionView is one mention of a maintenance read view: who was tagged, with
+// the display name resolved from auth. It deliberately carries no messenger-tag
+// information — the detail view shows who was mentioned, not who has a
+// messenger configured, and this endpoint is readable by guests.
+type MentionView struct {
+	UserID      uuid.UUID `json:"user_id" format:"uuid"`
+	DisplayName string    `json:"display_name"`
+}
+
 // UserSummary is a privacy-safe view of a user (e.g. a maintenance author or
 // assigned approver) exposed in API responses. It carries only what the UI
 // needs to render a name, never internal fields. A nil *UserSummary is
@@ -120,6 +137,9 @@ type Maintenance struct {
 	// data: id + name + transport.
 	NotifyTargets         []*NotifyTargetView     `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
+	// Mentions lists the users tagged alongside the owner in this maintenance's
+	// notifications, with display names resolved from auth.
+	Mentions []*MentionView `json:"mentions"`
 }
 
 type CreateDraftMaintRequest struct {
@@ -132,7 +152,10 @@ type CreateDraftMaintRequest struct {
 	Steps                 []*MaintenanceStepInput `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
-	ApproverUserID        uuid.UUID               `json:"approver_user_id" format:"uuid"`
+	// Mentions tags additional MaintMode users in this maintenance's
+	// notifications. Optional; omit it or send an empty array to tag no one.
+	Mentions       []*Mention `json:"mentions"`
+	ApproverUserID uuid.UUID  `json:"approver_user_id" format:"uuid"`
 }
 
 type CreateDraftMaintResponse struct {
@@ -150,6 +173,10 @@ type CreateDraftMaintResponse struct {
 	Steps                 []*MaintenanceStep      `json:"steps"`
 	NotifyTargets         *NotifyTargets          `json:"notify_targets"`
 	DeferredNotifications []*DeferredNotification `json:"deferred_notifications"`
+	// Mentions echoes back the tagged user ids so the form can read what it just
+	// wrote. This response is hand-assembled (not built by ToAPIMaintenance), so
+	// the field has to be carried here explicitly.
+	Mentions []*Mention `json:"mentions"`
 }
 
 type UpdateDraftMaintRequest struct {
@@ -166,7 +193,12 @@ type UpdateDraftMaintRequest struct {
 	// non-empty array replaces them. The distinction is carried by the pointer,
 	// so it must stay a pointer all the way down to the service gate.
 	DeferredNotifications *[]*DeferredNotification `json:"deferred_notifications"`
-	ApproverUserID        *uuid.UUID               `json:"approver_user_id" format:"uuid"`
+	// Mentions is tri-state on update, like DeferredNotifications above: a
+	// missing field or null leaves the mentions unchanged, an empty array clears
+	// them, and a non-empty array replaces them. The distinction is carried by
+	// the pointer, so it must stay a pointer all the way down to the service gate.
+	Mentions       *[]*Mention `json:"mentions"`
+	ApproverUserID *uuid.UUID  `json:"approver_user_id" format:"uuid"`
 }
 
 type CancelMaintRequest struct {

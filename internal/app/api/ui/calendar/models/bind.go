@@ -3,6 +3,7 @@ package uimodels
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	"github.com/ruko1202/maintmode/internal/calendardto"
@@ -39,8 +40,15 @@ func ToAPICalendarEvent(maintEvent *calendardto.Maintenance, author *entity.User
 }
 
 // ToAPIMaintenanceView maps a calendar maintenance to its detailed view. author
-// is the resolved author summary; nil when absent.
-func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance, author, approver *entity.UserSummary) *MaintenanceView {
+// is the resolved author summary; nil when absent. mentions carries the same
+// resolver's summaries keyed by user id, used to name the mentioned users; a nil
+// map names them all "Unknown user".
+func ToAPIMaintenanceView(
+	maintEvent *calendardto.Maintenance,
+	summaries map[uuid.UUID]*entity.UserSummary,
+) *MaintenanceView {
+	author, approver := summaries[maintEvent.CreatedByUserID], summaries[maintEvent.ApproverUserID]
+
 	event := &MaintenanceView{
 		ID:               maintEvent.ID,
 		Title:            maintEvent.Title,
@@ -81,6 +89,18 @@ func ToAPIMaintenanceView(maintEvent *calendardto.Maintenance, author, approver 
 				FireAt:    item.FireAt,
 				Scheduled: item.Scheduled,
 			}
+		}),
+		// Same lo.Map guarantee as the reminders above: source order preserved and
+		// an empty, non-nil slice for an empty input, so the field serializes as []
+		// and never null. An unresolved id keeps its place under the resolver's
+		// "Unknown user" label — someone was mentioned, and the card must say so.
+		Mentions: lo.Map(maintEvent.Mentions, func(id uuid.UUID, _ int) *MentionView {
+			view := &MentionView{UserID: id, DisplayName: entity.UnknownUserName}
+			if summary, ok := summaries[id]; ok && summary != nil {
+				view.DisplayName = summary.Name
+			}
+
+			return view
 		}),
 	}
 

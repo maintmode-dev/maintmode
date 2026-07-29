@@ -94,6 +94,7 @@ func TestDispatchRenderFailureSendsNothing(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 
 	// Slack is listed first and renders fine; telegram fails. A lazy
 	// implementation would therefore have already delivered to slack.
@@ -128,6 +129,7 @@ func TestDispatchUnknownKindSendsNothing(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 
 	mocks.notifyTarget.EXPECT().
 		ListByMaint(gomock.Any(), gomock.Any()).
@@ -148,6 +150,7 @@ func TestDispatchRendersOncePerTransport(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 	ownerID := uuid.New()
 
 	mocks.notifyTarget.EXPECT().
@@ -223,6 +226,7 @@ func TestDispatchStepEventSkipsOwnerResolve(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 
 	mocks.notifyTarget.EXPECT().
 		ListByMaint(gomock.Any(), gomock.Any()).
@@ -258,6 +262,7 @@ func TestDispatchBlockedOwner(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 	ownerID := uuid.New()
 
 	mocks.notifyTarget.EXPECT().
@@ -297,6 +302,7 @@ func TestDispatchReminderCarriesOwnerMention(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 	ownerID := uuid.New()
 
 	mocks.notifyTarget.EXPECT().
@@ -336,6 +342,7 @@ func TestDispatchTargetWithoutTransportStillDelivers(t *testing.T) {
 	ctx := context.Background()
 
 	n, mocks := initNotifier(t)
+	expectNoMentions(mocks)
 	ownerID := uuid.New()
 
 	mocks.notifyTarget.EXPECT().

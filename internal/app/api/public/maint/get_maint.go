@@ -45,10 +45,13 @@ func (i *Implementation) GetMaint(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	// Resolve author and approver profiles from auth in one batch call (degrades
-	// to a labeled summary on failure; never errors the read). ResolveMany dedups
-	// and drops the zero id, so author==approver or an unset approver are safe.
-	summaries := i.userSummarySrv.ResolveMany(ctx, []uuid.UUID{maint.CreatedByUserID, maint.ApproverUserID})
+	// Resolve author, approver and mentioned profiles from auth in one batch call
+	// (degrades to a labeled summary on failure; never errors the read).
+	// ResolveMany dedups and drops the zero id, so author==approver, an unset
+	// approver, or a mentioned author are all safe — and the mentions ride along
+	// in the existing batch rather than costing a second round trip.
+	ids := append([]uuid.UUID{maint.CreatedByUserID, maint.ApproverUserID}, maint.Mentions...)
+	summaries := i.userSummarySrv.ResolveMany(ctx, ids)
 
-	return c.JSON(http.StatusOK, apimodels.ToAPIMaintenance(maint, summaries[maint.CreatedByUserID], summaries[maint.ApproverUserID]))
+	return c.JSON(http.StatusOK, apimodels.ToAPIMaintenance(maint, summaries))
 }

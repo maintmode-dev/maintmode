@@ -108,7 +108,10 @@ type Maintenance struct {
 	Steps                 []*MaintenanceStep
 	NotifyTargets         []*NotifyTarget
 	DeferredNotifications []*DeferredNotification
-	ApproverUserID        uuid.UUID
+	// Mentions holds the raw ids of the mentioned users. Names and handles are
+	// resolved on read, not stored, so a renamed user never renders stale.
+	Mentions       []uuid.UUID
+	ApproverUserID uuid.UUID
 }
 
 // Normalize enforces the Scope ↔ Resources invariant: a global-scoped

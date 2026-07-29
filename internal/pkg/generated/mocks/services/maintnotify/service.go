@@ -205,6 +205,131 @@ func (c *MockOwnerResolverResolveOwnerCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// MockMentionResolver is a mock of MentionResolver interface.
+type MockMentionResolver struct {
+	ctrl     *gomock.Controller
+	recorder *MockMentionResolverMockRecorder
+	isgomock struct{}
+}
+
+// MockMentionResolverMockRecorder is the mock recorder for MockMentionResolver.
+type MockMentionResolverMockRecorder struct {
+	mock *MockMentionResolver
+}
+
+// NewMockMentionResolver creates a new mock instance.
+func NewMockMentionResolver(ctrl *gomock.Controller) *MockMentionResolver {
+	mock := &MockMentionResolver{ctrl: ctrl}
+	mock.recorder = &MockMentionResolverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMentionResolver) EXPECT() *MockMentionResolverMockRecorder {
+	return m.recorder
+}
+
+// ResolveMentions mocks base method.
+func (m *MockMentionResolver) ResolveMentions(ctx context.Context, ids []uuid.UUID) []*entity.UserMention {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveMentions", ctx, ids)
+	ret0, _ := ret[0].([]*entity.UserMention)
+	return ret0
+}
+
+// ResolveMentions indicates an expected call of ResolveMentions.
+func (mr *MockMentionResolverMockRecorder) ResolveMentions(ctx, ids any) *MockMentionResolverResolveMentionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveMentions", reflect.TypeOf((*MockMentionResolver)(nil).ResolveMentions), ctx, ids)
+	return &MockMentionResolverResolveMentionsCall{Call: call}
+}
+
+// MockMentionResolverResolveMentionsCall wrap *gomock.Call
+type MockMentionResolverResolveMentionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMentionResolverResolveMentionsCall) Return(arg0 []*entity.UserMention) *MockMentionResolverResolveMentionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMentionResolverResolveMentionsCall) Do(f func(context.Context, []uuid.UUID) []*entity.UserMention) *MockMentionResolverResolveMentionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMentionResolverResolveMentionsCall) DoAndReturn(f func(context.Context, []uuid.UUID) []*entity.UserMention) *MockMentionResolverResolveMentionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockMentionsReader is a mock of MentionsReader interface.
+type MockMentionsReader struct {
+	ctrl     *gomock.Controller
+	recorder *MockMentionsReaderMockRecorder
+	isgomock struct{}
+}
+
+// MockMentionsReaderMockRecorder is the mock recorder for MockMentionsReader.
+type MockMentionsReaderMockRecorder struct {
+	mock *MockMentionsReader
+}
+
+// NewMockMentionsReader creates a new mock instance.
+func NewMockMentionsReader(ctrl *gomock.Controller) *MockMentionsReader {
+	mock := &MockMentionsReader{ctrl: ctrl}
+	mock.recorder = &MockMentionsReaderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMentionsReader) EXPECT() *MockMentionsReaderMockRecorder {
+	return m.recorder
+}
+
+// GetMaintMentions mocks base method.
+func (m *MockMentionsReader) GetMaintMentions(ctx context.Context, maintID uuid.UUID) ([]uuid.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMaintMentions", ctx, maintID)
+	ret0, _ := ret[0].([]uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMaintMentions indicates an expected call of GetMaintMentions.
+func (mr *MockMentionsReaderMockRecorder) GetMaintMentions(ctx, maintID any) *MockMentionsReaderGetMaintMentionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaintMentions", reflect.TypeOf((*MockMentionsReader)(nil).GetMaintMentions), ctx, maintID)
+	return &MockMentionsReaderGetMaintMentionsCall{Call: call}
+}
+
+// MockMentionsReaderGetMaintMentionsCall wrap *gomock.Call
+type MockMentionsReaderGetMaintMentionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMentionsReaderGetMaintMentionsCall) Return(arg0 []uuid.UUID, arg1 error) *MockMentionsReaderGetMaintMentionsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMentionsReaderGetMaintMentionsCall) Do(f func(context.Context, uuid.UUID) ([]uuid.UUID, error)) *MockMentionsReaderGetMaintMentionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMentionsReaderGetMaintMentionsCall) DoAndReturn(f func(context.Context, uuid.UUID) ([]uuid.UUID, error)) *MockMentionsReaderGetMaintMentionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockEventRenderer is a mock of EventRenderer interface.
 type MockEventRenderer struct {
 	ctrl     *gomock.Controller

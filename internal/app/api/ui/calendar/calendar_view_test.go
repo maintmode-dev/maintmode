@@ -27,10 +27,19 @@ func TestCalendarView(t *testing.T) {
 
 		maint := makeMaint(ctx, t)
 
+		// Scoped to this maintenance's own catalog channel, the way the
+		// "filters by notify channel" subtest below does. The date window
+		// alone is not an isolator: every maintenance any test ever created
+		// sits in it, and the calendar caps the page at 1000 rows ordered by
+		// planned_period DESC, so on a well-used database the row seeded here
+		// falls off the end and the lookup below finds nothing.
+		require.Len(t, maint.NotifyTargets.ChannelIDs, 1)
+
 		c, rec := echotest.ContextConfig{
 			QueryValues: url.Values{
-				"from": []string{maint.PlannedPeriod.Start.Add(-time.Hour).Format(time.DateOnly)},
-				"to":   []string{maint.PlannedPeriod.End.Add(time.Hour).Format(time.DateOnly)},
+				"from":        []string{maint.PlannedPeriod.Start.Add(-time.Hour).Format(time.DateOnly)},
+				"to":          []string{maint.PlannedPeriod.End.Add(time.Hour).Format(time.DateOnly)},
+				"channel_ids": []string{maint.NotifyTargets.ChannelIDs[0]},
 			},
 		}.ToContextRecorder(t)
 

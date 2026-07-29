@@ -171,7 +171,18 @@ func NewServices(ctx context.Context,
 	// The notifier straddles both blocks — core stores for its targets, the auth
 	// module for the owner mention — so it is built here rather than in
 	// newCoreServices, which stays free of auth-module dependencies.
-	notifier, err := maintnotify.NewNotifier(cfg, messageSender, stores.NotifyTargets, userSummarySrv)
+	// The mentions list is read straight from the maintenances store: the maint
+	// service already holds this notifier, so routing the read through it would
+	// close an import cycle. maintnotify never imports the store package — it
+	// declares a uuid-only consumer interface — so the module boundary holds.
+	notifier, err := maintnotify.NewNotifier(
+		cfg,
+		messageSender,
+		stores.NotifyTargets,
+		userSummarySrv,
+		stores.Maintenances,
+		userSummarySrv,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init maintnotify: %w", err)
 	}

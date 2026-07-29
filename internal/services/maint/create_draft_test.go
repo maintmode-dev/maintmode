@@ -179,3 +179,43 @@ func TestCreate(t *testing.T) {
 		require.Empty(t, persistedMaint.Resources)
 	})
 }
+
+// TestCreateDraftMentionsDeduplicates pins that naming the same person twice is
+// accepted and collapses to one entry.
+//
+// The assertion is on the returned maintenance, which CreateDraft fills from
+// memory rather than re-reading: the store swallows the second row through
+// ON CONFLICT DO NOTHING, so a read-back could not tell whether the dedup
+// happened. It matters because this slice is what the create response carries
+// and what the renderer turns into the mention line — undeduplicated, the
+// person appears twice in one message.
+func TestCreateDraftMentionsDeduplicates(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	now := xtime.UTCNow().Round(time.Microsecond)
+	service, mocks := initService(t)
+	mocks.expectAnyApproverEligible()
+
+	notifyChannel := makeNotifyChannel(ctx, t, service)
+	duplicated := uuid.New()
+
+	maint, err := service.CreateDraft(ctx, &entity.CreateMaintenanceCmd{
+		Title:         "Title" + t.Name(),
+		Description:   "Description" + t.Name(),
+		PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+		Impact:        entity.MaintenanceImpactFull,
+		Scope:         entity.MaintenanceScopeGlobal,
+		Steps: []*entity.MaintenanceStepInput{{
+			Order:               1,
+			Description:         "Step1" + t.Name(),
+			RollbackDescription: "RollbackStep1" + t.Name(),
+			DurationMinutes:     minStepDurationsMinutes,
+		}},
+		NotifyTargets:  []*entity.NotifyTargetInput{{ChannelID: notifyChannel.ID}},
+		Mentions:       []*entity.MentionInput{{UserID: duplicated}, {UserID: duplicated}},
+		ApproverUserID: uuid.New(),
+	})
+	require.NoError(t, err)
+	require.Equal(t, []uuid.UUID{duplicated}, maint.Mentions)
+}

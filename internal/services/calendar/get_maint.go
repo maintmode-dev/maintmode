@@ -46,6 +46,12 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		return nil, err
 	}
 
+	mentions, err := s.maintStore.GetMaintMentions(ctx, maint.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to get maint mentions", xfield.Error(err))
+		return nil, err
+	}
+
 	return &calendardto.Maintenance{
 		ID:                  maint.ID,
 		Title:               maint.Title,
@@ -88,6 +94,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 				Scheduled: item.IsScheduled(),
 			}
 		}),
+		Mentions: mentions,
 	}, nil
 }
 
