@@ -238,7 +238,26 @@ type ReplaceRolesCmd struct {
 // ListUsersCmd describes a paginated user listing request.
 //
 // Search, when non-empty, filters by a case-insensitive partial match on
-// display name (name) OR email (LIKE %search%).
+// display name (name) and email (LIKE %search%). The messenger tags join that
+// match only when SearchMessengerTags is set.
+//
+// SearchMessengerTags opts the telegram/slack tag columns into the Search
+// match. It is set on the ADMIN listing path only. The picker leaves it false:
+// its response carries no tags, so matching them there buys the caller nothing
+// while turning the endpoint into an existence oracle — ask it whether
+// "@someone" matches and it answers with that person's name and email. The
+// picker is reachable by every role from guest up (maintenance.read), whereas
+// the admin list is admin-only and returns the tags outright, so matching them
+// there reveals nothing the caller cannot already read.
+//
+// Tags are stored verbatim ("@ruslan" and "ruslan" are different strings, see
+// CanonicalTelegramTag), so the leading "@" and surrounding blanks are stripped
+// off the query before it is matched against them: a tag pasted out of a
+// complaint finds the same user as the bare name. The name and email branches
+// keep matching the raw query, unchanged. The stored tag needs no stripping
+// either — the pattern is unanchored, so a leading "@" in the column matches
+// anyway. A query that trims away to nothing matches on name/email only, since
+// an empty tag pattern would match every non-null tag.
 //
 // Roles, when non-empty, keeps only users that have ANY of these roles among
 // their roles (OR semantics).
@@ -252,12 +271,13 @@ type ReplaceRolesCmd struct {
 // pickers set it so blocked users cannot be selected; the admin list leaves it
 // false to keep showing blocked users (so they can be unblocked).
 type ListUsersCmd struct {
-	Search         string
-	Roles          []Role
-	IDs            []uuid.UUID
-	Limit          int64
-	Offset         int64
-	ExcludeBlocked bool
+	Search              string
+	SearchMessengerTags bool
+	Roles               []Role
+	IDs                 []uuid.UUID
+	Limit               int64
+	Offset              int64
+	ExcludeBlocked      bool
 }
 
 // ListUsersResult is a page of users plus the metadata the API layer needs to

@@ -24,8 +24,10 @@ type User struct {
 	IsLastAdmin        bool       `json:"is_last_admin"`
 	BlockedAt          *time.Time `json:"blocked_at,omitempty" format:"date-time"`
 	// TelegramTag and SlackTag are the user's messenger handles, shown exactly as
-	// the user entered them, or null when not set. They are read-only here: only
-	// the user themselves can change their own handles, via PATCH /me.
+	// the user entered them, or null when not set. They are read-only on this
+	// listing: users change their own handles via PATCH /me, and admins change
+	// anyone's via PATCH /users/{id}. Both are matched by the list's search
+	// parameter, so a handle from a complaint locates its owner.
 	//
 	// Surfacing them to admins is the feature's accountability mechanism, not
 	// decoration. A handle is free text and unverified, so nothing stops someone

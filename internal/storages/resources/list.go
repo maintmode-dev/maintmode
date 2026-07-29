@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
+	"github.com/ruko1202/maintmode/internal/utils/xsql"
 )
 
 // List returns a page of resources ordered by created_at DESC (newest first),
@@ -74,7 +75,7 @@ func listWhereExpr(cmd *entity.ListResourcesCmd) postgres.BoolExpression {
 	if cmd.Name != "" {
 		cond = cond.AND(
 			postgres.LOWER(table.Resources.Name).LIKE(
-				postgres.LOWER(postgres.String("%" + cmd.Name + "%"))),
+				postgres.LOWER(postgres.String("%" + xsql.EscapeLike(cmd.Name) + "%"))),
 		)
 	}
 

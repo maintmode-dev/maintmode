@@ -25,7 +25,7 @@ const (
 // @Description Malformed pagination/filter params are coerced to defaults rather than rejected.
 // @Tags Users
 // @Produce json
-// @Param search query string false "Case-insensitive partial match on display_name or email"
+// @Param search query string false "Case-insensitive partial match on display_name, email, telegram_tag or slack_tag. A leading @ and surrounding blanks are ignored, so a handle pasted out of a complaint finds the same user as the bare name."
 // @Param roles query []string false "Keep only users having ANY of these roles (guest|editor|reviewer|admin)" collectionFormat(multi)
 // @Param limit query int false "Page size (max 200)" default(50)
 // @Param offset query int false "Pagination offset" default(0)
@@ -88,10 +88,13 @@ func queryToListUsersCmd(c *echo.Context) (*entity.ListUsersCmd, error) {
 	active, _ := echo.QueryParamOr[bool](c, "active", false)
 
 	return &entity.ListUsersCmd{
-		Search:         c.QueryParam("search"),
-		Roles:          roles,
-		Limit:          limit,
-		Offset:         offset,
-		ExcludeBlocked: active,
+		Search: c.QueryParam("search"),
+		// The one search path that opts into messenger-tag matching: admin-only,
+		// and it returns the tags anyway — see entity.ListUsersCmd.
+		SearchMessengerTags: true,
+		Roles:               roles,
+		Limit:               limit,
+		Offset:              offset,
+		ExcludeBlocked:      active,
 	}, nil
 }

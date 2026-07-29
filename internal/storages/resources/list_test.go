@@ -84,6 +84,49 @@ func TestStore_List(t *testing.T) {
 		require.Empty(t, empty)
 	})
 
+	// LIKE metacharacters arrive from the search box like any other text, so they
+	// have to match themselves. Untreated, "%" alone matches every row — a filter
+	// that silently stops filtering.
+	t.Run("LIKE metacharacters match literally", func(t *testing.T) {
+		t.Parallel()
+		// A resource whose name holds no metacharacter at all: no literal-minded
+		// search for one may reach it. Asserting its absence rather than an empty
+		// page is what makes Limit unable to hide a leak — a wildcard that escapes
+		// into the pattern returns the whole catalog, and this row is in it.
+		plain := makeNamedResource(ctx, t, store, "plain-"+uuid.NewString())
+
+		for _, meta := range []string{"%", "_", "%%", "_%"} {
+			page, _, err := store.List(ctx, &entity.ListResourcesCmd{
+				Name:   meta,
+				Limit:  200,
+				Offset: 0,
+			})
+			require.NoError(t, err)
+			require.Falsef(t, containsID(page, plain.ID),
+				"name=%q must not act as a wildcard", meta)
+		}
+	})
+
+	t.Run("an underscore matches itself, not any character", func(t *testing.T) {
+		t.Parallel()
+		// "a_b" and "axb" differ only where the metacharacter would be permissive:
+		// unescaped, the search for the first also drags in the second.
+		// Resource names are unique and the DB is shared across runs, so the stem
+		// must be a whole uuid: a truncated one collides with a previous run.
+		stem := "us" + uuid.NewString()
+		literal := makeNamedResource(ctx, t, store, stem+"_x")
+		other := makeNamedResource(ctx, t, store, stem+"yx")
+
+		page, _, err := store.List(ctx, &entity.ListResourcesCmd{
+			Name:   stem + "_x",
+			Limit:  200,
+			Offset: 0,
+		})
+		require.NoError(t, err)
+		require.True(t, containsID(page, literal.ID))
+		require.False(t, containsID(page, other.ID))
+	})
+
 	t.Run("limit caps the page size", func(t *testing.T) {
 		t.Parallel()
 		// ensure at least two rows exist

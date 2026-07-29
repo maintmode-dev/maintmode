@@ -35,6 +35,13 @@ func TestListAssignableMapsQueryToListUsers(t *testing.T) {
 	// query's search/roles/limit/offset pass through.
 	require.True(t, gotCmd.ExcludeBlocked)
 	require.Equal(t, "alice", gotCmd.Search)
+
+	// SearchMessengerTags must stay false: the picker returns no telegram/slack
+	// tags, so matching them would only turn this endpoint into an oracle
+	// answering "whose tag is this" for every role from guest up. The store-side
+	// gate is covered by TestListSearchMessengerTagsGate; this pins the caller
+	// that relies on it, so flipping the flag here cannot pass unnoticed.
+	require.False(t, gotCmd.SearchMessengerTags)
 	require.Equal(t, []entity.Role{entity.RoleReviewer}, gotCmd.Roles)
 	require.Equal(t, int64(50), gotCmd.Limit)
 	require.Equal(t, int64(20), gotCmd.Offset)

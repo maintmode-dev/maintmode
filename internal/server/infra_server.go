@@ -38,6 +38,18 @@ func NewInfraServer(
 func (s *InfraServer) BindRouters(env config.Environment) {
 	s.e.Use(middlewares.BaseMiddlewares()...)
 
+	// Registered in EVERY environment, unlike the dev-only routes below — this
+	// is deliberate, not an oversight. Alloy scrapes these endpoints on the
+	// infra port and forwards the profiles to Pyroscope (RUK-190), so gating
+	// them behind env.IsDev() would blind continuous profiling exactly where it
+	// earns its keep. The pull model was chosen so the app needs no profiling
+	// agent of its own; that only works if the endpoints are always up.
+	//
+	// Not an exposure: the infra port is never published past the edge (the
+	// perimeter Caddyfile routes :443 to the public port only, and the host
+	// firewall denies inbound by default), so reaching pprof already requires a
+	// foothold inside the container network — where Postgres and Redis are
+	// higher-value targets than a heap dump.
 	pprof.Register(s.e, pprof.DefaultPrefix)
 	gr := s.e.Group("")
 

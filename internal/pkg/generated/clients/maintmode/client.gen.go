@@ -756,7 +756,7 @@ type GetApiV1ResourcesListParams struct {
 
 // GetApiV1UsersAssignableParams defines parameters for GetApiV1UsersAssignable.
 type GetApiV1UsersAssignableParams struct {
-	// Search Case-insensitive partial match on display_name or email
+	// Search Case-insensitive partial match on display_name or email. The telegram_tag and slack_tag columns are NOT matched here — this response carries neither, and matching them would let any caller confirm which tag belongs to which person. Tag search lives on the admin user list.
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
 	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)

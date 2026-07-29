@@ -526,7 +526,7 @@
                         "type": "string"
                     },
                     "telegram_tag": {
-                        "description": "TelegramTag and SlackTag are the user's messenger handles, shown exactly as\nthe user entered them, or null when not set. They are read-only here: only\nthe user themselves can change their own handles, via PATCH /me.\n\nSurfacing them to admins is the feature's accountability mechanism, not\ndecoration. A handle is free text and unverified, so nothing stops someone\nentering a colleague's handle and having maintenance notifications ping them;\nthis listing is what makes that attributable to a person.",
+                        "description": "TelegramTag and SlackTag are the user's messenger handles, shown exactly as\nthe user entered them, or null when not set. They are read-only on this\nlisting: users change their own handles via PATCH /me, and admins change\nanyone's via PATCH /users/{id}. Both are matched by the list's search\nparameter, so a handle from a complaint locates its owner.\n\nSurfacing them to admins is the feature's accountability mechanism, not\ndecoration. A handle is free text and unverified, so nothing stops someone\nentering a colleague's handle and having maintenance notifications ping them;\nthis listing is what makes that attributable to a person.",
                         "type": "string"
                     }
                 },
@@ -2055,7 +2055,7 @@
                 "description": "Returns a paginated list of users ordered by display_name ASC (id ASC as tie-breaker). Requires admin privileges.\nconnected_providers lists the OAuth providers linked to each user; oauth_provider is the first linked provider (\"unknown\" when none). last_seen_at is null (not tracked yet).\nMalformed pagination/filter params are coerced to defaults rather than rejected.",
                 "parameters": [
                     {
-                        "description": "Case-insensitive partial match on display_name or email",
+                        "description": "Case-insensitive partial match on display_name, email, telegram_tag or slack_tag. A leading @ and surrounding blanks are ignored, so a handle pasted out of a complaint finds the same user as the bare name.",
                         "in": "query",
                         "name": "search",
                         "schema": {

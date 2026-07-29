@@ -466,8 +466,10 @@ type ApimodelsUser struct {
 	SlackTag           *string    `json:"slack_tag,omitempty"`
 
 	// TelegramTag TelegramTag and SlackTag are the user's messenger handles, shown exactly as
-	// the user entered them, or null when not set. They are read-only here: only
-	// the user themselves can change their own handles, via PATCH /me.
+	// the user entered them, or null when not set. They are read-only on this
+	// listing: users change their own handles via PATCH /me, and admins change
+	// anyone's via PATCH /users/{id}. Both are matched by the list's search
+	// parameter, so a handle from a complaint locates its owner.
 	//
 	// Surfacing them to admins is the feature's accountability mechanism, not
 	// decoration. A handle is free text and unverified, so nothing stops someone
@@ -570,7 +572,7 @@ type GetApiV1UsersInvitationsPreviewParams struct {
 
 // GetApiV1UsersListParams defines parameters for GetApiV1UsersList.
 type GetApiV1UsersListParams struct {
-	// Search Case-insensitive partial match on display_name or email
+	// Search Case-insensitive partial match on display_name, email, telegram_tag or slack_tag. A leading @ and surrounding blanks are ignored, so a handle pasted out of a complaint finds the same user as the bare name.
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 
 	// Roles Keep only users having ANY of these roles (guest|editor|reviewer|admin)

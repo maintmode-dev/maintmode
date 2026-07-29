@@ -204,3 +204,66 @@ func (c *MockOwnerResolverResolveOwnerCall) DoAndReturn(f func(context.Context, 
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// MockEventRenderer is a mock of EventRenderer interface.
+type MockEventRenderer struct {
+	ctrl     *gomock.Controller
+	recorder *MockEventRendererMockRecorder
+	isgomock struct{}
+}
+
+// MockEventRendererMockRecorder is the mock recorder for MockEventRenderer.
+type MockEventRendererMockRecorder struct {
+	mock *MockEventRenderer
+}
+
+// NewMockEventRenderer creates a new mock instance.
+func NewMockEventRenderer(ctrl *gomock.Controller) *MockEventRenderer {
+	mock := &MockEventRenderer{ctrl: ctrl}
+	mock.recorder = &MockEventRendererMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockEventRenderer) EXPECT() *MockEventRendererMockRecorder {
+	return m.recorder
+}
+
+// Render mocks base method.
+func (m *MockEventRenderer) Render(ctx context.Context, transport entity.NotifyTransport, evt entity.NotifyEvent) (entity.NotifyMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Render", ctx, transport, evt)
+	ret0, _ := ret[0].(entity.NotifyMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Render indicates an expected call of Render.
+func (mr *MockEventRendererMockRecorder) Render(ctx, transport, evt any) *MockEventRendererRenderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Render", reflect.TypeOf((*MockEventRenderer)(nil).Render), ctx, transport, evt)
+	return &MockEventRendererRenderCall{Call: call}
+}
+
+// MockEventRendererRenderCall wrap *gomock.Call
+type MockEventRendererRenderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEventRendererRenderCall) Return(arg0 entity.NotifyMessage, arg1 error) *MockEventRendererRenderCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEventRendererRenderCall) Do(f func(context.Context, entity.NotifyTransport, entity.NotifyEvent) (entity.NotifyMessage, error)) *MockEventRendererRenderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEventRendererRenderCall) DoAndReturn(f func(context.Context, entity.NotifyTransport, entity.NotifyEvent) (entity.NotifyMessage, error)) *MockEventRendererRenderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

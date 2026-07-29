@@ -11,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/model"
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
+	"github.com/ruko1202/maintmode/internal/utils/xsql"
 )
 
 const (
@@ -51,7 +52,7 @@ func (s *Store) GetResourcesLikeName(ctx context.Context, name string) ([]*entit
 			postgres.AND(
 				table.Resources.Status.EQ(postgres.String(string(entity.ResourceStatusActive))),
 				postgres.LOWER(table.Resources.Name).LIKE(
-					postgres.LOWER(postgres.String("%"+name+"%"))),
+					postgres.LOWER(postgres.String("%"+xsql.EscapeLike(name)+"%"))),
 			),
 		).
 		LIMIT(resourceListLimit).

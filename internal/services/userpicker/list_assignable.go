@@ -14,6 +14,10 @@ import (
 // optionally filtered by search and roles. It maps that onto a neutral
 // ListUsersCmd against the auth user service — ExcludeBlocked is always set so
 // blocked users are never offered for assignment.
+//
+// Search matches name and email only: SearchMessengerTags is left unset, so the
+// telegram/slack tags are NOT searchable here — see entity.ListUsersCmd for
+// why. Tag search stays on the admin listing.
 func (s *Service) ListAssignable(ctx context.Context, q *entity.ListAssignableUsersQuery) (*entity.ListAssignableUsersResult, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.UserPicker.ListAssignable")
 	defer span.End()
