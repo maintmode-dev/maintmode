@@ -140,7 +140,7 @@ func startAPIServer(
 				services.User,
 			),
 			Roles:       apiroles.New(services.User),
-			Users:       apiusers.New(services.User),
+			Users:       apiusers.New(services.User, services.License),
 			Invitations: apiinvitations.New(services.Invitation),
 			Audit:       apiaudit.New(services.Audit),
 		},

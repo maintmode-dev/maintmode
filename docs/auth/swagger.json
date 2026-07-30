@@ -466,6 +466,36 @@
                     "RoleAdmin"
                 ]
             },
+            "apimodels.SeatsResponse": {
+                "properties": {
+                    "seats_occupied": {
+                        "description": "SeatsOccupied is SeatsUsed plus SeatsPending — the number the seat cap is\nchecked against.",
+                        "example": 5,
+                        "type": "integer"
+                    },
+                    "seats_pending": {
+                        "description": "SeatsPending counts live invitations to a seat role. They hold a seat from\nthe moment they are sent, and are released by revoking or expiring them.",
+                        "example": 1,
+                        "type": "integer"
+                    },
+                    "seats_purchased": {
+                        "description": "SeatsPurchased is the licensed ceiling, null when there is none.",
+                        "example": 5,
+                        "type": "integer"
+                    },
+                    "seats_used": {
+                        "description": "SeatsUsed counts active users holding a seat role.",
+                        "example": 4,
+                        "type": "integer"
+                    },
+                    "unlimited": {
+                        "description": "Unlimited is true on a self-hosted instance, or before a ceiling has been\nreported. SeatsPurchased is null exactly when this is true.",
+                        "example": false,
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
             "apimodels.UpdateUserTagsRequest": {
                 "properties": {
                     "slack_tag": {
@@ -831,6 +861,62 @@
                 "summary": "Get audit log",
                 "tags": [
                     "Audit"
+                ]
+            }
+        },
+        "/api/v1/license/seats": {
+            "get": {
+                "description": "Returns how many licensed seats are taken and how many were purchased, so an admin can see the limit before an invite runs into it. Requires admin privileges.\nseats_occupied (seats_used + seats_pending) is the number the seat cap is checked against: once it reaches seats_purchased, inviting into a seat role is rejected with seats_limit_exceeded.\nA pending invitation to a seat role holds a seat from the moment it is sent; revoking or expiring it releases the seat. Guests never hold a seat.\nunlimited is true on a self-hosted instance or before a ceiling has been reported, and seats_purchased is then null. Before a ceiling is reported the counters are still real; on a self-hosted instance no seats are tracked at all and every counter is zero, so render \"unlimited\" rather than \"0 of unlimited\". seats_occupied may exceed seats_purchased and is reported as is.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apimodels.SeatsResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Get licensed seat usage",
+                "tags": [
+                    "Users"
                 ]
             }
         },

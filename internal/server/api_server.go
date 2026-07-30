@@ -280,7 +280,7 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 
 // authProtectedV1Group registers the auth routes that require an access token:
 // session (logout/me/providers), role management, user management, invitation
-// admin and audit read.
+// admin, licensed-seat state and audit read.
 //
 // Route ordering: every STATIC /users/... route (list, invite, invitations*) is
 // registered before the /users/:id... param routes (block/unblock, tags patch).
@@ -359,6 +359,14 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	withAuthorize.Add(http.MethodPatch, "/users/:id",
 		s.handlers.Users.UpdateUserTags,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersManage),
+	)
+
+	// Licensed-seat state for the users page. Registered here, outside the
+	// license block gate, on purpose: under a blocked license an admin must still
+	// be able to see what is going on with their org's seats.
+	withAuthorize.Add(http.MethodGet, "/license/seats",
+		s.handlers.Users.GetSeats,
+		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUsersRead),
 	)
 
 	withAuthorize.Add(http.MethodGet, "/audit/log",

@@ -32,6 +32,11 @@ type Enforcement interface {
 	// BEFORE the role change is persisted. Returns nil when there is no license
 	// (self-hosted) or no reported cap yet.
 	EnsureSeatAvailable(ctx context.Context) error
+
+	// SeatsUsage returns the current seat counts and the license that caps them.
+	// A nil license means no cap (self-hosted, or Console has not reported yet).
+	// Read-only — it never enforces.
+	SeatsUsage(ctx context.Context) (entity.SeatUsage, *entity.License, error)
 }
 
 // UsersStore lists the role sets of active (non-blocked) users. Defined

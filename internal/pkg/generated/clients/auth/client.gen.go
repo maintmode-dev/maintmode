@@ -445,6 +445,27 @@ type ApimodelsRevokeRoleRequest struct {
 // ApimodelsRole defines model for apimodels.Role.
 type ApimodelsRole string
 
+// ApimodelsSeatsResponse defines model for apimodels.SeatsResponse.
+type ApimodelsSeatsResponse struct {
+	// SeatsOccupied SeatsOccupied is SeatsUsed plus SeatsPending — the number the seat cap is
+	// checked against.
+	SeatsOccupied *int `json:"seats_occupied,omitempty"`
+
+	// SeatsPending SeatsPending counts live invitations to a seat role. They hold a seat from
+	// the moment they are sent, and are released by revoking or expiring them.
+	SeatsPending *int `json:"seats_pending,omitempty"`
+
+	// SeatsPurchased SeatsPurchased is the licensed ceiling, null when there is none.
+	SeatsPurchased *int `json:"seats_purchased,omitempty"`
+
+	// SeatsUsed SeatsUsed counts active users holding a seat role.
+	SeatsUsed *int `json:"seats_used,omitempty"`
+
+	// Unlimited Unlimited is true on a self-hosted instance, or before a ceiling has been
+	// reported. SeatsPurchased is null exactly when this is true.
+	Unlimited *bool `json:"unlimited,omitempty"`
+}
+
 // ApimodelsUpdateUserTagsRequest defines model for apimodels.UpdateUserTagsRequest.
 type ApimodelsUpdateUserTagsRequest struct {
 	SlackTag    *string `json:"slack_tag,omitempty"`
@@ -697,6 +718,9 @@ type ClientInterface interface {
 	// GetApiV1AuditLog request
 	GetApiV1AuditLog(ctx context.Context, params *GetApiV1AuditLogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1LicenseSeats request
+	GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostApiV1LoginOauthExchangeGoogleWithBody request with any body
 	PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -798,6 +822,18 @@ func (c *Client) GetApiV1WellKnownJwksJson(ctx context.Context, reqEditors ...Re
 
 func (c *Client) GetApiV1AuditLog(ctx context.Context, params *GetApiV1AuditLogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1AuditLogRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1LicenseSeatsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1323,6 +1359,33 @@ func NewGetApiV1AuditLogRequest(server string, params *GetApiV1AuditLogParams) (
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiV1LicenseSeatsRequest generates requests for GetApiV1LicenseSeats
+func NewGetApiV1LicenseSeatsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/license/seats")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -2315,6 +2378,9 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1AuditLogWithResponse request
 	GetApiV1AuditLogWithResponse(ctx context.Context, params *GetApiV1AuditLogParams, reqEditors ...RequestEditorFn) (*GetApiV1AuditLogResponse, error)
 
+	// GetApiV1LicenseSeatsWithResponse request
+	GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error)
+
 	// PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with any body
 	PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
 
@@ -2460,6 +2526,39 @@ func (r GetApiV1AuditLogResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiV1AuditLogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1LicenseSeatsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApimodelsSeatsResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1LicenseSeatsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1LicenseSeatsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1LicenseSeatsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3215,6 +3314,15 @@ func (c *ClientWithResponses) GetApiV1AuditLogWithResponse(ctx context.Context, 
 	return ParseGetApiV1AuditLogResponse(rsp)
 }
 
+// GetApiV1LicenseSeatsWithResponse request returning *GetApiV1LicenseSeatsResponse
+func (c *ClientWithResponses) GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error) {
+	rsp, err := c.GetApiV1LicenseSeats(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1LicenseSeatsResponse(rsp)
+}
+
 // PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOauthExchangeGoogleResponse
 func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
 	rsp, err := c.PostApiV1LoginOauthExchangeGoogleWithBody(ctx, contentType, body, reqEditors...)
@@ -3546,6 +3654,53 @@ func ParseGetApiV1AuditLogResponse(rsp *http.Response) (*GetApiV1AuditLogRespons
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1LicenseSeatsResponse parses an HTTP response from a GetApiV1LicenseSeatsWithResponse call
+func ParseGetApiV1LicenseSeatsResponse(rsp *http.Response) (*GetApiV1LicenseSeatsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1LicenseSeatsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApimodelsSeatsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest HttperrorsErrorResponse

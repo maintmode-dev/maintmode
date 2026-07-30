@@ -44,5 +44,5 @@ func initImpl(t *testing.T) *Implementation {
 	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)
 
-	return New(services.User)
+	return New(services.User, services.License)
 }

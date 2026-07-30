@@ -79,6 +79,18 @@ func (u SeatUsage) SeatsOccupied() int64 {
 		u.Editor.Active + u.Editor.Pending
 }
 
+// SeatsPending is the number of seats held by live pending invites — the
+// pending half of SeatsOccupied. Guests never hold a seat.
+//
+// Deliberately summed rather than derived as SeatsOccupied() - SeatsUsed():
+// that difference happens to be equal today, but it couples this counter to two
+// definitions that are intentionally different (SeatsUsed is the Console-owned
+// report, SeatsOccupied is the cap guard). If the reported definition moves, the
+// difference would silently stop meaning "live pending invites".
+func (u SeatUsage) SeatsPending() int64 {
+	return u.Admin.Pending + u.Reviewer.Pending + u.Editor.Pending
+}
+
 // HeartbeatReport is the instance-side half of the heartbeat contract: seat
 // usage, last domain activity and the running build version. Collected fresh
 // at send time. LastActivityAt is nil for an instance with no domain activity

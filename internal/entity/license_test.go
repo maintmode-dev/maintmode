@@ -123,6 +123,91 @@ func TestSeatUsage_SeatsOccupied(t *testing.T) {
 	})
 }
 
+func TestSeatUsage_SeatsPending(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		usage SeatUsage
+		want  int64
+	}{
+		{
+			name:  "empty usage has nothing pending",
+			usage: SeatUsage{},
+		},
+		{
+			name: "sums pending across the three seat roles",
+			usage: SeatUsage{
+				Admin:    SeatBucket{Active: 3, Pending: 1},
+				Reviewer: SeatBucket{Active: 0, Pending: 2},
+				Editor:   SeatBucket{Active: 7, Pending: 4},
+			},
+			want: 7,
+		},
+		{
+			name: "pending guests never hold a seat",
+			usage: SeatUsage{
+				Editor: SeatBucket{Pending: 1},
+				Guest:  SeatBucket{Active: 9, Pending: 9},
+			},
+			want: 1,
+		},
+		{
+			name: "active-only usage has nothing pending",
+			usage: SeatUsage{
+				Admin:  SeatBucket{Active: 2},
+				Editor: SeatBucket{Active: 5},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.want, tc.usage.SeatsPending())
+		})
+	}
+}
+
+// TestSeatUsage_PendingSplitsOccupied pins the split the seats contract exposes:
+// the endpoint hands out used and pending separately plus the occupied total the
+// cap guard decides on, and an admin adding the two must land on the third.
+func TestSeatUsage_PendingSplitsOccupied(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		active  [][]Role
+		pending [][]Role
+	}{
+		{name: "nothing at all"},
+		{
+			name:   "active seats only",
+			active: [][]Role{{RoleAdmin}, {RoleEditor}, {RoleReviewer}},
+		},
+		{
+			name:    "pending seats only",
+			pending: [][]Role{{RoleReviewer}, {RoleEditor}},
+		},
+		{
+			name:    "mixed, with guests on both sides",
+			active:  [][]Role{{RoleAdmin, RoleEditor}, {RoleEditor}, {RoleGuest}, nil},
+			pending: [][]Role{{RoleReviewer}, {RoleGuest}, {RoleAdmin}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			usage := BucketSeats(tc.active, tc.pending)
+
+			require.Equal(t, usage.SeatsOccupied(), usage.SeatsUsed()+usage.SeatsPending())
+		})
+	}
+}
+
 func TestRoleOccupiesSeat(t *testing.T) {
 	t.Parallel()
 
