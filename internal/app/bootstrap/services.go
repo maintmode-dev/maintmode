@@ -330,7 +330,7 @@ func newCoreServices(
 		stores.ConflictSnapshots,
 	)
 
-	jwtVerifier, err := jwtverifier.NewService(ctx, cfg.JWTVerifier)
+	jwtVerifier, err := jwtverifier.NewService(ctx, cfg.JWTVerifier, cfg.JWT)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init jwt verifier: %w", err)
 	}

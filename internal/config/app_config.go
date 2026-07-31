@@ -104,12 +104,40 @@ type JWT struct {
 	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
 }
 
-func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
+// ParsePrivateKey is the error-returning form of the signing-key parse. Callers
+// outside the bootstrap path — where a config typo must surface as an error
+// rather than as a stack trace from deep inside service wiring — use this one.
+func (j JWT) ParsePrivateKey() (*ecdsa.PrivateKey, error) {
 	privateKey, err := hex.DecodeString(j.PrivateKey)
 	if err != nil {
-		xlog.Panic(context.Background(), "failed to decode private key", xfield.Error(err))
+		return nil, fmt.Errorf("failed to decode private key: %w", err)
 	}
+
 	key, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
+
+	return key, nil
+}
+
+// PublicKey derives just the public half, so a token verifier can be handed the
+// key it needs without the private half leaking into its package.
+func (j JWT) PublicKey() (*ecdsa.PublicKey, error) {
+	key, err := j.ParsePrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	return &key.PublicKey, nil
+}
+
+// GeneratePrivateKey stays panicking because the bootstrap path that builds the
+// token service has nowhere to return an error to: an unusable signing key means
+// the process must not come up at all. It is a thin wrapper so the parsing logic
+// lives in exactly one place.
+func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
+	key, err := j.ParsePrivateKey()
 	if err != nil {
 		xlog.Panic(context.Background(), "failed to parse private key", xfield.Error(err))
 	}
