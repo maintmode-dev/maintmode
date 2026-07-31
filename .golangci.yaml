@@ -220,6 +220,8 @@ linters:
           list-mode: lax
           files:
             - "**/internal/app/api/public/*.go"
+            - "**/internal/app/api/public/**/*.go"
+            - "!**/*_test.go"
           allow:
             - github.com/ruko1202/maintmode/internal/app/api/httperrors
             - github.com/ruko1202/maintmode/internal/app/api/public
@@ -230,6 +232,8 @@ linters:
           list-mode: lax
           files:
             - "**/internal/app/api/infra/*.go"
+            - "**/internal/app/api/infra/**/*.go"
+            - "!**/*_test.go"
           allow:
             - github.com/ruko1202/maintmode/internal/app/api/httperrors
             - github.com/ruko1202/maintmode/internal/app/api/infra
@@ -239,7 +243,11 @@ linters:
         ui-api:
           list-mode: lax
           files:
-            - "**/internal/app/api/infra/*.go"
+            - "**/internal/app/api/ui/*.go"
+            - "**/internal/app/api/ui/**/*.go"
+            # Хендлер-тесты легитимно поднимают чужие api-пакеты как фикстуры
+            # (напр. ui/calendar тесты создают maintenance через public/maint).
+            - "!**/*_test.go"
           allow:
             - github.com/ruko1202/maintmode/internal/app/api/httperrors
             - github.com/ruko1202/maintmode/internal/app/api/ui
