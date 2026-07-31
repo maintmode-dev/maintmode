@@ -31,6 +31,7 @@ import (
 	apiroles "github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
 	apiusers "github.com/ruko1202/maintmode/internal/app/api/public/users"
+	uiapprovals "github.com/ruko1202/maintmode/internal/app/api/ui/approvals"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config/pg"
@@ -130,6 +131,7 @@ func startAPIServer(
 			Maint:         apimaint.New(services.Maint, services.UserSummary),
 			Resources:     resourcesapi.New(services.Resources, services.UserSummary),
 			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
+			Approvals:     uiapprovals.New(services.Calendar, services.UserSummary),
 			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver),
 			Integrations:  integrationapi.New(services.Integration, services.UserSummary),
 			UserPicker:    userpickerapi.New(services.UserPicker),

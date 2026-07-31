@@ -34,23 +34,7 @@ func (s *Service) GetMaints(ctx context.Context, filter *calendardto.GetMaintsFi
 	}
 
 	return lo.Map(maints, func(item *entity.Maintenance, _ int) *calendardto.Maintenance {
-			return &calendardto.Maintenance{
-				ID:                  item.ID,
-				Title:               item.Title,
-				Description:         item.Description,
-				PlannedPeriod:       item.PlannedPeriod,
-				ActualPeriod:        item.ActualPeriod,
-				Resources:           []*calendardto.MaintenanceResource{},
-				Scope:               item.Scope,
-				Impact:              item.Impact,
-				Status:              item.Status,
-				CancelReason:        item.CancelReason,
-				CancelReasonComment: item.CancelReasonComment,
-				CreatedAt:           item.CreatedAt,
-				UpdatedAt:           item.UpdatedAt,
-				CreatedByUserID:     item.CreatedByUserID,
-				ApproverUserID:      item.ApproverUserID,
-			}
+			return toListDTOMaint(item)
 		}), &calendardto.MaintenancesMeta{
 			Count:     int64(len(maints)),
 			Truncated: truncated,

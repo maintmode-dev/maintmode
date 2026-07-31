@@ -139,6 +139,24 @@ func (e ApimodelsTransportStatus) Valid() bool {
 	}
 }
 
+// Defines values for ApprovalsmodelsApprovalRowScope.
+const (
+	Global   ApprovalsmodelsApprovalRowScope = "global"
+	Resource ApprovalsmodelsApprovalRowScope = "resource"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalsmodelsApprovalRowScope enum.
+func (e ApprovalsmodelsApprovalRowScope) Valid() bool {
+	switch e {
+	case Global:
+		return true
+	case Resource:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UimodelsMaintenanceStatus.
 const (
 	MaintenanceStatusCancelled  UimodelsMaintenanceStatus = "canceled"
@@ -590,6 +608,44 @@ type ApimodelsUpdateResourceRequest struct {
 	Name        *string `json:"name,omitempty"`
 }
 
+// ApprovalsmodelsApprovalRow defines model for approvalsmodels.ApprovalRow.
+type ApprovalsmodelsApprovalRow struct {
+	CreatedAt *string                     `json:"created_at,omitempty"`
+	CreatedBy *ApprovalsmodelsUserSummary `json:"created_by,omitempty"`
+
+	// End End is not a pointer, matching CalendarEvent: an open-ended period maps to
+	// zero-time (0001-01-01T00:00:00Z), which the UI already reads as "no end set".
+	End    *string                          `json:"end,omitempty"`
+	Id     *openapi_types.UUID              `json:"id,omitempty"`
+	Impact *string                          `json:"impact,omitempty"`
+	Scope  *ApprovalsmodelsApprovalRowScope `json:"scope,omitempty"`
+	Start  *string                          `json:"start,omitempty"`
+	Title  *string                          `json:"title,omitempty"`
+
+	// UpdatedAt UpdatedAt is null while the maintenance has not been touched since creation.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+}
+
+// ApprovalsmodelsApprovalRowScope defines model for ApprovalsmodelsApprovalRow.Scope.
+type ApprovalsmodelsApprovalRowScope string
+
+// ApprovalsmodelsListApprovalsResponse defines model for approvalsmodels.ListApprovalsResponse.
+type ApprovalsmodelsListApprovalsResponse struct {
+	Limit        *int                          `json:"limit,omitempty"`
+	Maintenances *[]ApprovalsmodelsApprovalRow `json:"maintenances,omitempty"`
+	Offset       *int                          `json:"offset,omitempty"`
+	Total        *int                          `json:"total,omitempty"`
+}
+
+// ApprovalsmodelsUserSummary defines model for approvalsmodels.UserSummary.
+type ApprovalsmodelsUserSummary struct {
+	// DisplayName DisplayName degrades to "Unknown user" when the author cannot be resolved
+	// (blocked, deleted, auth lookup failed). The id is preserved either way.
+	DisplayName *string             `json:"display_name,omitempty"`
+	Email       *string             `json:"email,omitempty"`
+	Id          *openapi_types.UUID `json:"id,omitempty"`
+}
+
 // GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary defines model for github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary.
 type GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary struct {
 	DisplayName *string             `json:"display_name,omitempty"`
@@ -817,6 +873,15 @@ type GetApiV1UsersAssignableParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Offset Pagination offset
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUiV1ApprovalsParams defines parameters for GetUiV1Approvals.
+type GetUiV1ApprovalsParams struct {
+	// Limit Page size; values <= 0 or above 200 fall back to 50, not to 200
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset; negative values fall back to 0
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -1061,6 +1126,9 @@ type ClientInterface interface {
 
 	// GetApiV1UsersAssignable request
 	GetApiV1UsersAssignable(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUiV1Approvals request
+	GetUiV1Approvals(ctx context.Context, params *GetUiV1ApprovalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUiV1Calendar request
 	GetUiV1Calendar(ctx context.Context, params *GetUiV1CalendarParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1563,6 +1631,18 @@ func (c *Client) GetApiV1ResourcesList(ctx context.Context, params *GetApiV1Reso
 
 func (c *Client) GetApiV1UsersAssignable(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1UsersAssignableRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUiV1Approvals(ctx context.Context, params *GetUiV1ApprovalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUiV1ApprovalsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2914,6 +2994,72 @@ func NewGetApiV1UsersAssignableRequest(server string, params *GetApiV1UsersAssig
 	return req, nil
 }
 
+// NewGetUiV1ApprovalsRequest generates requests for GetUiV1Approvals
+func NewGetUiV1ApprovalsRequest(server string, params *GetUiV1ApprovalsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/ui/v1/approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUiV1CalendarRequest generates requests for GetUiV1Calendar
 func NewGetUiV1CalendarRequest(server string, params *GetUiV1CalendarParams) (*http.Request, error) {
 	var err error
@@ -3199,6 +3345,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiV1UsersAssignableWithResponse request
 	GetApiV1UsersAssignableWithResponse(ctx context.Context, params *GetApiV1UsersAssignableParams, reqEditors ...RequestEditorFn) (*GetApiV1UsersAssignableResponse, error)
+
+	// GetUiV1ApprovalsWithResponse request
+	GetUiV1ApprovalsWithResponse(ctx context.Context, params *GetUiV1ApprovalsParams, reqEditors ...RequestEditorFn) (*GetUiV1ApprovalsResponse, error)
 
 	// GetUiV1CalendarWithResponse request
 	GetUiV1CalendarWithResponse(ctx context.Context, params *GetUiV1CalendarParams, reqEditors ...RequestEditorFn) (*GetUiV1CalendarResponse, error)
@@ -4278,6 +4427,39 @@ func (r GetApiV1UsersAssignableResponse) ContentType() string {
 	return ""
 }
 
+type GetUiV1ApprovalsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApprovalsmodelsListApprovalsResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUiV1ApprovalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUiV1ApprovalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUiV1ApprovalsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetUiV1CalendarResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4714,6 +4896,15 @@ func (c *ClientWithResponses) GetApiV1UsersAssignableWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetApiV1UsersAssignableResponse(rsp)
+}
+
+// GetUiV1ApprovalsWithResponse request returning *GetUiV1ApprovalsResponse
+func (c *ClientWithResponses) GetUiV1ApprovalsWithResponse(ctx context.Context, params *GetUiV1ApprovalsParams, reqEditors ...RequestEditorFn) (*GetUiV1ApprovalsResponse, error) {
+	rsp, err := c.GetUiV1Approvals(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUiV1ApprovalsResponse(rsp)
 }
 
 // GetUiV1CalendarWithResponse request returning *GetUiV1CalendarResponse
@@ -6521,6 +6712,53 @@ func ParseGetApiV1UsersAssignableResponse(rsp *http.Response) (*GetApiV1UsersAss
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUiV1ApprovalsResponse parses an HTTP response from a GetUiV1ApprovalsWithResponse call
+func ParseGetUiV1ApprovalsResponse(rsp *http.Response) (*GetUiV1ApprovalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUiV1ApprovalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApprovalsmodelsListApprovalsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

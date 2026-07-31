@@ -160,3 +160,74 @@ func assertRolesRevokeForbidden(t *testing.T, role entity.Role) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode())
 }
+
+// The approvals page is gated on maintenance.approve rather than
+// maintenance.read: guests can read maintenances, but a page called "awaiting my
+// approval" is not a page they see empty — it is a page they do not have.
+//
+// This assertion only exists at this level. A handler test calls the
+// implementation directly, with no middleware in the chain, so it would pass no
+// matter what the route is gated on.
+func TestMaintmodeAPIRBAC_GuestApprovalsForbidden(t *testing.T) {
+	assertApprovalsForbidden(t, entity.RoleGuest)
+}
+
+func TestMaintmodeAPIRBAC_EditorApprovalsForbidden(t *testing.T) {
+	assertApprovalsForbidden(t, entity.RoleEditor)
+}
+
+func assertApprovalsForbidden(t *testing.T, role entity.Role) {
+	t.Helper()
+	ctx := ctxWithLogger(context.Background(), t)
+	apiClient := setupMaintmodeTestClientWithRoles(role)
+
+	resp, err := apiClient.GetUiV1ApprovalsWithResponse(ctx, &maintmodeclient.GetUiV1ApprovalsParams{})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusForbidden, resp.StatusCode())
+}
+
+// TestMaintmodeAPIRBAC_ReviewerApprovalsAllowed is the end-to-end proof of the
+// personal queue: a reviewer sees the drafts assigned to them and never someone
+// else's, oldest first.
+//
+// The token subject is the approver id, not just a role, because the filter is
+// keyed on the caller's identity — setupMaintmodeTestClientWithRoles would act
+// as the seeded admin instead.
+//
+// Assertions are by id rather than on total: the eligible approver is shared
+// across the API suite on a shared database, so other tests' drafts legitimately
+// sit in the same queue.
+func TestMaintmodeAPIRBAC_ReviewerApprovalsAllowed(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+	adminClient := setupMaintmodeTestClient()
+
+	approverID := resolveEligibleApprover(ctx, t, adminClient)
+
+	older := createTestMaintenance(ctx, t, adminClient)
+	newer := createTestMaintenance(ctx, t, adminClient)
+
+	// Approved, so it must have left the queue even though the approver matches.
+	approved := createAndApproveMaintenance(ctx, t, adminClient)
+
+	approverClient := setupMaintmodeTestClientWithToken(
+		mustTestAccessTokenForUser(approverID.String(), entity.RoleReviewer),
+	)
+
+	resp, err := approverClient.GetUiV1ApprovalsWithResponse(ctx, &maintmodeclient.GetUiV1ApprovalsParams{
+		Limit: lo.ToPtr(200),
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+
+	ids := lo.Map(lo.FromPtr(resp.JSON200.Maintenances),
+		func(row maintmodeclient.ApprovalsmodelsApprovalRow, _ int) string {
+			return lo.FromPtr(row.Id).String()
+		})
+
+	require.Contains(t, ids, older)
+	require.Contains(t, ids, newer)
+	require.NotContains(t, ids, approved, "an approved maintenance is no longer pending")
+	require.Less(t, lo.IndexOf(ids, older), lo.IndexOf(ids, newer),
+		"the older maintenance must come first")
+}

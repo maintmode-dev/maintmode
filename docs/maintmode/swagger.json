@@ -899,6 +899,96 @@
                 },
                 "type": "object"
             },
+            "approvalsmodels.ApprovalRow": {
+                "properties": {
+                    "created_at": {
+                        "example": "2026-07-20T09:15:00Z",
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "$ref": "#/components/schemas/approvalsmodels.UserSummary"
+                    },
+                    "end": {
+                        "description": "End is not a pointer, matching CalendarEvent: an open-ended period maps to\nzero-time (0001-01-01T00:00:00Z), which the UI already reads as \"no end set\".",
+                        "example": "2026-08-01T12:00:00Z",
+                        "type": "string"
+                    },
+                    "id": {
+                        "example": "550e8400-e29b-41d4-a716-446655440000",
+                        "format": "uuid",
+                        "type": "string"
+                    },
+                    "impact": {
+                        "example": "degradation",
+                        "type": "string"
+                    },
+                    "scope": {
+                        "enum": [
+                            "global",
+                            "resource"
+                        ],
+                        "example": "resource",
+                        "type": "string"
+                    },
+                    "start": {
+                        "example": "2026-08-01T10:00:00Z",
+                        "type": "string"
+                    },
+                    "title": {
+                        "example": "Cluster upgrade",
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "description": "UpdatedAt is null while the maintenance has not been touched since creation.",
+                        "example": "2026-07-28T14:02:00Z",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "approvalsmodels.ListApprovalsResponse": {
+                "properties": {
+                    "limit": {
+                        "example": 50,
+                        "type": "integer"
+                    },
+                    "maintenances": {
+                        "items": {
+                            "$ref": "#/components/schemas/approvalsmodels.ApprovalRow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "offset": {
+                        "example": 0,
+                        "type": "integer"
+                    },
+                    "total": {
+                        "example": 7,
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "approvalsmodels.UserSummary": {
+                "properties": {
+                    "display_name": {
+                        "description": "DisplayName degrades to \"Unknown user\" when the author cannot be resolved\n(blocked, deleted, auth lookup failed). The id is preserved either way.",
+                        "example": "Ivan Petrov",
+                        "type": "string"
+                    },
+                    "email": {
+                        "example": "ivan.petrov@example.com",
+                        "type": "string"
+                    },
+                    "id": {
+                        "example": "550e8400-e29b-41d4-a716-446655440000",
+                        "format": "uuid",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary": {
                 "properties": {
                     "display_name": {
@@ -4080,6 +4170,82 @@
                 "summary": "List assignable users",
                 "tags": [
                     "Maintenances"
+                ]
+            }
+        },
+        "/ui/v1/approvals": {
+            "get": {
+                "description": "Returns draft maintenances where the caller is the assigned approver,\noldest first. The approver is taken from the access token — there is no\nparameter to request another user's queue.\nMalformed pagination params are coerced to defaults rather than rejected.",
+                "parameters": [
+                    {
+                        "description": "Page size; values \u003c= 0 or above 200 fall back to 50, not to 200",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "default": 50,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Pagination offset; negative values fall back to 0",
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "default": 0,
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/approvalsmodels.ListApprovalsResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List maintenances awaiting my approval",
+                "tags": [
+                    "UI"
                 ]
             }
         },

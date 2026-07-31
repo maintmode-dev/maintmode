@@ -31,6 +31,14 @@ var (
 	// ErrApproverMismatch is returned when the user performing approve is not the
 	// one assigned as the maintenance approver. Wraps ErrForbidden => HTTP 403.
 	ErrApproverMismatch = fmt.Errorf("%w: only the assigned approver may approve this maintenance", ErrForbidden)
+
+	// ErrNilApprover guards the personal approval queue against a zero approver
+	// id. Without it the filter would silently collapse to "every draft in the
+	// organization" instead of one user's queue. Deliberately NOT wrapping
+	// ErrValidation/ErrForbidden: a zero id cannot come from client input (the
+	// approver is taken from the access token), so this is an internal invariant
+	// violation and must surface as HTTP 500, not 400.
+	ErrNilApprover = errors.New("approver user id must not be nil")
 )
 
 func ForbiddenMaintStatusTransition(currentStatus, newStatus any) error {

@@ -19,6 +19,7 @@ import (
 	apiroles "github.com/ruko1202/maintmode/internal/app/api/public/roles"
 	userpickerapi "github.com/ruko1202/maintmode/internal/app/api/public/userpicker"
 	apiusers "github.com/ruko1202/maintmode/internal/app/api/public/users"
+	uiapprovals "github.com/ruko1202/maintmode/internal/app/api/ui/approvals"
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -40,6 +41,7 @@ type APIServerHandlers struct {
 	Maint         *apimaint.Implementation
 	Resources     *resourcesapi.Implementation
 	Calendar      *uicalendar.Implementation
+	Approvals     *uiapprovals.Implementation
 	Notifications *apinotifications.Implementation
 	Integrations  *integrationapi.Implementation
 	UserPicker    *userpickerapi.Implementation
@@ -381,4 +383,9 @@ func (s *APIServer) uiV1Group(gr *echo.Group) {
 		s.scenarioMW(entity.AuthzScenarioCalendarRead))
 	gr.Add(http.MethodGet, "/maintenances/:id", s.handlers.Calendar.MaintView,
 		s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
+	// Gated on approve rather than read: a page called "awaiting my approval" is
+	// not a page a guest sees empty, it is a page a guest does not have. Plain
+	// scenarioMW, no introspection — that is reserved for critical mutations.
+	gr.Add(http.MethodGet, "/approvals", s.handlers.Approvals.ListApprovals,
+		s.scenarioMW(entity.AuthzScenarioMaintenanceApprove))
 }
