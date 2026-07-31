@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	"github.com/ruko1202/maintmode/internal/utils/xlo"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
@@ -18,10 +18,9 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-const (
-	defaultMaxLogsCount = 100
-	defaultOffset       = 0
-)
+// defaultMaxLogsCount is both the default page size and its ceiling: an audit
+// page is heavier than the other listings, so it never grows past 100.
+const defaultMaxLogsCount = 100
 
 // AuditLog godoc
 // @Summary Get audit log
@@ -51,7 +50,7 @@ func (i *Implementation) AuditLog(c *echo.Context) error {
 	defer span.End()
 	op := "audit log"
 
-	cmd, err := queryToGetAuditLogsCmd(ctx, c)
+	cmd, err := queryToGetAuditLogsCmd(c)
 	if err != nil {
 		xlog.Error(ctx, "query to audit log command failed", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
@@ -66,46 +65,41 @@ func (i *Implementation) AuditLog(c *echo.Context) error {
 	return c.JSON(http.StatusOK, apiauthmodels.ToAPIAuditLogResponse(page))
 }
 
-func queryToGetAuditLogsCmd(ctx context.Context, c *echo.Context) (*entity.GetAuditLogsCmd, error) {
-	limit, err := echo.QueryParamOr[int64](c, "limit", defaultMaxLogsCount)
+// queryToGetAuditLogsCmd parses the query params of the audit log page. Audit
+// rejects unparseable paging values with a 400 — unlike the read-only listings,
+// which stay silent — while out-of-range values are coerced exactly like
+// everywhere else. Errors carry their own message, so the caller logs and maps
+// them without inspecting which param failed.
+func queryToGetAuditLogsCmd(c *echo.Context) (*entity.GetAuditLogsCmd, error) {
+	// Both options are required: 100 is audit's default page size *and* its
+	// ceiling, so passing only the ceiling would silently make limit=101 fall
+	// back to the shared default of 50.
+	paging, err := xecho.PagingParams(c,
+		xecho.WithDefaultLimit(defaultMaxLogsCount),
+		xecho.WithMaxLimit(defaultMaxLogsCount),
+	)
 	if err != nil {
-		xlog.Error(ctx, "parse limit failed", xfield.Error(err))
-		return nil, fmt.Errorf("invalid limit")
-	}
-	if limit <= 0 || limit > defaultMaxLogsCount {
-		limit = defaultMaxLogsCount
-	}
-
-	offset, err := echo.QueryParamOr[int64](c, "offset", defaultOffset)
-	if err != nil {
-		xlog.Error(ctx, "parse offset failed", xfield.Error(err))
-		return nil, fmt.Errorf("invalid offset")
-	}
-	if offset < 0 {
-		offset = defaultOffset
+		return nil, err
 	}
 
 	from, err := parseTimeQuery(c, "created_from")
 	if err != nil {
-		xlog.Error(ctx, "parse created_from failed", xfield.Error(err))
 		return nil, fmt.Errorf("invalid created_from")
 	}
 
 	to, err := parseTimeQuery(c, "created_to")
 	if err != nil {
-		xlog.Error(ctx, "parse created_to failed", xfield.Error(err))
 		return nil, fmt.Errorf("invalid created_to")
 	}
 
 	actions, err := parseActionsQuery(c.QueryParam("action"))
 	if err != nil {
-		xlog.Error(ctx, "parse action failed", xfield.Error(err))
 		return nil, err
 	}
 
 	return &entity.GetAuditLogsCmd{
-		Limit:  limit,
-		Offset: offset,
+		Limit:  paging.Limit,
+		Offset: paging.Offset,
 		Filter: &entity.AuditFilter{
 			CreatedFrom: from,
 			CreatedTo:   to,

@@ -59,6 +59,18 @@ func TestAuditLog(t *testing.T) {
 				name:         fmt.Sprintf("limit=%d", defaultMaxLogsCount+1),
 				queryValues:  url.Values{"limit": {fmt.Sprint(defaultMaxLogsCount + 1)}},
 				maxLogsCount: defaultMaxLogsCount,
+			}, {
+				// Отрицательный offset коэрсится в 0, а не отвергается: 400
+				// отдаётся только на нераспарсиваемом значении.
+				name:         "offset=-5 is coerced, not rejected",
+				queryValues:  url.Values{"offset": {"-5"}},
+				maxLogsCount: defaultMaxLogsCount,
+			}, {
+				// Глубина за потолком клампится в него же — запрос валиден,
+				// просто указывает за границу возможного.
+				name:         "offset beyond cap is clamped",
+				queryValues:  url.Values{"offset": {"100000000"}},
+				maxLogsCount: defaultMaxLogsCount,
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -79,6 +91,36 @@ func TestAuditLog(t *testing.T) {
 				require.LessOrEqual(t, len(resp.Logs), tc.maxLogsCount)
 			})
 		}
+	})
+
+	t.Run("limit above ceiling yields exactly the ceiling", func(t *testing.T) {
+		t.Parallel()
+
+		// Отдельный кейс с фильтром по actor: в общей таблице ассертить точную
+		// длину можно только на своих строках. Без точного равенства кламп в
+		// 100 неотличим от клампа в дефолт 50 — тот самый тихий регресс, если
+		// хелперу передать один потолок вместо потолка и дефолта.
+		actor := xuuid.NewString() + "@example.com"
+		user := &entity.User{ID: xuuid.New(), Email: actor}
+		for range defaultMaxLogsCount + 1 {
+			seed(ctx, auditaction.LoginSuccess{User: user})
+		}
+
+		c, rec := echotest.ContextConfig{
+			QueryValues: url.Values{
+				"actor": {actor},
+				"limit": {fmt.Sprint(defaultMaxLogsCount + 1)},
+			},
+		}.ToContextRecorder(t)
+
+		err := impl.AuditLog(c)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		resp := new(apiauthmodels.AuditLogResponse)
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(resp))
+		require.Len(t, resp.Logs, defaultMaxLogsCount)
+		require.Equal(t, int64(defaultMaxLogsCount+1), resp.Total)
 	})
 
 	t.Run("structured login entry", func(t *testing.T) {
