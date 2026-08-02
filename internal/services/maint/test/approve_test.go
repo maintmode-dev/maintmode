@@ -11,15 +11,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
 func TestApprove(t *testing.T) {
 	ctx := context.Background()
-	now := xtime.UTCNow()
-	start, end := now, now.Add(5*time.Hour)
 
 	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
 	s := services.Maint
@@ -31,6 +28,8 @@ func TestApprove(t *testing.T) {
 	approver := testbootstraputils.SeedEligibleApprover(ctx, t, services)
 
 	t.Run("ok", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
 		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
 		conflictedMaints := []*entity.Maintenance{
@@ -91,6 +90,8 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("ErrApproverMismatch", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
@@ -117,6 +118,8 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("ErrForbiddenStatusTransition", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
@@ -142,6 +145,8 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("change maint revision", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),
@@ -173,6 +178,8 @@ func TestApprove(t *testing.T) {
 	})
 
 	t.Run("change conflicts fingerprint", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
 		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
 			entity.NewPeriod(start, end),
 			testdbutils.WithScope(entity.MaintenanceScopeResources),

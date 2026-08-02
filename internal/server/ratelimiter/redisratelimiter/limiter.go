@@ -32,6 +32,14 @@ func NewRedisLimiter(
 	return l
 }
 
+// Limit reports the window the constructor and its options settled on. Callers
+// that pair this limiter with a second one — the in-memory bucket standing in
+// during a Redis outage — need it to size that bucket identically, so an outage
+// changes where the decision is made and not what the limit is.
+func (r *RedisLimiter) Limit() redis_rate.Limit {
+	return r.limit
+}
+
 func (r *RedisLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	res, err := r.limiter.Allow(ctx, key, r.limit)
 	if err != nil {

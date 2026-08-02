@@ -71,7 +71,9 @@ type APIServer struct {
 	handlers APIServerHandlers
 	security APIServerSecurity
 	// redis backs the rate limiters guarding the public login/oauth and
-	// invitation endpoints.
+	// invitation endpoints (keyed by IP) and the /ui/v1 screen group (keyed by
+	// user). Each limiter degrades to a per-replica in-memory bucket when redis
+	// is unreachable.
 	redis *redis.Client
 }
 
@@ -114,9 +116,29 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 
 	// ui/v1 is fully token-gated and also behind the block gate.
 	s.uiV1Group(rootGr.Group("/ui/v1",
+		s.uiV1Middlewares(NewUIRateLimiter(meta.AppName, s.redis, s.cfg.UIRateLimiter))...))
+}
+
+// uiV1Middlewares builds the middleware chain guarding the /ui/v1 screen group.
+// It is a named function rather than an inline argument list because the ORDER
+// is the contract: the rate limiter keys on the user that RequireAccessToken
+// puts in the context, so it has to come last. Mounted ahead of the token gate
+// it would find an empty context, fall back to the remote address, and degrade
+// to an IP-keyed limiter — no error, no log, just a limiter that punishes a
+// whole office behind one NAT for one person's traffic. TestUIRateLimitWiring
+// calls this function for exactly that reason.
+//
+// The limiter arrives as an argument rather than being built here so that the
+// wiring test can supply one whose store denies after a single request. The
+// alternative — letting the test overwrite a link by index — silently patches
+// the wrong middleware the moment the order changes, which is precisely the
+// change the test exists to catch.
+func (s *APIServer) uiV1Middlewares(rateLimiter echo.MiddlewareFunc) []echo.MiddlewareFunc {
+	return []echo.MiddlewareFunc{
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
 		middlewares.RequireLicenseNotSuspended(s.security.License),
-	))
+		rateLimiter,
+	}
 }
 
 func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFunc {

@@ -47,6 +47,18 @@ api_server:
     burst: 100000
     expires_in: 3m
     timeout: 200ms
+  # Rate limiter for the /ui/v1 screen group (RUK-230), keyed by user id rather
+  # than IP. Same reasoning as the block above, one step sharper: the api suite
+  # drives the screen routes as a handful of users and, via tloc-api's -count=2,
+  # twice over, so a prod-shaped 300 RPM cap would surface as spurious 429s.
+  # This is the test-only config; the ceiling is out of the suite's way on
+  # purpose. The limit itself is exercised by the unit and wiring tests in
+  # internal/server, which do not depend on this file.
+  ui_rate_limiter:
+    requests_per_minute: 100000
+    burst: 100000
+    expires_in: 3m
+    timeout: 200ms
 
 infra_server:
   name: status

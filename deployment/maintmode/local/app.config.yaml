@@ -45,6 +45,21 @@ api_server:
     burst: 30
     expires_in: 3m
     timeout: 200ms
+  # Rate limiter for the /ui/v1 screen group (RUK-230). Keyed by user id from
+  # the token, not by IP: a whole team behind one corporate NAT shares an
+  # address, and an IP key would let one person's polling loop throttle their
+  # colleagues. Separate from the block above because that one is an
+  # anti-enumeration ceiling on the login surface — 30/min would break page
+  # loads here, where the screen routes are called in batches.
+  #
+  # 300/min is 5 rps sustained: well above any live navigation, well below what
+  # a polling loop draws. It separates a machine from a person, which is all it
+  # is for — a valid token is required either way.
+  ui_rate_limiter:
+    requests_per_minute: 300
+    burst: 300
+    expires_in: 3m
+    timeout: 200ms
 
 infra_server:
   name: status

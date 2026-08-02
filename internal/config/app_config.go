@@ -18,10 +18,19 @@ import (
 
 // HTTPServer represents HTTP server configuration with host and port settings.
 type HTTPServer struct {
-	Name        string            `mapstructure:"name"`
-	Host        string            `mapstructure:"host"`
-	Port        int               `mapstructure:"port"`
+	Name string `mapstructure:"name"`
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+	// RateLimiter caps the unauthenticated login/oauth and invitation surfaces,
+	// keyed by IP. Its threshold is an anti-enumeration ceiling: the token in
+	// the link is the only credential there, so it is deliberately low.
 	RateLimiter RateLimiterConfig `mapstructure:"rate_limiter"`
+	// UIRateLimiter caps the token-gated /ui/v1 screen routes, keyed by user.
+	// It is a separate block rather than a reuse of RateLimiter because the two
+	// answer different questions: the anti-enumeration ceiling above is set low
+	// enough to be lethal to a screen group, whose routes are called in batches
+	// on every page load. Same shape, different meaning.
+	UIRateLimiter RateLimiterConfig `mapstructure:"ui_rate_limiter"`
 }
 
 // BuildHostPort returns the server address in host:port format.
