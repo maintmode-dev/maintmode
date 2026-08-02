@@ -19,6 +19,13 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Maint.Approve")
 	defer span.End()
 
+	// The approve decision reads the actor's roles, so a missing actor must fail
+	// here rather than degrade to the strict assignment check inside the tx.
+	if cmd.Actor == nil {
+		xlog.Error(ctx, "approve called without an actor")
+		return apperr.ErrNilActor
+	}
+
 	// Approve runs in one SERIALIZABLE transaction: the conflict set is
 	// recomputed *inside* the tx, after the maintenance row is locked, so a
 	// concurrent approval that would change that set forces a serialization
@@ -33,7 +40,22 @@ func (s *Service) ApproveMaint(ctx context.Context, cmd *entity.ApproveMaintenan
 		// Only the user assigned as approver may approve this maintenance. The
 		// actor's role/permission is already enforced by RBAC; this guards the
 		// assignment itself.
-		if maint.ApproverUserID != cmd.ActorUserID {
+		//
+		// Active admins are exempt: without an override a maintenance whose
+		// approver left, was demoted or blocked would stay in draft forever, with
+		// cancel (irreversible) as the only way out. The trade-off is deliberate —
+		// approve no longer proves the assigned person decided — so the audit entry
+		// records the acting admin, not the assignment.
+		//
+		// IsActiveAdmin, not IsAdmin: a blocked admin keeps the role but has lost
+		// access. What actually rejects them today is the RequireActiveToken
+		// middleware on this route, which introspects the subject against the
+		// users table — AccessClaims carries no blocked flag, so BlockedAt is nil
+		// on an actor built from a token and this call currently equals IsAdmin().
+		// It is kept as the correct predicate for the question being asked, so a
+		// future caller that does populate BlockedAt is denied by default rather
+		// than inheriting the override.
+		if maint.ApproverUserID != cmd.ActorUserID && !cmd.Actor.IsActiveAdmin() {
 			return apperr.ErrApproverMismatch
 		}
 

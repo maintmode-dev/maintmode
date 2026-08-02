@@ -25,14 +25,24 @@ func TestRender_MapsEveryMaintAction(t *testing.T) {
 	}
 	r := fixedRenderer(uuid.New(), time.Now())
 
+	// approvedMaint clones the shared fixture with an explicit assigned approver,
+	// so the approve cases can vary "actor is the approver" without touching the
+	// id the other cases assert on.
+	approvedMaint := func(approverID uuid.UUID) *entity.Maintenance {
+		m := *maint
+		m.ApproverUserID = approverID
+		return &m
+	}
+
 	tests := []struct {
-		name             string
-		action           Action
-		wantAction       entity.AuditAction
-		wantActor        string
-		wantActorID      string
-		wantDetailsParts []string
-		checkMetadata    func(t *testing.T, m *entity.AuditMetadata)
+		name              string
+		action            Action
+		wantAction        entity.AuditAction
+		wantActor         string
+		wantActorID       string
+		wantDetailsParts  []string
+		wantDetailsAbsent []string
+		checkMetadata     func(t *testing.T, m *entity.AuditMetadata)
 	}{
 		{
 			name:             "created",
@@ -69,12 +79,47 @@ func TestRender_MapsEveryMaintAction(t *testing.T) {
 			},
 		},
 		{
-			name:             "approved",
-			action:           MaintApproved{Actor: actor, Maint: maint},
+			name:   "approved by the assigned approver",
+			action: MaintApproved{Actor: actor, Maint: approvedMaint(actor.ID)},
+			// The actor is the assigned approver: the ordinary approval line,
+			// with no override marker.
+			wantAction:        entity.AuditActionMaintApproved,
+			wantActor:         actor.Email,
+			wantActorID:       actor.ID.String(),
+			wantDetailsParts:  []string{"approved", actor.Email},
+			wantDetailsAbsent: []string{"on behalf of"},
+			checkMetadata:     func(t *testing.T, _ *entity.AuditMetadata) { t.Helper() },
+		},
+		{
+			name: "approved by an admin who is themselves the assigned approver",
+			action: MaintApproved{
+				Actor: &entity.User{
+					ID: actor.ID, Email: actor.Email, Name: actor.Name,
+					Roles: []entity.Role{entity.RoleAdmin},
+				},
+				Maint: approvedMaint(actor.ID),
+			},
+			// An admin approving their OWN assignment is an ordinary approval.
+			// The marker keys off the assignment, not the admin role, and must
+			// stay that way — otherwise every admin's own approvals get mislabeled.
+			wantAction:        entity.AuditActionMaintApproved,
+			wantActor:         actor.Email,
+			wantActorID:       actor.ID.String(),
+			wantDetailsParts:  []string{"approved", actor.Email},
+			wantDetailsAbsent: []string{"on behalf of"},
+			checkMetadata:     func(t *testing.T, _ *entity.AuditMetadata) { t.Helper() },
+		},
+		{
+			name:   "approved by an admin on someone else's behalf",
+			action: MaintApproved{Actor: actor, Maint: approvedMaint(uuid.New())},
+			// The actor is not the assigned approver, so this was an admin
+			// override. The audit line must say so on its own: the snapshot does
+			// not carry the assignment, and it may change afterwards, so a reader
+			// could not otherwise tell the two apart.
 			wantAction:       entity.AuditActionMaintApproved,
 			wantActor:        actor.Email,
 			wantActorID:      actor.ID.String(),
-			wantDetailsParts: []string{"approved", actor.Email},
+			wantDetailsParts: []string{"approved", actor.Email, "on behalf of the assigned approver"},
 			checkMetadata:    func(t *testing.T, _ *entity.AuditMetadata) { t.Helper() },
 		},
 		{
@@ -145,6 +190,9 @@ func TestRender_MapsEveryMaintAction(t *testing.T) {
 			require.Equal(t, maint.ID.String(), payload.EntityID)
 			for _, part := range tc.wantDetailsParts {
 				require.Contains(t, payload.Details, part)
+			}
+			for _, part := range tc.wantDetailsAbsent {
+				require.NotContains(t, payload.Details, part)
 			}
 			require.NotNil(t, payload.Metadata)
 			require.Equal(t, "DB upgrade", payload.Metadata.MaintTitle)

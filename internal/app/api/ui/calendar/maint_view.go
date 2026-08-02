@@ -85,16 +85,18 @@ func (i *Implementation) MaintView(c *echo.Context) error {
 		Conflicts: lo.Map(conflicts, func(item *calendardto.Conflict, _ int) *uimodels.ConflictView {
 			return uimodels.ToAPIConflictView(item)
 		}),
-		Actions: i.resolveActions(ctx, user.Roles, maint),
+		Actions: i.resolveActions(ctx, user, maint),
 	})
 }
 
-func (i *Implementation) resolveActions(ctx context.Context, roles []entity.Role, m *calendardto.Maintenance) *uimodels.MaintenanceActions {
+func (i *Implementation) resolveActions(ctx context.Context, user *entity.User, m *calendardto.Maintenance) *uimodels.MaintenanceActions {
+	roles := user.Roles
+
 	switch m.Status {
 	case entity.MaintenanceStatusDraft:
 		return &uimodels.MaintenanceActions{
 			CanEdit:    can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceEdit),
-			CanApprove: can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceApprove),
+			CanApprove: canApprove(ctx, i.authorizer, user, m),
 			CanCancel:  can(ctx, i.authorizer, roles, entity.AuthzScenarioMaintenanceCancel),
 		}
 	case entity.MaintenanceStatusPlanned:
@@ -113,6 +115,19 @@ func (i *Implementation) resolveActions(ctx context.Context, roles []entity.Role
 	default:
 		return &uimodels.MaintenanceActions{}
 	}
+}
+
+// canApprove mirrors the service-side approve gate, which is double: the RBAC
+// right maintenance.approve *and* the assignment. A reviewer who holds the right
+// but is not the assigned approver would be shown a button that then 403s, so
+// the id is compared here too — admins excepted, since they may approve any
+// draft to unblock a maintenance whose approver can no longer act.
+func canApprove(ctx context.Context, authorizer *authz.CasbinAuthorizer, user *entity.User, m *calendardto.Maintenance) bool {
+	if !can(ctx, authorizer, user.Roles, entity.AuthzScenarioMaintenanceApprove) {
+		return false
+	}
+
+	return m.ApproverUserID == user.ID || user.IsActiveAdmin()
 }
 
 func can(ctx context.Context, authorizer *authz.CasbinAuthorizer, roles []entity.Role, scenario entity.AuthzScenario) bool {

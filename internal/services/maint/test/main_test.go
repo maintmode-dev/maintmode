@@ -23,8 +23,8 @@ import (
 // testActor builds an authenticated user to stand in as the audit actor on
 // mutations called directly against the service (the handler resolves it in
 // production). A fresh id per call keeps shared-DB test data unique.
-func testActor() *entity.User {
-	return &entity.User{ID: uuid.New(), Email: "actor@example.com", Name: "Actor"}
+func testActor(roles ...entity.Role) *entity.User {
+	return &entity.User{ID: uuid.New(), Email: "actor@example.com", Name: "Actor", Roles: roles}
 }
 
 var (

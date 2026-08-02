@@ -137,6 +137,48 @@ func TestAudit_PublishedPerMutation(t *testing.T) {
 		require.Equal(t, maint.ID, got.Maint.ID)
 	})
 
+	t.Run("admin override publishes MaintApproved with the admin as actor", func(t *testing.T) {
+		t.Parallel()
+		service, mocks := initService(t)
+		recorder := mocks.audit
+
+		maint := testdbutils.MakeMaint(ctx, t, service.maintStore, service.resourcesStore,
+			entity.NewPeriod(now, now.Add(time.Hour)),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+		)
+
+		conflicts, err := service.conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
+			MaintID:       maint.ID,
+			PlannedPeriod: maint.PlannedPeriod,
+			Scope:         maint.Scope,
+			ResourceIDs:   maint.Resources,
+		})
+		require.NoError(t, err)
+
+		// An admin approving someone else's maintenance: the audit must record
+		// the admin who acted, not the user the maintenance was assigned to, so
+		// the override is attributable.
+		admin := actor()
+		admin.Roles = []entity.Role{entity.RoleAdmin}
+		require.NoError(t, service.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
+			MaintID:               maint.ID,
+			ObservedMaintRevision: maint.Revision(),
+			ActorUserID:           admin.ID,
+			Actor:                 admin,
+			ConflictSnapshot:      entity.ConflictsSnapshot{Conflicts: conflicts},
+		}))
+
+		got := lastAction[audit.MaintApproved](t, recorder)
+		require.Equal(t, admin.Email, got.Actor.Email)
+		require.Equal(t, admin.ID, got.Actor.ID)
+
+		// The published action must actually render as an override, not merely
+		// carry an actor that happens to differ from the assignment.
+		payload, err := audit.NewRenderer().Render(got)
+		require.NoError(t, err)
+		require.Contains(t, payload.Details, "on behalf of the assigned approver")
+	})
+
 	t.Run("complete publishes MaintCompleted with actor", func(t *testing.T) {
 		t.Parallel()
 		service, mocks := initService(t)

@@ -402,6 +402,39 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 	return lo.FromPtr(resp.JSON200.Id).String()
 }
 
+// provisionUser creates a real, persisted, active user holding the given roles
+// and returns a maintmode client acting as them, plus their id.
+//
+// A hand-minted token for a random subject is not enough for the introspected
+// critical mutations (approve/start/complete): auth's isSubjectActive check
+// rejects a subject that is not a real user. So the user is provisioned through
+// the same OAuth-stub exchange as the TestMain seed — a unique id_token mints a
+// fresh identity, and the dev-only X-Test-Roles header grants the roles.
+func provisionUser(ctx context.Context, t *testing.T, roles ...entity.Role) (*maintmodeclient.ClientWithResponses, uuid.UUID) {
+	t.Helper()
+
+	resp, err := newAuthTestClient("").PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
+			IdToken: lo.ToPtr("api-test-" + xuuid.NewString()),
+		},
+		testRolesEditor(roles...),
+	)
+	require.NoError(t, err, "Failed to exchange id token")
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+
+	subject, err := subjectFromAccessToken(lo.FromPtr(resp.JSON200.AccessToken))
+	require.NoError(t, err, "extract provisioned user id")
+
+	id, err := uuid.Parse(subject)
+	require.NoError(t, err, "malformed provisioned user id")
+
+	// Mint our own token rather than reusing the exchange's: the exchanged token
+	// also carries the default guest role, and these tests assert on exactly the
+	// roles they ask for.
+	return setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(subject, roles...)), id
+}
+
 // resolveEligibleApprover returns the id of an active reviewer/admin from the
 // auth service via the assignable-users picker (the same path the UI uses).
 // Approver assignment is validated at write time against this set, so tests must

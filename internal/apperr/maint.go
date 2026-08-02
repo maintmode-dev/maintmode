@@ -28,9 +28,18 @@ var (
 	// Wraps ErrValidation => HTTP 400.
 	ErrApproverNotEligible = fmt.Errorf("%w: approver is not an active reviewer/admin", ErrValidation)
 
-	// ErrApproverMismatch is returned when the user performing approve is not the
-	// one assigned as the maintenance approver. Wraps ErrForbidden => HTTP 403.
-	ErrApproverMismatch = fmt.Errorf("%w: only the assigned approver may approve this maintenance", ErrForbidden)
+	// ErrApproverMismatch is returned when the user performing approve is neither
+	// the one assigned as the maintenance approver nor an admin (admins may
+	// approve any maintenance). Wraps ErrForbidden => HTTP 403.
+	ErrApproverMismatch = fmt.Errorf("%w: only the assigned approver or an admin may approve this maintenance", ErrForbidden)
+
+	// ErrNilActor guards approve against a missing actor. The approve decision
+	// reads the actor's roles to grant admins the override, so a nil actor would
+	// silently downgrade to the strict assignment check instead of failing. Like
+	// ErrNilApprover, a nil actor cannot come from client input (it is resolved
+	// from the access token), so it is an internal invariant violation and must
+	// surface as HTTP 500.
+	ErrNilActor = errors.New("actor must not be nil")
 
 	// ErrNilApprover guards the personal approval queue against a zero approver
 	// id. Without it the filter would silently collapse to "every draft in the

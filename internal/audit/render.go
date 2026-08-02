@@ -166,6 +166,13 @@ func fillMaintPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 		fillMaintAction(payload, a.Actor, a.Maint, "updated", a.Changes)
 	case MaintApproved:
 		fillMaintAction(payload, a.Actor, a.Maint, "approved", nil)
+		// An actor who is not the assigned approver approved by admin override.
+		// Mark it in the line itself: the snapshot carries no assignment, and the
+		// assignment can change afterwards, so a reader of the audit log alone
+		// could not otherwise tell an override from an ordinary approval.
+		if a.Maint.ApproverUserID != a.Actor.ID {
+			payload.Details += " on behalf of the assigned approver"
+		}
 	case MaintStarted:
 		fillMaintAction(payload, a.Actor, a.Maint, "started", nil)
 	case MaintCompleted:

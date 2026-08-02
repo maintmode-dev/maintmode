@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 
@@ -49,9 +50,62 @@ func TestUIAPI_GetMaintenanceView(t *testing.T) {
 
 	actions := payload.Actions
 	require.True(t, lo.FromPtr(actions.CanEdit), "Should be able to edit draft")
-	require.True(t, lo.FromPtr(actions.CanApprove), "Should be able to approve draft")
+	// The default test client is an admin, and an admin may approve any draft
+	// regardless of who it is assigned to.
+	require.True(t, lo.FromPtr(actions.CanApprove), "Admin should be able to approve any draft")
 	require.False(t, lo.FromPtr(actions.CanStart), "Should not be able to start draft")
 	require.False(t, lo.FromPtr(actions.CanComplete), "Should not be able to finish draft")
+}
+
+// can_approve mirrors the service gate: the maintenance.approve right AND
+// (assigned approver OR admin). A reviewer holds the right but is bound to the
+// assignment, so they must not be offered a button that would 403.
+func TestUIAPI_GetMaintenanceView_CanApproveIsAssignmentAware(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	apiClient := setupMaintmodeTestClient()
+
+	maintenanceID := createTestMaintenance(ctx, t, apiClient)
+
+	getResp, err := apiClient.GetApiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, getResp.StatusCode(), "unexpected status: %s", getResp.Body)
+	approverID := lo.FromPtr(lo.FromPtr(getResp.JSON200.Approver).Id)
+
+	otherReviewerClient, _ := provisionUser(ctx, t, entity.RoleReviewer)
+	otherAdminClient, _ := provisionUser(ctx, t, entity.RoleAdmin)
+
+	for _, tc := range []struct {
+		name          string
+		client        *maintmodeclient.ClientWithResponses
+		expCanApprove bool
+	}{
+		{
+			name: "assigned reviewer",
+			client: setupMaintmodeTestClientWithToken(
+				mustTestAccessTokenForUser(approverID.String(), entity.RoleReviewer),
+			),
+			expCanApprove: true,
+		},
+		{
+			name:          "reviewer assigned to someone else",
+			client:        otherReviewerClient,
+			expCanApprove: false,
+		},
+		{
+			name:          "admin assigned to someone else",
+			client:        otherAdminClient,
+			expCanApprove: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := tc.client.GetUiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(maintenanceID))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+
+			require.Equal(t, tc.expCanApprove, lo.FromPtr(resp.JSON200.Actions.CanApprove))
+		})
+	}
 }
 
 func TestUIAPI_GetMaintenanceView_Planned(t *testing.T) {

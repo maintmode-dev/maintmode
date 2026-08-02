@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/ruko1202/xlog"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -141,21 +143,26 @@ func TestResolveActionsRoleAware(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// The assigned approver of every draft below. can_approve is "RBAC allows
+	// AND (I am this user OR I am an admin)", so the actor's id — not only the
+	// role — decides whether the button shows.
+	assignedApproverID := uuid.New()
+
 	tests := []struct {
 		name     string
-		roles    []entity.Role
+		user     *entity.User
 		maint    *calendardto.Maintenance
 		expected *uimodels.MaintenanceActions
 	}{
 		{
 			name:     "guest sees no draft mutations",
-			roles:    []entity.Role{entity.RoleGuest},
+			user:     &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleGuest}},
 			maint:    &calendardto.Maintenance{Status: entity.MaintenanceStatusDraft},
 			expected: &uimodels.MaintenanceActions{},
 		},
 		{
 			name:  "editor can edit and cancel draft",
-			roles: []entity.Role{entity.RoleEditor},
+			user:  &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleEditor}},
 			maint: &calendardto.Maintenance{Status: entity.MaintenanceStatusDraft},
 			expected: &uimodels.MaintenanceActions{
 				CanEdit:   true,
@@ -163,9 +170,12 @@ func TestResolveActionsRoleAware(t *testing.T) {
 			},
 		},
 		{
-			name:  "reviewer inherits editor and can approve draft",
-			roles: []entity.Role{entity.RoleReviewer},
-			maint: &calendardto.Maintenance{Status: entity.MaintenanceStatusDraft},
+			name: "assigned reviewer can approve their own draft",
+			user: &entity.User{ID: assignedApproverID, Roles: []entity.Role{entity.RoleReviewer}},
+			maint: &calendardto.Maintenance{
+				Status:         entity.MaintenanceStatusDraft,
+				ApproverUserID: assignedApproverID,
+			},
 			expected: &uimodels.MaintenanceActions{
 				CanEdit:    true,
 				CanApprove: true,
@@ -173,14 +183,66 @@ func TestResolveActionsRoleAware(t *testing.T) {
 			},
 		},
 		{
+			name: "reviewer cannot approve a draft assigned to someone else",
+			user: &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleReviewer}},
+			maint: &calendardto.Maintenance{
+				Status:         entity.MaintenanceStatusDraft,
+				ApproverUserID: assignedApproverID,
+			},
+			expected: &uimodels.MaintenanceActions{
+				CanEdit:   true,
+				CanCancel: true,
+			},
+		},
+		{
+			name: "admin can approve a draft assigned to someone else",
+			user: &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleAdmin}},
+			maint: &calendardto.Maintenance{
+				Status:         entity.MaintenanceStatusDraft,
+				ApproverUserID: assignedApproverID,
+			},
+			expected: &uimodels.MaintenanceActions{
+				CanEdit:    true,
+				CanApprove: true,
+				CanCancel:  true,
+			},
+		},
+		{
+			name: "blocked admin loses the override",
+			user: &entity.User{
+				ID:        uuid.New(),
+				Roles:     []entity.Role{entity.RoleAdmin},
+				BlockedAt: lo.ToPtr(time.Now()),
+			},
+			maint: &calendardto.Maintenance{
+				Status:         entity.MaintenanceStatusDraft,
+				ApproverUserID: assignedApproverID,
+			},
+			expected: &uimodels.MaintenanceActions{
+				CanEdit:   true,
+				CanCancel: true,
+			},
+		},
+		{
+			// MaintView falls back to a zero-valued user when none is in context.
+			// Its id is uuid.Nil, so an unset approver would compare equal — the
+			// RBAC pre-check is what stops it. Pinned so reordering canApprove's
+			// clauses, or granting the fallback a default role, fails loudly
+			// instead of showing an anonymous viewer an Approve button.
+			name:     "user missing from context cannot approve a zero-approver draft",
+			user:     &entity.User{},
+			maint:    &calendardto.Maintenance{Status: entity.MaintenanceStatusDraft},
+			expected: &uimodels.MaintenanceActions{},
+		},
+		{
 			name:     "guest cannot start planned maintenance",
-			roles:    []entity.Role{entity.RoleGuest},
+			user:     &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleGuest}},
 			maint:    &calendardto.Maintenance{Status: entity.MaintenanceStatusPlanned},
 			expected: &uimodels.MaintenanceActions{},
 		},
 		{
-			name:  "editor can finish in-progress maintenance only when steps are terminal",
-			roles: []entity.Role{entity.RoleEditor},
+			name: "editor can finish in-progress maintenance only when steps are terminal",
+			user: &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleEditor}},
 			maint: &calendardto.Maintenance{
 				Status: entity.MaintenanceStatusInProgress,
 				Steps: []*calendardto.MaintenanceStep{
@@ -203,7 +265,7 @@ func TestResolveActionsRoleAware(t *testing.T) {
 				authorizer: authorizer,
 			}
 
-			actions := impl.resolveActions(ctx, tt.roles, tt.maint)
+			actions := impl.resolveActions(ctx, tt.user, tt.maint)
 			require.Equal(t, tt.expected, actions)
 		})
 	}
