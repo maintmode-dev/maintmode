@@ -12,7 +12,13 @@ import (
 // transport and sends. The processor stays thin — it only unpacks the payload
 // and delegates.
 type messageSender interface {
-	Send(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage) error
+	Send(
+		ctx context.Context,
+		trName entity.NotifyTransport,
+		target string,
+		msg entity.NotifyMessage,
+		replyTo *entity.MessageRef,
+	) (entity.SendResult, error)
 }
 
 // NewTaskProcessor returns the goque TaskProcessor that delivers async/delayed messages

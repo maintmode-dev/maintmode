@@ -31,10 +31,12 @@ func ptr(s string) *string { return &s }
 var errRenderBoom = errors.New("render boom")
 
 // sentMessage records one delivery so tests can assert on the body that actually
-// reached each transport.
+// reached each transport, and on the thread root it was sent under.
 type sentMessage struct {
 	transport entity.NotifyTransport
+	channel   string
 	body      string
+	replyTo   *entity.MessageRef
 }
 
 // recorder collects deliveries from the mock sender. Dispatch is sequential, but
@@ -44,11 +46,21 @@ type recorder struct {
 	sent []sentMessage
 }
 
-func (r *recorder) record(transport entity.NotifyTransport, msg entity.NotifyMessage) {
+func (r *recorder) record(
+	transport entity.NotifyTransport,
+	channel string,
+	msg entity.NotifyMessage,
+	replyTo *entity.MessageRef,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.sent = append(r.sent, sentMessage{transport: transport, body: msg.Body})
+	r.sent = append(r.sent, sentMessage{
+		transport: transport,
+		channel:   channel,
+		body:      msg.Body,
+		replyTo:   replyTo,
+	})
 }
 
 func (r *recorder) all() []sentMessage {
@@ -174,11 +186,11 @@ func TestDispatchRendersOncePerTransport(t *testing.T) {
 
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, channel string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 
-			return nil
+			return entity.SendResult{}, nil
 		}).
 		Times(4)
 
@@ -235,12 +247,18 @@ func TestDispatchStepEventSkipsOwnerResolve(t *testing.T) {
 	// No ResolveOwner expectation: any call fails the test.
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context,
+			tr entity.NotifyTransport,
+			channel string,
+			msg entity.NotifyMessage,
+			replyTo *entity.MessageRef,
+		) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 			assert.Equal(t, entity.TextMessageMIME, msg.MessageMIME)
 
-			return nil
+			return entity.SendResult{}, nil
 		})
 
 	n.NotifyStepLifecycle(ctx,
@@ -277,11 +295,11 @@ func TestDispatchBlockedOwner(t *testing.T) {
 
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, channel string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 
-			return nil
+			return entity.SendResult{}, nil
 		})
 
 	n.NotifyMaintLifecycle(ctx, entity.NotifyEventMaintStarted, &entity.Maintenance{
@@ -315,11 +333,11 @@ func TestDispatchReminderCarriesOwnerMention(t *testing.T) {
 
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, channel string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 
-			return nil
+			return entity.SendResult{}, nil
 		})
 
 	err := n.NotifyMaintReminder(ctx, &entity.Maintenance{
@@ -358,11 +376,11 @@ func TestDispatchTargetWithoutTransportStillDelivers(t *testing.T) {
 
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, channel string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 
-			return nil
+			return entity.SendResult{}, nil
 		}).
 		Times(2)
 

@@ -37,20 +37,39 @@ func TestSend(t *testing.T) {
 	t.Run("delivered", func(t *testing.T) {
 		t.Parallel()
 		tr := mock_notifytransport.NewMockTransport(gomock.NewController(t))
-		tr.EXPECT().Send(gomock.Any(), "C1", gomock.Any()).Return(nil)
+		ref := &entity.MessageRef{MessageID: "1503435956.000247"}
+		tr.EXPECT().Send(gomock.Any(), "C1", gomock.Any(), nil).
+			Return(entity.SendResult{Ref: ref}, nil)
 
-		require.NoError(t, senderWith(t, tr, nil).Send(ctx, entity.NotifyTransportSlack, "C1", msg))
+		res, err := senderWith(t, tr, nil).Send(ctx, entity.NotifyTransportSlack, "C1", msg, nil)
+		require.NoError(t, err)
+		require.Equal(t, ref, res.Ref)
+	})
+
+	// The sender is a pass-through for threading: it hands replyTo to the
+	// transport untouched and returns the transport's verdict as-is.
+	t.Run("passes replyTo through and returns the transport result", func(t *testing.T) {
+		t.Parallel()
+		tr := mock_notifytransport.NewMockTransport(gomock.NewController(t))
+		replyTo := &entity.MessageRef{MessageID: "root"}
+		tr.EXPECT().Send(gomock.Any(), "C1", gomock.Any(), replyTo).
+			Return(entity.SendResult{RootReplaced: true}, nil)
+
+		res, err := senderWith(t, tr, nil).Send(ctx, entity.NotifyTransportSlack, "C1", msg, replyTo)
+		require.NoError(t, err)
+		require.True(t, res.RootReplaced)
 	})
 
 	t.Run("disabled keeps its sentinel", func(t *testing.T) {
 		t.Parallel()
-		err := senderWith(t, nil, apperr.ErrIntegrationDisabled).Send(ctx, entity.NotifyTransportSlack, "C1", msg)
+		_, err := senderWith(t, nil, apperr.ErrIntegrationDisabled).Send(ctx, entity.NotifyTransportSlack, "C1", msg, nil)
 		require.ErrorIs(t, err, apperr.ErrIntegrationDisabled)
 	})
 
 	t.Run("resolve error propagates", func(t *testing.T) {
 		t.Parallel()
-		err := senderWith(t, nil, errors.New("unwrap dek: unknown kek")).Send(ctx, entity.NotifyTransportSlack, "C1", msg)
+		_, err := senderWith(t, nil, errors.New("unwrap dek: unknown kek")).
+			Send(ctx, entity.NotifyTransportSlack, "C1", msg, nil)
 		require.Error(t, err)
 	})
 
@@ -58,8 +77,10 @@ func TestSend(t *testing.T) {
 		t.Parallel()
 		tr := mock_notifytransport.NewMockTransport(gomock.NewController(t))
 		sendErr := errors.New("401 revoked")
-		tr.EXPECT().Send(gomock.Any(), "C1", gomock.Any()).Return(sendErr)
+		tr.EXPECT().Send(gomock.Any(), "C1", gomock.Any(), nil).
+			Return(entity.SendResult{}, sendErr)
 
-		require.ErrorIs(t, senderWith(t, tr, nil).Send(ctx, entity.NotifyTransportSlack, "C1", msg), sendErr)
+		_, err := senderWith(t, tr, nil).Send(ctx, entity.NotifyTransportSlack, "C1", msg, nil)
+		require.ErrorIs(t, err, sendErr)
 	})
 }

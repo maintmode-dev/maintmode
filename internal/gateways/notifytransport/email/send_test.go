@@ -45,12 +45,16 @@ func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 
 	const target = "invitee@example.com"
 	const link = "https://app.test/accept?token=abc"
-	err = client.Send(context.Background(), target, entity.NotifyMessage{
+	res, err := client.Send(context.Background(), target, entity.NotifyMessage{
 		Subject:     "You've been invited",
 		Body:        `<p>Accept your invitation: <a href="` + link + `">here</a></p>`,
 		MessageMIME: entity.HTMLMessageMIME,
-	})
+	}, nil)
 	require.NoError(t, err)
+	// E-mail has no addressable message to thread under, so it never reports a
+	// ref — callers must not record a thread root for this transport.
+	require.Nil(t, res.Ref)
+	require.False(t, res.RootReplaced)
 
 	msg := <-captured
 	require.Equal(t, "noreply@maintmode.test", msg.from)
@@ -89,11 +93,11 @@ func TestClient_Send_PlainTextIsNotWrapped(t *testing.T) {
 
 	// A plain-text message passes through the transport unframed: no wordmark, no
 	// footer, no table markup — only what the caller sent.
-	err = client.Send(context.Background(), "someone@example.com", entity.NotifyMessage{
+	_, err = client.Send(context.Background(), "someone@example.com", entity.NotifyMessage{
 		Subject:     "Maintenance started",
 		Body:        "Maintenance started for Database.",
 		MessageMIME: entity.TextMessageMIME,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	msg := <-captured

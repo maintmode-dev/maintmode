@@ -18,11 +18,25 @@ import (
 // maintenance notifications no longer go through the queue, so this consumer
 // does not depend on it.
 type MessageSender interface {
-	Send(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage) error
+	Send(
+		ctx context.Context,
+		trName entity.NotifyTransport,
+		target string,
+		msg entity.NotifyMessage,
+		replyTo *entity.MessageRef,
+	) (entity.SendResult, error)
 }
 
 type NotifyTargetsStore interface {
 	ListByMaint(ctx context.Context, maintID uuid.UUID) ([]*entity.NotifyTarget, error)
+	// SetRootRef records the per-channel thread root, both at maintenance start
+	// and when a rejected root is replaced. It keys on the (maintenance, channel)
+	// pair rather than the target row id, because row ids do not survive Replace
+	// (delete-all + create-all).
+	//
+	// channel is the delivery address the root was sent to, stored so a later
+	// re-point of the channel can be detected (see NotifyTarget.RootChannel).
+	SetRootRef(ctx context.Context, maintID, channelID uuid.UUID, messageID, channel string) error
 }
 
 // OwnerResolver turns a user id into everything needed to mention that person.

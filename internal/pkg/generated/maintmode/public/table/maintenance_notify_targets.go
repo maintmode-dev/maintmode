@@ -21,6 +21,8 @@ type maintenanceNotifyTargetsTable struct {
 	MaintenanceID postgres.ColumnString
 	ChannelID     postgres.ColumnString
 	CreatedAt     postgres.ColumnTimestampz
+	RootMessageID postgres.ColumnString // Message id of the delivered "maintenance started" notification; subsequent lifecycle events reply to it.
+	RootChannel   postgres.ColumnString // Delivery address the root was actually sent to, copied from the catalog at start time. Compared against the catalog's current address to detect a re-pointed channel.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,8 +68,10 @@ func newMaintenanceNotifyTargetsTableImpl(schemaName, tableName, alias string) m
 		MaintenanceIDColumn = postgres.StringColumn("maintenance_id")
 		ChannelIDColumn     = postgres.StringColumn("channel_id")
 		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
-		allColumns          = postgres.ColumnList{IDColumn, MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn}
-		mutableColumns      = postgres.ColumnList{MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn}
+		RootMessageIDColumn = postgres.StringColumn("root_message_id")
+		RootChannelColumn   = postgres.StringColumn("root_channel")
+		allColumns          = postgres.ColumnList{IDColumn, MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn, RootMessageIDColumn, RootChannelColumn}
+		mutableColumns      = postgres.ColumnList{MaintenanceIDColumn, ChannelIDColumn, CreatedAtColumn, RootMessageIDColumn, RootChannelColumn}
 		defaultColumns      = postgres.ColumnList{IDColumn, CreatedAtColumn}
 	)
 
@@ -79,6 +83,8 @@ func newMaintenanceNotifyTargetsTableImpl(schemaName, tableName, alias string) m
 		MaintenanceID: MaintenanceIDColumn,
 		ChannelID:     ChannelIDColumn,
 		CreatedAt:     CreatedAtColumn,
+		RootMessageID: RootMessageIDColumn,
+		RootChannel:   RootChannelColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

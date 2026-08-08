@@ -21,14 +21,22 @@ type senderSpy struct {
 	transport entity.NotifyTransport
 	target    string
 	msg       entity.NotifyMessage
+	replyTo   *entity.MessageRef
 }
 
-func (s *senderSpy) Send(_ context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage) error {
+func (s *senderSpy) Send(
+	_ context.Context,
+	trName entity.NotifyTransport,
+	target string,
+	msg entity.NotifyMessage,
+	replyTo *entity.MessageRef,
+) (entity.SendResult, error) {
 	s.called = true
 	s.transport = trName
 	s.target = target
 	s.msg = msg
-	return s.err
+	s.replyTo = replyTo
+	return entity.SendResult{}, s.err
 }
 
 func newTask() *goque.TypedTask[entity.ProcessorTaskPayloadEventNotify] {
@@ -55,6 +63,11 @@ func TestProcessTask_DelegatesPayloadToSend(t *testing.T) {
 	require.Equal(t, entity.NotifyTransportSlack, spy.transport)
 	require.Equal(t, "C123", spy.target)
 	require.Equal(t, entity.NotifyMessage{Subject: "s", Body: "b", MessageMIME: entity.TextMessageMIME}, spy.msg)
+	// The async path carries no thread root by construction: its payload has no
+	// field for one and it serves only invitation e-mail. Pinned so that adding
+	// maintenance notifications back onto the queue fails here rather than
+	// silently delivering them unthreaded.
+	require.Nil(t, spy.replyTo)
 }
 
 // A Send error is surfaced so goque applies its retry/drop policy — the

@@ -23,11 +23,11 @@ import (
 func recordSends(mocks *serviceMocks, times int) *recorder {
 	rec := &recorder{}
 	mocks.sender.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, _ string, msg entity.NotifyMessage) error {
-			rec.record(tr, msg)
+		Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, tr entity.NotifyTransport, channel string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
+			rec.record(tr, channel, msg, replyTo)
 
-			return nil
+			return entity.SendResult{}, nil
 		}).
 		Times(times)
 

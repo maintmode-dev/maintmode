@@ -32,8 +32,8 @@ func TestNotifyMaintReminder(t *testing.T) {
 			}}, nil)
 
 		mocks.sender.EXPECT().
-			Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil)
+			Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), nil).
+			Return(entity.SendResult{}, nil)
 
 		require.NoError(t, n.NotifyMaintReminder(ctx, &entity.Maintenance{ID: uuid.New()}))
 	})

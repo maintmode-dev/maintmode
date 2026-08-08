@@ -280,8 +280,8 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 
 	sent := &sentEmail{}
 	sender.EXPECT().
-		SendAsync(gomock.Any(), entity.ProcessorTaskInvitationEmailSend, entity.NotifyTransportEmail, gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, _ entity.NotifyTransport, target string, msg entity.NotifyMessage, _ string) error {
+		SendAsync(gomock.Any(), entity.ProcessorTaskInvitationEmailSend, entity.NotifyTransportEmail, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, _ entity.NotifyTransport, target string, msg entity.NotifyMessage, _ *entity.MessageRef, _ string) error {
 			sent.target = target
 			sent.body = msg.Body
 			return nil

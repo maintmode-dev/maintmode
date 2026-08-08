@@ -106,8 +106,8 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	// invitation flow enqueues inside its tx (transactional outbox) under the
 	// dedicated invitation.email task type.
 	mocks.sender.EXPECT().
-		SendAsync(gomock.Any(), entity.ProcessorTaskInvitationEmailSend, entity.NotifyTransportEmail, gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, _ entity.NotifyTransport, target string, msg entity.NotifyMessage, _ string) error {
+		SendAsync(gomock.Any(), entity.ProcessorTaskInvitationEmailSend, entity.NotifyTransportEmail, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, _ entity.NotifyTransport, target string, msg entity.NotifyMessage, _ *entity.MessageRef, _ string) error {
 			mocks.sentEmail.target = target
 			mocks.sentEmail.body = msg.Body
 			return nil

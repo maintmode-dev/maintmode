@@ -39,8 +39,9 @@ func TestSendAsync(t *testing.T) {
 		spy := &schedulerSpy{}
 		svc := NewService(nil, spy)
 
+		root := &entity.MessageRef{MessageID: "1503435956.000247"}
 		require.NoError(t, svc.SendAsync(ctx, entity.ProcessorTaskInvitationEmailSend,
-			entity.NotifyTransportSlack, "C1", msg, "idem-key"))
+			entity.NotifyTransportSlack, "C1", msg, root, "idem-key"))
 
 		require.Equal(t, entity.ProcessorTaskInvitationEmailSend, spy.taskType)
 		require.Equal(t, "idem-key", spy.idemKey)
@@ -50,6 +51,9 @@ func TestSendAsync(t *testing.T) {
 			Subject:       "s",
 			Body:          "b",
 			MessageMIME:   entity.HTMLMessageMIME,
+			// The enqueuing caller decides whether the message threads; the
+			// payload is what carries that decision to the processor.
+			ReplyTo: root,
 		}, spy.payload)
 	})
 
@@ -59,6 +63,6 @@ func TestSendAsync(t *testing.T) {
 		svc := NewService(nil, spy)
 
 		require.Error(t, svc.SendAsync(ctx, entity.ProcessorTaskInvitationEmailSend,
-			entity.NotifyTransportSlack, "C1", msg, "idem-key"))
+			entity.NotifyTransportSlack, "C1", msg, nil, "idem-key"))
 	})
 }

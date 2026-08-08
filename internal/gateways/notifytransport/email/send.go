@@ -17,20 +17,30 @@ import (
 // Send delivers msg to target (an email address). msg.Body is treated as HTML;
 // a plain-text alternative is attached so clients without HTML rendering still
 // show readable content.
-func (c *Client) Send(ctx context.Context, target string, msg entity.NotifyMessage) error {
+//
+// Threads are not supported by design: e-mail has no addressable message this
+// system could reply to later, so replyTo is ignored and the returned
+// SendResult is empty. A nil Ref means callers never record a root for this
+// transport, which is the intended behavior, not a missing feature.
+func (c *Client) Send(
+	ctx context.Context,
+	target string,
+	msg entity.NotifyMessage,
+	_ *entity.MessageRef,
+) (entity.SendResult, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "email.Send")
 	defer span.End()
 
 	m := mail.NewMsg()
 	if err := m.From(c.from); err != nil {
-		return fmt.Errorf("email from %q: %w", c.from, err)
+		return entity.SendResult{}, fmt.Errorf("email from %q: %w", c.from, err)
 	}
 	if err := m.To(target); err != nil {
-		return fmt.Errorf("email to %q: %w", target, err)
+		return entity.SendResult{}, fmt.Errorf("email to %q: %w", target, err)
 	}
 	if c.replyTo != "" {
 		if err := m.ReplyTo(c.replyTo); err != nil {
-			return fmt.Errorf("email reply-to %q: %w", c.replyTo, err)
+			return entity.SendResult{}, fmt.Errorf("email reply-to %q: %w", c.replyTo, err)
 		}
 	}
 
@@ -41,7 +51,7 @@ func (c *Client) Send(ctx context.Context, target string, msg entity.NotifyMessa
 		// wordmark/footer would just be noise in an already-plain body.
 		wrapped, err := wrapHTML(msg.Body, "")
 		if err != nil {
-			return fmt.Errorf("wrap email body: %w", err)
+			return entity.SendResult{}, fmt.Errorf("wrap email body: %w", err)
 		}
 		body = wrapped
 	}
@@ -54,9 +64,9 @@ func (c *Client) Send(ctx context.Context, target string, msg entity.NotifyMessa
 
 	if err := c.client.DialAndSendWithContext(ctx, m); err != nil {
 		xlog.Error(ctx, "email send", xfield.Error(err))
-		return fmt.Errorf("email send: %w", err)
+		return entity.SendResult{}, fmt.Errorf("email send: %w", err)
 	}
-	return nil
+	return entity.SendResult{}, nil
 }
 
 func msgMIME(mime entity.MessageMIME) mail.ContentType {

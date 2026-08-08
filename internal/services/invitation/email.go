@@ -53,6 +53,9 @@ func (s *Service) sendInvitationEmail(ctx context.Context, inv *entity.Invitatio
 			Body:        body,
 			MessageMIME: entity.HTMLMessageMIME,
 		},
+		// An invitation is not part of any maintenance, and e-mail has no
+		// addressable message to thread under.
+		nil,
 		invitationEmailIdempotencyKey(inv),
 	); err != nil {
 		return fmt.Errorf("enqueue invitation email: %w", err)

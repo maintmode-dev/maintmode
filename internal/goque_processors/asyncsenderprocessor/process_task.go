@@ -19,11 +19,15 @@ func (p *queueProcessor) ProcessTask(ctx context.Context, task *goque.TypedTask[
 
 	payload := task.Payload
 
-	err := p.sender.Send(ctx, payload.TransportName, payload.Target, entity.NotifyMessage{
+	// The thread root comes from the payload: whoever enqueued the task decided
+	// whether this message threads. The SendResult is discarded because nothing
+	// here owns a root to record — a caller that needs one enqueues its own
+	// bookkeeping alongside the send.
+	_, err := p.sender.Send(ctx, payload.TransportName, payload.Target, entity.NotifyMessage{
 		Subject:     payload.Subject,
 		Body:        payload.Body,
 		MessageMIME: payload.MessageMIME,
-	})
+	}, payload.ReplyTo)
 	if err != nil {
 		xlog.Error(ctx, "messaging processor send failed", xfield.Error(err))
 		return err

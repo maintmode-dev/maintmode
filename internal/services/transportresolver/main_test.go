@@ -155,7 +155,11 @@ type resolvableTransport struct{ token string }
 func (resolvableTransport) TransportID() entity.NotifyTransport {
 	return entity.NotifyTransport("resolvable")
 }
-func (resolvableTransport) Send(context.Context, string, entity.NotifyMessage) error { return nil }
+func (resolvableTransport) Send(
+	context.Context, string, entity.NotifyMessage, *entity.MessageRef,
+) (entity.SendResult, error) {
+	return entity.SendResult{}, nil
+}
 
 // Token exposes the decrypted token the transport was built with, so a test can
 // assert resolve wired the right (freshly-decrypted) plaintext into the client.

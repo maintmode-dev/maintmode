@@ -762,17 +762,17 @@ func (m *MockMessageSender) EXPECT() *MockMessageSenderMockRecorder {
 }
 
 // SendAsync mocks base method.
-func (m *MockMessageSender) SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error {
+func (m *MockMessageSender) SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, replyTo *entity.MessageRef, idempotencyKey string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendAsync", ctx, taskType, trName, target, msg, idempotencyKey)
+	ret := m.ctrl.Call(m, "SendAsync", ctx, taskType, trName, target, msg, replyTo, idempotencyKey)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendAsync indicates an expected call of SendAsync.
-func (mr *MockMessageSenderMockRecorder) SendAsync(ctx, taskType, trName, target, msg, idempotencyKey any) *MockMessageSenderSendAsyncCall {
+func (mr *MockMessageSenderMockRecorder) SendAsync(ctx, taskType, trName, target, msg, replyTo, idempotencyKey any) *MockMessageSenderSendAsyncCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAsync", reflect.TypeOf((*MockMessageSender)(nil).SendAsync), ctx, taskType, trName, target, msg, idempotencyKey)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAsync", reflect.TypeOf((*MockMessageSender)(nil).SendAsync), ctx, taskType, trName, target, msg, replyTo, idempotencyKey)
 	return &MockMessageSenderSendAsyncCall{Call: call}
 }
 
@@ -788,13 +788,13 @@ func (c *MockMessageSenderSendAsyncCall) Return(arg0 error) *MockMessageSenderSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMessageSenderSendAsyncCall) Do(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockMessageSenderSendAsyncCall {
+func (c *MockMessageSenderSendAsyncCall) Do(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, *entity.MessageRef, string) error) *MockMessageSenderSendAsyncCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMessageSenderSendAsyncCall) DoAndReturn(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, string) error) *MockMessageSenderSendAsyncCall {
+func (c *MockMessageSenderSendAsyncCall) DoAndReturn(f func(context.Context, string, entity.NotifyTransport, string, entity.NotifyMessage, *entity.MessageRef, string) error) *MockMessageSenderSendAsyncCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

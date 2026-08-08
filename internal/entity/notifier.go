@@ -117,6 +117,58 @@ type NotifyTarget struct {
 	Transport          NotifyTransport
 	TransportChannelID string
 	ChannelName        string
+
+	// RootRef points at the "maintenance started" message delivered to this
+	// channel; subsequent lifecycle events reply to it. Nil until the
+	// maintenance starts, and for maintenances that started before threads
+	// existed — those live out their lifetime flat.
+	RootRef *MessageRef
+	// RootChannel is the delivery address the root was actually sent to, copied
+	// from the catalog at start time. Comparing it to the channel's CURRENT
+	// address detects a re-pointed channel, whose root must not be replayed into
+	// the new chat.
+	//
+	// The comparison has to be address-to-address. The canonical id a messenger
+	// API answers with ("-1001234567890", "C0DEADBEEF") is written by a
+	// different system than TransportChannelID, which is free-form operator text
+	// ("@ops_alerts", "#ops"); the two legitimately differ, so matching one
+	// against the other would report drift for every channel not addressed by
+	// its exact canonical id.
+	RootChannel string
+}
+
+// MessageRef identifies a delivered message.
+//
+// MessageID is a string on purpose: Slack ts is "1503435956.000247", and a trip
+// through a numeric type silently breaks threading (the API answers ok:true and
+// posts the message outside the thread).
+//
+// The conversation the message landed in is deliberately absent. A reply is
+// addressed by MessageID alone — the destination comes from the catalog at send
+// time — and the re-pointed-channel guard compares NotifyTarget.RootChannel.
+// The canonical chat id is logged at delivery instead of stored, since nothing
+// reads it back.
+type MessageRef struct {
+	// MessageID is what a reply is threaded under. A ref without it is not a ref.
+	MessageID string
+}
+
+// SendResult reports what happened to a delivery.
+type SendResult struct {
+	// Ref points at the message just delivered. Nil for transports without
+	// addressable messages (email, stub).
+	Ref *MessageRef
+	// RootReplaced is set when a reply was requested but the transport had to
+	// fall back to a top-level message because the root was unusable. The
+	// transport knows this as a fact; it makes Ref the message later events
+	// should thread under, replacing the root that was refused.
+	//
+	// Callers must NEVER try to infer it by comparing ids. A successful
+	// threaded reply is a new message with its OWN id, always different from
+	// the root's — so "returned ref != requested replyTo" is true on success
+	// too, and using it would re-seed the root on every correctly threaded
+	// reply, leaving every thread exactly one message long.
+	RootReplaced bool
 }
 
 type MessageMIME string

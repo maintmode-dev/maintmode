@@ -43,17 +43,18 @@ func (m *MockMessageSender) EXPECT() *MockMessageSenderMockRecorder {
 }
 
 // Send mocks base method.
-func (m *MockMessageSender) Send(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage) error {
+func (m *MockMessageSender) Send(ctx context.Context, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", ctx, trName, target, msg)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "Send", ctx, trName, target, msg, replyTo)
+	ret0, _ := ret[0].(entity.SendResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockMessageSenderMockRecorder) Send(ctx, trName, target, msg any) *MockMessageSenderSendCall {
+func (mr *MockMessageSenderMockRecorder) Send(ctx, trName, target, msg, replyTo any) *MockMessageSenderSendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessageSender)(nil).Send), ctx, trName, target, msg)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessageSender)(nil).Send), ctx, trName, target, msg, replyTo)
 	return &MockMessageSenderSendCall{Call: call}
 }
 
@@ -63,19 +64,19 @@ type MockMessageSenderSendCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMessageSenderSendCall) Return(arg0 error) *MockMessageSenderSendCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockMessageSenderSendCall) Return(arg0 entity.SendResult, arg1 error) *MockMessageSenderSendCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMessageSenderSendCall) Do(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage) error) *MockMessageSenderSendCall {
+func (c *MockMessageSenderSendCall) Do(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage, *entity.MessageRef) (entity.SendResult, error)) *MockMessageSenderSendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMessageSenderSendCall) DoAndReturn(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage) error) *MockMessageSenderSendCall {
+func (c *MockMessageSenderSendCall) DoAndReturn(f func(context.Context, entity.NotifyTransport, string, entity.NotifyMessage, *entity.MessageRef) (entity.SendResult, error)) *MockMessageSenderSendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -139,6 +140,44 @@ func (c *MockNotifyTargetsStoreListByMaintCall) Do(f func(context.Context, uuid.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockNotifyTargetsStoreListByMaintCall) DoAndReturn(f func(context.Context, uuid.UUID) ([]*entity.NotifyTarget, error)) *MockNotifyTargetsStoreListByMaintCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetRootRef mocks base method.
+func (m *MockNotifyTargetsStore) SetRootRef(ctx context.Context, maintID, channelID uuid.UUID, messageID, channel string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRootRef", ctx, maintID, channelID, messageID, channel)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRootRef indicates an expected call of SetRootRef.
+func (mr *MockNotifyTargetsStoreMockRecorder) SetRootRef(ctx, maintID, channelID, messageID, channel any) *MockNotifyTargetsStoreSetRootRefCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootRef", reflect.TypeOf((*MockNotifyTargetsStore)(nil).SetRootRef), ctx, maintID, channelID, messageID, channel)
+	return &MockNotifyTargetsStoreSetRootRefCall{Call: call}
+}
+
+// MockNotifyTargetsStoreSetRootRefCall wrap *gomock.Call
+type MockNotifyTargetsStoreSetRootRefCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockNotifyTargetsStoreSetRootRefCall) Return(arg0 error) *MockNotifyTargetsStoreSetRootRefCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockNotifyTargetsStoreSetRootRefCall) Do(f func(context.Context, uuid.UUID, uuid.UUID, string, string) error) *MockNotifyTargetsStoreSetRootRefCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockNotifyTargetsStoreSetRootRefCall) DoAndReturn(f func(context.Context, uuid.UUID, uuid.UUID, string, string) error) *MockNotifyTargetsStoreSetRootRefCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

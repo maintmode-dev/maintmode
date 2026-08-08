@@ -17,4 +17,6 @@ type MaintenanceNotifyTargets struct {
 	MaintenanceID uuid.UUID `db:"maintenance_notify_targets.maintenance_id"`
 	ChannelID     uuid.UUID `db:"maintenance_notify_targets.channel_id"`
 	CreatedAt     time.Time `db:"maintenance_notify_targets.created_at"`
+	RootMessageID *string   `db:"maintenance_notify_targets.root_message_id"` // Message id of the delivered "maintenance started" notification; subsequent lifecycle events reply to it.
+	RootChannel   *string   `db:"maintenance_notify_targets.root_channel"`    // Delivery address the root was actually sent to, copied from the catalog at start time. Compared against the catalog's current address to detect a re-pointed channel.
 }

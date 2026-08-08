@@ -67,7 +67,15 @@ type SeatGuard interface {
 // task type is explicit so invitation emails land on a queue only the auth binary
 // drains (see entity.ProcessorTaskInvitationEmailSend).
 type MessageSender interface {
-	SendAsync(ctx context.Context, taskType string, trName entity.NotifyTransport, target string, msg entity.NotifyMessage, idempotencyKey string) error
+	SendAsync(
+		ctx context.Context,
+		taskType string,
+		trName entity.NotifyTransport,
+		target string,
+		msg entity.NotifyMessage,
+		replyTo *entity.MessageRef,
+		idempotencyKey string,
+	) error
 }
 
 // defaultInvitationTTL is used when app.invitation_ttl is not configured.

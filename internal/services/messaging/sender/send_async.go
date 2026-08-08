@@ -17,14 +17,16 @@ import (
 // them. If ctx carries a *sqlx.Tx via dbtx.WithTx, the enqueue participates in
 // that tx (outbox).
 //
-// Maintenance notifications do not come through here: they are delivered inline
-// by the notifier, and the task type they used to enqueue under is retired.
+// replyTo threads the message under an earlier one, or nil for a top-level
+// message. It travels in the payload, so the caller that enqueues the task is
+// the one that decides — the processor just delivers what it was handed.
 func (s *Service) SendAsync(
 	ctx context.Context,
 	taskType string,
 	trName entity.NotifyTransport,
 	target string,
 	msg entity.NotifyMessage,
+	replyTo *entity.MessageRef,
 	idempotencyKey string,
 ) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Messaging.SendAsync",
@@ -42,6 +44,7 @@ func (s *Service) SendAsync(
 			Subject:       msg.Subject,
 			Body:          msg.Body,
 			MessageMIME:   msg.MessageMIME,
+			ReplyTo:       replyTo,
 		},
 		idempotencyKey,
 	)

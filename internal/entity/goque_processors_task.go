@@ -124,6 +124,10 @@ type ProcessorTaskPayloadEventNotify struct {
 	Subject       string          `json:"subject"`
 	Body          string          `json:"body"`
 	MessageMIME   MessageMIME     `json:"mime"`
+	// ReplyTo threads the message under an earlier one. The enqueuing caller
+	// decides: nil sends top-level. Omitted from the JSON when unset, so tasks
+	// enqueued before this field existed decode as nil.
+	ReplyTo *MessageRef `json:"reply_to,omitempty"`
 }
 
 // ProcessorTaskPayloadMaintReminder is the payload of a deferred-reminder task.

@@ -43,17 +43,18 @@ func (m *MockTransport) EXPECT() *MockTransportMockRecorder {
 }
 
 // Send mocks base method.
-func (m *MockTransport) Send(ctx context.Context, target string, msg entity.NotifyMessage) error {
+func (m *MockTransport) Send(ctx context.Context, target string, msg entity.NotifyMessage, replyTo *entity.MessageRef) (entity.SendResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", ctx, target, msg)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "Send", ctx, target, msg, replyTo)
+	ret0, _ := ret[0].(entity.SendResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockTransportMockRecorder) Send(ctx, target, msg any) *MockTransportSendCall {
+func (mr *MockTransportMockRecorder) Send(ctx, target, msg, replyTo any) *MockTransportSendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockTransport)(nil).Send), ctx, target, msg)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockTransport)(nil).Send), ctx, target, msg, replyTo)
 	return &MockTransportSendCall{Call: call}
 }
 
@@ -63,19 +64,19 @@ type MockTransportSendCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockTransportSendCall) Return(arg0 error) *MockTransportSendCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockTransportSendCall) Return(arg0 entity.SendResult, arg1 error) *MockTransportSendCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockTransportSendCall) Do(f func(context.Context, string, entity.NotifyMessage) error) *MockTransportSendCall {
+func (c *MockTransportSendCall) Do(f func(context.Context, string, entity.NotifyMessage, *entity.MessageRef) (entity.SendResult, error)) *MockTransportSendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockTransportSendCall) DoAndReturn(f func(context.Context, string, entity.NotifyMessage) error) *MockTransportSendCall {
+func (c *MockTransportSendCall) DoAndReturn(f func(context.Context, string, entity.NotifyMessage, *entity.MessageRef) (entity.SendResult, error)) *MockTransportSendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

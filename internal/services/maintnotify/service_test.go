@@ -29,9 +29,11 @@ func TestNotifyMaintLifecycle(t *testing.T) {
 				TransportChannelID: t.Name(),
 			}}, nil)
 
+		// No ref comes back, so there is no root to record and SetRootRef is
+		// never called — gomock would fail the test on an unexpected call.
 		mocks.sender.EXPECT().
-			Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil)
+			Send(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), nil).
+			Return(entity.SendResult{}, nil)
 
 		n.NotifyMaintLifecycle(ctx, entity.NotifyEventMaintStarted, &entity.Maintenance{ID: uuid.New()})
 	})
