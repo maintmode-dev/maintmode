@@ -27,6 +27,11 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQue
 		return nil, err
 	}
 
+	// Flags which of these the approver had already seen and fixes the order —
+	// unreviewed first. Never errors: an unreadable snapshot degrades to
+	// "nobody reviewed any of this" rather than failing the card.
+	conflicts = s.conflictsSrv.MarkApprovalState(ctx, cmd.MaintID, conflicts)
+
 	conflictResourcesM := lo.SliceToMap(conflicts, func(item *entity.ConflictWithResources) (uuid.UUID, []uuid.UUID) {
 		return item.MaintenanceID, item.Resources
 	})
@@ -37,14 +42,17 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *calendardto.ConflictQue
 		return nil, err
 	}
 
+	// The conflicts service already ordered these — unreviewed first, then by
+	// overlap start, then by id. Keep that order.
 	return lo.Map(conflicts, func(item *entity.ConflictWithResources, _ int) *calendardto.Conflict {
 		resources := lo.ValueOr(conflictResourcesM, item.MaintenanceID, []uuid.UUID{})
 		return &calendardto.Conflict{
-			MaintenanceID: item.MaintenanceID,
-			Title:         item.Title,
-			OverlapStart:  item.OverlapStart,
-			OverlapEnd:    item.OverlapEnd,
-			Scope:         item.Scope,
+			MaintenanceID:   item.MaintenanceID,
+			Title:           item.Title,
+			OverlapStart:    item.OverlapStart,
+			OverlapEnd:      item.OverlapEnd,
+			Scope:           item.Scope,
+			KnownAtApproval: item.KnownAtApproval,
 			Resources: lo.Map(resources, func(id uuid.UUID, _ int) *calendardto.MaintenanceResource {
 				// fallback to "unknown resource" if the resource is not found
 				resDetails := lo.ValueOr(resourcesDetails, id, &entity.ResourceDetails{Name: "unknown resource"})

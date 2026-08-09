@@ -180,3 +180,65 @@ func TestGetSnapshots(t *testing.T) {
 		require.Len(t, retrieved, 2)
 	})
 }
+
+// TestGetSnapshots_DoesNotMutate pins the audit invariant: reading a snapshot
+// never rewrites it. The rows are the record of what the approver accepted, and
+// a read path that "repairs" or re-times them would quietly destroy that.
+func TestGetSnapshots_DoesNotMutate(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := NewStore(db)
+
+	now := xtime.UTCNow()
+
+	resource := makeResource(ctx, t)
+	maintenance := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+		entity.NewPeriod(now.Add(time.Hour), now.Add(5*time.Hour)),
+		testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+		testdbutils.WithResources(resource.ID),
+	)
+
+	conflicted := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+		entity.NewPeriod(now.Add(time.Hour), now.Add(2*time.Hour)),
+		testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+		testdbutils.WithResources(resource.ID),
+	)
+
+	require.NoError(t, store.Save(ctx, maintenance.ID, []*entity.ConflictWithResources{
+		{
+			Conflict: &entity.Conflict{
+				MaintenanceID: conflicted.ID,
+				Title:         "frozen at approval",
+				OverlapStart:  now.Add(time.Hour),
+				OverlapEnd:    now.Add(2 * time.Hour),
+				Scope:         entity.MaintenanceScopeResources,
+			},
+			Resources: []uuid.UUID{resource.ID},
+		},
+	}))
+
+	type row struct {
+		ID                      uuid.UUID  `db:"id"`
+		MaintenanceID           uuid.UUID  `db:"maintenance_id"`
+		ConflictedMaintenanceID uuid.UUID  `db:"conflicted_maintenance_id"`
+		ResourceID              *uuid.UUID `db:"resource_id"`
+		CreatedAt               time.Time  `db:"created_at"`
+	}
+
+	const q = `SELECT id, maintenance_id, conflicted_maintenance_id, resource_id, created_at
+		FROM maintenance_conflict_snapshot WHERE maintenance_id = $1 ORDER BY id`
+
+	before := make([]row, 0)
+	require.NoError(t, db.SelectContext(ctx, &before, q, maintenance.ID))
+	require.NotEmpty(t, before, "the fixture must have written rows to compare")
+
+	for range 3 {
+		_, err := store.GetSnapshots(ctx, maintenance.ID)
+		require.NoError(t, err)
+	}
+
+	after := make([]row, 0)
+	require.NoError(t, db.SelectContext(ctx, &after, q, maintenance.ID))
+
+	require.Equal(t, before, after, "reading a snapshot must not write to it")
+}

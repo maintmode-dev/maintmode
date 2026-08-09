@@ -178,9 +178,80 @@ func TestUIAPI_GetMaintenanceView_WithConflicts(t *testing.T) {
 	require.NotNil(t, payload.Conflicts, "Conflicts should not be nil")
 	require.GreaterOrEqual(t, len(lo.FromPtr(payload.Conflicts)), 1, "Should have at least 1 conflict")
 
-	conflict := lo.FromPtr(payload.Conflicts)[0]
-	require.Equal(t, maintenanceID1, lo.FromPtr(conflict.MaintenanceId).String(), "Conflict should reference the first maintenance")
+	// Search rather than index: conflicts are ordered unreviewed-first, and the
+	// shared database can contribute unrelated global-scope maintenances, so
+	// position 0 is not this maintenance's.
+	conflict, found := lo.Find(lo.FromPtr(payload.Conflicts), func(c maintmodeclient.UimodelsConflictView) bool {
+		return lo.FromPtr(c.MaintenanceId).String() == maintenanceID1
+	})
+	require.True(t, found, "conflicts should reference maintenance %s", maintenanceID1)
 	require.NotNil(t, conflict.Resources, "Conflict resources should not be nil")
+
+	// NotNil before FromPtr, deliberately: the generated client types the flag as
+	// *bool because swag emits no required block for response schemas, so a field
+	// that stopped being serialized would read as false and pass silently.
+	require.NotNil(t, conflict.KnownAtApproval, "the flag must be present on every conflict")
+
+	// The viewed maintenance is still a draft: nothing has been approved, so no
+	// conflict can be flagged as reviewed.
+	require.False(t, lo.FromPtr(conflict.KnownAtApproval), "a draft has no approval snapshot")
+}
+
+// TestUIAPI_GetMaintenanceView_ConflictsOrderedUnreviewedFirst pins the response
+// contract: the flag is present on every conflict, and every unreviewed one
+// precedes every reviewed one.
+//
+// The end-to-end "approver saw this exact conflict" path is not asserted here.
+// Approving a maintenance that has conflicts means echoing the live conflict set
+// back, and checkConflicts rejects the approval if that set moved in between. On
+// the shared database it does: every create helper hardcodes planned_start to
+// now+24h (testMaintenanceStartOffset), so all parallel tests land in the same
+// window, and global-scope maintenances conflict with everything regardless of
+// resource.
+//
+// This is fixable rather than impossible — placing the subject and its neighbor
+// in a per-run unique window far in the future would isolate them — but it needs
+// the shared create helpers to accept a planned_start, which is a wider change
+// than this test warrants. The Save-to-GetSnapshots round trip it would exercise
+// is covered against a real database by
+// internal/services/conflicts/test/mark_approval_state_test.go.
+func TestUIAPI_GetMaintenanceView_ConflictsOrderedUnreviewedFirst(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	apiClient := setupMaintmodeTestClient()
+
+	resourceID := lo.FromPtr(creatResource(ctx, t, apiClient).Id)
+
+	// Only planned and in-progress maintenances count as conflicts, so the
+	// neighbor has to be approved to be visible at all.
+	neighborID := createMaintenanceWithResource(ctx, t, apiClient, resourceID)
+	approveMaintenance(ctx, t, apiClient, neighborID)
+
+	subjectID := createMaintenanceWithResource(ctx, t, apiClient, resourceID)
+
+	resp, err := apiClient.GetUiV1MaintenancesIdWithResponse(ctx, uuid.MustParse(subjectID))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON200)
+
+	conflicts := lo.FromPtr(resp.JSON200.Conflicts)
+	require.NotEmpty(t, conflicts, "the approved neighbor should conflict")
+
+	_, found := lo.Find(conflicts, func(c maintmodeclient.UimodelsConflictView) bool {
+		return lo.FromPtr(c.MaintenanceId).String() == neighborID
+	})
+	require.True(t, found, "conflicts should reference maintenance %s", neighborID)
+
+	seenReviewed := false
+	for _, c := range conflicts {
+		require.NotNil(t, c.KnownAtApproval, "the flag must be present on every conflict")
+
+		if lo.FromPtr(c.KnownAtApproval) {
+			seenReviewed = true
+			continue
+		}
+		require.False(t, seenReviewed, "an unreviewed conflict must not follow a reviewed one")
+	}
 }
 
 func TestUIAPI_GetMaintenanceView_NonExistent(t *testing.T) {

@@ -836,6 +836,15 @@ components:
             type: object
         uimodels.ConflictView:
             properties:
+                known_at_approval:
+                    description: |-
+                        KnownAtApproval reports whether the approver saw this conflict at the
+                        moment they approved. False means nobody reviewed it — either it appeared
+                        after approval, or the maintenance is still a draft (tell the two apart by
+                        the maintenance status, which this response also carries).
+
+                        Conflicts are ordered so that every false precedes every true.
+                    type: boolean
                 maintenance_id:
                     format: uuid
                     type: string

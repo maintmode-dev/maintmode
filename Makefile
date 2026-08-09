@@ -231,6 +231,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/dekrotator/service.go -source ./internal/services/dekrotator/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/userpicker/service.go -source ./internal/services/userpicker/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/conflicts/service.go -source ./internal/services/conflicts/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/autocancelprocessor/processor.go -source ./internal/goque_processors/autocancelprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/auditpruneprocessor/processor.go -source ./internal/goque_processors/auditpruneprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/invitationrotateprocessor/processor.go -source ./internal/goque_processors/invitationrotateprocessor/processor.go

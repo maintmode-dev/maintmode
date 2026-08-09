@@ -1123,6 +1123,10 @@
             },
             "uimodels.ConflictView": {
                 "properties": {
+                    "known_at_approval": {
+                        "description": "KnownAtApproval reports whether the approver saw this conflict at the\nmoment they approved. False means nobody reviewed it — either it appeared\nafter approval, or the maintenance is still a draft (tell the two apart by\nthe maintenance status, which this response also carries).\n\nConflicts are ordered so that every false precedes every true.",
+                        "type": "boolean"
+                    },
                     "maintenance_id": {
                         "format": "uuid",
                         "type": "string"

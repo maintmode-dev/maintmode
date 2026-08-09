@@ -107,6 +107,13 @@ type ConflictView struct {
 	OverlapEnd    time.Time                  `json:"overlap_end" format:"date-time"`
 	Scope         string                     `json:"scope"`
 	Resources     []*MaintenanceViewResource `json:"resources"`
+	// KnownAtApproval reports whether the approver saw this conflict at the
+	// moment they approved. False means nobody reviewed it — either it appeared
+	// after approval, or the maintenance is still a draft (tell the two apart by
+	// the maintenance status, which this response also carries).
+	//
+	// Conflicts are ordered so that every false precedes every true.
+	KnownAtApproval bool `json:"known_at_approval"`
 }
 
 type MaintenanceActions struct {

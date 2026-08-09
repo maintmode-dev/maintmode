@@ -15,4 +15,7 @@ type Conflict struct {
 	OverlapEnd    time.Time
 	Scope         entity.MaintenanceScope
 	Resources     []*MaintenanceResource
+	// KnownAtApproval reports whether the approver saw this conflict when they
+	// approved. False on a draft, where no approval has happened yet.
+	KnownAtApproval bool
 }

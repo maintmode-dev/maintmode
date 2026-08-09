@@ -139,11 +139,12 @@ func toAPISteps(maint *calendardto.Maintenance) []*MaintenanceStep {
 
 func ToAPIConflictView(conflict *calendardto.Conflict) *ConflictView {
 	return &ConflictView{
-		MaintenanceID: conflict.MaintenanceID,
-		Title:         conflict.Title,
-		OverlapStart:  conflict.OverlapStart,
-		OverlapEnd:    conflict.OverlapEnd,
-		Scope:         string(conflict.Scope),
+		MaintenanceID:   conflict.MaintenanceID,
+		Title:           conflict.Title,
+		OverlapStart:    conflict.OverlapStart,
+		OverlapEnd:      conflict.OverlapEnd,
+		Scope:           string(conflict.Scope),
+		KnownAtApproval: conflict.KnownAtApproval,
 		Resources: lo.Map(conflict.Resources, func(item *calendardto.MaintenanceResource, _ int) *MaintenanceViewResource {
 			return &MaintenanceViewResource{
 				ID:   item.ID,

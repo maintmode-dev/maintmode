@@ -24,6 +24,11 @@ type Conflict struct {
 type ConflictWithResources struct {
 	*Conflict
 	Resources []uuid.UUID
+	// KnownAtApproval reports whether the approver saw this neighboring
+	// maintenance when they approved. Read-side only: it is filled by
+	// MarkKnownAtApproval and deliberately lives on the wrapper rather than on
+	// Conflict, so it stays out of ConflictFingerprint — which gates approve.
+	KnownAtApproval bool
 }
 
 type ConflictsSnapshot struct {
@@ -99,4 +104,62 @@ func conflictResourcesFingerprint(resources []uuid.UUID) []byte {
 
 func SortResources(resources []uuid.UUID) {
 	slices.SortFunc(resources, xuuid.Compare)
+}
+
+// MarkKnownAtApproval flags every live conflict the approver had already seen,
+// by matching it against the snapshot frozen at approval time.
+//
+// The match is on MaintenanceID alone. The flag answers "did the approver
+// consider this neighbor", not "is every attribute still byte-identical", so a
+// neighbor that merely shifted in time or changed its resource set stays known
+// — false alarms would train the on-call to ignore the highlight, which is the
+// one failure this feature cannot afford.
+//
+// Nothing else in the snapshot can discriminate anyway: scope is not stored (it
+// is resolved by a live join, so both sides always agree), and resources are an
+// intersection with the querying maintenance's own set, absent entirely from
+// snapshots the UI writes.
+// A conflict without its embedded Conflict is an invariant violation, not an
+// input to tolerate: every producer allocates it. Skipping such an element would
+// silently drop a conflict from a screen whose purpose is to warn, and
+// SortConflicts would dereference it anyway — so let it fail loudly instead.
+func MarkKnownAtApproval(live, snapshot []*ConflictWithResources) {
+	if len(live) == 0 || len(snapshot) == 0 {
+		return
+	}
+
+	known := make(map[uuid.UUID]struct{}, len(snapshot))
+	for _, conflict := range snapshot {
+		known[conflict.MaintenanceID] = struct{}{}
+	}
+
+	for _, conflict := range live {
+		_, ok := known[conflict.MaintenanceID]
+		conflict.KnownAtApproval = ok
+	}
+}
+
+// SortConflicts imposes the response order: conflicts nobody reviewed first,
+// then by overlap start, then by maintenance id.
+//
+// The order is defined here rather than in SQL because neither source provides
+// one — ConflictedMaints has no ORDER BY, and the snapshot mapper iterates a Go
+// map, whose iteration order is randomized per call. Sorting the merged list
+// makes the contract independent of both.
+func SortConflicts(conflicts []*ConflictWithResources) {
+	slices.SortFunc(conflicts, func(c1, c2 *ConflictWithResources) int {
+		if c1.KnownAtApproval != c2.KnownAtApproval {
+			// false (unreviewed) sorts before true.
+			if c1.KnownAtApproval {
+				return 1
+			}
+			return -1
+		}
+
+		if !c1.OverlapStart.Equal(c2.OverlapStart) {
+			return c1.OverlapStart.Compare(c2.OverlapStart)
+		}
+
+		return xuuid.Compare(c1.MaintenanceID, c2.MaintenanceID)
+	})
 }

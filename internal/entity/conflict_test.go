@@ -315,3 +315,208 @@ func TestConflictResourcesFingerprint(t *testing.T) {
 		})
 	}
 }
+
+func TestMarkKnownAtApproval(t *testing.T) {
+	maintA := uuid.MustParse("aaaaaaaa-0000-0000-0000-000000000001")
+	maintB := uuid.MustParse("bbbbbbbb-0000-0000-0000-000000000002")
+
+	newConflict := func(id uuid.UUID, start time.Time, resources ...uuid.UUID) *ConflictWithResources {
+		return &ConflictWithResources{
+			Conflict: &Conflict{
+				MaintenanceID: id,
+				Title:         "conflict",
+				OverlapStart:  start,
+				OverlapEnd:    start.Add(time.Hour),
+				Scope:         MaintenanceScopeResources,
+			},
+			Resources: resources,
+		}
+	}
+
+	base := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
+
+	t.Run("conflict present in the snapshot is known", func(t *testing.T) {
+		live := []*ConflictWithResources{newConflict(maintA, base)}
+		snapshot := []*ConflictWithResources{newConflict(maintA, base)}
+
+		MarkKnownAtApproval(live, snapshot)
+
+		require.True(t, live[0].KnownAtApproval)
+	})
+
+	t.Run("conflict absent from the snapshot is new", func(t *testing.T) {
+		live := []*ConflictWithResources{newConflict(maintB, base)}
+		snapshot := []*ConflictWithResources{newConflict(maintA, base)}
+
+		MarkKnownAtApproval(live, snapshot)
+
+		require.False(t, live[0].KnownAtApproval)
+	})
+
+	t.Run("shifted overlap window stays known", func(t *testing.T) {
+		// The approver reviewed this neighbor; moving it in time does not make
+		// it a conflict nobody has seen. Guards against putting the period back
+		// into the matching key.
+		live := []*ConflictWithResources{newConflict(maintA, base.Add(4*time.Hour))}
+		snapshot := []*ConflictWithResources{newConflict(maintA, base)}
+
+		MarkKnownAtApproval(live, snapshot)
+
+		require.True(t, live[0].KnownAtApproval)
+	})
+
+	t.Run("snapshot without resources still matches", func(t *testing.T) {
+		// Snapshots written by the real UI carry no resources at all; keying on
+		// them would flag every resource-scoped conflict as new.
+		live := []*ConflictWithResources{newConflict(maintA, base, resID1, resID2)}
+		snapshot := []*ConflictWithResources{newConflict(maintA, base)}
+
+		MarkKnownAtApproval(live, snapshot)
+
+		require.True(t, live[0].KnownAtApproval)
+	})
+
+	t.Run("empty snapshot leaves everything new", func(t *testing.T) {
+		live := []*ConflictWithResources{newConflict(maintA, base), newConflict(maintB, base)}
+
+		MarkKnownAtApproval(live, nil)
+
+		require.False(t, live[0].KnownAtApproval)
+		require.False(t, live[1].KnownAtApproval)
+	})
+
+	t.Run("empty live set is not a panic", func(t *testing.T) {
+		require.NotPanics(t, func() {
+			MarkKnownAtApproval(nil, []*ConflictWithResources{newConflict(maintA, base)})
+		})
+	})
+}
+
+func TestSortConflicts(t *testing.T) {
+	early := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
+	late := time.Date(2026, 3, 1, 18, 0, 0, 0, time.UTC)
+
+	id1 := uuid.MustParse("11111111-0000-0000-0000-000000000001")
+	id2 := uuid.MustParse("22222222-0000-0000-0000-000000000002")
+
+	newConflict := func(id uuid.UUID, start time.Time, known bool) *ConflictWithResources {
+		return &ConflictWithResources{
+			Conflict: &Conflict{
+				MaintenanceID: id,
+				OverlapStart:  start,
+				OverlapEnd:    start.Add(time.Hour),
+				Scope:         MaintenanceScopeGlobal,
+			},
+			KnownAtApproval: known,
+		}
+	}
+
+	t.Run("unknown conflicts come first", func(t *testing.T) {
+		conflicts := []*ConflictWithResources{
+			newConflict(id1, early, true),
+			newConflict(id2, late, false),
+		}
+
+		SortConflicts(conflicts)
+
+		require.False(t, conflicts[0].KnownAtApproval, "the conflict nobody reviewed must lead")
+		require.True(t, conflicts[1].KnownAtApproval)
+	})
+
+	t.Run("within a group the earlier overlap wins", func(t *testing.T) {
+		conflicts := []*ConflictWithResources{
+			newConflict(id1, late, false),
+			newConflict(id2, early, false),
+		}
+
+		SortConflicts(conflicts)
+
+		require.Equal(t, early, conflicts[0].OverlapStart)
+	})
+
+	t.Run("maintenance id is the final tie-breaker", func(t *testing.T) {
+		conflicts := []*ConflictWithResources{
+			newConflict(id2, early, false),
+			newConflict(id1, early, false),
+		}
+
+		SortConflicts(conflicts)
+
+		require.Equal(t, id1, conflicts[0].MaintenanceID)
+	})
+
+	t.Run("every permutation lands on the one expected order", func(t *testing.T) {
+		// id1 and id2 share `early` within the unreviewed group, so the id
+		// tie-breaker — the third axis — actually decides a position here. A
+		// comparator reversed on any single axis fails this, which comparing two
+		// runs against each other would not catch.
+		type want struct {
+			id    uuid.UUID
+			start time.Time
+			known bool
+		}
+		expected := []want{
+			{id1, early, false},
+			{id2, early, false},
+			{id1, late, false},
+			{id2, early, true},
+			{id1, late, true},
+		}
+
+		build := func() []*ConflictWithResources {
+			return []*ConflictWithResources{
+				newConflict(id1, late, true),
+				newConflict(id2, early, false),
+				newConflict(id1, late, false),
+				newConflict(id1, early, false),
+				newConflict(id2, early, true),
+			}
+		}
+
+		permutations := [][]int{
+			{0, 1, 2, 3, 4},
+			{4, 3, 2, 1, 0},
+			{2, 0, 4, 1, 3},
+		}
+
+		for _, order := range permutations {
+			source := build()
+			shuffled := make([]*ConflictWithResources, 0, len(source))
+			for _, idx := range order {
+				shuffled = append(shuffled, source[idx])
+			}
+
+			SortConflicts(shuffled)
+
+			require.Len(t, shuffled, len(expected))
+			for i, w := range expected {
+				require.Equal(t, w.known, shuffled[i].KnownAtApproval, "position %d, input order %v", i, order)
+				require.Equal(t, w.start, shuffled[i].OverlapStart, "position %d, input order %v", i, order)
+				require.Equal(t, w.id, shuffled[i].MaintenanceID, "position %d, input order %v", i, order)
+			}
+		}
+	})
+}
+
+func TestConflictFingerprint_IgnoresKnownAtApproval(t *testing.T) {
+	// The fingerprint gates approve (checkConflicts). If the read-side flag ever
+	// leaked into it, approving would start failing with a spurious
+	// "conflicts changed since preview".
+	build := func(known bool) []*ConflictWithResources {
+		return []*ConflictWithResources{
+			{
+				Conflict: &Conflict{
+					MaintenanceID: uuid.MustParse("cccccccc-0000-0000-0000-000000000003"),
+					Title:         "conflict",
+					OverlapStart:  time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC),
+					OverlapEnd:    time.Date(2026, 3, 1, 11, 0, 0, 0, time.UTC),
+					Scope:         MaintenanceScopeGlobal,
+				},
+				Resources:       []uuid.UUID{resID1},
+				KnownAtApproval: known,
+			},
+		}
+	}
+
+	require.Equal(t, ConflictFingerprint(build(false)), ConflictFingerprint(build(true)))
+}

@@ -713,12 +713,19 @@ type UimodelsCalendarViewResponse struct {
 
 // UimodelsConflictView defines model for uimodels.ConflictView.
 type UimodelsConflictView struct {
-	MaintenanceId *openapi_types.UUID                `json:"maintenance_id,omitempty"`
-	OverlapEnd    *time.Time                         `json:"overlap_end,omitempty"`
-	OverlapStart  *time.Time                         `json:"overlap_start,omitempty"`
-	Resources     *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
-	Scope         *string                            `json:"scope,omitempty"`
-	Title         *string                            `json:"title,omitempty"`
+	// KnownAtApproval KnownAtApproval reports whether the approver saw this conflict at the
+	// moment they approved. False means nobody reviewed it — either it appeared
+	// after approval, or the maintenance is still a draft (tell the two apart by
+	// the maintenance status, which this response also carries).
+	//
+	// Conflicts are ordered so that every false precedes every true.
+	KnownAtApproval *bool                              `json:"known_at_approval,omitempty"`
+	MaintenanceId   *openapi_types.UUID                `json:"maintenance_id,omitempty"`
+	OverlapEnd      *time.Time                         `json:"overlap_end,omitempty"`
+	OverlapStart    *time.Time                         `json:"overlap_start,omitempty"`
+	Resources       *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
+	Scope           *string                            `json:"scope,omitempty"`
+	Title           *string                            `json:"title,omitempty"`
 }
 
 // UimodelsDeferredNotificationView defines model for uimodels.DeferredNotificationView.
