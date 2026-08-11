@@ -27,7 +27,7 @@ type googleIDTokenClaims struct {
 	HostedDomain  string `json:"hd"`
 }
 
-func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
+func (s *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.OAuth.Google.Verify")
 	defer span.End()
 
@@ -37,16 +37,22 @@ func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAut
 	tok, err := jwt.ParseWithClaims(
 		idToken,
 		claims,
-		p.jwtVerifier.keyfunc.KeyfuncCtx(ctx),
+		s.keyfunc.KeyfuncCtx(ctx),
 		jwt.WithValidMethods([]string{
 			jwt.SigningMethodRS256.Alg(),
 			jwt.SigningMethodES256.Alg(),
 		}),
-		jwt.WithAudience(p.oauth2Config.ClientID),
-		jwt.WithIssuer(p.jwtVerifier.cfg.JWTIssuer),
+		jwt.WithAudience(s.clientID),
+		// No jwt.WithIssuer here: Google's verifier config sets the plural
+		// jwt_issuers allowlist, never the singular jwt_issuer, so WithIssuer
+		// would receive "" — which the library treats as "no issuer check" and
+		// silently skips. validateClaims enforces the allowlist below, which is
+		// strictly more general (Google mints both "accounts.google.com" and
+		// "https://accounts.google.com"). A dead check that looks live is worse
+		// than no check.
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
-		jwt.WithLeeway(p.jwtVerifier.cfg.JWTLeeway),
+		jwt.WithLeeway(s.cfg.JWTLeeway),
 	)
 	if err != nil {
 		xlog.Error(ctx, "verify google id token failed", xfield.Error(err))
@@ -54,7 +60,7 @@ func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAut
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, fmt.Errorf("%w: %w", apperr.ErrTokenExpired, err)
 		}
-		if errors.Is(err, jwkset.ErrKeyNotFound) && p.authUnavailable(ctx, verifyStartedAt) {
+		if errors.Is(err, jwkset.ErrKeyNotFound) && s.authUnavailable(ctx, verifyStartedAt) {
 			return nil, fmt.Errorf("%w: signing key not found", apperr.ErrInvalidAccessToken)
 		}
 
@@ -65,7 +71,7 @@ func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAut
 		return nil, fmt.Errorf("%w: token invalid", apperr.ErrInvalidAccessToken)
 	}
 
-	if err := validateClaims(ctx, claims, &p.jwtVerifier.cfg); err != nil {
+	if err := validateClaims(ctx, claims, &s.cfg); err != nil {
 		xlog.Error(ctx, "invalid google id token claims", xfield.Error(err))
 		return nil, fmt.Errorf("%w: %w", apperr.ErrInvalidAccessToken, err)
 	}
@@ -77,8 +83,8 @@ func (p *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAut
 	}, nil
 }
 
-func (p *Service) authUnavailable(ctx context.Context, verifyStartedAt time.Time) bool {
-	keys, err := p.jwtVerifier.keyfunc.Storage().KeyReadAll(ctx)
+func (s *Service) authUnavailable(ctx context.Context, verifyStartedAt time.Time) bool {
+	keys, err := s.keyfunc.Storage().KeyReadAll(ctx)
 	if err != nil {
 		xlog.Error(ctx, "read cached jwks keys failed", xfield.Error(err))
 		return true
@@ -88,7 +94,7 @@ func (p *Service) authUnavailable(ctx context.Context, verifyStartedAt time.Time
 		return true
 	}
 
-	return p.jwtVerifier.LastRefreshFailedAt(ctx) >= verifyStartedAt.UnixNano()
+	return s.LastRefreshFailedAt(ctx) >= verifyStartedAt.UnixNano()
 }
 
 func validateClaims(ctx context.Context, claims *googleIDTokenClaims, cfg *config.JWTVerifierConfig) error {

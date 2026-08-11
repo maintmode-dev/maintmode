@@ -255,6 +255,10 @@ jobs:
           docker compose "$@"
           EOF
           sudo chmod +x /usr/local/bin/docker-compose
+      # `app-up` depends on the `secrets` target, which restores the git-ignored
+      # test app.secrets.yaml from its committed sample. The test env runs the
+      # stub OAuth provider against a compose-local Postgres, so the sample's
+      # throwaway values are exactly what the e2e stack needs.
       - run: make app-up
       - run: make tloc-api
       - run: make app-down

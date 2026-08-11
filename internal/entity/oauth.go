@@ -32,12 +32,6 @@ func ParseOAuthProvider(s string) (OAuthProvider, bool) {
 	}
 }
 
-type OAuthProviderTokens struct {
-	AccessToken  string
-	RefreshToken string
-	IDToken      string
-}
-
 type OAuthProviderUserInfo struct {
 	ID    string
 	Email string

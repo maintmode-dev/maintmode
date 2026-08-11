@@ -24,7 +24,14 @@ tmp/
 
 plans/
 
-deployment/*/prod/app.secrets.yaml
+# Resolved secrets for EVERY environment — never committed, not just prod.
+# dev/local/test values are throwaway, but they are still real credentials
+# (a leaked GOCSPX- secret is live whatever we call the folder), and the
+# committed copies had to be rotated once already. Only *.sample.yaml is
+# tracked; restore a working file with:
+#   cp deployment/maintmode/<env>/app.secrets.sample.yaml \
+#      deployment/maintmode/<env>/app.secrets.yaml
+deployment/**/app.secrets.yaml
 
 # Real Telegram bot tokens for Alertmanager — keep secret.
 # Only the .sample files are tracked.

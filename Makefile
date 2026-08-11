@@ -19,11 +19,19 @@ SECRETS_FILE ?= $(PWD)/deployment/maintmode/local/app.secrets.yaml
 # These paths are relative to ROOT_DIR (project root)
 MIGRATIONS_DIR	?= migrations
 DB_DRIVER		?= postgres
-DB_DSN			?=
 
-ifndef DB_DSN
-DB_DSN=$(shell [ -f "$(SECRETS_FILE)" ] && awk '/^"?db\/dsn"?:/ {value=$$0; sub(/^[^:]+:[[:space:]]*/, "", value); gsub(/^"/, "", value); gsub(/"$$/, "", value); print value; exit}' "$(SECRETS_FILE)" || echo "")
-endif
+# DB_DSN is read lazily from SECRETS_FILE, NOT with := or inside a parse-time
+# conditional. app.secrets.yaml is gitignored in every environment and is
+# restored by the `secrets` target, which — like every prerequisite — runs
+# AFTER the whole Makefile is parsed. A parse-time $(shell) therefore reads the
+# file before it exists and bakes in an empty DSN, so `make db-status` on a
+# fresh clone ran `goose ... postgres "" status` even though `secrets` had just
+# created a perfectly good file. Recursive `=` defers the read to the point of
+# use, by which time the prerequisite has run.
+#
+# `?=` is itself recursive, so an explicit `make DB_DSN=... db-up` or an
+# exported DB_DSN still wins and the file is never consulted.
+DB_DSN			?= $(shell [ -f "$(SECRETS_FILE)" ] && awk '/^"?db\/dsn"?:/ {value=$$0; sub(/^[^:]+:[[:space:]]*/, "", value); gsub(/^"/, "", value); gsub(/"$$/, "", value); print value; exit}' "$(SECRETS_FILE)" || echo "")
 
 # Ensure GOBIN directory exists
 $(shell mkdir -p $(GOBIN))
@@ -138,7 +146,7 @@ build-dev:
 #   -count 2: Run each test 2 times to catch flaky tests
 # Note: Package tests are run from project root
 .PHONY: tloc
-tloc:
+tloc: secrets
 	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
 	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
 		go test -p 2 -count 2 ./internal/...
@@ -157,7 +165,7 @@ tloc:
 #   coverage.out: Filtered coverage data (no mocks)
 #   coverage.report: Human-readable coverage report
 .PHONY: tloc-cov
-tloc-cov:
+tloc-cov: secrets
 	MAINTMODE_CONFIG_DIR=$(PWD)/deployment/maintmode/local \
 	MAINTMODE_AUTHZ_DIR=$(PWD)/deployment/maintmode/authz \
 		go test -race -p 2 -count 2 -coverprofile=coverage.tmp -covermode atomic --coverpkg=./internal/... ./internal/...
@@ -304,7 +312,7 @@ db-migrate-create: ## Create new migration for current DB_DRIVER ($(DB_DRIVER))
 # Displays which migrations have been applied and which are pending
 # Shows version number and migration name for each migration
 .PHONY: db-status
-db-status: ## Check migrations status for current DB_DRIVER ($(DB_DRIVER))
+db-status: secrets ## Check migrations status for current DB_DRIVER ($(DB_DRIVER))
 	$(info $(M) check $(DB_DRIVER) migrations status...)
 	$(GOBIN)/goose -dir $(MIGRATIONS_DIR) $(DB_DRIVER) "$(DB_DSN)" status
 
@@ -313,7 +321,7 @@ db-status: ## Check migrations status for current DB_DRIVER ($(DB_DRIVER))
 # For PostgreSQL: also regenerates type-safe models after migrations
 # Safe to run multiple times (idempotent)
 .PHONY: db-up
-db-up: ## Apply migrations for current DB_DRIVER ($(DB_DRIVER))
+db-up: secrets ## Apply migrations for current DB_DRIVER ($(DB_DRIVER))
 	$(info $(M) starting $(DB_DRIVER) migration up...)
 	$(GOBIN)/goose -dir $(MIGRATIONS_DIR) $(DB_DRIVER) "$(DB_DSN)" up
 	$(MAKE) db-status
@@ -323,7 +331,7 @@ db-up: ## Apply migrations for current DB_DRIVER ($(DB_DRIVER))
 # Useful for undoing mistakes or testing rollback logic
 # WARNING: This modifies the database schema
 .PHONY: db-down
-db-down: ## Rollback migrations for current DB_DRIVER ($(DB_DRIVER))
+db-down: secrets ## Rollback migrations for current DB_DRIVER ($(DB_DRIVER))
 	$(info $(M) starting $(DB_DRIVER) migration down...)
 	$(GOBIN)/goose -dir $(MIGRATIONS_DIR) $(DB_DRIVER) "$(DB_DSN)" down
 	$(MAKE) db-status
@@ -333,7 +341,7 @@ db-down: ## Rollback migrations for current DB_DRIVER ($(DB_DRIVER))
 # Only works with PostgreSQL
 # Generated files are placed in internal/pkg/generated/
 .PHONY: db-models
-db-models: ## Generate models
+db-models: secrets ## Generate models
 	$(info $(M) generating $(DB_DRIVER) models...)
 	@go run ./scripts/dbmodels/generate.go --driver=$(DB_DRIVER) --dsn=$(DB_DSN) --dest="internal/pkg/generated/"
 
@@ -417,8 +425,26 @@ docker-ps: ## Show status of database containers
 #   make app-up MAINTMODE_REPLICAS=3
 # Restart caddy after changing the count so it re-resolves DNS.
 MAINTMODE_REPLICAS ?= 1
+# secrets - restore a missing dev/local/test app.secrets.yaml from its sample.
+# app.secrets.yaml is git-ignored in every environment, so a fresh clone has
+# none and compose would fail on the bind mount. Existing files are never
+# overwritten.
+#
+# Deliberately excludes prod: those secrets come from the secret store (CD
+# injects them into tmpfs), and a placeholder file would let a broken
+# provisioning step boot with "replace-me-prod-value" instead of failing loudly.
+.PHONY: secrets
+secrets: ## Restore missing dev/local/test app.secrets.yaml from samples
+	@for env in dev local test; do \
+		d="deployment/maintmode/$$env"; \
+		s="$$d/app.secrets.sample.yaml"; t="$$d/app.secrets.yaml"; \
+		if [ -f "$$s" ] && [ ! -f "$$t" ]; then \
+			cp "$$s" "$$t"; echo "restored $$t from sample"; \
+		fi; \
+	done
+
 .PHONY: app-up
-app-up: app-down
+app-up: secrets app-down
 app-up: args=
 app-up: ## Start all services with maintmode using Docker Compose
 	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS)...)

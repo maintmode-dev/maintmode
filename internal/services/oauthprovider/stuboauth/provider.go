@@ -1,18 +1,17 @@
 package stuboauth
 
 import (
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-type Service struct {
-	authRedirectURL string
-}
+// Service is the dev-only stand-in for a real OIDC provider. It carries no
+// state: the redirect URL it used to hold was written at construction and
+// never read, left over from the backend-owned OAuth flow. Unlike
+// googleoauth.NewProvider it therefore takes no config.
+type Service struct{}
 
-func NewService(cfg *config.StubOauthProvider) *Service {
-	return &Service{
-		authRedirectURL: cfg.RedirectURL,
-	}
+func NewService() *Service {
+	return &Service{}
 }
 
 func (p *Service) ProviderID() entity.OAuthProvider {

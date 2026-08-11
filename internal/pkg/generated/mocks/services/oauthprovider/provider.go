@@ -41,45 +41,6 @@ func (m *MockOAuthProvider) EXPECT() *MockOAuthProviderMockRecorder {
 	return m.recorder
 }
 
-// Exchange mocks base method.
-func (m *MockOAuthProvider) Exchange(ctx context.Context, code string) (*entity.OAuthProviderTokens, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Exchange", ctx, code)
-	ret0, _ := ret[0].(*entity.OAuthProviderTokens)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Exchange indicates an expected call of Exchange.
-func (mr *MockOAuthProviderMockRecorder) Exchange(ctx, code any) *MockOAuthProviderExchangeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exchange", reflect.TypeOf((*MockOAuthProvider)(nil).Exchange), ctx, code)
-	return &MockOAuthProviderExchangeCall{Call: call}
-}
-
-// MockOAuthProviderExchangeCall wrap *gomock.Call
-type MockOAuthProviderExchangeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockOAuthProviderExchangeCall) Return(arg0 *entity.OAuthProviderTokens, arg1 error) *MockOAuthProviderExchangeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderExchangeCall) Do(f func(context.Context, string) (*entity.OAuthProviderTokens, error)) *MockOAuthProviderExchangeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderExchangeCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthProviderTokens, error)) *MockOAuthProviderExchangeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ProviderID mocks base method.
 func (m *MockOAuthProvider) ProviderID() entity.OAuthProvider {
 	m.ctrl.T.Helper()
@@ -114,45 +75,6 @@ func (c *MockOAuthProviderProviderIDCall) Do(f func() entity.OAuthProvider) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOAuthProviderProviderIDCall) DoAndReturn(f func() entity.OAuthProvider) *MockOAuthProviderProviderIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UserInfo mocks base method.
-func (m *MockOAuthProvider) UserInfo(ctx context.Context, accessToken string) (*entity.OAuthProviderUserInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UserInfo", ctx, accessToken)
-	ret0, _ := ret[0].(*entity.OAuthProviderUserInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UserInfo indicates an expected call of UserInfo.
-func (mr *MockOAuthProviderMockRecorder) UserInfo(ctx, accessToken any) *MockOAuthProviderUserInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserInfo", reflect.TypeOf((*MockOAuthProvider)(nil).UserInfo), ctx, accessToken)
-	return &MockOAuthProviderUserInfoCall{Call: call}
-}
-
-// MockOAuthProviderUserInfoCall wrap *gomock.Call
-type MockOAuthProviderUserInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockOAuthProviderUserInfoCall) Return(arg0 *entity.OAuthProviderUserInfo, arg1 error) *MockOAuthProviderUserInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderUserInfoCall) Do(f func(context.Context, string) (*entity.OAuthProviderUserInfo, error)) *MockOAuthProviderUserInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderUserInfoCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthProviderUserInfo, error)) *MockOAuthProviderUserInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

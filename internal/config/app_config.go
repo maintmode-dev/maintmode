@@ -83,24 +83,26 @@ type Redis struct {
 	DB       int    `mapstructure:"db"`
 }
 
+// GoogleOauthProvider configures ID-token verification only.
+//
+// There is deliberately no client_secret, redirect_url or scopes: the BFF
+// (maintmode-ui, NextAuth) owns the authorization-code exchange with Google
+// and posts us the id_token. Those three configure a token-endpoint round
+// trip this service never makes. We verify the token offline against Google's
+// JWKS, and the only thing we need from the OAuth client is ClientID, as the
+// expected audience. Do not reintroduce a secret here — it would be an unused
+// copy of a credential that only the BFF needs.
 type GoogleOauthProvider struct {
-	ClientID string `mapstructure:"client_id"`
-	// ClientSecret is deprecated for production: the BFF-owned OAuth flow
-	ClientSecret      string            `mapstructure:"client_secret"`
-	RedirectURL       string            `mapstructure:"redirect_url"`
-	GoogleUserInfoURL string            `mapstructure:"google_userinfo_url"`
-	Scopes            []string          `mapstructure:"scopes"`
-	JWTVerify         JWTVerifierConfig `mapstructure:"jwtverifier"`
+	ClientID  string            `mapstructure:"client_id"`
+	JWTVerify JWTVerifierConfig `mapstructure:"jwtverifier"`
 }
 
-type StubOauthProvider struct {
-	RedirectURL string `mapstructure:"redirect_url"`
-}
-
+// OauthProviders has no `stub` section: the stub short-circuits verification in
+// dev and reads nothing from config, so there is no StubOauthProvider type.
+// UseStub (gated on IsDev) is the only stub-related knob.
 type OauthProviders struct {
 	UseStub bool                `mapstructure:"use_stub"`
 	Google  GoogleOauthProvider `mapstructure:"google"`
-	Stub    StubOauthProvider   `mapstructure:"stub"`
 }
 
 type JWT struct {
@@ -322,8 +324,18 @@ type TaskProcessorInvitationPruneConfig struct {
 }
 
 type JWTVerifierConfig struct {
-	JWTIssuer  string   `mapstructure:"jwt_issuer"`  // JWTIssuer is the expected issuer of the JWT.
-	JWTIssuers []string `mapstructure:"jwt_issuers"` // JWTIssuers is a list of expected issuers of the JWT.
+	// This struct is shared by two verifiers that use DIFFERENT issuer fields.
+	// Set the one your consumer reads; validateIssuerConfig enforces both at
+	// startup so a missing value cannot silently change behavior.
+	//
+	// JWTIssuer (singular) — read by internal/services/jwtverifier for our OWN
+	// access tokens, via jwt.WithIssuer. Exactly one issuer.
+	JWTIssuer string `mapstructure:"jwt_issuer"`
+	// JWTIssuers (plural) — read by the googleoauth provider for Google ID
+	// tokens, via validation.In. A list because Google mints both
+	// "accounts.google.com" and "https://accounts.google.com" and either is
+	// valid, which is why jwt.WithIssuer cannot express it.
+	JWTIssuers []string `mapstructure:"jwt_issuers"`
 	JWKSURL    string   `mapstructure:"jwks_url"`
 	// AllowedHostedDomains, when non-empty, restricts ID tokens to those
 	// whose `hd` claim matches one of the listed domains.
@@ -423,6 +435,10 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateIssuerConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	if err := cfg.validateInvitationRetention(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
@@ -437,13 +453,36 @@ func initConfig(appName string) *AppConfig {
 // effect. Reject it loudly instead of ignoring it, so a misplaced dev flag
 // never masks real prod deliveries. It panics-via-caller (initConfig) so the
 // misconfiguration surfaces at startup.
+//
+// Both use_stub flags are checked here, and the OAuth one matters most. The
+// stub provider accepts ANY token and mints a random identity (see
+// stuboauth/verify.go), so if its IsDev() gate at wiring time were ever
+// loosened, a stray oauth_providers.use_stub: true carried into a non-dev
+// config would turn every login into an unauthenticated one. dev's own
+// app.config.yaml ships use_stub: true, which is exactly the file someone
+// copies when seeding a new environment. Defense in depth: the runtime gate in
+// oauthprovider.NewOAuthProviders still stands, and this makes the config that
+// would rely on it refuse to boot.
 func (c *AppConfig) validateUseStubInDev() error {
-	if !c.Environment.IsDev() && c.NotifyTransport.UseStub {
+	if c.Environment.IsDev() {
+		return nil
+	}
+
+	if c.NotifyTransport.UseStub {
 		return fmt.Errorf(
 			"notify_transport.use_stub is only valid in a dev environment, got environment %q",
 			c.Environment,
 		)
 	}
+
+	if c.OauthProviders.UseStub {
+		return fmt.Errorf(
+			"oauth_providers.use_stub is only valid in a dev environment, got environment %q: "+
+				"the stub provider accepts any token and mints a random identity",
+			c.Environment,
+		)
+	}
+
 	return nil
 }
 
@@ -459,6 +498,39 @@ func (c *AppConfig) validateInvitationRetention() error {
 		return fmt.Errorf(
 			"task_processor.invitation_prune.retention must not be negative, got %s",
 			c.TaskProcessor.InvitationPrune.Retention,
+		)
+	}
+	return nil
+}
+
+// validateIssuerConfig rejects a verifier config that would silently stop
+// checking the token issuer.
+//
+// JWTVerifierConfig carries two issuer fields for two consumers, and they fail
+// in OPPOSITE directions when unset — which is why an unset one has to be an
+// error rather than a default:
+//
+//   - jwtverifier (our own access tokens) reads the singular JWTIssuer and
+//     passes it to jwt.WithIssuer. The library skips the check entirely on an
+//     empty string, so a missing jwt_issuer FAILS OPEN: any issuer is accepted.
+//   - googleoauth (Google ID tokens) reads the plural JWTIssuers and passes it
+//     to validation.In. An empty list matches nothing, so a missing
+//     jwt_issuers FAILS CLOSED: every token is rejected.
+//
+// One is a silent security hole, the other a total outage. Neither should be
+// reachable by deleting a config line, and this is not hypothetical: the Google
+// verifier previously also called jwt.WithIssuer with the singular field, which
+// no config sets, so that check was dead in every environment until it was
+// removed.
+func (c *AppConfig) validateIssuerConfig() error {
+	if c.JWTVerifier.JWTIssuer == "" {
+		return fmt.Errorf(
+			"jwtverifier.jwt_issuer must be set: an empty expected issuer makes jwt.WithIssuer skip the check, accepting any issuer",
+		)
+	}
+	if len(c.OauthProviders.Google.JWTVerify.JWTIssuers) == 0 {
+		return fmt.Errorf(
+			"oauth_providers.google.jwtverifier.jwt_issuers must list at least one issuer: an empty allowlist rejects every Google ID token",
 		)
 	}
 	return nil

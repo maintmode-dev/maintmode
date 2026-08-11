@@ -23,14 +23,18 @@ func TestApplySecret(t *testing.T) {
 				Password: "<secret:redis/password>",
 				DB:       0,
 			},
+			// JWTVerify.JWTIssuers is a []string, exercising the resolver's
+			// reflect.Slice branch (it must resolve refs element-by-element and
+			// leave literals alone), and it sits one struct deeper than ClientID
+			// so the recursive walk is covered too.
 			OauthProviders: OauthProviders{
 				Google: GoogleOauthProvider{
-					ClientID:     "<secret:oauth/google/client_id>",
-					ClientSecret: "<secret:oauth/google/client_secret>",
-					Scopes: []string{
-						"openid",
-						"email",
-						"<secret:oauth/google/profile_scope>",
+					ClientID: "<secret:oauth/google/client_id>",
+					JWTVerify: JWTVerifierConfig{
+						JWTIssuers: []string{
+							"accounts.google.com",
+							"<secret:oauth/google/extra_issuer>",
+						},
 					},
 				},
 			},
@@ -53,15 +57,14 @@ func TestApplySecret(t *testing.T) {
 		}
 
 		secrets := secretStore{
-			"db/dsn":                     "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
-			"redis/password":             "strong-redis-password",
-			"oauth/google/client_id":     "google-client-id",
-			"oauth/google/client_secret": "strong-google-client-secret",
-			"oauth/google/profile_scope": "profile_scope",
-			"jwt/issuer_private_key":     "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
-			"jwt/issuer_kid":             "jwt-kid-1",
-			"crypto/kek/kek-1":           "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-			"crypto/kek/kek-2":           "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+			"db/dsn":                    "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
+			"redis/password":            "strong-redis-password",
+			"oauth/google/client_id":    "google-client-id",
+			"oauth/google/extra_issuer": "https://accounts.google.com",
+			"jwt/issuer_private_key":    "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
+			"jwt/issuer_kid":            "jwt-kid-1",
+			"crypto/kek/kek-1":          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			"crypto/kek/kek-2":          "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
 		}
 
 		err := cfg.applySecrets(secrets)
@@ -82,12 +85,12 @@ func TestApplySecret(t *testing.T) {
 			},
 			OauthProviders: OauthProviders{
 				Google: GoogleOauthProvider{
-					ClientID:     "google-client-id",
-					ClientSecret: "strong-google-client-secret",
-					Scopes: []string{
-						"openid",
-						"email",
-						"profile_scope",
+					ClientID: "google-client-id",
+					JWTVerify: JWTVerifierConfig{
+						JWTIssuers: []string{
+							"accounts.google.com",
+							"https://accounts.google.com",
+						},
 					},
 				},
 			},

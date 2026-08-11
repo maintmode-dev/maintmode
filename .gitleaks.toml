@@ -1,0 +1,72 @@
+# Gitleaks config for the maintmode backend.
+#
+# Extends the upstream default ruleset, adds one deny rule, and allowlists a
+# fixed set of values that are deliberately committed and provably worthless.
+#
+# WHY THERE ARE NO `paths` ALLOWLISTS HERE. All of the following was verified
+# against gitleaks v8.28.0 (the version CI pins), not assumed:
+#
+#   * With `[extend] useDefault = true`, a top-level [[allowlists]] entry is
+#     GLOBAL — it applies to every rule, including the custom rule below. A rule
+#     cannot opt out of a global allowlist.
+#   * A `paths`-only allowlist therefore exempts the whole FILE from ALL rules.
+#     An earlier version of this config did that for the sample secrets files,
+#     which meant a real GOCSPX- secret pasted into one scanned completely
+#     clean — and those samples are exactly what someone edits when wiring up a
+#     new key.
+#   * `matchCondition = "AND"` does NOT rescue it: an AND allowlist combining a
+#     sample path with a CHANGE_ME regex still suppressed a GOCSPX- finding
+#     that matched neither placeholder. Tested directly.
+#
+# So allowlisting is done purely by VALUE. Each entry below is a specific
+# literal already established as worthless. Anything not on this list is
+# reported wherever it appears, including inside the sample files.
+
+[extend]
+useDefault = true
+
+# A Google client secret is never legitimate anywhere in this repo: the BFF
+# (maintmode-ui) holds the only copy, and this service verifies id_tokens with
+# no secret at all. The GOCSPX- prefix is unambiguous, and no allowlist entry
+# matches it, so this fires in every file.
+#
+# This rule exists because the leak that prompted all of this was exactly that:
+# a GOCSPX- value sitting in a committed secrets file.
+[[rules]]
+id = "google-oauth-client-secret"
+description = "Google OAuth client secret (GOCSPX-)"
+regex = '''GOCSPX-[A-Za-z0-9_-]{20,}'''
+keywords = ["GOCSPX-"]
+
+# Fill-me-in markers: the literal absence of a secret.
+[[allowlists]]
+description = "Explicit placeholder markers"
+regexes = [
+  '''CHANGE_ME[A-Z_]*''',
+  '''replace-me-prod-value[a-z0-9-]*''',
+]
+
+# Fixed throwaway values for the dev/local/test compose stacks, committed so a
+# fresh clone boots: the shared P-256 issuer key and its kid, the per-env OAuth
+# state signing keys, and the per-env KEKs. They protect nothing — dev/local/
+# test are explicitly outside the at-rest threat model, and every prod
+# equivalent comes from the secret store and never appears in this repo.
+#
+# Listed as exact literals rather than a generic hex pattern: a 64-char hex
+# string that is NOT one of these is a finding, which is the point.
+[[allowlists]]
+description = "Throwaway dev/local/test keys committed for a working stack"
+regexes = [
+  # P-256 issuer signing key + kid (also hardcoded in test/api/main_test.go and
+  # internal/config/app_secrets_test.go).
+  '''1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20''',
+  '''99d1e557df9b619fd046322c1e7f196e''',
+  # OAuth state signing keys, one per environment.
+  '''3bc242ffa419481bdfbff725187d61a035a6162bcd3213c2e90410372f451f8b''',
+  '''ea74a4bcc9d642c9decbfa29027d365144430f52a8315622a5a7636d1b6044d4''',
+  '''0cfa7e1c96b436a10c884eee2ecd450e4fd0bc3ecd5e0a67561a1d653dba3d30''',
+  # Integration-secret KEKs, one per environment.
+  '''ff504a4da27bcff6bc97794401dd2219826cd0a649736409ecffbde5ccbaaa70''',
+  '''2968bc96bfbcd45c1214693882331f76bac4566ec8a715d320f5b219fcccc81b''',
+  '''54219ec89dcaa6fb14527d8f6296140ea7c975bc80d6bfa1c251b699c780a93c''',
+]

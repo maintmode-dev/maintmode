@@ -58,6 +58,96 @@ groups:
           description: "{{ $labels.instance }} has restarted {{ $value }} times in the last 5 minutes. A rolling deploy restarts a replica once — repeated restarts mean a crash loop or a deploy failing its readiness check. Check the container logs and the last deploy."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintmodecrashlooping"
 
+  # Login failures are invisible to HighHTTP5xxRate: a rejected token is a 401
+  # or a 400, never a 5xx (see httperrors/mapper.go — ErrInvalidAccessToken and
+  # ErrTokenExpired map to 401, ErrUnsupportedProvider to 400). So a total
+  # breakage of Google ID-token verification — expired JWKS cache, rotated
+  # client_id, Google outage, a bad config deploy — locks every user out while
+  # every availability alert stays green. These rules close that gap.
+  #
+  # All three use http_route, which the OTel echo middleware sets to the
+  # registered route pattern. Verified against a live /metrics scrape rather
+  # than assumed: an earlier rule in this file shipped dead against a series
+  # that never existed.
+  - name: maintmode.auth
+    interval: 30s
+    rules:
+      - alert: OAuthExchangeFailing
+        # The BFF posts a Google id_token here and gets an app token pair back.
+        # A healthy exchange is ~all 200s: the BFF only calls it after Google
+        # has already authenticated the user, so a 4xx means WE rejected a token
+        # Google just issued — bad audience (client_id drift), unreachable or
+        # stale JWKS, or clock skew. Not user error, so the threshold is low.
+        #
+        # Rate-based, not a raw count: the endpoint sees little traffic, and a
+        # ratio would swing wildly on one failure against a handful of logins.
+        #
+        # 405 is EXCLUDED, and the exclusion is load-bearing in prod. This route
+        # is wrapped in middlewares.NotAllowedInProd (server/api_server.go),
+        # which returns ErrMethodNotAllowedInProd -> 405 (httperrors/mapper.go).
+        # So in prod every call here — a stray scanner, a stale client, anything
+        # — is a 405, and a bare `4..` matcher would hold this critical alert
+        # permanently open on an endpoint that is doing exactly its job. Note
+        # the sibling rule below already states the endpoint is blocked in prod;
+        # that is the same fact, and this matcher has to agree with it.
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{
+            http_route="/api/v1/login/oauth/exchange/google",
+            http_response_status_code=~"4..",
+            http_response_status_code!="405"
+          }[10m])) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Google ID-token exchange is rejecting logins"
+          description: "The BFF's id_token exchange has been returning 4xx for 10m. The BFF only calls this after Google authenticated the user, so we are rejecting tokens Google just issued — no new user can log in. Check JWKS reachability, that oauth/google/client_id still matches the client maintmode-ui uses, and the container clock."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#oauthexchangefailing"
+
+      - alert: InvitationAcceptFailing
+        # In prod the exchange endpoint above is blocked by NotAllowedInProd, so
+        # invitation acceptance is THE login path: it runs the same
+        # provider.VerifyToken. Some 4xx here is normal (expired or already-used
+        # invite, email mismatch), so this fires on a rate high enough to mean
+        # systemic breakage rather than one user fumbling a stale link.
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{
+            http_route="/api/v1/users/invitations/accept",
+            http_response_status_code=~"4.."
+          }[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Invitation acceptance is failing repeatedly"
+          description: "More than ~3 invitation accepts per minute have failed with 4xx for 10m. Isolated failures are expected (expired or reused invite, email mismatch), but a sustained rate means ID-token verification or the invitation flow is broken — and in prod this is the only way a new user can sign in."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#invitationacceptfailing"
+
+      - alert: TokenRefreshFailureRateHigh
+        # /refresh returning 401 is routine — every expired refresh token lands
+        # here and the BFF re-authenticates. So this is a RATIO, not a rate, and
+        # the threshold is deliberately high: only a majority-failing refresh
+        # endpoint is worth waking someone. That looks like the signing key
+        # changing under live sessions, or the refresh-token store being
+        # unreadable, both of which log every session out at once.
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{
+            http_route="/api/v1/refresh",
+            http_response_status_code=~"4.."
+          }[10m]))
+          /
+          clamp_min(sum(rate(http_server_request_duration_seconds_count{
+            http_route="/api/v1/refresh"
+          }[10m])), 0.001)
+          > 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Most token refreshes are failing"
+          description: "Over 50% of /api/v1/refresh calls have returned 4xx for 15m. A single expired refresh token is normal; a majority failing means the JWT signing key rotated under live sessions or the refresh-token store is unreadable — every active user is being logged out."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#tokenrefreshfailureratehigh"
+
   - name: maintmode.audit
     interval: 30s
     rules:
