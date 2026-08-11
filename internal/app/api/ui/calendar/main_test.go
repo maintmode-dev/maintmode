@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5/echotest"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	apinotifications "github.com/ruko1202/maintmode/internal/app/api/public/notifytargets"
@@ -31,9 +31,9 @@ import (
 )
 
 var (
-	db    *sqlx.DB
-	redis *redisDB.Client
-	cfg   *config.AppConfig
+	db     *sqlx.DB
+	valkey *valkeyDB.Client
+	cfg    *config.AppConfig
 )
 
 func TestMain(m *testing.M) {
@@ -42,8 +42,8 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -73,11 +73,11 @@ p, reviewer, maintenance.approve, execute
 `
 
 // newServices builds a per-test service set wired to the real auth services
-// (user/auth in-process) backed by the live Postgres and Redis.
+// (user/auth in-process) backed by the live Postgres and Valkey.
 func newServices(ctx context.Context, t *testing.T) *bootstrap.Services {
 	t.Helper()
 
-	return testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
+	return testbootstraputils.InitServicesT(ctx, t, db, valkey, cfg)
 }
 
 func initImpl(t *testing.T) *Implementation {

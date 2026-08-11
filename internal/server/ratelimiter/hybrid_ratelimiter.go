@@ -52,7 +52,7 @@ func (s *HybridRateLimiter) Allow(identifier string) (bool, error) {
 	allow, err := s.baseLimiter.Allow(ctx, keyPrefix+s.appNamePrefix+identifier)
 	if err != nil {
 		metrics.RateLimiterFallback(ctx)
-		xlog.Warn(ctx, "rate limiter: redis unavailable, using fallback", xfield.Error(err))
+		xlog.Warn(ctx, "rate limiter: valkey unavailable, using fallback", xfield.Error(err))
 		return s.fallbackLimiter.Allow(ctx, identifier)
 	}
 

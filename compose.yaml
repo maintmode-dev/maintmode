@@ -3,10 +3,10 @@
 # All services live in this file and are organised into three profiles
 # so a single compose command can scope what runs:
 #
-#   storages     postgres, pg_doorman, redis, apply-migrations
+#   storages     postgres, pg_doorman, valkey, apply-migrations
 #   app          maintmode, caddy
 #   monitoring   victoria-metrics, grafana, loki, promtail, postgres-exporter,
-#                redis-exporter, tempo, otel-collector, pyroscope, alloy,
+#                valkey-exporter, tempo, otel-collector, pyroscope, alloy,
 #                vmalert, alertmanager
 #
 # Bring up the full local stack:
@@ -66,18 +66,18 @@ services:
     networks:
       - theapp
 
-  redis:
-    image: redis:8-alpine
-    container_name: redis
+  valkey:
+    image: valkey/valkey:9.1.1-alpine
+    container_name: valkey
     profiles: ["storages"]
     restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: valkey-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,7 +127,7 @@ services:
         condition: service_healthy
       pg_doorman:
         condition: service_started
-      redis:
+      valkey:
         condition: service_healthy
       apply-migrations:
         condition: service_completed_successfully
@@ -287,15 +287,15 @@ services:
     networks:
       - theapp
 
-  redis-exporter:
-    image: oliver006/redis_exporter:v1.67.0
-    container_name: redis-exporter
+  valkey-exporter:
+    image: oliver006/redis_exporter:v1.89.0
+    container_name: valkey-exporter
     profiles: ["monitoring"]
     restart: unless-stopped
     environment:
-      REDIS_ADDR: "redis://redis:6379"
+      REDIS_ADDR: "valkey://valkey:6379"
     depends_on:
-      redis:
+      valkey:
         condition: service_healthy
     networks:
       - theapp
@@ -488,7 +488,7 @@ services:
 
 volumes:
   db_data:
-  redis_data:
+  valkey_data:
   caddy_data:
   caddy_config:
   victoria-metrics:

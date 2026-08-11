@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/goque"
 
 	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
@@ -53,7 +53,7 @@ type Stores struct {
 	LicenseCache *licensecache.Store
 
 	// Auth-module stores (formerly AuthStores). TokenBlackList and Locker are
-	// Redis-backed; the rest are Postgres-backed.
+	// Valkey-backed; the rest are Postgres-backed.
 	Users           *users.Store
 	UserIdentities  *useridentities.Store
 	UserInvitations *userinvitations.Store
@@ -68,12 +68,12 @@ type Stores struct {
 	taskStorage goque.TaskStorage
 }
 
-// NewStores creates and initializes all storage layer dependencies. The Redis
+// NewStores creates and initializes all storage layer dependencies. The Valkey
 // client backs the token blacklist and the distributed locker; everything else
 // is Postgres-backed.
 func NewStores(
 	db *sqlx.DB,
-	redisDB *redis.Client,
+	valkeyDB *valkeylib.Client,
 ) (*Stores, error) {
 	taskStorage, err := goque.NewStorage(db)
 	if err != nil {
@@ -97,8 +97,8 @@ func NewStores(
 		UserIdentities:  useridentities.NewStore(db),
 		UserInvitations: userinvitations.NewStore(db),
 		RefreshToken:    refreshtoken.NewStore(db),
-		TokenBlackList:  blacklisttoken.NewStore(redisDB),
-		Locker:          distributedlock.NewStore(redisDB),
+		TokenBlackList:  blacklisttoken.NewStore(valkeyDB),
+		Locker:          distributedlock.NewStore(valkeyDB),
 		Audit:           audit.NewStore(db),
 
 		taskStorage: taskStorage,

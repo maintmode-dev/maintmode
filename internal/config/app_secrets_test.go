@@ -18,9 +18,9 @@ func TestApplySecret(t *testing.T) {
 			DB: DB{
 				DSN: "<secret:db/dsn>",
 			},
-			Redis: Redis{
-				Address:  "redis:address",
-				Password: "<secret:redis/password>",
+			Valkey: Valkey{
+				Address:  "valkey:address",
+				Password: "<secret:valkey/password>",
 				DB:       0,
 			},
 			// JWTVerify.JWTIssuers is a []string, exercising the resolver's
@@ -58,7 +58,7 @@ func TestApplySecret(t *testing.T) {
 
 		secrets := secretStore{
 			"db/dsn":                    "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
-			"redis/password":            "strong-redis-password",
+			"valkey/password":           "strong-valkey-password",
 			"oauth/google/client_id":    "google-client-id",
 			"oauth/google/extra_issuer": "https://accounts.google.com",
 			"jwt/issuer_private_key":    "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
@@ -78,9 +78,9 @@ func TestApplySecret(t *testing.T) {
 			DB: DB{
 				DSN: "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
 			},
-			Redis: Redis{
-				Address:  "redis:address",
-				Password: "strong-redis-password",
+			Valkey: Valkey{
+				Address:  "valkey:address",
+				Password: "strong-valkey-password",
 				DB:       0,
 			},
 			OauthProviders: OauthProviders{

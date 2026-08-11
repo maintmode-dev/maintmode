@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -61,22 +61,22 @@ func TestUIRateLimitKey(t *testing.T) {
 	})
 }
 
-// TestNewUIRateLimiterFallsBackWithoutRedis exercises the degraded path of the
-// assembled /ui/v1 limiter: Redis unreachable, so every decision comes from the
+// TestNewUIRateLimiterFallsBackWithoutValkey exercises the degraded path of the
+// assembled /ui/v1 limiter: Valkey unreachable, so every decision comes from the
 // per-replica in-memory bucket.
 //
 // The hybrid limiter's fallback mechanism is covered generically in its own
 // package. What is only observable here is that NewUIRateLimiter assembles it
-// correctly for this group — that the screen routes stay SERVED during a Redis
+// correctly for this group — that the screen routes stay SERVED during a Valkey
 // outage rather than failing closed, and that the memory store is reached
 // through the per-user key. An outage of a dependency added to protect the
 // service must not take the service down.
-func TestNewUIRateLimiterFallsBackWithoutRedis(t *testing.T) {
+func TestNewUIRateLimiterFallsBackWithoutValkey(t *testing.T) {
 	t.Parallel()
 
-	// Port 1 on the loopback refuses instantly, so every Redis call errors and
+	// Port 1 on the loopback refuses instantly, so every Valkey call errors and
 	// the hybrid limiter defers to the in-memory bucket.
-	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
+	rdb := valkeylib.NewClient(&valkeylib.Options{Addr: "127.0.0.1:1"})
 	t.Cleanup(func() { require.NoError(t, rdb.Close()) })
 
 	// A deliberately tiny window: burst follows the rate, so 2/min is the whole

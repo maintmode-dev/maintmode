@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -23,9 +23,9 @@ import (
 )
 
 var (
-	db    *sqlx.DB
-	redis *redisDB.Client
-	cfg   *config.AppConfig
+	db     *sqlx.DB
+	valkey *valkeyDB.Client
+	cfg    *config.AppConfig
 )
 
 func TestMain(m *testing.M) {
@@ -34,8 +34,8 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
 
 	return New(services.Calendar, services.UserSummary)
 }

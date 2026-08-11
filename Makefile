@@ -410,13 +410,13 @@ docker-ps: ## Show status of database containers
 # Uses compose.yaml in project root with profiles (storages/app/monitoring).
 #
 # Services activated by COMPOSE_PROFILES_FLAGS (default = all three):
-#   storages    postgres, pg_doorman, redis, apply-migrations
+#   storages    postgres, pg_doorman, valkey, apply-migrations
 #   app         maintmode, caddy
 #   monitoring  VictoriaMetrics, Grafana, Loki, Promtail, exporters,
 #               Jaeger, OTEL, Pyroscope, Alloy, vmalert, alertmanager
 
 # app-up - Start all services including maintmode application
-# Starts PostgreSQL, Redis, pg_doorman, apply-migrations, and maintmode
+# Starts PostgreSQL, Valkey, pg_doorman, apply-migrations, and maintmode
 # Creates containers, networks, and volumes if they don't exist
 # Safe to run multiple times (idempotent)
 #

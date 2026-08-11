@@ -24,8 +24,8 @@
 # on the external /auth/* surface, provided by the caddy-ratelimit module
 # (baked into our custom image — see deployment/caddy/Dockerfile). This is
 # defense-in-depth IN FRONT of, not a replacement for, the app-level
-# Redis-backed business limiter on /login/oauth (30 RPM/IP, RUK-145):
-#   - app limiter  : precise business limit, replica-shared via Redis
+# Valkey-backed business limiter on /login/oauth (30 RPM/IP, RUK-145):
+#   - app limiter  : precise business limit, replica-shared via Valkey
 #   - this limiter : coarse anti-flood before traffic reaches the app,
 #                    Caddy in-memory (single Caddy per VM → consistent)
 #
@@ -71,7 +71,7 @@
 # logic — well above any legitimate single-user burst (/me + /refresh fan
 # out to a handful of calls, not hundreds) yet low enough to blunt a flood.
 # /login/oauth is rare; one ceiling covers them all and the precise per-IP
-# login limit stays in the app (Redis, 30 RPM). Over the limit → HTTP 429
+# login limit stays in the app (Valkey, 30 RPM). Over the limit → HTTP 429
 # (the module sets Retry-After automatically).
 # events/window are env-overridable so the e2e test stack — which drives the
 # whole /auth surface from a single IP, doubled via tloc-api's -count=2 — can

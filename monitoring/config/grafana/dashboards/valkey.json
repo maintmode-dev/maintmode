@@ -19,11 +19,11 @@
   "links": [],
   "refresh": "10s",
   "schemaVersion": 42,
-  "tags": ["maintmode", "redis"],
+  "tags": ["maintmode", "valkey"],
   "templating": {
     "list": [
       {
-        "current": { "text": "redis", "value": "redis" },
+        "current": { "text": "valkey", "value": "valkey" },
         "datasource": { "type": "prometheus", "uid": "vm_ds" },
         "definition": "label_values(redis_up, service_name)",
         "includeAll": false,
@@ -44,7 +44,7 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Redis",
+  "title": "Valkey",
   "uid": "xDLNRKUWz",
   "version": 1,
   "panels": [
@@ -78,7 +78,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "vm_ds" },
-      "description": "used_memory / maxmemory, only when a maxmemory limit is configured. This stack runs Redis with maxmemory=0 (unbounded), so this panel is intentionally empty — track absolute usage in the Memory Usage timeseries below instead.",
+      "description": "used_memory / maxmemory, only when a maxmemory limit is configured. This stack runs Valkey with maxmemory=0 (unbounded), so this panel is intentionally empty — track absolute usage in the Memory Usage timeseries below instead.",
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",

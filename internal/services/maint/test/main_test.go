@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testconfigutils "github.com/ruko1202/maintmode/test/utils/config"
@@ -29,7 +29,7 @@ func testActor(roles ...entity.Role) *entity.User {
 
 var (
 	db             *sqlx.DB
-	redis          *redisDB.Client
+	valkey         *valkeyDB.Client
 	cfg            *config.AppConfig
 	maintStore     *maintenances.Store
 	resourcesStore *resources.Store
@@ -41,10 +41,10 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
-	stores := testbootstraputils.InitStores(db, redis)
+	stores := testbootstraputils.InitStores(db, valkey)
 	resourcesStore = stores.Resources
 	maintStore = stores.Maintenances
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -39,9 +39,9 @@ import (
 )
 
 var (
-	db    *sqlx.DB
-	redis *redisDB.Client
-	cfg   *config.AppConfig
+	db     *sqlx.DB
+	valkey *valkeyDB.Client
+	cfg    *config.AppConfig
 )
 
 const (
@@ -53,8 +53,8 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -107,8 +107,8 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			// unknown user provisions a guest, so login tests need no invitation.
 			true,
 		),
-		distributedlock.NewStore(redis),
-		blacklisttoken.NewStore(redis),
+		distributedlock.NewStore(valkey),
+		blacklisttoken.NewStore(valkey),
 		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
 		tokenSrv,
 		newTestAuditPublisher(t),

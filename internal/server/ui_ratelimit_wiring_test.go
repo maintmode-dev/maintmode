@@ -99,8 +99,8 @@ func TestUIRateLimitWiring(t *testing.T) {
 	// The limiter is INJECTED rather than patched into the returned slice by
 	// index. Patching by index assumes the position it is trying to verify: move
 	// the limiter to the front of the chain and the patch overwrites the license
-	// gate instead, leaving the real Redis-backed limiter live in the chain. The
-	// test would still fail, but on a nil-Redis panic rather than on the
+	// gate instead, leaving the real Valkey-backed limiter live in the chain. The
+	// test would still fail, but on a nil-Valkey panic rather than on the
 	// assertion, which reports a crash where it should report a misordering.
 	newUIGroupWithLicense := func(
 		e *echo.Echo, store middleware.RateLimiterStore, license middlewares.LicenseProvider,

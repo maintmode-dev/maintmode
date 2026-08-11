@@ -77,7 +77,7 @@ type DB struct {
 	ConnMaxIdleTime time.Duration `mapstructure:"connection_max_idle_time"`
 }
 
-type Redis struct {
+type Valkey struct {
 	Address  string `mapstructure:"addr"`
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
@@ -375,7 +375,7 @@ type AppConfig struct {
 	Tracer          Tracer                `mapstructure:"tracer"`
 	Logger          LoggerConfig          `mapstructure:"logger"`
 	DB              DB                    `mapstructure:"db"`
-	Redis           Redis                 `mapstructure:"redis"`
+	Valkey          Valkey                `mapstructure:"valkey"`
 	OauthProviders  OauthProviders        `mapstructure:"oauth_providers"`
 	JWT             JWT                   `mapstructure:"jwt"`
 	NotifyTransport NotifyTransportConfig `mapstructure:"notify_transport"`
@@ -443,6 +443,10 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateValkeyConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	return cfg
 }
 
@@ -483,6 +487,33 @@ func (c *AppConfig) validateUseStubInDev() error {
 		)
 	}
 
+	return nil
+}
+
+// validateValkeyConfig rejects an empty valkey.addr at startup.
+//
+// The key was renamed redis -> valkey, and viper unmarshals without
+// ErrorUnused: a config file still carrying the old `redis:` block is not an
+// error, it simply leaves Valkey as the Go zero value. That would be survivable
+// if an empty address then failed to connect, but go-redis substitutes its own
+// default instead (options.go: `if opt.Addr == "" { opt.Addr = "localhost:6379" }`),
+// so the ping succeeds against whatever happens to answer on the local port and
+// the process boots "healthy" while pointed at the wrong store — or, on a host
+// running an unrelated instance, quietly shares it.
+//
+// The subsystems behind this client are the ones where that is least visible:
+// the rate limiter silently stops being replica-shared, and blacklisted tokens
+// and distributed locks stop being seen by the other replicas. The error names
+// the rename because a stale `redis:` block is the overwhelmingly likely cause
+// and is otherwise invisible. It panics-via-caller (initConfig) so the
+// misconfiguration surfaces at startup.
+func (c *AppConfig) validateValkeyConfig() error {
+	if c.Valkey.Address == "" {
+		return fmt.Errorf(
+			"valkey.addr must not be empty: check the config uses the `valkey:` key " +
+				"(renamed from `redis:`), otherwise the client silently defaults to localhost:6379",
+		)
+	}
 	return nil
 }
 

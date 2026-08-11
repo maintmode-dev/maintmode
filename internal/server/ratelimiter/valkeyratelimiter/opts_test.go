@@ -1,4 +1,4 @@
-package redisratelimiter
+package valkeyratelimiter
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 // zero straight through. redis_rate.PerMinute(0) is Limit{Rate:0, Burst:0} — a
 // bucket that denies EVERY request. The route would answer 100% HTTP 429 in
 // production off a clean startup with no alert, while the rest of the limiter
-// machinery (Redis outage → in-memory fallback) fails open.
+// machinery (Valkey outage → in-memory fallback) fails open.
 //
 // Degrading to the package default is the safer half of the trade: a forgotten
 // block yields a conservative cap rather than an outage, and the operator's own
@@ -28,21 +28,21 @@ func TestWindowOptsIgnoreNonPositiveRate(t *testing.T) {
 
 	t.Run("a zero rate keeps the default", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, packageDefault, NewRedisLimiter(nil, WithWindowMinute(0)).limit)
-		require.Equal(t, packageDefault, NewRedisLimiter(nil, WithWindowSecond(0)).limit)
+		require.Equal(t, packageDefault, NewValkeyLimiter(nil, WithWindowMinute(0)).limit)
+		require.Equal(t, packageDefault, NewValkeyLimiter(nil, WithWindowSecond(0)).limit)
 	})
 
 	t.Run("a negative rate keeps the default", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, packageDefault, NewRedisLimiter(nil, WithWindowMinute(-1)).limit)
-		require.Equal(t, packageDefault, NewRedisLimiter(nil, WithWindowSecond(-1)).limit)
+		require.Equal(t, packageDefault, NewValkeyLimiter(nil, WithWindowMinute(-1)).limit)
+		require.Equal(t, packageDefault, NewValkeyLimiter(nil, WithWindowSecond(-1)).limit)
 	})
 
 	// The control: without it the assertions above would also hold if the options
 	// had stopped working altogether.
 	t.Run("a meaningful rate is applied", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, redis_rate.PerMinute(120), NewRedisLimiter(nil, WithWindowMinute(120)).limit)
-		require.Equal(t, redis_rate.PerSecond(5), NewRedisLimiter(nil, WithWindowSecond(5)).limit)
+		require.Equal(t, redis_rate.PerMinute(120), NewValkeyLimiter(nil, WithWindowMinute(120)).limit)
+		require.Equal(t, redis_rate.PerSecond(5), NewValkeyLimiter(nil, WithWindowSecond(5)).limit)
 	})
 }

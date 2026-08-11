@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
@@ -70,25 +70,25 @@ type APIServer struct {
 	*server
 	handlers APIServerHandlers
 	security APIServerSecurity
-	// redis backs the rate limiters guarding the public login/oauth and
+	// valkey backs the rate limiters guarding the public login/oauth and
 	// invitation endpoints (keyed by IP) and the /ui/v1 screen group (keyed by
-	// user). Each limiter degrades to a per-replica in-memory bucket when redis
+	// user). Each limiter degrades to a per-replica in-memory bucket when valkey
 	// is unreachable.
-	redis *redis.Client
+	valkey *valkeylib.Client
 }
 
 func NewAPIServer(
 	cfg config.HTTPServer,
 	handlers APIServerHandlers,
 	security APIServerSecurity,
-	rdb *redis.Client,
+	rdb *valkeylib.Client,
 	opts ...Option,
 ) *APIServer {
 	return &APIServer{
 		server:   newServer(cfg, opts...),
 		handlers: handlers,
 		security: security,
-		redis:    rdb,
+		valkey:   rdb,
 	}
 }
 
@@ -116,7 +116,7 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 
 	// ui/v1 is fully token-gated and also behind the block gate.
 	s.uiV1Group(rootGr.Group("/ui/v1",
-		s.uiV1Middlewares(NewUIRateLimiter(meta.AppName, s.redis, s.cfg.UIRateLimiter))...))
+		s.uiV1Middlewares(NewUIRateLimiter(meta.AppName, s.valkey, s.cfg.UIRateLimiter))...))
 }
 
 // uiV1Middlewares builds the middleware chain guarding the /ui/v1 screen group.
@@ -165,7 +165,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
 	)
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
 		middlewares.NotAllowedInProd(env),
@@ -174,7 +174,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
 	invitesGr := gr.Group("/users/invitations",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.redis, s.cfg.RateLimiter)),
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)

@@ -78,9 +78,9 @@ tracer:
   collector_host: otel-collector
   collector_port: 4317
 
-redis:
-  addr: redis:6379
-  password: <secret:redis/password>
+valkey:
+  addr: valkey:6379
+  password: <secret:valkey/password>
   db: 0
 
 oauth_providers:

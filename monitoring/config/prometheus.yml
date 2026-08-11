@@ -53,12 +53,12 @@ scrape_configs:
           service_name: 'postgres'
           component: 'database'
 
-  # Redis Exporter
-  - job_name: 'redis'
+  # Valkey Exporter
+  - job_name: 'valkey'
     static_configs:
-      - targets: ['redis-exporter:9121']
+      - targets: ['valkey-exporter:9121']
         labels:
-          service_name: 'redis'
+          service_name: 'valkey'
           component: 'cache'
 
   # cAdvisor — per-container resource usage (container_* metrics).

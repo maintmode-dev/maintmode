@@ -78,9 +78,9 @@ tracer:
   collector_host: localhost
   collector_port: 4317
 
-redis:
+valkey:
   addr: localhost:6379
-  password: <secret:redis/password>
+  password: <secret:valkey/password>
   db: 0
 
 oauth_providers:

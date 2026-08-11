@@ -1,17 +1,17 @@
 package distributedlock
 
 import (
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 )
 
 const lockPrefix = "lock:"
 
-// Store implements distributed locking using Redis SET NX.
+// Store implements distributed locking using Valkey SET NX.
 type Store struct {
-	client *redis.Client
+	client *valkeylib.Client
 }
 
-// NewStore creates a new Redis-backed distributed lock.
-func NewStore(client *redis.Client) *Store {
+// NewStore creates a new Valkey-backed distributed lock.
+func NewStore(client *valkeylib.Client) *Store {
 	return &Store{client: client}
 }

@@ -14,7 +14,7 @@ import (
 	_ "time/tzdata"
 
 	"github.com/jmoiron/sqlx"
-	redislib "github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -35,7 +35,7 @@ import (
 	uicalendar "github.com/ruko1202/maintmode/internal/app/api/ui/calendar"
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config/pg"
-	"github.com/ruko1202/maintmode/internal/config/redis"
+	"github.com/ruko1202/maintmode/internal/config/valkey"
 	"github.com/ruko1202/maintmode/internal/lifecycle"
 	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
@@ -73,14 +73,14 @@ func main() {
 	}
 	closer.Add(db.Close)
 
-	redisClient, err := redis.NewRedis(ctx, &cfg.Redis)
+	valkeyClient, err := valkey.NewValkey(ctx, &cfg.Valkey)
 	if err != nil {
-		xlog.Panic(ctx, "failed to init redis client", xfield.Error(err))
+		xlog.Panic(ctx, "failed to init valkey client", xfield.Error(err))
 	}
-	closer.Add(redisClient.Close)
+	closer.Add(valkeyClient.Close)
 
 	// Bootstrap application layers
-	stores, err := bootstrap.NewStores(db, redisClient)
+	stores, err := bootstrap.NewStores(db, valkeyClient)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
@@ -103,7 +103,7 @@ func main() {
 		}()
 	}
 
-	startAPIServer(ctx, cfg, meta, services, redisClient, logger)
+	startAPIServer(ctx, cfg, meta, services, valkeyClient, logger)
 
 	// Owns the drain signal: main flips it on shutdown, the readiness handler
 	// only reads it. Keeps process-lifecycle state out of the HTTP layer.
@@ -122,7 +122,7 @@ func startAPIServer(
 	cfg *config.AppConfig,
 	meta *buildmeta.AppBuildMeta,
 	services *bootstrap.Services,
-	redisClient *redislib.Client,
+	valkeyClient *valkeylib.Client,
 	logger xlog.Logger,
 ) {
 	s := server.NewAPIServer(
@@ -152,7 +152,7 @@ func startAPIServer(
 			Authorizer:    services.RBAC,
 			License:       services.License,
 		},
-		redisClient,
+		valkeyClient,
 		server.WithLogger(logger),
 	)
 	s.BindRouters(cfg.Environment, meta)

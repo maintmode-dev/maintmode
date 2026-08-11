@@ -1,4 +1,4 @@
-package redisratelimiter
+package valkeyratelimiter
 
 import "github.com/go-redis/redis_rate/v10"
 
@@ -8,12 +8,12 @@ import "github.com/go-redis/redis_rate/v10"
 // from config, which carries no viper defaults, so a missing or half-filled yaml
 // block arrives as a bare Go zero. Applying it would turn a forgotten config
 // line into a route answering 100% HTTP 429 off a clean startup: fail-closed
-// inside machinery that otherwise fails open (a Redis outage degrades to the
+// inside machinery that otherwise fails open (a Valkey outage degrades to the
 // in-memory fallback). An operator's own value always wins; only a meaningless
 // one is refused.
 
-func WithWindowSecond(rate int) RedisLimiterOpts {
-	return func(r *RedisLimiter) {
+func WithWindowSecond(rate int) ValkeyLimiterOpts {
+	return func(r *ValkeyLimiter) {
 		if rate <= 0 {
 			return
 		}
@@ -21,8 +21,8 @@ func WithWindowSecond(rate int) RedisLimiterOpts {
 	}
 }
 
-func WithWindowMinute(rate int) RedisLimiterOpts {
-	return func(r *RedisLimiter) {
+func WithWindowMinute(rate int) ValkeyLimiterOpts {
+	return func(r *ValkeyLimiter) {
 		if rate <= 0 {
 			return
 		}

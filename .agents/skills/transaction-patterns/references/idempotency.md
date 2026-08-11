@@ -441,21 +441,21 @@ func (c *DeduplicationCache) GetOrExecute(
 }
 ```
 
-**Redis-Based**:
+**Valkey-Based**:
 ```go
-func (s *Service) CreateWithRedisDedup(
+func (s *Service) CreateWithValkeyDedup(
     ctx context.Context,
     key string,
     cmd *CreateCmd,
 ) (*Entity, error) {
     // Try to set key with NX (only if not exists)
-    processing := s.redis.SetNX(ctx, "processing:"+key, "1", 5*time.Minute)
+    processing := s.valkey.SetNX(ctx, "processing:"+key, "1", 5*time.Minute)
     if !processing.Val() {
         // Another request is processing this key
 
         // Wait for result
         for i := 0; i < 30; i++ {
-            resultJSON, err := s.redis.Get(ctx, "result:"+key).Result()
+            resultJSON, err := s.valkey.Get(ctx, "result:"+key).Result()
             if err == nil {
                 var entity Entity
                 json.Unmarshal([]byte(resultJSON), &entity)
@@ -471,14 +471,14 @@ func (s *Service) CreateWithRedisDedup(
     // We won the race, process the request
     entity, err := s.create(ctx, cmd)
     if err != nil {
-        s.redis.Del(ctx, "processing:"+key)
+        s.valkey.Del(ctx, "processing:"+key)
         return nil, err
     }
 
     // Store result
     resultJSON, _ := json.Marshal(entity)
-    s.redis.Set(ctx, "result:"+key, resultJSON, 5*time.Minute)
-    s.redis.Del(ctx, "processing:"+key)
+    s.valkey.Set(ctx, "result:"+key, resultJSON, 5*time.Minute)
+    s.valkey.Del(ctx, "processing:"+key)
 
     return entity, nil
 }

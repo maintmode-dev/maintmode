@@ -5,7 +5,7 @@ import "time"
 // Option overrides a default. Non-positive / nil values are ignored.
 type Option func(*HybridRateLimiter)
 
-// WithTimeout sets the per-call Redis deadline.
+// WithTimeout sets the per-call Valkey deadline.
 func WithTimeout(d time.Duration) Option {
 	return func(s *HybridRateLimiter) {
 		if d > 0 {

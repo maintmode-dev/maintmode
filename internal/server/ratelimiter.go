@@ -3,11 +3,11 @@ package server
 import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/server/ratelimiter"
-	"github.com/ruko1202/maintmode/internal/server/ratelimiter/redisratelimiter"
+	"github.com/ruko1202/maintmode/internal/server/ratelimiter/valkeyratelimiter"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
@@ -20,7 +20,7 @@ import (
 // against a determined insider, who holds a valid token by definition.
 const defaultUIRequestsPerMinute = 300
 
-func NewRateLimiter(appName string, rdb *redis.Client, cfg config.RateLimiterConfig) *ratelimiter.HybridRateLimiter {
+func NewRateLimiter(appName string, rdb *valkeylib.Client, cfg config.RateLimiterConfig) *ratelimiter.HybridRateLimiter {
 	// echo's in-memory fallback is a token bucket whose Rate is in
 	// requests/second, so convert the per-minute config.
 	fallback := middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
@@ -30,8 +30,8 @@ func NewRateLimiter(appName string, rdb *redis.Client, cfg config.RateLimiterCon
 	})
 
 	return ratelimiter.NewHybridRateLimiter(appName,
-		redisratelimiter.NewRedisLimiter(rdb,
-			redisratelimiter.WithWindowMinute(cfg.RequestsPerMinute),
+		valkeyratelimiter.NewValkeyLimiter(rdb,
+			valkeyratelimiter.WithWindowMinute(cfg.RequestsPerMinute),
 		),
 		ratelimiter.WithTimeout(cfg.Timeout),
 		ratelimiter.WithFallbackLimiter(ratelimiter.LimiterNoCtx(fallback.Allow)),
@@ -39,8 +39,8 @@ func NewRateLimiter(appName string, rdb *redis.Client, cfg config.RateLimiterCon
 }
 
 // NewUIRateLimiter builds the rate-limiting middleware for the /ui/v1 screen
-// group. It reuses the whole hybrid store (Redis, with the per-replica
-// in-memory fallback on a Redis outage) and differs from NewRateLimiter in the
+// group. It reuses the whole hybrid store (Valkey, with the per-replica
+// in-memory fallback on a Valkey outage) and differs from NewRateLimiter in the
 // two ways the screen group needs: requests are bucketed per user rather than
 // per IP, and the threshold comes from its own config block.
 //
@@ -50,15 +50,15 @@ func NewRateLimiter(appName string, rdb *redis.Client, cfg config.RateLimiterCon
 // later edit could undo without touching this file.
 //
 // It MUST be mounted after RequireAccessToken — see uiV1Middlewares.
-func NewUIRateLimiter(appName string, rdb *redis.Client, cfg config.RateLimiterConfig) echo.MiddlewareFunc {
+func NewUIRateLimiter(appName string, rdb *valkeylib.Client, cfg config.RateLimiterConfig) echo.MiddlewareFunc {
 	// Ordered options, not a hand-rolled resolver: the option is a no-op for a
 	// non-positive rate, so ours lands and an operator's own value overwrites it.
 	// Without the first call an absent config block would inherit the package
 	// default of 30/min — the anti-enumeration ceiling for the login surface,
 	// which on a screen group answers 429 to ordinary page loads.
-	limiter := redisratelimiter.NewRedisLimiter(rdb,
-		redisratelimiter.WithWindowMinute(defaultUIRequestsPerMinute),
-		redisratelimiter.WithWindowMinute(cfg.RequestsPerMinute),
+	limiter := valkeyratelimiter.NewValkeyLimiter(rdb,
+		valkeyratelimiter.WithWindowMinute(defaultUIRequestsPerMinute),
+		valkeyratelimiter.WithWindowMinute(cfg.RequestsPerMinute),
 	)
 
 	// The fallback mirrors the window the options settled on, so an outage

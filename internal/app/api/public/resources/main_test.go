@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
@@ -27,9 +27,9 @@ import (
 )
 
 var (
-	db    *sqlx.DB
-	redis *redisDB.Client
-	cfg   *config.AppConfig
+	db     *sqlx.DB
+	valkey *valkeyDB.Client
+	cfg    *config.AppConfig
 )
 
 func TestMain(m *testing.M) {
@@ -38,8 +38,8 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
 
 	return New(services.Resources, services.UserSummary)
 }

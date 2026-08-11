@@ -65,7 +65,7 @@
   * `tstzrange`
   * GiST индексы
 * Миграции: `goose` / `migrate`
-* Redis (вне ядра): idempotency, rate limiting
+* Valkey (вне ядра): idempotency, rate limiting
 - **Logging**: `zap` with `xlog` wrapper (github.com/ruko1202/xlog)
 
 ### Deployment
@@ -146,9 +146,9 @@ How it works:
   passive health checks and request retries on a peer.
 - The Goque task queue uses `FOR UPDATE SKIP LOCKED`, so the same task
   is never picked up by two replicas.
-- OAuth login rate-limiting is shared via Redis with a per-replica
-  in-memory fallback if Redis is unreachable (alert
-  `RateLimiterRedisFallback`).
+- OAuth login rate-limiting is shared via Valkey with a per-replica
+  in-memory fallback if Valkey is unreachable (alert
+  `RateLimiterValkeyFallback`).
 - Prometheus discovers every replica via Docker SD; Loki/Promtail
   labels logs by `container_name` so replica logs are easy to filter.
 
@@ -160,7 +160,7 @@ the pool never drops below its healthy count. See
 
 Known limitations on a single VM:
 
-- Postgres, Redis, and Caddy stay single-instance — true HA needs
+- Postgres, Valkey, and Caddy stay single-instance — true HA needs
   external infra (multi-node HA is the P2 Kubernetes milestone, not this
   target).
 - After changing the replica count, restart Caddy
@@ -307,7 +307,7 @@ make air
 - **Node Exporter** (9100) - Метрики хост-системы
 - **cAdvisor** (8080) - Метрики Docker контейнеров
 - **PostgreSQL Exporter** (9187) - Метрики PostgreSQL
-- **Redis Exporter** (9121) - Метрики Redis
+- **Valkey Exporter** (9121) - Метрики Valkey
 
 ## Дашборды
 
@@ -315,7 +315,7 @@ make air
 |---------|-----------|----------|
 | MaintMode Application | HTTP метрики, бизнес-метрики, Go runtime | Custom |
 | PostgreSQL Database | Производительность PostgreSQL | Marketplace (ID: 9628) |
-| Redis Dashboard | Производительность Redis | Marketplace (ID: 11835) |
+| Valkey Dashboard | Производительность Valkey | Marketplace (ID: 11835) |
 | PgBouncer Exporter | Метрики pg_doorman | Marketplace (ID: 11271) |
 | cAdvisor | Метрики Docker контейнеров | Marketplace (ID: 893) |
 | Node Exporter Full | Метрики хост-системы | Marketplace (ID: 1860) |

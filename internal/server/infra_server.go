@@ -48,7 +48,7 @@ func (s *InfraServer) BindRouters(env config.Environment) {
 	// Not an exposure: the infra port is never published past the edge (the
 	// perimeter Caddyfile routes :443 to the public port only, and the host
 	// firewall denies inbound by default), so reaching pprof already requires a
-	// foothold inside the container network — where Postgres and Redis are
+	// foothold inside the container network — where Postgres and Valkey are
 	// higher-value targets than a heap dump.
 	pprof.Register(s.e, pprof.DefaultPrefix)
 	gr := s.e.Group("")

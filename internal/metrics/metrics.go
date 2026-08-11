@@ -22,14 +22,14 @@ const meterName = "maintmode"
 var meter = otel.Meter(meterName)
 
 // rateLimiterFallback counts each time the rate limiter falls back to
-// its per-replica in-memory store because Redis was unreachable. The
-// Prometheus alert RateLimiterRedisFallback watches it.
+// its per-replica in-memory store because Valkey was unreachable. The
+// Prometheus alert RateLimiterValkeyFallback watches it.
 var rateLimiterFallback = mustInt64Counter(
-	"ratelimit_redis_failures_total",
-	"Rate limiter Redis errors that triggered the in-memory fallback.",
+	"ratelimit_valkey_failures_total",
+	"Rate limiter Valkey errors that triggered the in-memory fallback.",
 )
 
-// RateLimiterFallback records one rate-limiter Redis fallback event.
+// RateLimiterFallback records one rate-limiter Valkey fallback event.
 func RateLimiterFallback(ctx context.Context) {
 	rateLimiterFallback.Add(ctx, 1)
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
@@ -34,7 +34,7 @@ import (
 
 var (
 	db                   *sqlx.DB
-	redis                *redisDB.Client
+	valkey               *valkeyDB.Client
 	cfg                  *config.AppConfig
 	testMaintenanceIndex atomic.Int64
 )
@@ -45,8 +45,8 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
-	redis = testdbconnutils.NewRedisClient(cfg)
-	closer.Add(redis.Close)
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
 
 	return New(services.Maint, services.UserSummary)
 }
@@ -112,7 +112,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 func seedApprover(ctx context.Context, t *testing.T) uuid.UUID {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(ctx, t, db, valkey, cfg)
 	return testbootstraputils.SeedEligibleApprover(ctx, t, services).ID
 }
 
@@ -231,7 +231,7 @@ func requireMaintStillMatchesDraft(t *testing.T, draft *apimodels.CreateDraftMai
 func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
 
 	impl := resourcesapi.New(services.Resources, services.UserSummary)
 	req := &resourcemodels.CreateResourceRequest{
@@ -264,7 +264,7 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 func makeNotifyChannel(ctx context.Context, t *testing.T) *notificationsmodels.Channel {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(context.Background(), t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
 
 	impl := apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver)
 

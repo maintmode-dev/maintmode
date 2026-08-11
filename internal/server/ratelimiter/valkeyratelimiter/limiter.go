@@ -1,27 +1,27 @@
-package redisratelimiter
+package valkeyratelimiter
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 )
 
-type RedisLimiterOpts func(*RedisLimiter)
+type ValkeyLimiterOpts func(*ValkeyLimiter)
 
 const defaultRate = 30 // 30 requests per window
 
-type RedisLimiter struct {
+type ValkeyLimiter struct {
 	limiter *redis_rate.Limiter
 	limit   redis_rate.Limit
 }
 
-func NewRedisLimiter(
-	rdb *redis.Client,
-	opts ...RedisLimiterOpts,
-) *RedisLimiter {
-	l := &RedisLimiter{
+func NewValkeyLimiter(
+	rdb *valkeylib.Client,
+	opts ...ValkeyLimiterOpts,
+) *ValkeyLimiter {
+	l := &ValkeyLimiter{
 		limiter: redis_rate.NewLimiter(rdb),
 		limit:   redis_rate.PerMinute(defaultRate),
 	}
@@ -34,13 +34,13 @@ func NewRedisLimiter(
 
 // Limit reports the window the constructor and its options settled on. Callers
 // that pair this limiter with a second one — the in-memory bucket standing in
-// during a Redis outage — need it to size that bucket identically, so an outage
+// during a Valkey outage — need it to size that bucket identically, so an outage
 // changes where the decision is made and not what the limit is.
-func (r *RedisLimiter) Limit() redis_rate.Limit {
+func (r *ValkeyLimiter) Limit() redis_rate.Limit {
 	return r.limit
 }
 
-func (r *RedisLimiter) Allow(ctx context.Context, key string) (bool, error) {
+func (r *ValkeyLimiter) Allow(ctx context.Context, key string) (bool, error) {
 	res, err := r.limiter.Allow(ctx, key, r.limit)
 	if err != nil {
 		return false, fmt.Errorf("failed to bump rate limiter: %w", err)

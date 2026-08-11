@@ -220,18 +220,40 @@ groups:
           description: "{{ $value | humanizePercentage }} of max_connections in use. Investigate connection leaks or scale max_connections."
           runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#postgresconnectionshigh"
 
-      - alert: RedisDown
+      - alert: ValkeyDown
+        # The metric is `redis_up`, not `valkey_up`: the exporter
+        # (oliver006/redis_exporter — the one Valkey itself recommends)
+        # emits the `redis_*` namespace, and we deliberately do not
+        # override it with REDIS_EXPORTER_NAMESPACE. The names are the
+        # exporter's output contract, not a coupling to Redis.
         expr: redis_up == 0
         for: 30s
         labels:
           severity: critical
         annotations:
-          summary: "Redis is down"
-          description: "redis-exporter reports redis_up == 0. Cache misses will fall through to Postgres; rate limiting and session storage are degraded."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#redisdown"
+          summary: "Valkey is down"
+          description: "valkey-exporter reports redis_up == 0. Cache misses will fall through to Postgres; rate limiting and session storage are degraded."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#valkeydown"
 
-      - alert: RateLimiterRedisFallback
-        # The rate limiter increments this counter when a Redis call
+      - alert: ValkeyExporterMissing
+        # ValkeyDown can only fire while the series exists. If the exporter
+        # never comes up — wrong image tag, renamed scrape target, broken
+        # network — `redis_up` is *absent* rather than 0, so `redis_up == 0`
+        # evaluates over an empty vector and silently never fires, while
+        # every dashboard panel goes blank. absent() is the only expression
+        # that distinguishes "the thing is down" from "we stopped looking",
+        # so this alert is what makes ValkeyDown trustworthy.
+        expr: absent(redis_up)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Valkey exporter is not being scraped"
+          description: "redis_up is absent — the exporter is down or the scrape target is misconfigured. ValkeyDown cannot fire while this is true."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#valkeyexportermissing"
+
+      - alert: RateLimiterValkeyFallback
+        # The rate limiter increments this counter when a Valkey call
         # fails and it falls back to the per-replica in-memory limiter.
         # The fallback is by design tolerant of brief blips, so we only
         # alert on a *sustained* stream (> 1/s for 5m), not single
@@ -239,14 +261,14 @@ groups:
         #
         # sum() across replicas so we get one alert per cluster, not
         # one per replica.
-        expr: sum(rate(ratelimit_redis_failures_total[5m])) > 1
+        expr: sum(rate(ratelimit_valkey_failures_total[5m])) > 1
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Rate limiter sustained Redis fallback"
-          description: "The rate limiter has been falling back to its in-memory store at > 1/s for 5m. The shared limit is degraded across replicas; check Redis health and network."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#ratelimiterredisfallback"
+          summary: "Rate limiter sustained Valkey fallback"
+          description: "The rate limiter has been falling back to its in-memory store at > 1/s for 5m. The shared limit is degraded across replicas; check Valkey health and network."
+          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#ratelimitervalkeyfallback"
 
       - alert: GoquePayloadDecodeErrors
         # goque cancels (or retries) a task whose payload no longer decodes —

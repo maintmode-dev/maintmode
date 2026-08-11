@@ -53,7 +53,7 @@ enforces this.
 - Jet and sqlx for typed SQL and DB access
 - Goose for migrations
 - Zap through `github.com/ruko1202/xlog`
-- Redis outside the core domain for infrastructure concerns
+- Valkey outside the core domain for infrastructure concerns
 - Docker-based local and deployment workflows
 
 PostgreSQL-specific tools used by the project include `tstzrange` and GiST

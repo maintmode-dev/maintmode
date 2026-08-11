@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
@@ -14,15 +14,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// InitStores builds the store set against a real Postgres and Redis. Redis is
+// InitStores builds the store set against a real Postgres and Valkey. Valkey is
 // required: the integration tests now run against the real auth services
 // (user/auth in-process), and the active-token / locker / blacklist stores are
-// Redis-backed.
+// Valkey-backed.
 func InitStores(
 	db *sqlx.DB,
-	redis *redisDB.Client,
+	valkey *valkeyDB.Client,
 ) *bootstrap.Stores {
-	stores, err := bootstrap.NewStores(db, redis)
+	stores, err := bootstrap.NewStores(db, valkey)
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +31,7 @@ func InitStores(
 }
 
 // InitServicesT builds the full service set wired to the REAL auth services
-// (user/auth/token in-process) backed by the given Postgres and Redis. There are
+// (user/auth/token in-process) backed by the given Postgres and Valkey. There are
 // no auth mocks: the core services (maint approver check, userpicker,
 // usersummary) resolve users through the real user service, and the active-token
 // check runs against the real auth service.
@@ -39,12 +39,12 @@ func InitServicesT(
 	ctx context.Context,
 	t *testing.T,
 	db *sqlx.DB,
-	redis *redisDB.Client,
+	valkey *valkeyDB.Client,
 	cfg *config.AppConfig,
 ) *bootstrap.Services {
 	t.Helper()
 
-	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, redis))
+	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, valkey))
 	require.NoError(t, err)
 
 	return services

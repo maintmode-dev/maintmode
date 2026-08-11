@@ -1,15 +1,15 @@
 package blacklisttoken
 
 import (
-	"github.com/redis/go-redis/v9"
+	valkeylib "github.com/redis/go-redis/v9"
 )
 
 const keyPrefix = "blacklist:"
 
 type Store struct {
-	db *redis.Client
+	db *valkeylib.Client
 }
 
-func NewStore(db *redis.Client) *Store {
+func NewStore(db *valkeylib.Client) *Store {
 	return &Store{db: db}
 }

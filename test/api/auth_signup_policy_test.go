@@ -57,6 +57,16 @@ func TestAuthAPI_AuthExchange_SignupDisabled(t *testing.T) {
 	// until the processor drains the entry. The poll error is carried out of
 	// the closure so a persistent audit-endpoint failure is debuggable instead
 	// of a bare timeout.
+	//
+	// The budget must clear a FULL processor cycle, not merely equal it. The
+	// audit.write processor fetches on goque's default 30s interval, so an
+	// entry published just after a tick is only visible ~30s later, plus
+	// fetch and commit time. A 30s budget is therefore a coin flip on where
+	// the publish lands within the cycle: it passes when a run happens to
+	// start just before a tick and times out when it drifts past one, which
+	// is what made this test order-dependent rather than any shared state.
+	// Two cycles leaves headroom for that phase offset without turning a
+	// genuinely missing audit entry into a slow test.
 	var lastPollErr string
 	found := assert.Eventually(t, func() bool {
 		ok, pollErr := hasLoginFailedWithReason(ctx, adminClient, auditSince, string(entity.AuditFailureSignupDisabled))
@@ -64,7 +74,7 @@ func TestAuthAPI_AuthExchange_SignupDisabled(t *testing.T) {
 			lastPollErr = pollErr
 		}
 		return ok
-	}, 30*time.Second, 500*time.Millisecond)
+	}, 75*time.Second, 500*time.Millisecond)
 	require.Truef(t, found,
 		"login.failed audit entry with reason %q not observed (last poll error: %s)",
 		entity.AuditFailureSignupDisabled, lastPollErr)

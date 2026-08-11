@@ -20,7 +20,7 @@ import (
 func TestApprove(t *testing.T) {
 	ctx := context.Background()
 
-	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(ctx, t, db, valkey, cfg)
 	s := services.Maint
 	conflictsSrv := services.Conflicts
 

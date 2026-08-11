@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
-	redisDB "github.com/redis/go-redis/v9"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/config/redis"
+	"github.com/ruko1202/maintmode/internal/config/valkey"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/config/pg"
@@ -25,12 +25,12 @@ func NewDB(cfg *config.AppConfig) *sqlx.DB {
 	return conn
 }
 
-func NewRedisClient(cfg *config.AppConfig) *redisDB.Client {
+func NewValkeyClient(cfg *config.AppConfig) *valkeyDB.Client {
 	ctx := context.Background()
 
-	client, err := redis.NewRedis(ctx, &cfg.Redis)
+	client, err := valkey.NewValkey(ctx, &cfg.Valkey)
 	if err != nil {
-		xlog.Panic(ctx, "init redis client failed", xfield.Error(err))
+		xlog.Panic(ctx, "init valkey client failed", xfield.Error(err))
 	}
 
 	return client

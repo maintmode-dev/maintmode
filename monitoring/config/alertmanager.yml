@@ -94,7 +94,7 @@ receivers:
         #   🔥 firing  / ✅ resolved
         #   🟥 critical / 🟧 warning / ⚪ unknown
         # Per-alert lines include the instance label so multi-instance
-        # outages (e.g. two redis replicas) are distinguishable, plus a
+        # outages (e.g. two valkey replicas) are distinguishable, plus a
         # runbook link from the alert's annotations. Timestamps are
         # always rendered in UTC so log/metric correlation is unambiguous
         # regardless of who reads the message and where they're sitting.

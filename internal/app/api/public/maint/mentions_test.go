@@ -93,7 +93,7 @@ func TestGetMaintMentionsCarryDisplayNames(t *testing.T) {
 
 	impl := initImpl(t)
 	user := testbootstraputils.SeedEligibleApprover(ctx, t,
-		testbootstraputils.InitServicesT(ctx, t, db, redis, cfg))
+		testbootstraputils.InitServicesT(ctx, t, db, valkey, cfg))
 
 	draft := createDraftMaintenanceWithMentions(ctx, t, impl, []uuid.UUID{user.ID})
 
@@ -221,7 +221,7 @@ func TestToUpdateMaintenanceCmdMentionsTriState(t *testing.T) {
 func seedMentionableUser(ctx context.Context, t *testing.T) uuid.UUID {
 	t.Helper()
 
-	services := testbootstraputils.InitServicesT(ctx, t, db, redis, cfg)
+	services := testbootstraputils.InitServicesT(ctx, t, db, valkey, cfg)
 
 	return testbootstraputils.SeedEligibleApprover(ctx, t, services).ID
 }
