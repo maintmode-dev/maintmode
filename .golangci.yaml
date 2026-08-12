@@ -75,6 +75,7 @@ linters:
     - wastedassign   # Find wasted assignments
     - usestdlibvars  # Detect possibility to use standard library variables/constants
     - depguard
+    - forbidigo      # Forbid specific identifiers (see settings.forbidigo)
 
     # Testing
     - thelper        # Detect test helpers without t.Helper()
@@ -163,6 +164,21 @@ linters:
     funlen:
       lines: 120
       statements: 50
+
+    forbidigo:
+      # An explicit list only. Enabling forbidigo without one activates its
+      # defaults (fmt.Print*, println), which light up the whole repository.
+      #
+      # analyze-types stays false on purpose: with it on, the pattern also matches
+      # the option's own definition inside package xhttp, forcing a nolint on the
+      # very code being protected.
+      analyze-types: false
+      forbid:
+        - pattern: '^xhttp\.WithBodyLogging$'
+          msg: >-
+            WithBodyLogging writes request and response bodies to the log, and
+            bodies are the one thing redaction cannot make safe. It is a local
+            debugging tool: never enable it in code that ships (RUK-248).
 
     nestif:
       min-complexity: 4
@@ -647,6 +663,9 @@ linters:
           - gosec
           - funlen
           - goconst
+          # Tests are where WithBodyLogging is legitimately exercised — the option
+          # would be unverifiable otherwise.
+          - forbidigo
 
       # Exclude linters for generated files
       - path: ".*\\.pb\\.go"
