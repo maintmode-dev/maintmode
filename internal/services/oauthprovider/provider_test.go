@@ -156,7 +156,7 @@ func TestProvidersGet(t *testing.T) {
 		require.EqualError(t, err, "unsupported provider: github")
 	})
 
-	t.Run("the stub is always registered even when unused", func(t *testing.T) {
+	t.Run("the stub is not registered outside dev", func(t *testing.T) {
 		t.Parallel()
 
 		providers := oauthprovider.NewOAuthProviders(
@@ -164,12 +164,47 @@ func TestProvidersGet(t *testing.T) {
 			[]oauthprovider.OAuthProvider{&fakeProvider{id: entity.OAuthProviderGoogle}},
 		)
 
-		// NewOAuthProviders writes the stub into the map unconditionally; only the
-		// useStub gate decides whether Get short-circuits to it. Asking for it by
-		// name therefore succeeds even in prod.
+		// The stub accepts any token and mints an identity, so outside dev it must
+		// not exist rather than merely be unreachable through the useStub gate.
+		// Asking for it by name is indistinguishable from asking for any other
+		// unknown provider (RUK-249).
 		got, err := providers.Get(ctx, entity.OAuthProviderStub)
+		require.Nil(t, got)
+		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
+	})
+
+	t.Run("the stub is unreachable in prod even when useStub is set", func(t *testing.T) {
+		t.Parallel()
+
+		providers := oauthprovider.NewOAuthProviders(
+			newConfig(config.ProdEnvironment, true),
+			[]oauthprovider.OAuthProvider{&fakeProvider{id: entity.OAuthProviderGoogle}},
+		)
+
+		// A stray use_stub=true in a prod config must not resurrect the stub by
+		// name either — registration and the useStub gate are derived from the
+		// same isDev, so neither half can open on its own.
+		got, err := providers.Get(ctx, entity.OAuthProviderStub)
+		require.Nil(t, got)
+		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
+	})
+
+	t.Run("prod with useStub still resolves a real provider", func(t *testing.T) {
+		t.Parallel()
+
+		google := &fakeProvider{id: entity.OAuthProviderGoogle}
+		providers := oauthprovider.NewOAuthProviders(
+			newConfig(config.ProdEnvironment, true),
+			[]oauthprovider.OAuthProvider{google},
+		)
+
+		// Guards the failure mode the shared isDev exists to prevent: a useStub
+		// that stayed true while the stub went unregistered would make Get
+		// short-circuit to a missing entry and fail for EVERY provider — a silent
+		// total login outage rather than a security hole.
+		got, err := providers.Get(ctx, entity.OAuthProviderGoogle)
 		require.NoError(t, err)
-		require.Equal(t, entity.OAuthProviderStub, got.ProviderID())
+		require.Same(t, google, got)
 	})
 
 	t.Run("a registered provider overrides nothing else", func(t *testing.T) {

@@ -42,8 +42,7 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskMaintReminder,
 		reminderprocessor.NewTaskProcessor(stores.Maintenances, services.Notifier),
-		goque.WithWorkersCount(cfg.Messaging.Workers),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 0)...,
 	)
 
 	// maint.auto.cancel: a periodic cron job enqueues one task per tick (carrying
@@ -64,8 +63,7 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskMaintAutoCancel,
 		autocancelprocessor.NewTaskProcessor(services.Maint),
-		goque.WithWorkersCount(1),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
 	)
 
 	autoCancelJob, err := goque.NewCronJob(
@@ -90,8 +88,7 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
-		goque.WithWorkersCount(cfg.Messaging.Workers),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 0)...,
 	)
 
 	// audit.write: domain events published via auditpublisher.Publish land here as
@@ -101,8 +98,7 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskAuditWrite,
 		auditprocessor.NewTaskProcessor(services.Audit),
-		goque.WithWorkersCount(cfg.Messaging.Workers),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 0)...,
 	)
 
 	// audit.prune: a daily cron job enqueues one prune task (carrying the retention
@@ -119,8 +115,7 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskAuditPrune,
 		auditpruneprocessor.NewTaskProcessor(services.Audit),
-		goque.WithWorkersCount(1),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
 	)
 
 	auditPruneJob, err := goque.NewCronJob(
@@ -194,8 +189,7 @@ func registerInvitationRotation(reg *processorRegistrar, cfg config.TaskProcesso
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationRotate,
 		invitationrotateprocessor.NewTaskProcessor(services.Invitation),
-		goque.WithWorkersCount(1),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
 	)
 
 	rotateJob, err := goque.NewCronJob(
@@ -213,8 +207,7 @@ func registerInvitationRotation(reg *processorRegistrar, cfg config.TaskProcesso
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationPrune,
 		invitationpruneprocessor.NewTaskProcessor(services.Invitation),
-		goque.WithWorkersCount(1),
-		goque.WithTaskProcessingMaxAttempts(cfg.Messaging.MaxAttempts),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
 	)
 
 	pruneJob, err := goque.NewCronJob(
@@ -229,4 +222,24 @@ func registerInvitationRotation(reg *processorRegistrar, cfg config.TaskProcesso
 	reg.RegisterPeriodicJob(pruneJob)
 
 	return nil
+}
+
+// messagingProcessorOpts is the option set every queue-fed processor shares.
+//
+// FetchTick is applied only when configured: goque's own default (30s) is the
+// right answer for a deployed stand, and passing an explicit zero would mean a
+// ticker with a zero period rather than "use the default".
+//
+// workers overrides the configured worker count for the sweep processors that
+// must not run concurrently with themselves; pass 0 to take cfg.Workers.
+func messagingProcessorOpts(cfg config.TaskProcessorMessagingConfig, workers int) []goque.ProcessorOpts {
+	opts := []goque.ProcessorOpts{
+		goque.WithWorkersCount(cmp.Or(workers, cfg.Workers)),
+		goque.WithTaskProcessingMaxAttempts(cfg.MaxAttempts),
+	}
+	if cfg.FetchTick > 0 {
+		opts = append(opts, goque.WithTaskFetcherTick(cfg.FetchTick))
+	}
+
+	return opts
 }

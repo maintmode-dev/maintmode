@@ -1,10 +1,12 @@
 package config
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -181,4 +183,82 @@ func TestJWT_GeneratePrivateKey(t *testing.T) {
 			})
 		})
 	}
+}
+
+// validateJWTKey is a placeholder detector, not an entropy measure, and its two
+// checks are orthogonal: the bit-length floor catches a tiny scalar, the
+// repeated-byte check catches a key no threshold can catch. Both directions of
+// failure are asserted here, because a validator that rejects honest keys is
+// worse than none — it fires at a prod key rotation, not on CI.
+func TestValidate_JWTKey(t *testing.T) {
+	t.Parallel()
+
+	// hexScalar renders a big.Int as the fixed-width raw scalar the config carries.
+	hexScalar := func(d *big.Int) string {
+		raw := make([]byte, 32)
+		d.FillBytes(raw)
+		return hex.EncodeToString(raw)
+	}
+
+	repeatedByte := func(b byte) string {
+		return hex.EncodeToString(bytes.Repeat([]byte{b}, 32))
+	}
+
+	cases := []struct {
+		name    string
+		keyHex  string
+		wantErr string
+	}{
+		{
+			name:    "d=1 is an implausibly small scalar",
+			keyHex:  hexScalar(big.NewInt(1)),
+			wantErr: "scalar has 1 bits",
+		},
+		{
+			name:    "d=2 is an implausibly small scalar",
+			keyHex:  hexScalar(big.NewInt(2)),
+			wantErr: "scalar has 2 bits",
+		},
+		{
+			// BitLen is 249 — it would have slipped past a 250-bit threshold by
+			// a single bit, and past any lower one outright.
+			name:    "0x01 repeated is a placeholder the threshold cannot catch",
+			keyHex:  repeatedByte(0x01),
+			wantErr: "all 32 bytes are 0x01",
+		},
+		{
+			// BitLen is 256, the maximum: no threshold of any size rejects it.
+			name:    "0xAA repeated is a placeholder the threshold cannot catch",
+			keyHex:  repeatedByte(0xaa),
+			wantErr: "all 32 bytes are 0xaa",
+		},
+		{
+			name:    "an unparseable key is rejected before the placeholder checks",
+			keyHex:  "zzzz",
+			wantErr: "unusable",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &AppConfig{JWT: JWT{PrivateKey: tc.keyHex}}
+			require.ErrorContains(t, cfg.validateJWTKey(), tc.wantErr)
+		})
+	}
+
+	t.Run("a thousand generated keys are all accepted", func(t *testing.T) {
+		t.Parallel()
+
+		// One key would not prove anything: at the 250-bit threshold this ticket
+		// originally proposed, a single honest key passes 127 times out of 128,
+		// so the false-rejection bug would have shipped green. The loop is the
+		// test.
+		for range 1000 {
+			_, keyHex := newTestSigningKeyHex(t)
+			cfg := &AppConfig{JWT: JWT{PrivateKey: keyHex}}
+			require.NoError(t, cfg.validateJWTKey(), "generated key %s must be accepted", keyHex)
+		}
+	})
 }

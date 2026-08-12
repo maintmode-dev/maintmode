@@ -1,8 +1,13 @@
 package config
 
 import (
+	"bytes"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -251,4 +256,139 @@ func TestValidate_IssuerConfig(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// IsProd() and IsDev() are exact string comparisons, so any value outside the
+// known set leaves both false — a third state in which no IsProd() gate fires
+// and every future one silently opens. The point of the validator is that such
+// a value can never reach a gate, so the table asserts on the near-misses an
+// operator actually types.
+func TestValidate_Environment(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		env     Environment
+		wantErr bool
+	}{
+		{name: "prod is known", env: ProdEnvironment},
+		{name: "dev is known", env: DevEnvironment},
+		{name: "local is known", env: LocalEnvironment},
+		{name: "performance_test is known", env: PerformanceTestEnvironment},
+		{name: "empty is rejected", env: "", wantErr: true},
+		{name: "capitalized Prod is rejected", env: "Prod", wantErr: true},
+		{name: "upper-case PROD is rejected", env: "PROD", wantErr: true},
+		{name: "the word production is rejected", env: "production", wantErr: true},
+		// A trailing space survives YAML quoting and is invisible in review.
+		{name: "trailing whitespace is rejected", env: "prod ", wantErr: true},
+		{name: "an unrelated value is rejected", env: "staging", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := (&AppConfig{Environment: tc.env}).validateEnvironment()
+			if tc.wantErr {
+				require.ErrorContains(t, err, "unknown environment")
+				// The message must list the accepted values: this fires at
+				// startup before the logger exists, so the raw text is all the
+				// operator gets.
+				require.ErrorContains(t, err, "performance_test")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// The validators never run before a merge — the binary only starts in the
+// api-test job, which is push-to-main only — so this is the single check that
+// an invalid environment in a shipped config is caught by `make tloc`.
+func TestReadConfig_ShippedDeploymentConfigsHaveKnownEnvironment(t *testing.T) {
+	t.Parallel()
+
+	for _, env := range []string{"local", "dev", "test", "prod"} {
+		t.Run(env, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := readConfig(filepath.Join("..", "..", "deployment", "maintmode", env, "app.config.yaml"))
+			require.NoError(t, err)
+			require.NoError(
+				t,
+				cfg.validateEnvironment(),
+				"deployment/maintmode/%s/app.config.yaml has an environment the binary would refuse to start on", env,
+			)
+		})
+	}
+}
+
+// A validator that is never called is worth nothing, and a table test over the
+// pure function cannot tell the difference: deleting both calls from initConfig
+// leaves every other test in this package green. These assert the wiring, which
+// is the only thing that makes an operator's typo stop the process.
+//
+// initConfig panics via log.Panicf rather than returning an error, so the panic
+// IS the observable behavior — recovering from it needs no signature change.
+func TestInitConfig_RunsTheNewValidators(t *testing.T) {
+	// Not parallel: initConfig reads process environment variables.
+
+	// panicMessage runs initConfig against a config dir and returns the panic
+	// text, failing if it did not panic at all.
+	panicMessage := func(t *testing.T, dir string) (msg string) {
+		t.Helper()
+		t.Setenv("MAINTMODE_"+configDirEnv, dir)
+
+		defer func() {
+			r := recover()
+			require.NotNil(t, r, "initConfig accepted an invalid config instead of panicking")
+			msg = fmt.Sprint(r)
+		}()
+
+		initConfig("maintmode")
+		return ""
+	}
+
+	// newConfigDir copies the local stand's config and secrets into a temp dir,
+	// applying mutate to the config YAML first.
+	newConfigDir := func(t *testing.T, mutate func(string) string) string {
+		t.Helper()
+
+		src := filepath.Join("..", "..", "deployment", "maintmode", "local")
+		cfgBody, err := os.ReadFile(filepath.Join(src, defaultConfigFile))
+		require.NoError(t, err)
+		secretsBody, err := os.ReadFile(filepath.Join(src, defaultSecretsFile))
+		require.NoError(t, err, "local secrets are required; run `make secrets`")
+
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, defaultConfigFile), []byte(mutate(string(cfgBody))), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, defaultSecretsFile), secretsBody, 0o600))
+		return dir
+	}
+
+	t.Run("an unknown environment stops startup", func(t *testing.T) {
+		dir := newConfigDir(t, func(body string) string {
+			return strings.Replace(body, "environment: local", "environment: staging", 1)
+		})
+
+		require.Contains(t, panicMessage(t, dir), "unknown environment")
+	})
+
+	t.Run("a placeholder signing key stops startup", func(t *testing.T) {
+		// 0xAA repeated: BitLen is 256, so only the repeated-byte check rejects
+		// it. Using it here proves that specific check is reachable from startup.
+		dir := newConfigDir(t, func(body string) string { return body })
+
+		secretsPath := filepath.Join(dir, defaultSecretsFile)
+		secrets, err := os.ReadFile(secretsPath)
+		require.NoError(t, err)
+
+		placeholder := hex.EncodeToString(bytes.Repeat([]byte{0xaa}, 32))
+		patched := regexp.MustCompile(`(?m)^"jwt/issuer_private_key":.*$`).
+			ReplaceAllString(string(secrets), `"jwt/issuer_private_key": "`+placeholder+`"`)
+		require.NotEqual(t, string(secrets), patched, "jwt/issuer_private_key key not found in local secrets")
+		require.NoError(t, os.WriteFile(secretsPath, []byte(patched), 0o600))
+
+		require.Contains(t, panicMessage(t, dir), "placeholder")
+	})
 }

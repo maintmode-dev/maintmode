@@ -40,10 +40,23 @@ func NewOAuthProviders(
 	providersMap := lo.SliceToMap(providers, func(item OAuthProvider) (entity.OAuthProvider, OAuthProvider) {
 		return item.ProviderID(), item
 	})
-	providersMap[entity.OAuthProviderStub] = stuboauth.NewService()
 
+	// The stub accepts any token and mints an identity, so it must not merely be
+	// deprioritized outside dev — it must not exist. Registering it
+	// unconditionally made Get("stub") resolve in prod regardless of useStub,
+	// leaving the invitation email check as the only thing standing between a
+	// forged token and a session (RUK-249).
+	isDev := cfg.Environment.IsDev()
+	if isDev {
+		providersMap[entity.OAuthProviderStub] = stuboauth.NewService()
+	}
+
+	// useStub keeps its own meaning — "substitute the stub for ANY provider" —
+	// and is a separate decision from whether the stub exists at all. It stays
+	// derived from the same isDev so the two can never disagree: a true useStub
+	// with no stub registered would make Get fail for every provider.
 	return &Providers{
-		useStub:        cfg.Environment.IsDev() && cfg.OauthProviders.UseStub,
+		useStub:        isDev && cfg.OauthProviders.UseStub,
 		providersStore: providersMap,
 	}
 }

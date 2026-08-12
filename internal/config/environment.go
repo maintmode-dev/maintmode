@@ -6,11 +6,13 @@ import (
 
 type Environment string
 
+// Typed rather than untyped string constants so a future comparison against a
+// raw string cannot silently succeed against the wrong type.
 const (
-	ProdEnvironment            = "prod"
-	DevEnvironment             = "dev"
-	LocalEnvironment           = "local"
-	PerformanceTestEnvironment = "performance_test"
+	ProdEnvironment            Environment = "prod"
+	DevEnvironment             Environment = "dev"
+	LocalEnvironment           Environment = "local"
+	PerformanceTestEnvironment Environment = "performance_test"
 )
 
 func (e Environment) IsProd() bool {

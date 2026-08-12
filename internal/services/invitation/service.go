@@ -91,7 +91,6 @@ type Service struct {
 	seatGuard      SeatGuard
 	ttl            time.Duration
 	frontendURL    string
-	emailMatch     emailMatcherFunc
 }
 
 func NewService(
@@ -109,7 +108,7 @@ func NewService(
 		invitationTTL = defaultInvitationTTL
 	}
 
-	s := &Service{
+	return &Service{
 		txManager:      txManager,
 		store:          store,
 		userSrv:        userSrv,
@@ -119,29 +118,16 @@ func NewService(
 		seatGuard:      seatGuard,
 		ttl:            invitationTTL,
 		frontendURL:    cfg.App.FrontendURL,
-		emailMatch:     emailMatchesIgnoreCase,
 	}
-
-	if cfg.Environment.IsDev() && cfg.OauthProviders.UseStub {
-		s.emailMatch = emailMatchesStub
-	}
-
-	return s
 }
 
-type emailMatcherFunc func(ctx context.Context, email, invited string) bool
-
+// emailMatchesIgnoreCase is the anti-takeover guard and has no environment-gated
+// variant: a dev-only bypass that returned true unconditionally meant one wrong
+// gate disabled the check entirely (RUK-249). Dev stands keep working because
+// the stub provider echoes an email-shaped id_token back as the identity.
 func emailMatchesIgnoreCase(ctx context.Context, email, invited string) bool {
 	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesIgnoreCase")
 	defer span.End()
 
 	return strings.EqualFold(strings.ToLower(email), strings.ToLower(invited))
-}
-
-// always true for stub
-func emailMatchesStub(ctx context.Context, _, _ string) bool {
-	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesStub")
-	defer span.End() //nolint: gocritic
-
-	return true
 }

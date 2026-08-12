@@ -3,6 +3,9 @@ package entity
 type OAuthProvider string
 
 const (
+	// OAuthProviderStub keys the dev-only stub provider in the registry. It is
+	// never accepted from a request: ParseOAuthProvider rejects it, and outside
+	// dev the provider is not registered at all (RUK-249).
 	OAuthProviderStub   OAuthProvider = "stub"
 	OAuthProviderGoogle OAuthProvider = "google"
 	OAuthProviderGithub OAuthProvider = "github"
@@ -21,11 +24,13 @@ func PrimaryOAuthProvider(providers []OAuthProvider) OAuthProvider {
 	return OAuthProviderUnknown
 }
 
-// ParseOAuthProvider validates s against the known providers and returns the
-// typed provider. The bool is false for unknown values.
+// ParseOAuthProvider validates s against the providers a client may name in a
+// request and returns the typed provider. The bool is false for unknown values,
+// and deliberately for OAuthProviderStub as well: its only caller reads the
+// provider straight from the accept-invitation body.
 func ParseOAuthProvider(s string) (OAuthProvider, bool) {
 	switch OAuthProvider(s) {
-	case OAuthProviderStub, OAuthProviderGoogle, OAuthProviderGithub:
+	case OAuthProviderGoogle, OAuthProviderGithub:
 		return OAuthProvider(s), true
 	default:
 		return "", false

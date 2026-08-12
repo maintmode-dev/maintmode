@@ -66,7 +66,7 @@ route:
     # not up locally) never mixes with real dev-VM alerts. Goes to its own
     # topic (thread 18) in the same supergroup.
     - matchers:
-        - env = "local"
+        - env = "local[disabled]"
       receiver: telegram-local
       routes:
         - matchers:

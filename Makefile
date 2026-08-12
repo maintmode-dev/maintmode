@@ -174,8 +174,10 @@ tloc-cov: secrets
 
 
 .PHONY: tloc-api
-tloc-api: ## Run API integration tests
-	$(info $(M) running API integration tests...)
+tloc-api: ## Run API integration tests against an ALREADY-RUNNING test stack
+	$(info $(M) running API integration tests against the running stack...)
+	$(info $(M) NOTE: this does not start or rebuild anything. Against a dev)
+	$(info $(M) stack it fails on config, not on code — use `make test-api`.)
 	go test -tags=api -v -p 2 -count=2 ./test/api/...
 
 

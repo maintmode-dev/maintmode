@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -264,6 +265,17 @@ func (c LicenseConfig) Enabled() bool {
 type TaskProcessorMessagingConfig struct {
 	Workers     int   `mapstructure:"workers"`
 	MaxAttempts int32 `mapstructure:"max_attempts"`
+	// FetchTick is how often a processor polls the queue for new tasks. Zero
+	// means "leave goque's default" (30s), which is what every deployed stand
+	// wants: the queue is durable, so a slow poll costs latency, not delivery.
+	//
+	// The API suite is the exception. It asserts on rows an outbox processor
+	// writes after the request returns, so its budget has to cover a full poll
+	// cycle — at 30s that made the audit assertions a race against the phase
+	// offset of the tick, and a loaded shared database pushed drain latency
+	// past two and a half minutes. Polling faster there removes the wait
+	// instead of widening the timeout that was papering over it.
+	FetchTick time.Duration `mapstructure:"fetch_tick"`
 }
 
 // TaskProcessorMaintAutoCancelConfig tunes the auto-cancel sweep of overdue
@@ -431,7 +443,18 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("failed to apply secrets for service %s: %s", appName, err)
 	}
 
+	// Environment first: the gates the other validators reason about are all
+	// keyed off it, so an unknown value must stop the process before any of
+	// them draws a conclusion from a silently-false IsProd().
+	if err := cfg.validateEnvironment(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	if err := cfg.validateUseStubInDev(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
+	if err := cfg.validateJWTKey(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -448,6 +471,72 @@ func initConfig(appName string) *AppConfig {
 	}
 
 	return cfg
+}
+
+// validateEnvironment rejects any value outside the known set. IsProd() and
+// IsDev() are exact string comparisons, so "Prod" or "production" would leave
+// both false — a third state in which no IsProd() gate fires and every future
+// one silently opens. Fail at startup instead. It panics-via-caller
+// (initConfig) so the misconfiguration surfaces before any gate is consulted.
+func (c *AppConfig) validateEnvironment() error {
+	switch c.Environment {
+	case ProdEnvironment, DevEnvironment, LocalEnvironment, PerformanceTestEnvironment:
+		return nil
+	default:
+		return fmt.Errorf(
+			"unknown environment %q: expected one of prod, dev, local, performance_test",
+			c.Environment,
+		)
+	}
+}
+
+const (
+	// minSigningKeyBits is the floor below which a P-256 scalar is a placeholder
+	// rather than a generated key. See validateJWTKey for why it is not higher.
+	minSigningKeyBits = 128
+	// signingKeyBytes is the fixed width of a P-256 raw scalar.
+	signingKeyBytes = 32
+)
+
+// validateJWTKey rejects a signing key that is obviously a placeholder rather
+// than a generated one. It is a placeholder detector, NOT a measure of entropy:
+// a key of 0xDEADBEEF repeated eight times passes both checks, and catching
+// that is not a config validator's job.
+//
+// The two checks are orthogonal — neither subsumes the other:
+//
+//   - an implausibly small scalar (d=1, d=2) is caught by the bit-length floor.
+//     128 bits is chosen so a genuine CSPRNG key is falsely rejected with
+//     probability 2^127/n ≈ 1.5e-39. A higher floor is not free: at 250 bits it
+//     would be 2^249/n ≈ 7.8e-3, rejecting roughly one honest key in 128 —
+//     surfacing at a prod key rotation, never on CI;
+//   - a key of one repeated byte (0x01×32, 0xAA×32) has a bit length of 249 and
+//     256 respectively, so NO threshold catches it. It needs its own check.
+//
+// It panics-via-caller (initConfig) so the misconfiguration surfaces at startup.
+func (c *AppConfig) validateJWTKey() error {
+	key, err := c.JWT.ParsePrivateKey()
+	if err != nil {
+		return fmt.Errorf("jwt.issuer_private_key is unusable: %w", err)
+	}
+
+	if key.D.BitLen() < minSigningKeyBits {
+		return fmt.Errorf(
+			"jwt.issuer_private_key is a placeholder: scalar has %d bits, expected at least %d",
+			key.D.BitLen(), minSigningKeyBits,
+		)
+	}
+
+	raw := make([]byte, signingKeyBytes)
+	key.D.FillBytes(raw)
+	if bytes.Count(raw, []byte{raw[0]}) == signingKeyBytes {
+		return fmt.Errorf(
+			"jwt.issuer_private_key is a placeholder: all %d bytes are 0x%02x",
+			signingKeyBytes, raw[0],
+		)
+	}
+
+	return nil
 }
 
 // validateUseStubInDev enforces the cross-field invariant that would otherwise

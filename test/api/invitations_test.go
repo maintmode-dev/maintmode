@@ -5,6 +5,10 @@ package api
 import (
 	"context"
 	"net/http"
+	"net/mail"
+	"os"
+	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/google/uuid"
@@ -149,4 +153,80 @@ func TestAuthAPIInvitations_RevokeResend(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusNotFound, resp.StatusCode(), "unexpected status: %s", resp.Body)
 	})
+}
+
+// The stub OAuth provider accepts any token and mints an identity. This asserts
+// the whole chain — request body → parser → service — is closed, not just its
+// links in isolation. The API stack runs environment: dev, where the stub IS
+// registered, so this covers the parser gate specifically: the refusal holds
+// even where the provider exists. That the stub is also absent from the
+// registry outside dev is a separate property, covered by the unit test in
+// internal/services/oauthprovider.
+func TestAuthAPIInvitations_AcceptRejectsStubProvider(t *testing.T) {
+	ctx := ctxWithLogger(context.Background(), t)
+
+	apiClient := setupAuthTestClient()
+
+	resp, err := apiClient.PostApiV1UsersInvitationsAcceptWithResponse(ctx,
+		authclient.PostApiV1UsersInvitationsAcceptJSONRequestBody{
+			InvitationToken: strPtr(xuuid.NewString()),
+			OauthPayload: &authclient.ApimodelsOAuthPayload{
+				Provider: strPtr("stub"),
+				IdToken:  strPtr(uniqueInviteEmail()),
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode(), "unexpected status: %s", resp.Body)
+	require.NotNil(t, resp.JSON400)
+	// "invalid" is the same opaque code an unknown token gets: the refusal must
+	// not reveal that "stub" is a name the backend recognizes at all.
+	require.Equal(t, "invalid", *resp.JSON400.Code)
+}
+
+// Canary for a failure mode chosen by the shape of the data, not by a flag: the
+// stub returns a DETERMINISTIC identity for an id_token that parses as an email
+// address, and a fresh random one otherwise. provisionUser and the TestMain
+// seed both depend on the random branch — two calls must not collide on one
+// user. An email-shaped token would make them silently share an identity and
+// break the first-admin bootstrap.
+//
+// This scans the suite's source rather than listing tokens: a hand-copied list
+// is a snapshot that goes stale the moment someone adds a login in another
+// file, which is precisely the drift the canary exists to catch. If it fails,
+// switch the stub to an explicit envelope rather than loosening the assertion.
+func TestAuthAPIInvitations_SuiteTokensAreNotEmailShaped(t *testing.T) {
+	sources, err := filepath.Glob("*_test.go")
+	require.NoError(t, err)
+	require.NotEmpty(t, sources)
+
+	// Captures the string literal assigned to the id_token field through ANY
+	// pointer helper, including the constant prefix of a concatenated form like
+	// "api-test-" + xuuid.NewString(). Matching only one helper would miss a
+	// login written with another one — this file itself uses strPtr while the
+	// rest of the suite uses lo.ToPtr, so a single-helper pattern is already
+	// blind to the form most likely to be copied next.
+	idTokenLiteral := regexp.MustCompile(`IdToken:\s*[A-Za-z_.]+\("([^"]*)"`)
+
+	var found int
+	for _, src := range sources {
+		body, err := os.ReadFile(src)
+		require.NoError(t, err)
+
+		for _, m := range idTokenLiteral.FindAllStringSubmatch(string(body), -1) {
+			token := m[1]
+			found++
+
+			_, err := mail.ParseAddress(token)
+			require.Error(t, err,
+				"%s: id_token %q parses as an email, so the stub now mints a DETERMINISTIC identity for it; "+
+					"logins that must yield distinct users would collide", src, token)
+		}
+	}
+
+	// Guards the scan itself: a renamed field or client would silently match
+	// nothing and leave this test green while checking absolutely nothing. The
+	// floor is the number of logins the suite has today, so it also fails if a
+	// rename takes out only some of them rather than all.
+	require.GreaterOrEqual(t, found, 8, "id_token scan matched too little — has the client or field name changed?")
 }

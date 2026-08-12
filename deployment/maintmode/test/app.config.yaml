@@ -120,6 +120,13 @@ task_processor:
   messaging:
     workers: 10
     max_attempts: 5
+    # The API suite asserts on rows the outbox processors write after the
+    # request returns (audit entries, invitation emails). goque's default 30s
+    # poll made those assertions a race against where the publish landed in the
+    # tick, and on a loaded shared database drain latency reached ~155s. Poll
+    # fast here so the tests wait for the work, not for the ticker. Deployed
+    # stands leave this unset and keep the 30s default.
+    fetch_tick: 200ms
   maint_auto_cancel:
     # 5-field cron: "minute hour day-of-month month day-of-week".
     # "* * * * *" = every minute (every value in every field).
