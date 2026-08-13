@@ -27,6 +27,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/ruko1202/goque v0.8.10
 	github.com/ruko1202/swaggerui v0.5.0
+	github.com/ruko1202/xhttp v0.1.0
 	github.com/ruko1202/xlog v0.5.1
 	github.com/samber/lo v1.53.0
 	github.com/slack-go/slack v0.27.0

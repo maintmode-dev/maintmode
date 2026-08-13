@@ -1,4 +1,4 @@
-package xhttp
+package xecho
 
 import (
 	"net/http"

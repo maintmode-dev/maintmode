@@ -14,9 +14,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/xhttp/client"
+
 	"github.com/ruko1202/maintmode/internal/entity"
 	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -41,7 +42,7 @@ func adminIntegrationRequest(ctx context.Context, t *testing.T, method, path, bo
 	req.Header.Set("Authorization", "Bearer "+mustTestAccessToken(entity.RoleAdmin))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := xhttp.NewClient(xhttp.WithTimeout(5 * time.Second)).Do(req)
+	resp, err := client.NewClient(client.WithTimeout(5 * time.Second)).Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 

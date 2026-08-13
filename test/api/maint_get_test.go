@@ -11,7 +11,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/xhttp/client"
+
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -53,9 +55,9 @@ func TestMaintenancesAPI_InvalidUUID(t *testing.T) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		baseURL("maintmode")+"/api/v1/maintenances/invalid-uuid", http.NoBody)
 	require.NoError(t, err)
-	xhttp.SetBearerToken(req, mustTestAccessToken())
+	xecho.SetBearerToken(req, mustTestAccessToken())
 
-	resp, err := xhttp.NewClient().Do(req)
+	resp, err := client.NewClient().Do(req)
 	require.NoError(t, err, "Should not return transport error for invalid UUID")
 	defer func() { _ = resp.Body.Close() }()
 

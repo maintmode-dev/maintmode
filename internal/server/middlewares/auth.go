@@ -9,14 +9,13 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 type TokenVerifier interface {
@@ -34,7 +33,7 @@ func RequireAccessToken(tokenSrv TokenVerifier) echo.MiddlewareFunc {
 			req := c.Request()
 			ctx := req.Context()
 
-			authToken := xhttp.ExtractBearerToken(c.Request())
+			authToken := xecho.ExtractBearerToken(c.Request())
 			if authToken == "" {
 				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 			}

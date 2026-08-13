@@ -10,8 +10,11 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"golang.org/x/time/rate"
 
+	"github.com/ruko1202/xhttp/client"
+
+	"github.com/ruko1202/maintmode/internal/utils/xsanitize"
+
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
 func NewKeyFunc(
@@ -20,7 +23,10 @@ func NewKeyFunc(
 	updateLastRefreshFailedAtFunc func(ctx context.Context),
 ) (keyfunc.Keyfunc, error) {
 	storage, err := jwkset.NewStorageFromHTTP(cfg.JWKSURL, jwkset.HTTPClientStorageOptions{
-		Client:                    xhttp.NewClient(xhttp.WithTimeout(cfg.JWKSHTTPTimeout)),
+		Client: client.NewClient(
+			client.WithTimeout(cfg.JWKSHTTPTimeout),
+			client.WithSanitizer(xsanitize.New()),
+		),
 		Ctx:                       ctx,
 		HTTPTimeout:               cfg.JWKSHTTPTimeout,
 		NoErrorReturnFirstHTTPReq: true,

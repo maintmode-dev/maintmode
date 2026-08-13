@@ -7,7 +7,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // ActiveTokenChecker verifies an access token is still active (not revoked by
@@ -41,7 +41,7 @@ func RequireActiveToken(checker ActiveTokenChecker) echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			ctx := c.Request().Context()
 
-			token := xhttp.ExtractBearerToken(c.Request())
+			token := xecho.ExtractBearerToken(c.Request())
 			if token == "" {
 				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 			}

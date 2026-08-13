@@ -20,11 +20,13 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"github.com/ruko1202/xhttp/client"
+
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 	maintmodeclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/maintmode"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -113,9 +115,9 @@ var seededUserID string
 // exchange can then win the bootstrap race, which would otherwise make
 // guest/role assertions depend on test order (-p 2 -count=2).
 func seedEligibleApprover(ctx context.Context) error {
-	client := newAuthTestClient("")
+	authc := newAuthTestClient("")
 
-	resp, err := client.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+	resp, err := authc.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
 		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
 			IdToken: lo.ToPtr("api-test-seed-approver"),
 		},
@@ -170,7 +172,7 @@ func waitForAPIHealth(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
 
-	httpClient := xhttp.NewClient(xhttp.WithTimeout(5 * time.Second))
+	httpClient := client.NewClient(client.WithTimeout(5 * time.Second))
 
 	ticker := time.NewTicker(healthCheckInterval)
 	defer ticker.Stop()
@@ -216,7 +218,7 @@ func baseURL(servicePrefix string) string {
 func bearerEditor(token string) maintmodeclient.RequestEditorFn {
 	return func(_ context.Context, req *http.Request) error {
 		if token != "" {
-			xhttp.SetBearerToken(req, token)
+			xecho.SetBearerToken(req, token)
 		}
 		return nil
 	}
@@ -261,7 +263,7 @@ func setupMaintmodeTestClientWithToken(token string) *maintmodeclient.ClientWith
 func newMaintmodeTestClient(token string) *maintmodeclient.ClientWithResponses {
 	c, err := maintmodeclient.NewClientWithResponses(
 		baseURL("maintmode"),
-		maintmodeclient.WithHTTPClient(xhttp.NewClient()),
+		maintmodeclient.WithHTTPClient(client.NewClient()),
 		maintmodeclient.WithRequestEditorFn(bearerEditor(token)),
 	)
 	if err != nil {
@@ -279,7 +281,7 @@ func setupAuthTestClientWithRoles(roles ...entity.Role) *authclient.ClientWithRe
 func newAuthTestClient(token string) *authclient.ClientWithResponses {
 	c, err := authclient.NewClientWithResponses(
 		baseURL("auth"),
-		authclient.WithHTTPClient(xhttp.NewClient()),
+		authclient.WithHTTPClient(client.NewClient()),
 		authclient.WithRequestEditorFn(authclient.RequestEditorFn(bearerEditor(token))),
 	)
 	if err != nil {

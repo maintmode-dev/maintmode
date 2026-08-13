@@ -7,7 +7,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 
@@ -44,7 +44,7 @@ func (i *Implementation) Logout(c *echo.Context) error {
 
 	err = i.authSrv.Logout(ctx, &entity.TokenPair{
 		RefreshToken: refreshToken,
-		AccessToken:  xhttp.ExtractBearerToken(c.Request()),
+		AccessToken:  xecho.ExtractBearerToken(c.Request()),
 	})
 	if err != nil {
 		xlog.Error(ctx, "invalid token", xfield.Error(err))
@@ -71,7 +71,7 @@ func (i *Implementation) LogoutAll(c *echo.Context) error {
 	defer span.End()
 	op := "logout all"
 
-	err := i.authSrv.LogoutAll(ctx, xhttp.ExtractBearerToken(c.Request()))
+	err := i.authSrv.LogoutAll(ctx, xecho.ExtractBearerToken(c.Request()))
 	if err != nil {
 		xlog.Error(ctx, "invalid access token", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)

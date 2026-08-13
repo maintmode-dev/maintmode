@@ -11,8 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/xhttp/client"
+
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
 // integrationRequest issues a raw HTTP request to the integration API with a
@@ -27,7 +28,7 @@ func integrationRequest(ctx context.Context, t *testing.T, method, path, body st
 	req.Header.Set("Authorization", "Bearer "+mustTestAccessToken(roles...))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := xhttp.NewClient(xhttp.WithTimeout(5 * time.Second)).Do(req)
+	resp, err := client.NewClient(client.WithTimeout(5 * time.Second)).Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	return resp.StatusCode

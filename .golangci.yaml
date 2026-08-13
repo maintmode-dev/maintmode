@@ -169,12 +169,23 @@ linters:
       # An explicit list only. Enabling forbidigo without one activates its
       # defaults (fmt.Print*, println), which light up the whole repository.
       #
-      # analyze-types stays false on purpose: with it on, the pattern also matches
-      # the option's own definition inside package xhttp, forcing a nolint on the
-      # very code being protected.
+      # The option moved to an external module and is imported as package
+      # `client`, so the pattern had to change with it: `xhttp.WithBodyLogging`
+      # matches nothing now, and a rule that silently stops matching is worse
+      # than no rule.
+      #
+      # analyze-types stays false. It would let the pattern name a fully
+      # qualified path, but this config pins run.go to 1.23 while the module
+      # targets a newer Go, and type analysis does not load under that skew —
+      # the rule silently matched nothing when it was tried. Textual matching on
+      # `client.WithBodyLogging` is verified to fire (negative probe below).
+      #
+      # The former reason for keeping it false — the pattern also matching the
+      # option's own definition — no longer applies: that definition now lives
+      # outside this repository.
       analyze-types: false
       forbid:
-        - pattern: '^xhttp\.WithBodyLogging$'
+        - pattern: '^client\.WithBodyLogging$'
           msg: >-
             WithBodyLogging writes request and response bodies to the log, and
             bodies are the one thing redaction cannot make safe. It is a local

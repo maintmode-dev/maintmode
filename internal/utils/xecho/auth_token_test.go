@@ -1,4 +1,4 @@
-package xhttp
+package xecho
 
 import (
 	"net/http"
@@ -7,6 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// secret stands in for a token. Assertions compare against it exactly, so it
+// must never appear in an expected value by accident.
+const secret = "S3CRETVALUE"
 
 // TestExtractBearerToken pins the parse rules of the Authorization header.
 //

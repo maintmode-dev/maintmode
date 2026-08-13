@@ -11,7 +11,7 @@ import (
 
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 func TestLogout(t *testing.T) {
@@ -26,7 +26,7 @@ func TestLogout(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		xhttp.SetBearerToken(request, tokenPair.AccessToken)
+		xecho.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,
 			JSONBody: testjsonudils.AnyToJSONBytes(t, refreshTokenJSONRequest{
@@ -49,7 +49,7 @@ func TestLogout(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		xhttp.SetBearerToken(request, tokenPair.AccessToken)
+		xecho.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,
 		}.ToContextRecorder(t)
@@ -76,7 +76,7 @@ func TestLogoutAll(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		xhttp.SetBearerToken(request, tokenPair.AccessToken)
+		xecho.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,
 		}.ToContextRecorder(t)
@@ -96,7 +96,7 @@ func TestLogoutAll(t *testing.T) {
 		tokenPair := issueTokenPair(ctx, t, impl)
 
 		request := httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody)
-		xhttp.SetBearerToken(request, tokenPair.AccessToken)
+		xecho.SetBearerToken(request, tokenPair.AccessToken)
 		c, rec := echotest.ContextConfig{
 			Request: request,
 		}.ToContextRecorder(t)

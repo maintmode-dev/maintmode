@@ -7,8 +7,9 @@ import (
 
 	tgbot "github.com/go-telegram/bot"
 
+	"github.com/ruko1202/xhttp/client"
+
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
 const defaultTimeout = 10 * time.Second
@@ -34,7 +35,13 @@ func New(cfg Params) (*Client, error) {
 	timeout := cmp.Or(cfg.Timeout, defaultTimeout)
 
 	opts := []tgbot.Option{
-		tgbot.WithHTTPClient(timeout, xhttp.NewClient(xhttp.WithTimeout(timeout))),
+		// sanitizer, not xsanitize.New(): the bot token travels in the URL path
+		// here, so this gateway needs the Telegram-specific rule on top of the
+		// shared header policy.
+		tgbot.WithHTTPClient(timeout, client.NewClient(
+			client.WithTimeout(timeout),
+			client.WithSanitizer(sanitizer{}),
+		)),
 		tgbot.WithSkipGetMe(), // send-only, no update polling
 	}
 	if cfg.APIURL != "" {

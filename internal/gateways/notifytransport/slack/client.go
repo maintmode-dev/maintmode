@@ -6,8 +6,11 @@ import (
 
 	slackgo "github.com/slack-go/slack"
 
+	"github.com/ruko1202/xhttp/client"
+
+	"github.com/ruko1202/maintmode/internal/utils/xsanitize"
+
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xhttp"
 )
 
 const defaultTimeout = 10 * time.Second
@@ -29,7 +32,10 @@ type Client struct {
 // it at runtime) when bot_token is empty — keeps startup resilient.
 func New(cfg Params) *Client {
 	opts := []slackgo.Option{
-		slackgo.OptionHTTPClient(xhttp.NewClient(xhttp.WithTimeout(cmp.Or(cfg.Timeout, defaultTimeout)))),
+		slackgo.OptionHTTPClient(client.NewClient(
+			client.WithTimeout(cmp.Or(cfg.Timeout, defaultTimeout)),
+			client.WithSanitizer(xsanitize.New()),
+		)),
 	}
 	if cfg.APIURL != "" {
 		opts = append(opts, slackgo.OptionAPIURL(cfg.APIURL))
