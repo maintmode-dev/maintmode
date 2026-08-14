@@ -3,15 +3,12 @@
 package middlewares
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	echootel "github.com/labstack/echo-opentelemetry"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
-	"github.com/ruko1202/xlog"
-	"github.com/ruko1202/xlog/xfield"
+	xhttpserver "github.com/ruko1202/xhttp/server"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
@@ -21,27 +18,21 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-const (
-	msxResponseDump = 10 * 1024 // 10Kb
-)
-
-// BaseMiddlewares returns the basic set of middlewares (recover, secure, request ID).
-func BaseMiddlewares() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{
-		middleware.Recover(),
-		middleware.Secure(),
-	}
-}
-
 // BaseAPIMiddlewares returns the basic set of middlewares (recover, secure, request ID) for public API
+//
+// TraceMiddleware must stay ahead of xhttpserver.RequestLoggingMiddleware: it
+// overwrites X-Request-ID with the trace id, and the logging middleware reads
+// that header afterwards. Reordering the two silently decouples the logs from
+// the traces — the request_id field keeps a value, just no longer the one that
+// correlates.
 func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []echo.MiddlewareFunc {
-	mw := append(BaseMiddlewares(),
+	mw := append(xhttpserver.BaseMiddlewares(),
 		middleware.Recover(),
 		middleware.Secure(),
 		echootel.NewMiddleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 		TraceMiddleware(),
-		RequestLoggingMiddleware(),
+		xhttpserver.RequestLoggingMiddleware(),
 		middleware.ContextTimeout(60*time.Second),
 		middleware.GzipWithConfig(middleware.GzipConfig{}),
 	)
@@ -56,7 +47,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 		)
 		if !env.IsPerformanceTest() {
 			mw = append(mw,
-				ReqReqsDumpLoggingMiddleware(),
+				xhttpserver.BodyDumpLoggingMiddleware(),
 			)
 		}
 	}
@@ -83,95 +74,5 @@ func TraceMiddleware() echo.MiddlewareFunc {
 			}
 			return next(c)
 		}
-	}
-}
-
-func RequestLoggingMiddleware() echo.MiddlewareFunc {
-	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogLatency:       true,
-		LogProtocol:      true,
-		LogRemoteIP:      true,
-		LogHost:          true,
-		LogMethod:        true,
-		LogURI:           true,
-		LogURIPath:       false,
-		LogRoutePath:     false,
-		LogRequestID:     true,
-		LogReferer:       false,
-		LogUserAgent:     true,
-		LogStatus:        true,
-		LogContentLength: true,
-		LogResponseSize:  true,
-		LogHeaders:       nil,
-		LogQueryParams:   nil,
-		LogFormValues:    nil,
-		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
-		Skipper:          skipper("swagger"),
-		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
-			ctx := c.Request().Context()
-			attrs := []xfield.Field{
-				xfield.String("host", v.Host),
-				xfield.String("request", fmt.Sprintf("%s %s", v.Method, v.URI)),
-				xfield.String("protocol", v.Protocol),
-				xfield.Int("status", v.Status),
-				xfield.String("request_id", v.RequestID),
-				xfield.Any("query", v.QueryParams),
-				xfield.Any("form-values", v.FormValues),
-				xfield.Duration("latency", v.Latency),
-				xfield.String("bytes_in", v.ContentLength),
-				xfield.Int64("bytes_out", v.ResponseSize),
-				xfield.String("remote_ip", v.RemoteIP),
-				xfield.String("user_agent", v.UserAgent),
-				xfield.Any("headers", v.Headers),
-			}
-
-			if v.Error != nil {
-				xlog.Error(ctx, "REQUEST_ERROR", append(attrs, xfield.Error(v.Error))...)
-				return nil //nolint:nilerr
-			}
-
-			xlog.Info(ctx, "REQUEST", attrs...)
-			return nil
-		},
-	})
-}
-
-func ReqReqsDumpLoggingMiddleware() echo.MiddlewareFunc {
-	return middleware.BodyDumpWithConfig(middleware.BodyDumpConfig{
-		Skipper: skipper("swagger"),
-		Handler: func(c *echo.Context, reqDump []byte, respBump []byte, _ error) {
-			req := c.Request()
-			res := c.Response()
-			ctx := req.Context()
-
-			requestID := req.Header.Get(echo.HeaderXRequestID)
-			if requestID == "" {
-				requestID = res.Header().Get(echo.HeaderXRequestID)
-			}
-
-			attrs := []xfield.Field{
-				xfield.String("method", req.Method),
-				xfield.String("uri", req.RequestURI),
-				xfield.String("request_id", requestID),
-			}
-
-			xlog.Debug(ctx, "REQUEST DUMP", append(attrs, xfield.String("body", string(reqDump)))...)
-			if len(respBump) > msxResponseDump {
-				xlog.Info(ctx, fmt.Sprintf("RESPONSE DUMP skipped: too large response body [%d Kb]", len(respBump)/1024), attrs...)
-				return
-			}
-			xlog.Debug(ctx, "RESPONSE DUMP", append(attrs, xfield.String("body", string(respBump)))...)
-		},
-	})
-}
-
-func skipper(urlPaths ...string) middleware.Skipper {
-	return func(c *echo.Context) bool {
-		for _, path := range urlPaths {
-			if strings.Contains(c.Request().URL.Path, path) {
-				return true
-			}
-		}
-		return false
 	}
 }

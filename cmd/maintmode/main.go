@@ -15,12 +15,16 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	valkeylib "github.com/redis/go-redis/v9"
+	"github.com/ruko1202/swaggerui"
+	"github.com/ruko1202/xhttp/infra"
+	"github.com/ruko1202/xhttp/lifecycle"
+	xhttpserver "github.com/ruko1202/xhttp/server"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/docs"
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
-	"github.com/ruko1202/maintmode/internal/app/api/infra"
 	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
 	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
 	integrationapi "github.com/ruko1202/maintmode/internal/app/api/public/integration"
@@ -36,9 +40,9 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config/pg"
 	"github.com/ruko1202/maintmode/internal/config/valkey"
-	"github.com/ruko1202/maintmode/internal/lifecycle"
 	"github.com/ruko1202/maintmode/internal/server"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/config"
 )
@@ -109,7 +113,7 @@ func main() {
 	// only reads it. Keeps process-lifecycle state out of the HTTP layer.
 	drainer := lifecycle.NewDrainer()
 
-	startInfraServer(ctx, cfg, db, drainer, logger)
+	startInfraServer(ctx, cfg, meta, db, drainer, logger)
 
 	<-ctx.Done()
 	shutdown(context.WithoutCancel(ctx), drainer, cfg.Shutdown.DrainTimeoutOrDefault())
@@ -153,7 +157,7 @@ func startAPIServer(
 			License:       services.License,
 		},
 		valkeyClient,
-		server.WithLogger(logger),
+		xhttpserver.WithLogger(xecho.NewSlogAdapter(logger)),
 	)
 	s.BindRouters(cfg.Environment, meta)
 
@@ -172,16 +176,44 @@ func startAPIServer(
 func startInfraServer(
 	ctx context.Context,
 	cfg *config.AppConfig,
+	meta *buildmeta.AppBuildMeta,
 	db *sqlx.DB,
 	drainer *lifecycle.Drainer,
 	logger xlog.Logger,
 ) {
-	s := server.NewInfraServer(
-		cfg.InfraServer,
-		infra.New(db, drainer),
-		server.WithLogger(logger),
+	s := infra.New(
+		infra.Config{
+			Server: xhttpserver.Config{
+				Name: cfg.InfraServer.Name,
+				Host: cfg.InfraServer.Host,
+				Port: cfg.InfraServer.Port,
+			},
+			Dev: cfg.Environment.IsDev(),
+			Version: infra.VersionInfo{
+				AppName:   meta.AppName,
+				Version:   meta.Version,
+				OS:        meta.OS,
+				Arch:      meta.Arch,
+				BuildTime: meta.BuildTime,
+				ShaCommit: meta.ShaCommit,
+			},
+			// Postgres is the only check. Valkey is deliberately absent: it
+			// degrades to per-replica in-memory rate-limit buckets when
+			// unreachable, so failing readiness on it would eject a replica that
+			// can still serve every request.
+			Checks:  []infra.Check{{Name: "postgres", Probe: db.PingContext}},
+			Drainer: drainer,
+			Specs: []swaggerui.Spec{
+				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
+				// "auth" is the dropdown label for the auth API spec, not a per-binary
+				// identity — kept as a literal so RUK-195 can drop the AuthAppName
+				// build-meta constant without touching this.
+				{Name: "auth", Content: docs.AuthSpec},
+			},
+			PrimarySpecName: buildmeta.MaintModeAppName,
+		},
+		xhttpserver.WithLogger(xecho.NewSlogAdapter(logger)),
 	)
-	s.BindRouters(cfg.Environment)
 
 	go func() {
 		if err := s.Start(ctx); err != nil {
@@ -205,6 +237,14 @@ func startInfraServer(
 // server's graceful drain completes, so any request still running when
 // CloseAll fires can hit a closed DB → 5xx. The drain wait exists precisely
 // so no such request is in flight by then; do not shrink it below that bound.
+//
+// Note that drainTimeout (6s by default) is deliberately shorter than the
+// servers' own GracefulTimeout (xhttpserver.DefaultGracefulTimeout, 10s): the
+// drain window is how long we wait for the proxy to eject us, not a bound on
+// Echo's shutdown. The two numbers now live in different repositories, so
+// changing either one means checking the other — a drainTimeout raised past
+// the graceful timeout would have Echo dropping connections while this wait
+// is still running.
 func shutdown(ctx context.Context, drainer *lifecycle.Drainer, drainTimeout time.Duration) {
 	xlog.Info(ctx, "graceful shutdown: draining...", xfield.Any("drain_timeout", drainTimeout))
 	drainer.StartDraining()

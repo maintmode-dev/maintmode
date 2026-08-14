@@ -11,9 +11,13 @@ Use Echo v5 only. MaintMode imports `github.com/labstack/echo/v5`; do not introd
 
 - Public API handlers live under `internal/app/api/public`.
 - UI API handlers live under `internal/app/api/ui`.
-- Infra handlers live under `internal/app/api/infra`.
 - Server wiring lives under `internal/server`.
 - API error mapping lives under `internal/app/api/apierrors`.
+- Infra endpoints (`/liveness`, `/readiness`, `/version`, `/metrics`, pprof,
+  swagger) are NOT in this repository: they come from
+  `github.com/ruko1202/xhttp/infra`, which owns those routes so every service
+  exposes the same ones. This side only supplies the config —
+  `cmd/maintmode/infra_config.go`. Change the endpoints in the library, not here.
 
 ## Handler Pattern
 

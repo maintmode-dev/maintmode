@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
+	xhttpserver "github.com/ruko1202/xhttp/server"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -106,7 +107,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 		e *echo.Echo, store middleware.RateLimiterStore, license middlewares.LicenseProvider,
 	) {
 		s := &APIServer{
-			server: &server{},
+			Server: xhttpserver.New(xhttpserver.Config{}),
 			security: APIServerSecurity{
 				TokenVerifier: verifier,
 				License:       license,
@@ -182,7 +183,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 		t.Parallel()
 
 		s := &APIServer{
-			server:   &server{},
+			Server:   xhttpserver.New(xhttpserver.Config{}),
 			security: APIServerSecurity{TokenVerifier: verifier, License: unlicensedProvider{}},
 		}
 

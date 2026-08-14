@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	valkeylib "github.com/redis/go-redis/v9"
+	xhttpserver "github.com/ruko1202/xhttp/server"
 
 	"github.com/ruko1202/maintmode/internal/config/buildmeta"
 
@@ -67,7 +68,11 @@ type APIServerSecurity struct {
 }
 
 type APIServer struct {
-	*server
+	*xhttpserver.Server
+	// cfg is kept alongside the embedded server because the rate limiters read
+	// their thresholds from it. xhttpserver.Config carries only what it needs
+	// to bind a port, so the domain half of config.HTTPServer has to live here.
+	cfg      config.HTTPServer
 	handlers APIServerHandlers
 	security APIServerSecurity
 	// valkey backs the rate limiters guarding the public login/oauth and
@@ -82,10 +87,15 @@ func NewAPIServer(
 	handlers APIServerHandlers,
 	security APIServerSecurity,
 	rdb *valkeylib.Client,
-	opts ...Option,
+	opts ...xhttpserver.Option,
 ) *APIServer {
 	return &APIServer{
-		server:   newServer(cfg, opts...),
+		Server: xhttpserver.New(xhttpserver.Config{
+			Name: cfg.Name,
+			Host: cfg.Host,
+			Port: cfg.Port,
+		}, opts...),
+		cfg:      cfg,
 		handlers: handlers,
 		security: security,
 		valkey:   rdb,
@@ -93,10 +103,10 @@ func NewAPIServer(
 }
 
 func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuildMeta) {
-	rootGr := s.e.Group("")
+	rootGr := s.Echo().Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 
-	rootGr.RouteNotFound("/*", s.notFoundHandler, middlewares.RequestLoggingMiddleware())
+	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler, xhttpserver.RequestLoggingMiddleware())
 
 	// The /api/v1 base group carries NO blanket access-token gate: the auth module
 	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)

@@ -34,11 +34,6 @@ type HTTPServer struct {
 	UIRateLimiter RateLimiterConfig `mapstructure:"ui_rate_limiter"`
 }
 
-// BuildHostPort returns the server address in host:port format.
-func (a *HTTPServer) BuildHostPort() string {
-	return fmt.Sprintf("%s:%d", a.Host, a.Port)
-}
-
 type RateLimiterConfig struct {
 	RequestsPerMinute int           `mapstructure:"requests_per_minute"`
 	Burst             int           `mapstructure:"burst"`

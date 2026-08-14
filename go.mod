@@ -2,7 +2,7 @@ module github.com/ruko1202/maintmode
 
 go 1.25.0
 
-toolchain go1.25.12
+toolchain go1.25.13
 
 require (
 	github.com/MicahParks/jwkset v0.11.0
@@ -17,17 +17,15 @@ require (
 	github.com/jackc/pgtype v1.14.4
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/labstack/echo-contrib/v5 v5.0.1
 	github.com/labstack/echo-opentelemetry v0.0.2
 	github.com/labstack/echo/v5 v5.2.1
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.47
 	github.com/oapi-codegen/runtime v1.4.2
-	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/ruko1202/goque v0.8.10
 	github.com/ruko1202/swaggerui v0.5.0
-	github.com/ruko1202/xhttp v0.1.0
+	github.com/ruko1202/xhttp v0.2.0
 	github.com/ruko1202/xlog v0.5.1
 	github.com/samber/lo v1.53.0
 	github.com/slack-go/slack v0.27.0
@@ -75,12 +73,14 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.10.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/labstack/echo-contrib/v5 v5.0.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/panjf2000/ants/v2 v2.12.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.69.0 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
