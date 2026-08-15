@@ -81,6 +81,15 @@ components:
                         $ref: '#/components/schemas/apimodels.Channel'
                     type: array
                     uniqueItems: false
+                limit:
+                    example: 50
+                    type: integer
+                offset:
+                    example: 0
+                    type: integer
+                total:
+                    example: 123
+                    type: integer
             type: object
         apimodels.Conflict:
             properties:
@@ -1948,10 +1957,29 @@ paths:
     /api/v1/notifications/channels:
         get:
             description: |-
-                Returns the channel catalog across enabled transports. Used by
-                the admin UI to populate the channel picker. Archived channels
-                are hidden unless include_archived=true is passed.
+                Returns a page of the channel catalog across enabled transports,
+                ordered by (transport, transport_channel_id). Used by the admin UI
+                to populate the channel picker and the catalog screen. Archived
+                channels are hidden unless include_archived=true is passed.
+                Malformed pagination/filter params are coerced to defaults rather than rejected.
             parameters:
+                - description: Case-insensitive partial name match (search box)
+                  in: query
+                  name: name
+                  schema:
+                    type: string
+                - description: Page size (max 200)
+                  in: query
+                  name: limit
+                  schema:
+                    default: 50
+                    type: integer
+                - description: Pagination offset
+                  in: query
+                  name: offset
+                  schema:
+                    default: 0
+                    type: integer
                 - description: Include archived channels (default false)
                   in: query
                   name: include_archived

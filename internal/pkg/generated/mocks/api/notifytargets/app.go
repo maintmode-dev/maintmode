@@ -145,18 +145,18 @@ func (c *MockchannelServiceArchiveChannelCall) DoAndReturn(f func(context.Contex
 }
 
 // AvailableChannels mocks base method.
-func (m *MockchannelService) AvailableChannels(ctx context.Context, includeArchived bool) ([]*entity.NotifyChannel, error) {
+func (m *MockchannelService) AvailableChannels(ctx context.Context, cmd *entity.ListChannelsCmd) (*entity.ListChannelsResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AvailableChannels", ctx, includeArchived)
-	ret0, _ := ret[0].([]*entity.NotifyChannel)
+	ret := m.ctrl.Call(m, "AvailableChannels", ctx, cmd)
+	ret0, _ := ret[0].(*entity.ListChannelsResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AvailableChannels indicates an expected call of AvailableChannels.
-func (mr *MockchannelServiceMockRecorder) AvailableChannels(ctx, includeArchived any) *MockchannelServiceAvailableChannelsCall {
+func (mr *MockchannelServiceMockRecorder) AvailableChannels(ctx, cmd any) *MockchannelServiceAvailableChannelsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableChannels", reflect.TypeOf((*MockchannelService)(nil).AvailableChannels), ctx, includeArchived)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableChannels", reflect.TypeOf((*MockchannelService)(nil).AvailableChannels), ctx, cmd)
 	return &MockchannelServiceAvailableChannelsCall{Call: call}
 }
 
@@ -166,19 +166,19 @@ type MockchannelServiceAvailableChannelsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockchannelServiceAvailableChannelsCall) Return(arg0 []*entity.NotifyChannel, arg1 error) *MockchannelServiceAvailableChannelsCall {
+func (c *MockchannelServiceAvailableChannelsCall) Return(arg0 *entity.ListChannelsResult, arg1 error) *MockchannelServiceAvailableChannelsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockchannelServiceAvailableChannelsCall) Do(f func(context.Context, bool) ([]*entity.NotifyChannel, error)) *MockchannelServiceAvailableChannelsCall {
+func (c *MockchannelServiceAvailableChannelsCall) Do(f func(context.Context, *entity.ListChannelsCmd) (*entity.ListChannelsResult, error)) *MockchannelServiceAvailableChannelsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockchannelServiceAvailableChannelsCall) DoAndReturn(f func(context.Context, bool) ([]*entity.NotifyChannel, error)) *MockchannelServiceAvailableChannelsCall {
+func (c *MockchannelServiceAvailableChannelsCall) DoAndReturn(f func(context.Context, *entity.ListChannelsCmd) (*entity.ListChannelsResult, error)) *MockchannelServiceAvailableChannelsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -87,8 +87,11 @@ func TestChannelHandlers_RegistryFailure500(t *testing.T) {
 		t.Parallel()
 
 		impl, channelSvc := registryFailureMocks(t)
-		channelSvc.EXPECT().AvailableChannels(gomock.Any(), false).
-			Return([]*entity.NotifyChannel{testChannel()}, nil)
+		channelSvc.EXPECT().AvailableChannels(gomock.Any(), gomock.Any()).
+			Return(&entity.ListChannelsResult{
+				Channels: []*entity.NotifyChannel{testChannel()},
+				Total:    1,
+			}, nil)
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
 

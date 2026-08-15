@@ -99,21 +99,42 @@ func ToChannel(channel *entity.NotifyChannel, author, editor *entity.UserSummary
 	}
 }
 
-// ChannelsResponse is the payload of GET /api/v1/notifications/channels.
-// Wrapping the slice in an object leaves room for future fields
-// (pagination, transport metadata) without a breaking change.
+// ChannelsResponse is the payload of GET /api/v1/notifications/channels: one
+// page of the catalog plus the pagination metadata the UI needs to show "N of M"
+// and to tell that the list was truncated.
+//
+// Total counts every channel matching the filter, before LIMIT/OFFSET. Limit and
+// Offset echo the values actually applied, which may differ from what was asked
+// for: an out-of-range limit is served as the default, an offset past the
+// ceiling as the ceiling. The shape matches ListResourcesResponse so the FE
+// reuses one pagination pattern across both listings.
 type ChannelsResponse struct {
 	Channels []*Channel `json:"channels"`
+	Total    int64      `json:"total" example:"123"`
+	Limit    int64      `json:"limit" example:"50"`
+	Offset   int64      `json:"offset" example:"0"`
 }
 
-// ToChannelsResponse maps the catalog to its API shape, looking up each
-// channel's author/editor summary in the pre-resolved index (keyed by user id)
-// and each channel's transport status in the integration registry view.
-func ToChannelsResponse(channels []*entity.NotifyChannel, summaries map[uuid.UUID]*entity.UserSummary, index TransportStatusIndex) ChannelsResponse {
+// ToChannelsResponse maps a page of the catalog to its API shape, looking up
+// each channel's author/editor summary in the pre-resolved index (keyed by user
+// id) and each channel's transport status in the integration registry view.
+//
+// total, limit and offset are passed in rather than derived: total comes from
+// the service result and the effective paging from the parsed request, so
+// neither is reachable from the channels alone.
+func ToChannelsResponse(
+	channels []*entity.NotifyChannel,
+	summaries map[uuid.UUID]*entity.UserSummary,
+	index TransportStatusIndex,
+	total, limit, offset int64,
+) ChannelsResponse {
 	return ChannelsResponse{
 		Channels: lo.Map(channels, func(item *entity.NotifyChannel, _ int) *Channel {
 			return ToChannel(item, lookupSummary(summaries, item.CreatedByUserID), lookupSummary(summaries, item.UpdatedByUserID), index)
 		}),
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}
 }
 

@@ -98,25 +98,17 @@ func TestMaintenancesAPI_DeferredNotifications(t *testing.T) {
 	require.Len(t, lo.FromPtr(getAfter.JSON200.DeferredNotifications), 2)
 }
 
-// availableChannelIDs returns every catalog channel id exposed by the API,
-// seeding one via the admin API first so the catalog is never empty.
+// availableChannelIDs returns notify-target channel ids the caller can use,
+// seeded here rather than read back from the catalog.
+//
+// It used to seed one channel and then list the catalog. Now that the listing is
+// paged that read returns page 0 — fifty channels ordered by
+// (transport, transport_channel_id), which on a shared database almost never
+// includes the row just created. The test would have gone on passing, on other
+// tests' data. Returning what we seeded keeps the assertion about this test's
+// own rows.
 func availableChannelIDs(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) []string {
 	t.Helper()
 
-	ensureNotifyChannel(ctx, t, apiClient)
-
-	resp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx, nil)
-	require.NoError(t, err, "Failed to fetch notification channels")
-	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
-	require.NotNil(t, resp.JSON200)
-
-	channels := lo.FromPtr(resp.JSON200.Channels)
-	require.NotEmpty(t, channels, "catalog must expose at least one channel for API tests")
-
-	count := min(10, len(channels))
-	ids := make([]string, 0, count)
-	for _, ch := range channels[:count] {
-		ids = append(ids, lo.FromPtr(ch.Id).String())
-	}
-	return ids
+	return []string{ensureNotifyChannel(ctx, t, apiClient)}
 }

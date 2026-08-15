@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/ruko1202/goque"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -193,19 +194,30 @@ func makeNotifyChannel(ctx context.Context, t *testing.T, service *Service) *ent
 	t.Helper()
 
 	// Catalog now lives in Postgres: seed a channel for this test, then
-	// assert it surfaces through the service-facing AvailableChannels.
+	// assert it surfaces through the service-facing AvailableChannels. The name
+	// is unique per call because the suite runs -count 2 against a shared
+	// database, and the lookup below filters by it.
+	name := t.Name() + "-" + xuuid.NewString()
 	channel, err := notifyChannelStore.Create(ctx, &entity.NotifyChannel{
 		Transport:          entity.NotifyTransportTelegram,
-		TransportChannelID: t.Name() + xuuid.NewString(),
-		Name:               t.Name(),
+		TransportChannelID: name,
+		Name:               name,
 		Description:        t.Name(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
 
-	notifyChannels, err := service.notifyTargets.AvailableChannels(ctx, false)
+	// Filtered by the seeded name: the listing is paged, so asking for the
+	// catalog and checking it is non-empty would assert on other tests' rows
+	// rather than on this channel surfacing.
+	notifyChannels, err := service.notifyTargets.AvailableChannels(ctx,
+		&entity.ListChannelsCmd{Name: channel.Name, Limit: 50})
 	require.NoError(t, err)
-	require.NotEmpty(t, notifyChannels)
+	require.NotEmpty(t, notifyChannels.Channels)
+	require.Contains(t,
+		lo.Map(notifyChannels.Channels, func(ch *entity.NotifyChannel, _ int) uuid.UUID { return ch.ID }),
+		channel.ID,
+		"the seeded channel must surface through AvailableChannels")
 
 	return channel
 }

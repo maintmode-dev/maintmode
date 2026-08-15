@@ -199,6 +199,30 @@ type ListResourcesResult struct {
 	Total     int64
 }
 
+// ListChannelsCmd describes a paginated notify-channel listing request.
+//
+// Name, when non-empty, filters channels by a case-insensitive partial match on
+// the name (LIKE %name%). It is trimmed by the caller; the store treats an empty
+// Name as "no filter".
+//
+// IncludeArchived widens the scope from active-only to active plus archived.
+//
+// Limit is applied verbatim: a zero Limit yields an empty page, not the whole
+// catalog. Callers building this struct by hand must set it.
+type ListChannelsCmd struct {
+	Name            string
+	Limit           int64
+	Offset          int64
+	IncludeArchived bool
+}
+
+// ListChannelsResult is a single page of channels plus the total count of
+// channels matching the same filter, before LIMIT/OFFSET.
+type ListChannelsResult struct {
+	Channels []*NotifyChannel
+	Total    int64
+}
+
 // --- Authorization commands ---
 
 type ExchangeIDTokenCmd struct {

@@ -612,20 +612,18 @@ func createMaintenanceWithChannel(ctx context.Context, t *testing.T, apiClient *
 	return lo.FromPtr(resp.JSON200.Id).String()
 }
 
-// ensureNotifyChannel returns the id of a catalog channel, creating one
-// via the admin API if the catalog is empty. Channel creation is
-// admin-scoped; the default API test client carries the admin role.
+// ensureNotifyChannel returns the id of a channel the caller can use. It always
+// creates one. Channel creation is admin-scoped; the default API test client
+// carries the admin role.
+//
+// It used to reuse an existing catalog channel and only create when the catalog
+// was empty. Now that the listing is paged that read would return "the first
+// channel of page 0" rather than "a channel from the catalog" — still passing,
+// still compiling, and no longer meaning what the name says. Creating
+// unconditionally costs one row and removes the dependence on catalog contents
+// entirely.
 func ensureNotifyChannel(ctx context.Context, t *testing.T, apiClient *maintmodeclient.ClientWithResponses) string {
 	t.Helper()
-
-	listResp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx, nil)
-	require.NoError(t, err, "Failed to fetch notification channels")
-	require.Equal(t, http.StatusOK, listResp.StatusCode(), "unexpected status: %s", listResp.Body)
-	require.NotNil(t, listResp.JSON200)
-
-	if channels := lo.FromPtr(listResp.JSON200.Channels); len(channels) > 0 {
-		return lo.FromPtr(channels[0].Id).String()
-	}
 
 	return createNotifyChannel(ctx, t, apiClient)
 }

@@ -60,11 +60,14 @@ func TestNotifyTransportStatusAPI(t *testing.T) {
 
 	// Weak coupling: create succeeds even though the integration is disabled,
 	// and the response already carries the disabled signal.
+	// Unique so the listing assertion below can filter down to this channel:
+	// the catalog is paged, and it holds far more channels than a page.
+	channelName := "Transport status channel " + xuuid.NewString()
 	createResp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
 		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
 			Transport:          lo.ToPtr(string(entity.NotifyTransportTelegram)),
 			TransportChannelId: lo.ToPtr("status-" + xuuid.NewString()),
-			Name:               lo.ToPtr("Transport status channel"),
+			Name:               lo.ToPtr(channelName),
 			Description:        lo.ToPtr("created by API test"),
 		},
 	)
@@ -92,7 +95,8 @@ func TestNotifyTransportStatusAPI(t *testing.T) {
 	require.Equal(t, maintmodeclient.TransportStatusDisabled,
 		lo.FromPtr(updateResp.JSON200.TransportStatus), "PATCH response on disabled integration")
 
-	listResp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx, nil)
+	listResp, err := apiClient.GetApiV1NotificationsChannelsWithResponse(ctx,
+		&maintmodeclient.GetApiV1NotificationsChannelsParams{Name: lo.ToPtr(channelName)})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, listResp.StatusCode())
 	listed, found := lo.Find(lo.FromPtr(listResp.JSON200.Channels),

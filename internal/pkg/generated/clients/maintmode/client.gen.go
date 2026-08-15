@@ -274,6 +274,9 @@ type ApimodelsChannel struct {
 // ApimodelsChannelsResponse defines model for apimodels.ChannelsResponse.
 type ApimodelsChannelsResponse struct {
 	Channels *[]ApimodelsChannel `json:"channels,omitempty"`
+	Limit    *int                `json:"limit,omitempty"`
+	Offset   *int                `json:"offset,omitempty"`
+	Total    *int                `json:"total,omitempty"`
 }
 
 // ApimodelsConflict defines model for apimodels.Conflict.
@@ -855,6 +858,15 @@ type bearerAuthContextKey string
 
 // GetApiV1NotificationsChannelsParams defines parameters for GetApiV1NotificationsChannels.
 type GetApiV1NotificationsChannelsParams struct {
+	// Name Case-insensitive partial name match (search box)
+	Name *string `form:"name,omitempty" json:"name,omitempty"`
+
+	// Limit Page size (max 200)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
 	// IncludeArchived Include archived channels (default false)
 	IncludeArchived *bool `form:"include_archived,omitempty" json:"include_archived,omitempty"`
 }
@@ -2351,6 +2363,42 @@ func NewGetApiV1NotificationsChannelsRequest(server string, params *GetApiV1Noti
 		// styled parameters, preserving literal commas as delimiters
 		// per the OpenAPI spec (e.g. "color=blue,black,brown").
 		var rawQueryFragments []string
+
+		if params.Name != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", *params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
 
 		if params.IncludeArchived != nil {
 

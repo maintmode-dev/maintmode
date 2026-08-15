@@ -33,7 +33,7 @@ type transportSource interface {
 // recording fake (error propagation, index-before-write ordering) without a
 // database. Satisfied by *notifytargets.Service.
 type channelService interface {
-	AvailableChannels(ctx context.Context, includeArchived bool) ([]*entity.NotifyChannel, error)
+	AvailableChannels(ctx context.Context, cmd *entity.ListChannelsCmd) (*entity.ListChannelsResult, error)
 	GetChannel(ctx context.Context, channelID uuid.UUID) (*entity.NotifyChannel, error)
 	CreateChannel(ctx context.Context, cmd *entity.CreateNotifyChannelCmd) (*entity.NotifyChannel, error)
 	UpdateChannel(ctx context.Context, cmd *entity.UpdateNotifyChannelCmd) (*entity.NotifyChannel, error)
