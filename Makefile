@@ -173,12 +173,38 @@ tloc-cov: secrets
 	go tool cover -func=coverage.out | sed 's|github.com/ruko1202/goque||' | sed -E 's/\t+/\t/g' | tee coverage.report
 
 
+# tloc-api - Run the API integration tests, ensuring the test stack is up.
+#
+# The suite talks to whatever is listening on the API port and cannot tell a dev
+# stack from a test one. On a dev stack it trips the anti-enumeration rate limits
+# (30/min on the login surface) and fails with a pile of 429s that read like code
+# regressions but are pure config skew — so this target no longer assumes the
+# right stack is already running, it guarantees it.
+#
+# ensure-test-stack is a no-op when the app container is already on the test
+# config, so the common case stays fast: no rebuild, no compose round-trip.
 .PHONY: tloc-api
-tloc-api: ## Run API integration tests against an ALREADY-RUNNING test stack
-	$(info $(M) running API integration tests against the running stack...)
-	$(info $(M) NOTE: this does not start or rebuild anything. Against a dev)
-	$(info $(M) stack it fails on config, not on code — use `make test-api`.)
+tloc-api: ensure-test-stack ## Run API integration tests (brings up the test stack if needed)
+	$(info $(M) running API integration tests...)
 	go test -tags=api -v -p 2 -count=2 ./test/api/...
+
+# ensure-test-stack - Bring up the app on the test config unless it already is.
+#
+# Detects the current config by inspecting the app container's bind mounts: the
+# test stack mounts deployment/maintmode/test/app.config.yaml. Anything else
+# (dev config, or nothing running) means the stack has to be (re)started.
+.PHONY: ensure-test-stack
+ensure-test-stack:
+	@if docker inspect maintmode-maintmode-1 \
+		--format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' 2>/dev/null \
+		| grep -q 'deployment/maintmode/test/app.config.yaml'; then \
+		echo "$(M) test stack already running, reusing it"; \
+	else \
+		echo "$(M) test stack not running, starting it..."; \
+		DOCKER_COMPOSE_APP_CONFIGS="-f compose.yaml -f compose.app.test.yaml" \
+		COMPOSE_PROFILES_FLAGS="--profile storages --profile app" \
+		$(MAKE) app-up; \
+	fi
 
 
 .PHONY: test-api
@@ -189,6 +215,11 @@ test-api: ## Run API integration tests like in CI
 		make app-up
 	go test -tags=api -v -p 2 -count=2 ./test/api/...
 
+# tloc-all - The broad local check: unit tests plus API integration tests.
+#
+# tloc-api ensures the test stack itself, so this reuses a running one instead of
+# rebuilding on every call. Use test-api for the CI-shaped run that always
+# recreates the stack from scratch.
 .PHONY: tloc-all
 tloc-all:
 	make tloc

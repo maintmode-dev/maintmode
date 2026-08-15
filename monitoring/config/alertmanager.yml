@@ -46,7 +46,7 @@ route:
   repeat_interval: 4h
   routes:
     - matchers:
-        - env = "prod"
+        - env = "prod[disabled]"
       receiver: telegram-prod
       routes:
         - matchers:
@@ -54,7 +54,7 @@ route:
           receiver: telegram-prod
           repeat_interval: 1h
     - matchers:
-        - env = "dev"
+        - env = "dev[disabled]"
       receiver: telegram-dev
       routes:
         - matchers:
