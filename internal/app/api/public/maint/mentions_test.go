@@ -249,7 +249,7 @@ func createDraftRequest(ctx context.Context, t *testing.T) *apimodels.CreateDraf
 		PlannedStart: plannedStart,
 		Scope:        apimodels.MaintenanceScopeResources,
 		Impact:       apimodels.MaintenanceImpactPartial,
-		Resources:    []*apimodels.ResourceRef{resource},
+		Resources:    []*apimodels.ResourceRef{resource.Ref},
 		Steps: []*apimodels.MaintenanceStepInput{{
 			Order:               1,
 			Description:         "Step 1",

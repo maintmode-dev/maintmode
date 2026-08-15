@@ -150,8 +150,12 @@ func (s *Service) checkConflicts(ctx context.Context, maint *entity.Maintenance,
 		return err
 	}
 
-	conflictsFingerprint := entity.ConflictFingerprint(conflicts)
-	actualFingerprint := entity.ConflictFingerprint(snapshot.Conflicts)
+	// Fingerprinted against this maintenance's own resources, so each neighbor
+	// counts only through what it SHARES with us. A neighbor picking up a
+	// resource we do not touch leaves the collision unchanged and must not bounce
+	// a pending approval — see ConflictFingerprintFor.
+	conflictsFingerprint := entity.ConflictFingerprintFor(conflicts, maint.Resources)
+	actualFingerprint := entity.ConflictFingerprintFor(snapshot.Conflicts, maint.Resources)
 	if actualFingerprint != conflictsFingerprint {
 		return fmt.Errorf("%w: preview '%s', actual '%s'",
 			apperr.ErrConflictsChangedSincePreview,

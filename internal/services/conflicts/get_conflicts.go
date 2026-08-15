@@ -22,7 +22,6 @@ func (s *Service) GetConflicts(ctx context.Context, cmd *entity.ConflictQueryCmd
 	}
 
 	conflictedResources, err := s.ConflictedResources(ctx, &entity.ConflictResourcesQueryCmd{
-		MaintResourceIDs: cmd.ResourceIDs,
 		ConflictedMaintIDs: lo.Map(conflicts, func(item *entity.Conflict, _ int) uuid.UUID {
 			return item.MaintenanceID
 		}),

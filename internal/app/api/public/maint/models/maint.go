@@ -211,7 +211,11 @@ type Conflict struct {
 	OverlapStart  time.Time        `json:"overlap_start" format:"date-time"`
 	OverlapEnd    time.Time        `json:"overlap_end" format:"date-time"`
 	Scope         MaintenanceScope `json:"scope"`
-	Resources     []*ResourceRef   `json:"resources"`
+	// Resources lists the resources the CONFLICTING maintenance itself touches —
+	// not the subset it shares with the maintenance being approved. It is empty
+	// when and only when that maintenance is global-scope, since a global-scope
+	// maintenance holds no resources at all.
+	Resources []*ResourceRef `json:"resources"`
 }
 
 type ApproveDraftMaintRequest struct {

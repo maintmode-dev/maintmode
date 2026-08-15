@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
@@ -13,153 +12,95 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
+// Scope pairings — which combinations of global and resource scope conflict, and
+// what resources each reports — live in TestConflictScopeMatrix, which covers all
+// of them in one table against both queries. What is left here is the other axis:
+// the time window, which the matrix holds constant.
 func TestListConflict(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	now := xtime.UTCNow()
-	start, end := now.Add(time.Hour), now.Add(3*time.Hour)
+
 	store := conflicts.NewStore(db)
 
-	t.Run("has overlap", func(t *testing.T) {
+	t.Run("overlapping windows conflict", func(t *testing.T) {
 		t.Parallel()
+
+		start, end := testdbutils.IsolatedPeriodBounds(t)
 		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
-		for _, tc := range []struct {
-			name            string
-			maint           *entity.Maintenance
-			conflictedMaint *entity.Maintenance
-		}{
-			{
-				name: "conflicted maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
-					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
-				),
-			}, {
-				name: "maint has global scope",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
-				),
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
-					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-				),
-			}, {
-				name: "has conflicted resources",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(
-						sharedResource.ID,
-						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
-					),
-				),
+		maint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+		)
+		// Starts an hour into ours and runs past its end: a partial overlap, so
+		// the reported window is an intersection rather than either period.
+		neighbor := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+			entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+		)
 
-				conflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start.Add(time.Hour), end.Add(time.Hour)),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
-					testdbutils.WithResources(
-						sharedResource.ID,
-						testdbutils.MakeResource(ctx, t, resourcesStore).ID,
-					),
-				),
-			},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
+		conflicted, err := store.ConflictedMaints(ctx, &entity.ConflictQueryCmd{
+			MaintID:       maint.ID,
+			Scope:         maint.Scope,
+			PlannedPeriod: maint.PlannedPeriod,
+			ResourceIDs:   maint.Resources,
+		})
+		require.NoError(t, err)
 
-				actualConflictedMaints, err := store.ConflictedMaints(ctx, &entity.ConflictQueryCmd{
-					MaintID:       tc.maint.ID,
-					Scope:         tc.maint.Scope,
-					PlannedPeriod: tc.maint.PlannedPeriod,
-					ResourceIDs:   tc.maint.Resources,
-				})
-				require.NoError(t, err)
-				require.NotEmpty(t, actualConflictedMaints)
-				actualConflictedMaintsM := lo.SliceToMap(actualConflictedMaints, func(item *entity.Conflict) (uuid.UUID, *entity.Conflict) {
-					return item.MaintenanceID, item
-				})
-				for _, expectedConflict := range []*entity.Conflict{{
-					MaintenanceID: tc.conflictedMaint.ID,
-					Title:         tc.conflictedMaint.Title,
-					Scope:         tc.conflictedMaint.Scope,
-					OverlapStart:  testtimeutils.OverlapStart(tc.maint.PlannedPeriod, tc.conflictedMaint.PlannedPeriod),
-					OverlapEnd:    testtimeutils.OverlapEnd(tc.maint.PlannedPeriod, tc.conflictedMaint.PlannedPeriod),
-				}} {
-					actualConflict, ok := actualConflictedMaintsM[expectedConflict.MaintenanceID]
-					require.Truef(t, ok, "not found conflict with id %s", expectedConflict.MaintenanceID)
-					require.Equal(t, expectedConflict, actualConflict)
-				}
-			})
-		}
+		actual, found := lo.Find(conflicted, func(c *entity.Conflict) bool {
+			return c.MaintenanceID == neighbor.ID
+		})
+		require.True(t, found, "overlapping maintenances must conflict")
+
+		require.Equal(t, &entity.Conflict{
+			MaintenanceID: neighbor.ID,
+			Title:         neighbor.Title,
+			Scope:         neighbor.Scope,
+			OverlapStart:  testtimeutils.OverlapStart(maint.PlannedPeriod, neighbor.PlannedPeriod),
+			OverlapEnd:    testtimeutils.OverlapEnd(maint.PlannedPeriod, neighbor.PlannedPeriod),
+		}, actual, "the reported window is the intersection of the two periods")
 	})
 
-	t.Run("no overlap", func(t *testing.T) {
+	t.Run("adjacent windows do not conflict", func(t *testing.T) {
 		t.Parallel()
 
-		for _, tc := range []struct {
-			name               string
-			maint              *entity.Maintenance
-			notConflictedMaint *entity.Maintenance
-		}{
-			{
-				name: "by period",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-				),
-				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(end, end.Add(time.Hour)),
-					testdbutils.WithScope(entity.MaintenanceScopeGlobal),
-				),
-			}, {
-				name: "by resources",
-				maint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
-				),
-				notConflictedMaint: testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-					entity.NewPeriod(start, end),
-					testdbutils.WithScope(entity.MaintenanceScopeResources),
-					testdbutils.WithResources(testdbutils.MakeResource(ctx, t, resourcesStore).ID),
-				),
-			},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
 
-				actualConflictedMaints, err := store.ConflictedMaints(ctx, &entity.ConflictQueryCmd{
-					MaintID:       tc.maint.ID,
-					Scope:         tc.maint.Scope,
-					PlannedPeriod: tc.maint.PlannedPeriod,
-					ResourceIDs:   tc.maint.Resources,
-				})
-				require.NoError(t, err)
-				require.NotEmpty(t, actualConflictedMaints)
-				actualConflictedMaintsM := lo.SliceToMap(actualConflictedMaints, func(item *entity.Conflict) (uuid.UUID, *entity.Conflict) {
-					return item.MaintenanceID, item
-				})
-				for _, expectedNotConflicted := range []*entity.Conflict{{
-					MaintenanceID: tc.notConflictedMaint.ID,
-				}} {
-					actualConflict, ok := actualConflictedMaintsM[expectedNotConflicted.MaintenanceID]
-					require.Falsef(t, ok, "found conflict with id %s", expectedNotConflicted.MaintenanceID)
-					require.Nil(t, actualConflict)
-				}
-			})
-		}
+		maint := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+		)
+		// Begins exactly where ours ends. The period is a half-open range, so
+		// touching endpoints are not an overlap — and this neighbor shares a
+		// resource AND is global-scope-adjacent in every other respect, so only
+		// the time check can exclude it.
+		neighbor := testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
+			entity.NewPeriod(end, end.Add(time.Hour)),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
+		)
+
+		conflicted, err := store.ConflictedMaints(ctx, &entity.ConflictQueryCmd{
+			MaintID:       maint.ID,
+			Scope:         maint.Scope,
+			PlannedPeriod: maint.PlannedPeriod,
+			ResourceIDs:   maint.Resources,
+		})
+		require.NoError(t, err)
+
+		require.False(t,
+			lo.ContainsBy(conflicted, func(c *entity.Conflict) bool {
+				return c.MaintenanceID == neighbor.ID
+			}),
+			"a maintenance starting when ours ends must not conflict, "+
+				"even though it is global-scope and would otherwise match everything")
 	})
 }

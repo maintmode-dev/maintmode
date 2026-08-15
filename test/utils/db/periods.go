@@ -21,11 +21,20 @@ var isolatedPeriodSeq atomic.Int64
 // them means a "now"-relative window can never wander into an isolated one.
 const isolatedPeriodEpoch = 100
 
-// isolatedPeriodStride is the gap between consecutive windows. It must exceed
-// the span any single test builds on top of its window — the maintenance
+// isolatedPeriodStrideMonths is the gap between consecutive windows. It must
+// exceed the span any single test builds on top of its window — the maintenance
 // fixtures stretch a base period by a few hours in each direction — with room
 // left over, so neighboring slots cannot touch even after a test widens its own.
-const isolatedPeriodStride = 30 * 24 * time.Hour
+//
+// Counted in calendar months and applied with AddDate rather than as a
+// time.Duration, and that is not a style choice. A Duration is an int64 of
+// nanoseconds, so it tops out around 292 years: at a 30-day stride, slot 3559
+// overflows. Slots run to 5119 (see testNameOffset), so roughly 30% of test
+// names used to wrap to a NEGATIVE offset and land their "far future" window
+// about a century in the PAST — where the auto-cancel sweep would then
+// legitimately cancel the fixture as never-started, and the owning test would
+// find its own maintenance canceled out from under it.
+const isolatedPeriodStrideMonths = 1
 
 // IsolatedPeriodBounds returns a maintenance window no other test can overlap,
 // as the start/end pair the fixtures build their periods from.
@@ -59,9 +68,12 @@ func IsolatedPeriodBounds(t *testing.T) (start, end time.Time) {
 	t.Helper()
 
 	slot := isolatedPeriodSeq.Add(1) + testNameOffset(t)
+
+	// AddDate for the slot offset too, not Add(slot * stride): the multiplication
+	// overflows int64 nanoseconds past slot 3558 and silently flips the window
+	// into the past. See isolatedPeriodStrideMonths.
 	start = xtime.UTCNow().
-		AddDate(isolatedPeriodEpoch, 0, 0).
-		Add(time.Duration(slot) * isolatedPeriodStride)
+		AddDate(isolatedPeriodEpoch, int(slot)*isolatedPeriodStrideMonths, 0)
 
 	// Five hours is the span the maintenance tests conventionally use, and it
 	// stays far inside one stride even after a caller widens it.

@@ -16,7 +16,11 @@ func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictRes
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Conflicts.ConflictedResources")
 	defer span.End()
 
-	if len(cmd.MaintResourceIDs) == 0 || len(cmd.ConflictedMaintIDs) == 0 {
+	// Load-bearing, not a micro-optimization: an empty slice would reach
+	// postgres.ARRAY below, which Jet serializes as an untyped `ARRAY[]` whose
+	// element type Postgres cannot infer. GetConflicts calls this on every read,
+	// so a maintenance with no conflicts is the common path.
+	if len(cmd.ConflictedMaintIDs) == 0 {
 		return make(map[uuid.UUID][]uuid.UUID), nil
 	}
 
@@ -25,19 +29,20 @@ func (s *Store) ConflictedResources(ctx context.Context, cmd *entity.ConflictRes
 	//    mr.resource_id
 	// FROM maintenance_resources mr
 	// WHERE
-	//    mr.maintenance_id = ANY(:conflict_ids)
-	//  AND mr.resource_id = ANY(:draft_resource_ids);
-
+	//    mr.maintenance_id = ANY(:conflict_ids);
+	//
+	// Deliberately unfiltered by the querying maintenance's own resources: a
+	// conflict reports what its maintenance touches, not what it shares with the
+	// viewer. Intersecting here made the set depend on who was looking, which
+	// left a global-scope maintenance — one that owns no resources — reading
+	// every neighbor as resource-scoped with an empty resource list.
 	stmt := table.MaintenanceResources.
 		SELECT(table.MaintenanceResources.AllColumns).
-		WHERE(postgres.AND(
+		WHERE(
 			table.MaintenanceResources.MaintenanceID.EQ(postgres.ANY(
 				postgres.ARRAY(uuidsToPgUUID(cmd.ConflictedMaintIDs)...),
 			)),
-			table.MaintenanceResources.ResourceID.EQ(postgres.ANY(
-				postgres.ARRAY(uuidsToPgUUID(cmd.MaintResourceIDs)...),
-			)),
-		))
+		)
 
 	resources := make([]*model.MaintenanceResources, 0)
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), &resources)

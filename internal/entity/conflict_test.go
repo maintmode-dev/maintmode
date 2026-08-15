@@ -15,88 +15,27 @@ var (
 	resID3 = uuid.MustParse("30000000-0000-0000-0000-000000000003")
 )
 
-func TestConflictFingerprint(t *testing.T) {
-	tests := []struct {
-		name      string
-		conflicts []*ConflictWithResources
-	}{
-		{
-			name:      "empty conflicts list",
-			conflicts: nil,
-		},
-		{
-			name:      "empty conflicts slice",
-			conflicts: []*ConflictWithResources{},
-		},
-		{
-			name: "single conflict with no resources",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeGlobal,
-					},
-					Resources: nil,
-				},
-			},
-		},
-		{
-			name: "single conflict with one resource",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []uuid.UUID{resID1},
-				},
-			},
-		},
-		{
-			name: "single conflict with multiple resources",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []uuid.UUID{resID1, resID2, resID3},
-				},
-			},
-		},
-		{
-			name: "conflicts with resources in different order (should produce same fingerprint)",
-			conflicts: []*ConflictWithResources{
-				{
-					Conflict: &Conflict{
-						MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-						Title:         "Test Conflict 1",
-						OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
-						OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-						Scope:         MaintenanceScopeResources,
-					},
-					Resources: []uuid.UUID{resID3, resID1, resID2},
-				},
-			},
-		},
-	}
+// The empty set is the one input with a hardcoded answer rather than a computed
+// one, so it gets its own check. Everything else about the fingerprint —
+// determinism, what changes it, order-independence, time normalization — is
+// covered by the tests below, which assert those properties directly instead of
+// asserting that a hash looks like a hash.
+func TestConflictFingerprint_EmptySet(t *testing.T) {
+	empty := ConflictFingerprint(nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ConflictFingerprint(tt.conflicts)
-			require.NotEmpty(t, got)
-			require.Len(t, got, 64)
-		})
-	}
+	require.Len(t, empty, 64)
+	require.Equal(t, empty, ConflictFingerprint([]*ConflictWithResources{}),
+		"nil and an allocated empty slice mean the same thing")
+	require.NotEqual(t, empty, ConflictFingerprint([]*ConflictWithResources{
+		{
+			Conflict: &Conflict{
+				MaintenanceID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				OverlapStart:  time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
+				OverlapEnd:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				Scope:         MaintenanceScopeGlobal,
+			},
+		},
+	}), "an empty set must not collide with a populated one")
 }
 
 func TestConflictFingerprint_Deterministic(t *testing.T) {
@@ -289,29 +228,6 @@ func TestSortResources(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			SortResources(tt.resources)
 			require.Equal(t, tt.want, tt.resources)
-		})
-	}
-}
-
-func TestConflictResourcesFingerprint(t *testing.T) {
-	tests := []struct {
-		name      string
-		resources []uuid.UUID
-	}{
-		{name: "empty slice", resources: []uuid.UUID{}},
-		{name: "nil slice", resources: nil},
-		{name: "single resource", resources: []uuid.UUID{resID1}},
-		{name: "multiple resources", resources: []uuid.UUID{resID1, resID2, resID3}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := conflictResourcesFingerprint(tt.resources)
-			if len(tt.resources) == 0 {
-				require.Empty(t, got)
-			} else {
-				require.NotEmpty(t, got)
-			}
 		})
 	}
 }

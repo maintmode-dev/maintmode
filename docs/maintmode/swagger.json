@@ -123,6 +123,7 @@
                         "type": "string"
                     },
                     "resources": {
+                        "description": "Resources lists the resources the CONFLICTING maintenance itself touches —\nnot the subset it shares with the maintenance being approved. It is empty\nwhen and only when that maintenance is global-scope, since a global-scope\nmaintenance holds no resources at all.",
                         "items": {
                             "$ref": "#/components/schemas/apimodels.ResourceRef"
                         },
@@ -1140,6 +1141,7 @@
                         "type": "string"
                     },
                     "resources": {
+                        "description": "Resources lists the resources the CONFLICTING maintenance itself touches —\nnot the subset it shares with the maintenance being viewed. It therefore\ndoes not change depending on which maintenance you look at it from, and may\nname resources the viewed maintenance has nothing to do with. It is empty\nwhen and only when the conflicting maintenance is global-scope, since such a\nmaintenance holds no resources at all.",
                         "items": {
                             "$ref": "#/components/schemas/uimodels.MaintenanceViewResource"
                         },

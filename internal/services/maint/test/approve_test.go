@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
@@ -316,6 +317,107 @@ func TestApprove(t *testing.T) {
 			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
 			testdbutils.WithScope(entity.MaintenanceScopeGlobal),
 		)
+
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
+			MaintID:               maint.ID,
+			ObservedMaintRevision: maint.Revision(),
+			ActorUserID:           maint.ApproverUserID,
+			Actor:                 approver,
+			ConflictSnapshot: entity.ConflictsSnapshot{
+				Conflicts: actualConflicts,
+			},
+		})
+		require.ErrorIs(t, err, apperr.ErrConflictsChangedSincePreview)
+	})
+
+	// A neighbor picking up a resource we do NOT hold must not bounce the
+	// approval.
+	//
+	// The read side reports the neighbor's full resource set, so this edit is
+	// visible on the card. But the gate asks a narrower question — did the thing
+	// the approver agreed to change? — and here it did not: the two maintenances
+	// still collide over exactly the same resource, in the same window. Failing
+	// on it would bounce approvals for edits anywhere in the window, and a gate
+	// that cries wolf teaches people to retry without reading.
+	t.Run("conflicted maint gains a resource we do not hold", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
+
+		neighbor := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+		)
+
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+			testdbutils.WithApprover(approver.ID),
+		)
+
+		actualConflicts, err := conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
+			MaintID:       maint.ID,
+			PlannedPeriod: maint.PlannedPeriod,
+			Scope:         maint.Scope,
+			ResourceIDs:   maint.Resources,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, actualConflicts, "the neighbor must be previewed as a conflict")
+
+		// A resource of the neighbor's own, unrelated to ours. The overlap stays
+		// exactly {sharedResource}.
+		extraResource := testdbutils.MakeResource(ctx, t, resourcesStore)
+		require.NoError(t, maintStore.AddResources(ctx, neighbor.ID, []uuid.UUID{extraResource.ID}))
+
+		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
+			MaintID:               maint.ID,
+			ObservedMaintRevision: maint.Revision(),
+			ActorUserID:           maint.ApproverUserID,
+			Actor:                 approver,
+			ConflictSnapshot: entity.ConflictsSnapshot{
+				Conflicts: actualConflicts,
+			},
+		})
+		require.NoError(t, err,
+			"the overlap did not move, so the approval must still stand")
+	})
+
+	// The mirror image: the neighbor takes a resource we DO hold. The overlap
+	// grows, so the collision the approver reviewed is genuinely bigger now and
+	// the gate must fire.
+	t.Run("conflicted maint gains a resource we hold", func(t *testing.T) {
+		start, end := testdbutils.IsolatedPeriodBounds(t)
+
+		sharedResource := testdbutils.MakeResource(ctx, t, resourcesStore)
+		ourOtherResource := testdbutils.MakeResource(ctx, t, resourcesStore)
+
+		neighbor := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithStatus(entity.MaintenanceStatusPlanned),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID),
+		)
+
+		maint := testdbutils.MakeMaint(ctx, t, maintStore, resourcesStore,
+			entity.NewPeriod(start, end),
+			testdbutils.WithScope(entity.MaintenanceScopeResources),
+			testdbutils.WithResources(sharedResource.ID, ourOtherResource.ID),
+			testdbutils.WithApprover(approver.ID),
+		)
+
+		actualConflicts, err := conflictsSrv.GetConflicts(ctx, &entity.ConflictQueryCmd{
+			MaintID:       maint.ID,
+			PlannedPeriod: maint.PlannedPeriod,
+			Scope:         maint.Scope,
+			ResourceIDs:   maint.Resources,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, actualConflicts, "the neighbor must be previewed as a conflict")
+
+		require.NoError(t, maintStore.AddResources(ctx, neighbor.ID, []uuid.UUID{ourOtherResource.ID}))
 
 		err = s.ApproveMaint(ctx, &entity.ApproveMaintenanceCmd{
 			MaintID:               maint.ID,

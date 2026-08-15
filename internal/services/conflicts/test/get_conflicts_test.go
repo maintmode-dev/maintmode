@@ -78,20 +78,24 @@ func TestGetConflicts(t *testing.T) {
 					OverlapEnd:    testtimeutils.OverlapEnd(maint.PlannedPeriod, item.PlannedPeriod),
 					Scope:         item.Scope,
 				},
-				Resources: lo.Filter(item.Resources, func(id uuid.UUID, _ int) bool {
-					return id == sharedResource.ID
-				}),
+				// The conflicted maintenance's OWN resources, not the subset it
+				// shares with the querying maintenance. The first fixture above
+				// holds sharedResource plus one of its own, and both must come
+				// back — the unshared one is exactly what the old intersection
+				// semantics dropped.
+				Resources: item.Resources,
 			}
 		})
 		for expectedID, expected := range expectedConflictsM {
 			actual, ok := actualConflictsM[expectedID]
 			require.Truef(t, ok, "not found conflict with id %s", expectedID)
 			require.Equal(t, expected.Conflict, actual.Conflict)
-			require.Equal(t, len(expected.Resources), len(actual.Resources))
 
-			entity.SortResources(expected.Resources)
-			entity.SortResources(actual.Resources)
-			require.Equal(t, expected.Resources, actual.Resources)
+			// Compared as a set: the underlying query has no ORDER BY. Also note
+			// ElementsMatch over require.Equal — a global-scope conflict has no
+			// resources, and the fixture's nil slice and the service's empty one
+			// mean the same thing here.
+			require.ElementsMatch(t, expected.Resources, actual.Resources)
 		}
 	})
 }

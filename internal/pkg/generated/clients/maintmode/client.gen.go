@@ -278,11 +278,16 @@ type ApimodelsChannelsResponse struct {
 
 // ApimodelsConflict defines model for apimodels.Conflict.
 type ApimodelsConflict struct {
-	MaintenanceId *openapi_types.UUID        `json:"maintenance_id,omitempty"`
-	OverlapEnd    *time.Time                 `json:"overlap_end,omitempty"`
-	OverlapStart  *time.Time                 `json:"overlap_start,omitempty"`
-	Resources     *[]ApimodelsResourceRef    `json:"resources,omitempty"`
-	Scope         *ApimodelsMaintenanceScope `json:"scope,omitempty"`
+	MaintenanceId *openapi_types.UUID `json:"maintenance_id,omitempty"`
+	OverlapEnd    *time.Time          `json:"overlap_end,omitempty"`
+	OverlapStart  *time.Time          `json:"overlap_start,omitempty"`
+
+	// Resources Resources lists the resources the CONFLICTING maintenance itself touches —
+	// not the subset it shares with the maintenance being approved. It is empty
+	// when and only when that maintenance is global-scope, since a global-scope
+	// maintenance holds no resources at all.
+	Resources *[]ApimodelsResourceRef    `json:"resources,omitempty"`
+	Scope     *ApimodelsMaintenanceScope `json:"scope,omitempty"`
 }
 
 // ApimodelsCreateChannelRequest defines model for apimodels.CreateChannelRequest.
@@ -719,13 +724,20 @@ type UimodelsConflictView struct {
 	// the maintenance status, which this response also carries).
 	//
 	// Conflicts are ordered so that every false precedes every true.
-	KnownAtApproval *bool                              `json:"known_at_approval,omitempty"`
-	MaintenanceId   *openapi_types.UUID                `json:"maintenance_id,omitempty"`
-	OverlapEnd      *time.Time                         `json:"overlap_end,omitempty"`
-	OverlapStart    *time.Time                         `json:"overlap_start,omitempty"`
-	Resources       *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
-	Scope           *string                            `json:"scope,omitempty"`
-	Title           *string                            `json:"title,omitempty"`
+	KnownAtApproval *bool               `json:"known_at_approval,omitempty"`
+	MaintenanceId   *openapi_types.UUID `json:"maintenance_id,omitempty"`
+	OverlapEnd      *time.Time          `json:"overlap_end,omitempty"`
+	OverlapStart    *time.Time          `json:"overlap_start,omitempty"`
+
+	// Resources Resources lists the resources the CONFLICTING maintenance itself touches —
+	// not the subset it shares with the maintenance being viewed. It therefore
+	// does not change depending on which maintenance you look at it from, and may
+	// name resources the viewed maintenance has nothing to do with. It is empty
+	// when and only when the conflicting maintenance is global-scope, since such a
+	// maintenance holds no resources at all.
+	Resources *[]UimodelsMaintenanceViewResource `json:"resources,omitempty"`
+	Scope     *string                            `json:"scope,omitempty"`
+	Title     *string                            `json:"title,omitempty"`
 }
 
 // UimodelsDeferredNotificationView defines model for uimodels.DeferredNotificationView.

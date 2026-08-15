@@ -101,12 +101,18 @@ type MentionView struct {
 }
 
 type ConflictView struct {
-	MaintenanceID uuid.UUID                  `json:"maintenance_id" format:"uuid"`
-	Title         string                     `json:"title"`
-	OverlapStart  time.Time                  `json:"overlap_start" format:"date-time"`
-	OverlapEnd    time.Time                  `json:"overlap_end" format:"date-time"`
-	Scope         string                     `json:"scope"`
-	Resources     []*MaintenanceViewResource `json:"resources"`
+	MaintenanceID uuid.UUID `json:"maintenance_id" format:"uuid"`
+	Title         string    `json:"title"`
+	OverlapStart  time.Time `json:"overlap_start" format:"date-time"`
+	OverlapEnd    time.Time `json:"overlap_end" format:"date-time"`
+	Scope         string    `json:"scope"`
+	// Resources lists the resources the CONFLICTING maintenance itself touches —
+	// not the subset it shares with the maintenance being viewed. It therefore
+	// does not change depending on which maintenance you look at it from, and may
+	// name resources the viewed maintenance has nothing to do with. It is empty
+	// when and only when the conflicting maintenance is global-scope, since such a
+	// maintenance holds no resources at all.
+	Resources []*MaintenanceViewResource `json:"resources"`
 	// KnownAtApproval reports whether the approver saw this conflict at the
 	// moment they approved. False means nobody reviewed it — either it appeared
 	// after approval, or the maintenance is still a draft (tell the two apart by

@@ -76,7 +76,7 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 		Scope:        apimodels.MaintenanceScopeResources,
 		Impact:       apimodels.MaintenanceImpactPartial,
 		Resources: []*apimodels.ResourceRef{
-			resource,
+			resource.Ref,
 		},
 		Steps: []*apimodels.MaintenanceStepInput{
 			{
@@ -228,7 +228,16 @@ func requireMaintStillMatchesDraft(t *testing.T, draft *apimodels.CreateDraftMai
 	}
 }
 
-func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
+// testResource is a created resource fixture. It keeps the name alongside the
+// reference because the conflict assertions check that a neighbor's resource
+// name resolves rather than degrading to the "unknown resource" label, and that
+// needs the expected name.
+type testResource struct {
+	Ref  *apimodels.ResourceRef
+	Name string
+}
+
+func createResource(ctx context.Context, t *testing.T) *testResource {
 	t.Helper()
 
 	services := testbootstraputils.InitServicesT(context.Background(), t, db, valkey, cfg)
@@ -245,16 +254,17 @@ func createResource(ctx context.Context, t *testing.T) *apimodels.ResourceRef {
 	c.SetRequest(c.Request().WithContext(ctx))
 	// CreateResource captures the author from the Echo context (set by the auth
 	// middleware in production), so the setup helper must seed a user.
-	xecho.UserToEchoCtx(c, &entity.User{ID: uuid.New(), Name: t.Name(), Email: t.Name() + "@example.com"})
+	xecho.UserToEchoCtx(c, makeUser(t))
 
 	err := impl.CreateResource(c)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	resource := testjsonudils.JSONToAny[resourcemodels.Resource](t, rec.Body)
 
-	return &apimodels.ResourceRef{
-		ID: resource.ID,
+	return &testResource{
+		Ref:  &apimodels.ResourceRef{ID: resource.ID},
+		Name: resource.Name,
 	}
 }
 
@@ -307,7 +317,7 @@ func createTwoStepDraftMaintenance(ctx context.Context, t *testing.T, impl *Impl
 		Scope:        apimodels.MaintenanceScopeResources,
 		Impact:       apimodels.MaintenanceImpactPartial,
 		Resources: []*apimodels.ResourceRef{
-			resource,
+			resource.Ref,
 		},
 		Steps: []*apimodels.MaintenanceStepInput{
 			{

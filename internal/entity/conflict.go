@@ -35,6 +35,62 @@ type ConflictsSnapshot struct {
 	Conflicts []*ConflictWithResources
 }
 
+// ConflictFingerprintFor hashes the conflict set as the approve gate sees it:
+// each neighbor contributes only the resources it SHARES with the maintenance
+// being approved, not everything that neighbor happens to touch.
+//
+// The distinction matters because the read side and the gate want different
+// things from the same field. A reader opening the card wants to know what a
+// neighbor touches, so the view reports its full resource set. The gate answers a
+// narrower question — did the thing the approver agreed to change? — and a
+// neighbor picking up a resource we do not hold does not change it: the two
+// maintenances still collide over exactly the same resources, in the same window.
+// Hashing the full set there would bounce approvals for edits happening anywhere
+// in the window, and a gate that cries wolf teaches people to retry blindly.
+//
+// This is the same rule MarkKnownAtApproval already applies — a neighbor whose
+// resource set shifted is still the same neighbor — so the two mechanisms agree.
+//
+// ownResourceIDs is the approving maintenance's own resource set. Empty means a
+// global-scope maintenance, which shares no resources with anyone; every overlap
+// is then empty and the fingerprint rests on the neighbors and their windows,
+// which is correct — a global-scope maintenance conflicts by time, not by
+// resource.
+func ConflictFingerprintFor(conflicts []*ConflictWithResources, ownResourceIDs []uuid.UUID) string {
+	own := make(map[uuid.UUID]struct{}, len(ownResourceIDs))
+	for _, id := range ownResourceIDs {
+		own[id] = struct{}{}
+	}
+
+	// Project onto the overlap in fresh slices. The inputs are the live read-path
+	// result and the client's snapshot, and both outlive this call — the snapshot
+	// is persisted verbatim right after the gate passes — so neither may be
+	// mutated here.
+	projected := make([]*ConflictWithResources, 0, len(conflicts))
+	for _, c := range conflicts {
+		if c == nil {
+			continue
+		}
+
+		shared := make([]uuid.UUID, 0, len(c.Resources))
+		for _, id := range c.Resources {
+			if _, ok := own[id]; ok {
+				shared = append(shared, id)
+			}
+		}
+
+		projected = append(projected, &ConflictWithResources{
+			Conflict:  c.Conflict,
+			Resources: shared,
+		})
+	}
+
+	return ConflictFingerprint(projected)
+}
+
+// ConflictFingerprint hashes a conflict set exactly as given. Callers gating an
+// approval want ConflictFingerprintFor, which first narrows each neighbor to the
+// resources it shares with the maintenance being approved.
 func ConflictFingerprint(conflicts []*ConflictWithResources) string {
 	if len(conflicts) == 0 {
 		sum := sha256.Sum256([]byte("EMPTY_CONFLICT_SET"))
@@ -115,10 +171,9 @@ func SortResources(resources []uuid.UUID) {
 // — false alarms would train the on-call to ignore the highlight, which is the
 // one failure this feature cannot afford.
 //
-// Nothing else in the snapshot can discriminate anyway: scope is not stored (it
-// is resolved by a live join, so both sides always agree), and resources are an
-// intersection with the querying maintenance's own set, absent entirely from
-// snapshots the UI writes.
+// Do not "strengthen" the match by comparing resources: a neighbor whose
+// resource set moved is precisely one the approver did consider, so flagging it
+// as unreviewed produces exactly the false alarm described above.
 // A conflict without its embedded Conflict is an invariant violation, not an
 // input to tolerate: every producer allocates it. Skipping such an element would
 // silently drop a conflict from a screen whose purpose is to warn, and
