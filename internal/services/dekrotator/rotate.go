@@ -27,6 +27,11 @@ import (
 // whole re-wrap loop in one transaction. This is fine for the current design (one
 // shared DEK, so a handful of rows); it is not built for tens of thousands of
 // DEKs, where the long-held locks / open transaction would matter.
+//
+// Rotations are serialized against each other by an advisory lock, so concurrent
+// callers run one at a time rather than deadlocking on the FOR UPDATE scan; the
+// loser of the race simply finds every row already on the active KEK and re-wraps
+// nothing. Rotation is idempotent, so that is a no-op, not a lost update.
 func (r *Rotator) Rotate(ctx context.Context) (rewrapped, skipped int, err error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "datakey.Rotate")
 	defer span.End()
@@ -34,6 +39,16 @@ func (r *Rotator) Rotate(ctx context.Context) (rewrapped, skipped int, err error
 	activeKEKID := r.keyring.ActiveKEKID()
 
 	err = r.txManager.WithinTx(ctx, func(ctx context.Context) error {
+		// Serialize rotations before the scan below. ListForUpdate locks every row
+		// in the table, and two concurrent scans deadlock on those tuple locks
+		// (see AdvisoryLockKeyDEKRotation) — which happens whenever more than one
+		// replica boots at once, since each rotates at startup. Blocking here
+		// instead means the second rotation waits and then finds the work already
+		// done, re-wrapping nothing.
+		if lockErr := r.store.LockRotation(ctx); lockErr != nil {
+			return lockErr
+		}
+
 		keys, listErr := r.store.ListForUpdate(ctx)
 		if listErr != nil {
 			return listErr

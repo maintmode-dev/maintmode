@@ -39,6 +39,20 @@ const (
 	// 2 by the ordering invariant above: any tx that also takes key 1 takes it
 	// first.
 	AdvisoryLockKeySeatMutations AdvisoryLockKey = 2
+
+	// AdvisoryLockKeyDEKRotation serializes DEK rotation, which scans the whole
+	// data_keys table with FOR UPDATE and then re-wraps the rows it locked.
+	// Concurrent rotations deadlock without it: a table-wide FOR UPDATE acquires
+	// tuple locks in scan order, but a waiter that is released has to re-read the
+	// updated row version and re-queue, so arrival order at a contended tuple is
+	// not preserved and two rotations can end up each holding a row the other
+	// needs. Every replica runs rotation at startup, so a rolling deploy has
+	// several doing this at once — that is how the deadlocks show up in practice
+	// (Postgres kills one rotation, and it fails startup). Taking this lock first
+	// makes rotation single-writer, so the FOR UPDATE scan is uncontended.
+	//
+	// It is key 3 by the ordering invariant above; rotation co-holds no other key.
+	AdvisoryLockKeyDEKRotation AdvisoryLockKey = 3
 )
 
 // AdvisoryXactLock acquires a transaction-scoped advisory lock, blocking until
