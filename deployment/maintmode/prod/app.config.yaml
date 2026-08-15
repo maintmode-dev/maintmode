@@ -61,11 +61,40 @@ api_server:
     burst: 300
     expires_in: 3m
     timeout: 200ms
+  # Socket-level deadlines for the public port — connection hygiene, not request
+  # budgets. These mirror the code defaults (see ServerTimeouts in
+  # internal/config); they are written out here because this is the port exposed
+  # to untrusted clients and the numbers are coupled to things outside this file.
+  #
+  # Omitting a key does NOT disable a deadline: unset falls back to the same
+  # default. A negative value is the explicit "no deadline" escape hatch.
+  timeouts:
+    # Closes slowloris on the header phase.
+    read_header: 10s
+    # Whole request read, headers and body. Same as the 30s Echo pre-sets.
+    read: 30s
+    # Must stay above any per-request timeout enforced in middleware: a shorter
+    # socket deadline severs a handler the app was still willing to run. Nothing
+    # here streams, so a fixed cap is safe.
+    write: 30s
+    # Must exceed the polling interval of everything on a schedule, or each poll
+    # pays a fresh handshake: Caddy health_interval (2s, deployment/caddy) and
+    # the Prometheus/Alloy scrape_interval (15s, monitoring/config).
+    idle: 75s
 
 infra_server:
   name: status
   host: 0.0.0.0
   port: 8001
+  # No write deadline on this port: it serves /debug/pprof, and a CPU profile
+  # blocks for its whole sampling window before the body is complete — a fixed
+  # WriteTimeout truncates it. Leaving `write` unset here is what selects that
+  # (InfraServerTimeouts), so do not "fix" it by adding a value. The read and
+  # idle deadlines below still apply.
+  timeouts:
+    read_header: 10s
+    read: 30s
+    idle: 75s
 
 # Graceful-shutdown drain delay. On SIGTERM the process reports
 # Readiness=503 and waits this long before closing the HTTP server, so

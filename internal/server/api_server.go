@@ -89,11 +89,20 @@ func NewAPIServer(
 	rdb *valkeylib.Client,
 	opts ...xhttpserver.Option,
 ) *APIServer {
+	timeouts := cfg.Timeouts.TimeoutsOrDefault()
+
 	return &APIServer{
 		Server: xhttpserver.New(xhttpserver.Config{
 			Name: cfg.Name,
 			Host: cfg.Host,
 			Port: cfg.Port,
+			// Socket deadlines for the public port. Without them Echo's own 30s
+			// ReadTimeout is the only bound and an idle keep-alive connection is
+			// held for free, which is what makes slowloris cheap.
+			ReadHeaderTimeout: timeouts.ReadHeader,
+			ReadTimeout:       timeouts.Read,
+			WriteTimeout:      timeouts.Write,
+			IdleTimeout:       timeouts.Idle,
 		}, opts...),
 		cfg:      cfg,
 		handlers: handlers,

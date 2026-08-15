@@ -15,6 +15,8 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/spf13/viper"
+
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 // HTTPServer represents HTTP server configuration with host and port settings.
@@ -32,6 +34,92 @@ type HTTPServer struct {
 	// enough to be lethal to a screen group, whose routes are called in batches
 	// on every page load. Same shape, different meaning.
 	UIRateLimiter RateLimiterConfig `mapstructure:"ui_rate_limiter"`
+	// Timeouts are the socket-level deadlines stamped onto the http.Server.
+	// They are connection hygiene, not request budgets: the cheapest defense
+	// against slowloris and against connections held open for free.
+	Timeouts ServerTimeouts `mapstructure:"timeouts"`
+}
+
+// ServerTimeouts carries the four http.Server deadlines. A zero field means
+// "use the default from TimeoutsOrDefault", NOT "no timeout": these exist to
+// bound untrusted clients, so an omitted config key must not silently disarm
+// them. Set a field negative to mean "no deadline" explicitly.
+type ServerTimeouts struct {
+	ReadHeader time.Duration `mapstructure:"read_header"`
+	Read       time.Duration `mapstructure:"read"`
+	Write      time.Duration `mapstructure:"write"`
+	Idle       time.Duration `mapstructure:"idle"`
+}
+
+// Socket-level deadline defaults. Each is pinned to something observable in
+// this deployment rather than picked for looking round; the couplings are why
+// they must not be tuned in isolation.
+const (
+	// defaultReadHeaderTimeout is the one that closes slowloris on the header
+	// phase: a client dribbling headers is cut off here.
+	defaultReadHeaderTimeout = 10 * time.Second
+	// defaultReadTimeout matches the 30s Echo already pre-sets on the server it
+	// builds (its own gosec G112 default), so adopting these defaults changes
+	// nothing about the read path. It is stated explicitly rather than inherited
+	// so an Echo upgrade cannot move it silently.
+	defaultReadTimeout = 30 * time.Second
+	// defaultWriteTimeout bounds a slow response write. Nothing on the API
+	// server streams and no middleware enforces a longer per-request budget, so
+	// this is above every real handler. It must stay above any per-request
+	// timeout added later — a shorter socket deadline severs a handler the
+	// application was still willing to run.
+	defaultWriteTimeout = 30 * time.Second
+	// defaultIdleTimeout must exceed the polling interval of everything that
+	// talks to these servers on a schedule, or each poll pays a fresh handshake
+	// instead of reusing its connection. The binding constraints are Caddy's
+	// health_interval (2s, deployment/caddy/Caddyfile) and the Prometheus and
+	// Alloy scrape_interval (15s, monitoring/config). 75s clears all three with
+	// room for a slower scrape config.
+	defaultIdleTimeout = 75 * time.Second
+)
+
+// TimeoutsOrDefault fills unset fields with the defaults above, so existing
+// config files keep working and gain the deadlines rather than opting out of
+// them by omission.
+//
+// A negative value is preserved as an explicit "no deadline" and reaches the
+// server as zero, which is how net/http spells unlimited. That is the escape
+// hatch for a route that must outlive a deadline — see InfraServerTimeouts,
+// where pprof needs exactly that.
+func (t ServerTimeouts) TimeoutsOrDefault() ServerTimeouts {
+	return ServerTimeouts{
+		ReadHeader: xtime.OrDefaultDuration(t.ReadHeader, defaultReadHeaderTimeout),
+		Read:       xtime.OrDefaultDuration(t.Read, defaultReadTimeout),
+		Write:      xtime.OrDefaultDuration(t.Write, defaultWriteTimeout),
+		Idle:       xtime.OrDefaultDuration(t.Idle, defaultIdleTimeout),
+	}
+}
+
+// InfraServerTimeouts is TimeoutsOrDefault with the write deadline dropped.
+//
+// The infra server serves /debug/pprof, and a profile is a deliberately slow
+// response: process_cpu blocks for the whole sampling window (30s for Alloy's
+// scrape, longer for a human running `go tool pprof -seconds 60`) before the
+// first byte is useful. Any fixed WriteTimeout cuts that off mid-profile and
+// turns profiling into a truncated-body error, so this port gets none.
+//
+// Dropping it is affordable precisely here and nowhere else: this port is not
+// public — it is bound for the proxy, the scrapers and operators — so the
+// slow-write budget it gives away is not exposed to untrusted clients. The
+// three read/idle deadlines still apply, so a slowloris on the header phase is
+// still closed. An explicit positive write value in config still wins, for an
+// operator who has decided their infra port needs the cap more than it needs
+// long profiles.
+func (t ServerTimeouts) InfraServerTimeouts() ServerTimeouts {
+	return ServerTimeouts{
+		ReadHeader: xtime.OrDefaultDuration(t.ReadHeader, defaultReadHeaderTimeout),
+		Read:       xtime.OrDefaultDuration(t.Read, defaultReadTimeout),
+		// No default to fall back to: an unset write deadline stays unset here,
+		// which is the whole point of this method. Only an explicit positive
+		// value from config survives.
+		Write: xtime.OrDefaultDuration(t.Write, 0),
+		Idle:  xtime.OrDefaultDuration(t.Idle, defaultIdleTimeout),
+	}
 }
 
 type RateLimiterConfig struct {

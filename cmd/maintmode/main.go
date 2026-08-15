@@ -181,12 +181,21 @@ func startInfraServer(
 	drainer *lifecycle.Drainer,
 	logger xlog.Logger,
 ) {
+	infraTimeouts := cfg.InfraServer.Timeouts.InfraServerTimeouts()
+
 	s := infra.New(
 		infra.Config{
 			Server: xhttpserver.Config{
 				Name: cfg.InfraServer.Name,
 				Host: cfg.InfraServer.Host,
 				Port: cfg.InfraServer.Port,
+				// InfraServerTimeouts, not TimeoutsOrDefault: this port serves
+				// /debug/pprof, whose profiles write slowly by design, so it runs
+				// without a write deadline. See its doc comment.
+				ReadHeaderTimeout: infraTimeouts.ReadHeader,
+				ReadTimeout:       infraTimeouts.Read,
+				WriteTimeout:      infraTimeouts.Write,
+				IdleTimeout:       infraTimeouts.Idle,
 			},
 			Dev: cfg.Environment.IsDev(),
 			Version: infra.VersionInfo{

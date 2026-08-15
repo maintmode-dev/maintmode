@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ruko1202/xhttp/client"
+	"github.com/ruko1202/xhttp/sanitize"
 
 	"github.com/ruko1202/maintmode/internal/utils/xsanitize"
 )
@@ -21,7 +21,7 @@ const botPathPrefix = "bot"
 // only its replacement.
 const maskedTokenSegment = botPathPrefix + "[REDACTED]"
 
-var _ client.Sanitizer = sanitizer{}
+var _ sanitize.Sanitizer = sanitizer{}
 
 // sanitizer extends the shared policy with the one thing specific to Telegram:
 // the Bot API puts the credential in the URL path, as

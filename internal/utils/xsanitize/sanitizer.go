@@ -1,5 +1,5 @@
 // Package xsanitize implements the redaction policy applied to outgoing HTTP
-// logs. It is MaintMode's answer to xhttp/client.Sanitizer, whose default
+// logs. It is MaintMode's answer to xhttp/sanitize.Sanitizer, whose default
 // redacts nothing: the library owns the seam, this package owns what counts as
 // a secret here.
 //
@@ -14,13 +14,13 @@ import (
 	"net/url"
 	"slices"
 
-	"github.com/ruko1202/xhttp/client"
+	"github.com/ruko1202/xhttp/sanitize"
 )
 
 // redacted replaces any value we refuse to write to a log.
 const redacted = "[REDACTED]"
 
-var _ client.Sanitizer = Sanitizer{}
+var _ sanitize.Sanitizer = Sanitizer{}
 
 // sensitiveHeaders are redacted wholesale. This is a blocklist, not an
 // allow-list, and that is the right trade for headers specifically: the header
