@@ -214,13 +214,15 @@ func makeNotifyChannel(ctx context.Context, t *testing.T, service *Service) *ent
 // validation, so a test exercises only the approver-eligibility path.
 func validCreateCmd(ctx context.Context, t *testing.T, service *Service, approverID uuid.UUID) *entity.CreateMaintenanceCmd {
 	t.Helper()
-	now := xtime.UTCNow().Round(time.Microsecond)
+	// CreateDraft rejects a window that starts in the past, so park the start in
+	// the future — at a per-run-unique offset so parallel tests never overlap.
+	start := xtime.UTCNow().Add(uniqueFutureOffset()).Round(time.Microsecond)
 	notifyChannel := makeNotifyChannel(ctx, t, service)
 
 	return &entity.CreateMaintenanceCmd{
 		Title:           "Title" + t.Name(),
 		Description:     "Description" + t.Name(),
-		PlannedPeriod:   entity.NewPeriod(now, now.Add(time.Hour)),
+		PlannedPeriod:   entity.NewPeriod(start, start.Add(time.Hour)),
 		Impact:          entity.MaintenanceImpactFull,
 		Scope:           entity.MaintenanceScopeResources,
 		Resources:       []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},

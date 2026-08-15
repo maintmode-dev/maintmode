@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -199,6 +200,9 @@ func validatePlanedPeriod(_ context.Context, value any) error {
 		return apperr.ErrInvalidPeriodEmptyStartOrEnd
 	}
 	if start.After(end) || start.Equal(end) {
+		return apperr.ErrInvalidPeriodStartOrEnd
+	}
+	if start.UTC().Before(xtime.UTCNow()) {
 		return apperr.ErrInvalidPeriodStartOrEnd
 	}
 

@@ -19,7 +19,10 @@ func TestCreate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow().Round(time.Microsecond)
+	// CreateDraft rejects a window that starts in the past, so park the planned
+	// window in the future — at a per-run-unique offset so parallel tests never
+	// overlap. Wall-clock assertions below still compare against the real now.
+	start := xtime.UTCNow().Add(uniqueFutureOffset()).Round(time.Microsecond)
 	service, mocks := initService(t)
 	mocks.expectAnyApproverEligible()
 
@@ -31,7 +34,7 @@ func TestCreate(t *testing.T) {
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
-			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+			PlannedPeriod: entity.NewPeriod(start, start.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
 			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
@@ -64,7 +67,7 @@ func TestCreate(t *testing.T) {
 		require.Equal(t, cmd.PlannedPeriod, maint.PlannedPeriod)
 		require.Equal(t, cmd.Impact, maint.Impact)
 		require.Nil(t, maint.ActualPeriod)
-		require.True(t, maint.CreatedAt.After(now.Add(-time.Minute)), "created at should be after `now`")
+		require.True(t, maint.CreatedAt.After(xtime.UTCNow().Add(-time.Minute)), "created at should be after `now`")
 	})
 
 	t.Run("maints with overlaps", func(t *testing.T) {
@@ -75,7 +78,7 @@ func TestCreate(t *testing.T) {
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
-			PlannedPeriod: entity.NewPeriod(now, now.Add(2*time.Hour)),
+			PlannedPeriod: entity.NewPeriod(start, start.Add(2*time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
 			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
@@ -97,7 +100,7 @@ func TestCreate(t *testing.T) {
 		require.NotEmpty(t, maint1.ID)
 
 		cmd.Description = "Description2" + t.Name()
-		cmd.PlannedPeriod = entity.NewPeriod(now, now.Add(5*time.Hour))
+		cmd.PlannedPeriod = entity.NewPeriod(start, start.Add(5*time.Hour))
 		cmd.Steps = append(cmd.Steps, &entity.MaintenanceStepInput{
 			Order:               2,
 			Description:         "Step1" + t.Name(),
@@ -124,7 +127,7 @@ func TestCreate(t *testing.T) {
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
-			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+			PlannedPeriod: entity.NewPeriod(start, start.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeResources,
 			Resources:     []uuid.UUID{resourceID, resourceID},
@@ -153,7 +156,7 @@ func TestCreate(t *testing.T) {
 		cmd := &entity.CreateMaintenanceCmd{
 			Title:         "Title" + t.Name(),
 			Description:   "Description" + t.Name(),
-			PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+			PlannedPeriod: entity.NewPeriod(start, start.Add(time.Hour)),
 			Impact:        entity.MaintenanceImpactFull,
 			Scope:         entity.MaintenanceScopeGlobal,
 			Resources:     []uuid.UUID{testdbutils.MakeResource(ctx, t, service.resourcesStore).ID},
@@ -193,7 +196,10 @@ func TestCreateDraftMentionsDeduplicates(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	now := xtime.UTCNow().Round(time.Microsecond)
+	// CreateDraft rejects a window that starts in the past, so park the planned
+	// window in the future — at a per-run-unique offset so parallel tests never
+	// overlap.
+	start := xtime.UTCNow().Add(uniqueFutureOffset()).Round(time.Microsecond)
 	service, mocks := initService(t)
 	mocks.expectAnyApproverEligible()
 
@@ -203,7 +209,7 @@ func TestCreateDraftMentionsDeduplicates(t *testing.T) {
 	maint, err := service.CreateDraft(ctx, &entity.CreateMaintenanceCmd{
 		Title:         "Title" + t.Name(),
 		Description:   "Description" + t.Name(),
-		PlannedPeriod: entity.NewPeriod(now, now.Add(time.Hour)),
+		PlannedPeriod: entity.NewPeriod(start, start.Add(time.Hour)),
 		Impact:        entity.MaintenanceImpactFull,
 		Scope:         entity.MaintenanceScopeGlobal,
 		Steps: []*entity.MaintenanceStepInput{{

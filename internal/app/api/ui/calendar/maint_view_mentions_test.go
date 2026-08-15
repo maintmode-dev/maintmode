@@ -123,7 +123,7 @@ func makeMaintWithMentions(
 	req := &maintmodels.CreateDraftMaintRequest{
 		Title:        "Test maint for calendar mentions " + uuid.New().String()[:8],
 		Description:  "Test description",
-		PlannedStart: xtime.UTCNow(),
+		PlannedStart: xtime.UTCNow().Add(futurePlannedStartOffset),
 		Scope:        maintmodels.MaintenanceScopeGlobal,
 		Impact:       maintmodels.MaintenanceImpactNone,
 		Steps: []*maintmodels.MaintenanceStepInput{{

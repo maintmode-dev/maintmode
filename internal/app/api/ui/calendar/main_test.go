@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -35,6 +36,11 @@ var (
 	valkey *valkeyDB.Client
 	cfg    *config.AppConfig
 )
+
+// futurePlannedStartOffset pushes a fixture's planned start clear of the
+// validation clock: CreateDraftMaint rejects a window starting in the past, and
+// "now" is already past by the time the request is validated.
+const futurePlannedStartOffset = time.Hour
 
 func TestMain(m *testing.M) {
 	cfg = testconfigutils.LoadMaintConfig()
@@ -111,9 +117,11 @@ func makeMaintWithDeferred(
 
 	notifyChan := makeNotifyChannel(ctx, t)
 	req := &maintmodels.CreateDraftMaintRequest{
-		Title:        "Test maint for calendar view " + uuid.New().String()[:8],
-		Description:  "Test description",
-		PlannedStart: xtime.UTCNow(),
+		Title:       "Test maint for calendar view " + uuid.New().String()[:8],
+		Description: "Test description",
+		// CreateDraftMaint rejects a window that starts in the past, so the
+		// planned start must be ahead of the validation clock.
+		PlannedStart: xtime.UTCNow().Add(futurePlannedStartOffset),
 		Scope:        maintmodels.MaintenanceScopeGlobal,
 		Impact:       maintmodels.MaintenanceImpactNone,
 		Steps: []*maintmodels.MaintenanceStepInput{{
