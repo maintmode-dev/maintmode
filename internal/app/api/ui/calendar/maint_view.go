@@ -52,9 +52,15 @@ func (i *Implementation) MaintView(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
+	// Status and ActualPeriod pick which question the conflict list answers: a
+	// live maintenance is compared by plan, a finished one by what actually ran.
+	// Omitting them is silent — a zero status is not terminal, so the read falls
+	// back to the live path and a terminal card reports nothing.
 	conflicts, err := i.calendarSrv.GetConflicts(ctx, &calendardto.ConflictQueryCmd{
 		MaintID:       maintID,
+		Status:        maint.Status,
 		PlannedPeriod: maint.PlannedPeriod,
+		ActualPeriod:  maint.ActualPeriod,
 		Scope:         maint.Scope,
 		ResourceIDs: lo.Map(maint.Resources, func(item *calendardto.MaintenanceResource, _ int) uuid.UUID {
 			return item.ID

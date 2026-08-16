@@ -143,6 +143,19 @@ type ConflictQueryCmd struct {
 	ResourceIDs   []uuid.UUID
 }
 
+// ActualConflictQueryCmd asks who actually ran alongside a maintenance that has
+// already finished, matching real working windows rather than plans.
+//
+// ActualPeriod is the maintenance's own factual window and must be closed: the
+// caller reaches this query only for a terminal maintenance that has one, and a
+// maintenance that never ran takes the approval-snapshot path instead.
+type ActualConflictQueryCmd struct {
+	MaintID      uuid.UUID
+	ActualPeriod Period
+	Scope        MaintenanceScope
+	ResourceIDs  []uuid.UUID
+}
+
 type SaveConflictsSnapshotCmd struct {
 	MaintID          uuid.UUID
 	ConflictSnapshot ConflictsSnapshot

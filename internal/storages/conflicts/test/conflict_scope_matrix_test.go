@@ -42,6 +42,10 @@ func TestConflictScopeMatrix(t *testing.T) {
 		// subject/neighbor resources; nil means global scope
 		subjectResources  []uuid.UUID
 		neighborResources []uuid.UUID
+		// forceSubjectScope overrides the scope that would follow from the
+		// resource list, for the one row that needs a resource-scoped
+		// maintenance holding no resources at all.
+		forceSubjectScope entity.MaintenanceScope
 		wantConflict      bool
 		// wantReported is what the conflict's resources must list: the NEIGHBOR's
 		// own set, never the intersection. Empty for a global-scope neighbor,
@@ -94,6 +98,18 @@ func TestConflictScopeMatrix(t *testing.T) {
 			neighborResources: []uuid.UUID{resourceB.ID},
 			wantConflict:      false,
 		},
+		{
+			// A resource-scoped maintenance holding nothing matches global
+			// neighbors only: the resource branch is built solely when the id
+			// list is non-empty and defaults to false otherwise. That default is
+			// the one line of the predicate no other row reaches, and both
+			// queries carry their own copy of it.
+			name:              "resource[] x resource[A] — an empty set shares nothing",
+			subjectResources:  nil,
+			forceSubjectScope: entity.MaintenanceScopeResources,
+			neighborResources: []uuid.UUID{resourceA.ID},
+			wantConflict:      false,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -103,8 +119,10 @@ func TestConflictScopeMatrix(t *testing.T) {
 			// sharing a window would see each other.
 			start, end := testdbutils.IsolatedPeriodBounds(t)
 
-			subject := makeScopedMaint(ctx, t, start, end, tc.subjectResources, entity.MaintenanceStatusDraft)
-			neighbor := makeScopedMaint(ctx, t, start, end, tc.neighborResources, entity.MaintenanceStatusPlanned)
+			subject := makeScopedMaint(ctx, t, start, end, tc.subjectResources,
+				entity.MaintenanceStatusDraft, tc.forceSubjectScope)
+			neighbor := makeScopedMaint(ctx, t, start, end, tc.neighborResources,
+				entity.MaintenanceStatusPlanned, "")
 
 			conflicted, err := store.ConflictedMaints(ctx, &entity.ConflictQueryCmd{
 				MaintID:       subject.ID,
@@ -133,6 +151,41 @@ func TestConflictScopeMatrix(t *testing.T) {
 			require.ElementsMatch(t, tc.wantReported, resources[neighbor.ID],
 				"a conflict reports the neighbor's own resources")
 		})
+
+		// The same pairing against the factual query. It carries its own copy of
+		// the scope predicate — deliberately, so the approve gate's query stays
+		// untouched — which means it inherits no coverage from the rows above and
+		// needs its own. Without this, flipping the copy's resource branch to
+		// always-true passes every other test in the suite while leaking
+		// unrelated maintenances into an incident review.
+		t.Run(tc.name+" (factual)", func(t *testing.T) {
+			t.Parallel()
+
+			start, end := testdbutils.IsolatedPeriodBounds(t)
+			period := entity.NewPeriod(start, end)
+
+			// Both sides must have actually run for the factual query to see
+			// them, so the statuses differ from the live rows above.
+			subject := makeScopedMaint(ctx, t, start, end, tc.subjectResources,
+				entity.MaintenanceStatusCompleted, tc.forceSubjectScope,
+				testdbutils.WithActualPeriod(period))
+			neighbor := makeScopedMaint(ctx, t, start, end, tc.neighborResources,
+				entity.MaintenanceStatusCancelled, "", testdbutils.WithActualPeriod(period))
+
+			conflicted, _, err := store.ActualConflictedMaints(ctx, &entity.ActualConflictQueryCmd{
+				MaintID:      subject.ID,
+				Scope:        subject.Scope,
+				ActualPeriod: period,
+				ResourceIDs:  subject.Resources,
+			})
+			require.NoError(t, err)
+
+			found := lo.ContainsBy(conflicted, func(c *entity.Conflict) bool {
+				return c.MaintenanceID == neighbor.ID
+			})
+			require.Equal(t, tc.wantConflict, found,
+				"the factual query must pair scopes exactly as the live one does")
+		})
 	}
 }
 
@@ -140,27 +193,37 @@ func TestConflictScopeMatrix(t *testing.T) {
 // none means global. Status is a parameter because only planned and in-progress
 // maintenances are counted as conflicts, so a neighbor has to be planned while
 // the subject can stay a draft.
+//
+// forceScope, when non-empty, replaces the derived scope. It exists for the one
+// combination the derivation cannot express: resource scope with an empty
+// resource set.
 func makeScopedMaint(
 	ctx context.Context,
 	t *testing.T,
 	start, end time.Time,
 	resources []uuid.UUID,
 	status entity.MaintenanceStatus,
+	forceScope entity.MaintenanceScope,
+	extra ...testdbutils.MaintChanger,
 ) *entity.Maintenance {
 	t.Helper()
 
+	scope := entity.MaintenanceScopeGlobal
+	if len(resources) > 0 {
+		scope = entity.MaintenanceScopeResources
+	}
+
 	opts := []testdbutils.MaintChanger{
 		testdbutils.WithStatus(status),
-		testdbutils.WithScope(entity.MaintenanceScopeGlobal),
+		testdbutils.WithScope(scope),
 	}
 	if len(resources) > 0 {
-		opts = []testdbutils.MaintChanger{
-			testdbutils.WithStatus(status),
-			testdbutils.WithScope(entity.MaintenanceScopeResources),
-			testdbutils.WithResources(resources...),
-		}
+		opts = append(opts, testdbutils.WithResources(resources...))
+	}
+	if forceScope != "" {
+		opts = append(opts, testdbutils.WithScope(forceScope))
 	}
 
 	return testdbutils.MakeMaint(ctx, t, maintsStore, resourcesStore,
-		entity.NewPeriod(start, end), opts...)
+		entity.NewPeriod(start, end), append(opts, extra...)...)
 }

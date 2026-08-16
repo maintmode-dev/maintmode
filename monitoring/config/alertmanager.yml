@@ -39,39 +39,39 @@ global:
   resolve_timeout: 5m
 
 route:
-  receiver: telegram-dev
+  receiver: telegram-noop
   group_by: ["alertname", "severity", "env"]
   group_wait: 10s
   group_interval: 5m
   repeat_interval: 4h
   routes:
     - matchers:
-        - env = "prod[disabled]"
-      receiver: telegram-prod
+        - env = "prod"
+      receiver: telegram-noop
       routes:
         - matchers:
             - severity = "critical"
-          receiver: telegram-prod
+          receiver: telegram-noop
           repeat_interval: 1h
     - matchers:
-        - env = "dev[disabled]"
-      receiver: telegram-dev
+        - env = "dev"
+      receiver: telegram-noop
       routes:
         - matchers:
             - severity = "critical"
-          receiver: telegram-dev
+          receiver: telegram-noop
           repeat_interval: 1h
     # env=local — a developer running the full stack on their machine (vmalert
     # tagged env=local). Kept OUT of the dev topic so local noise (e.g. caddy
     # not up locally) never mixes with real dev-VM alerts. Goes to its own
     # topic (thread 18) in the same supergroup.
     - matchers:
-        - env = "local[disabled]"
-      receiver: telegram-local
+        - env = "local"
+      receiver: telegram-noop
       routes:
         - matchers:
             - severity = "critical"
-          receiver: telegram-local
+          receiver: telegram-noop
           repeat_interval: 1h
 
 receivers:
@@ -134,3 +134,7 @@ receivers:
     telegram_configs:
       - <<: *telegram_base
         message_thread_id: 18
+
+  - name: telegram-noop
+    telegram_configs:
+        message_thread_id: 0

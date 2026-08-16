@@ -43,6 +43,25 @@ func CanMaintTransition(from, to MaintenanceStatus) bool {
 	return ok
 }
 
+// IsTerminal reports whether the maintenance has reached a final state and can
+// no longer change.
+//
+// The set is hand-listed rather than derived from allowedMaintStatusTransitions
+// ("no outgoing transitions means terminal"). Emptiness there is a coincidence
+// of today's table, not a property of it: adding a completed -> reopened
+// transition would silently flip completed to non-terminal and, since read
+// paths branch on this, reroute a card's whole conflict source with no failing
+// test outside this package. TestMaintenanceStatusIsTerminal pins every status
+// declared today, including the zero value and an unknown one — though note it
+// enumerates them by hand, so a newly added status will not fail it until
+// someone adds the row.
+//
+// Note MaintenanceStatusCancelled is spelled with two l's, while the sibling
+// MaintenanceStepStatusCanceled uses one.
+func (s MaintenanceStatus) IsTerminal() bool {
+	return s == MaintenanceStatusCancelled || s == MaintenanceStatusCompleted
+}
+
 type MaintenanceScope string
 
 const (

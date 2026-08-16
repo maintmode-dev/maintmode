@@ -16,7 +16,25 @@ type GetMaintsFilter struct {
 	ChannelIDs  []uuid.UUID
 }
 
-type ConflictQueryCmd entity.ConflictQueryCmd
+// ConflictQueryCmd asks for the conflicts of one maintenance. It carries both
+// periods and the status because the answer depends on where the maintenance is
+// in its lifecycle: a live one is compared by plan, a finished one by fact. See
+// calendar.resolveConflicts for the mapping.
+//
+// It deliberately diverges from entity.ConflictQueryCmd rather than aliasing
+// it: that type is also what the approve gate passes to the live query, so
+// keeping it untouched keeps the gate out of this read path.
+//
+// ActualPeriod is nil for a maintenance that never started. That is the signal,
+// not an omission: it routes the read to the approval snapshot.
+type ConflictQueryCmd struct {
+	MaintID       uuid.UUID
+	Status        entity.MaintenanceStatus
+	PlannedPeriod entity.Period
+	ActualPeriod  *entity.Period
+	Scope         entity.MaintenanceScope
+	ResourceIDs   []uuid.UUID
+}
 
 // PendingApprovalsFilter selects the draft maintenances awaiting one specific
 // approver. ApproverUserID is mandatory: a zero value is an internal invariant

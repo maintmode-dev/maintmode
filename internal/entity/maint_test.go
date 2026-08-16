@@ -67,3 +67,30 @@ func TestMaintClone(t *testing.T) {
 	maint.Status = MaintenanceStatusCompleted
 	require.Equal(t, MaintenanceStatusPlanned, clonedMaint.Status)
 }
+
+// Exhaustiveness over the declared statuses is the point: IsTerminal is a
+// hand-listed set (see the doc comment), so this table is what keeps the list
+// honest when a status is added. The zero value and an unknown value are
+// included because a caller that forgets to populate a status must fall through
+// to the non-terminal path rather than silently reading as finished.
+func TestMaintenanceStatusIsTerminal(t *testing.T) {
+	tests := []struct {
+		name   string
+		status MaintenanceStatus
+		want   bool
+	}{
+		{name: "draft", status: MaintenanceStatusDraft, want: false},
+		{name: "planned", status: MaintenanceStatusPlanned, want: false},
+		{name: "in progress", status: MaintenanceStatusInProgress, want: false},
+		{name: "canceled", status: MaintenanceStatusCancelled, want: true},
+		{name: "completed", status: MaintenanceStatusCompleted, want: true},
+		{name: "zero value", status: MaintenanceStatus(""), want: false},
+		{name: "unknown status", status: MaintenanceStatus("reopened"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, tt.status.IsTerminal())
+		})
+	}
+}
