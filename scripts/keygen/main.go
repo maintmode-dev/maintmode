@@ -16,8 +16,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// 3. Получаем "Raw" приватный ключ (просто набор байтов)
-	// D — это и есть числовое значение приватного ключа
+	// 3. Get the "raw" private key (just a byte sequence).
+	// D is the numeric value of the private key itself.
 	rawPrivate := privateKey.D.Bytes()
 
 	fmt.Printf("Raw Private Key (hex): %x\n", rawPrivate)
@@ -31,8 +31,8 @@ func main() {
 }
 
 func generateKID(pub *ecdsa.PublicKey) string {
-	// Собираем координаты X и Y в байты
+	// Concatenate the X and Y coordinates into bytes
 	data := append(pub.X.Bytes(), pub.Y.Bytes()...)
 	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:16]) // Берем первые 16 байт для краткости
+	return hex.EncodeToString(hash[:16]) // Take the first 16 bytes for brevity
 }

@@ -41,8 +41,8 @@ type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
 	ExpiresIn    int
-	// SessionID — family выпущенного refresh-токена: стабильный идентификатор
-	// сессии, переживающий ротацию. Заполняется при первичном логине
-	// (IssueTokenPair) и используется аудитом; в API-ответ не попадает.
+	// SessionID is the family of the issued refresh token: a stable session
+	// identifier that survives rotation. Populated on the initial login
+	// (IssueTokenPair) and used by the audit trail; never returned in the API response.
 	SessionID uuid.UUID
 }

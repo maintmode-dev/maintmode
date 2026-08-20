@@ -1,8 +1,8 @@
-# Утилиты
+# Utilities
 
-## UUID конвертация
+## UUID conversion
 
-### Функция для конвертации slice UUID
+### Function for converting a slice of UUIDs
 
 ```go
 func uuidsToPgUUID(resourceIDs []uuid.UUID) []postgres.StringExpression {
@@ -12,7 +12,7 @@ func uuidsToPgUUID(resourceIDs []uuid.UUID) []postgres.StringExpression {
 }
 ```
 
-### Использование в WHERE IN
+### Usage in WHERE IN
 
 ```go
 func (s *Store) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*entity.Maintenance, error) {
@@ -32,9 +32,9 @@ func (s *Store) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*entity.Mainte
 }
 ```
 
-## ORDER BY и сортировка
+## ORDER BY and sorting
 
-### Простая сортировка
+### Simple sorting
 
 ```go
 stmt := table.Maintenances.
@@ -42,7 +42,7 @@ stmt := table.Maintenances.
     ORDER_BY(table.Maintenances.CreatedAt.DESC())
 ```
 
-### Множественная сортировка
+### Multi-column sorting
 
 ```go
 ORDER_BY(
@@ -51,13 +51,13 @@ ORDER_BY(
 )
 ```
 
-### Динамическая сортировка
+### Dynamic sorting
 
 ```go
 func (s *Store) List(ctx context.Context, sortBy string, sortDir string) ([]*entity.Maintenance, error) {
     stmt := table.Maintenances.SELECT(table.Maintenances.AllColumns)
 
-    // Динамическое добавление ORDER BY
+    // Adding ORDER BY dynamically
     switch sortBy {
     case "title":
         if sortDir == "desc" {
@@ -85,9 +85,9 @@ func (s *Store) List(ctx context.Context, sortBy string, sortDir string) ([]*ent
 }
 ```
 
-## LIMIT и OFFSET для пагинации
+## LIMIT and OFFSET for pagination
 
-### Базовая пагинация
+### Basic pagination
 
 ```go
 func (s *Store) ListPaginated(ctx context.Context, page, pageSize int) ([]*entity.Maintenance, error) {
@@ -109,7 +109,7 @@ func (s *Store) ListPaginated(ctx context.Context, page, pageSize int) ([]*entit
 }
 ```
 
-### Подсчет общего количества записей
+### Counting the total number of records
 
 ```go
 import "github.com/go-jet/jet/v2/postgres"
@@ -131,7 +131,7 @@ func (s *Store) Count(ctx context.Context) (int64, error) {
 }
 ```
 
-### Полная пагинация с метаданными
+### Full pagination with metadata
 
 ```go
 type PaginationResult struct {
@@ -143,13 +143,13 @@ type PaginationResult struct {
 }
 
 func (s *Store) ListWithPagination(ctx context.Context, page, pageSize int) (*PaginationResult, error) {
-    // Подсчет общего количества
+    // Count the total number of records
     totalCount, err := s.Count(ctx)
     if err != nil {
         return nil, err
     }
 
-    // Получение данных для текущей страницы
+    // Fetch the data for the current page
     items, err := s.ListPaginated(ctx, page, pageSize)
     if err != nil {
         return nil, err
@@ -170,7 +170,7 @@ func (s *Store) ListWithPagination(ctx context.Context, page, pageSize int) (*Pa
 }
 ```
 
-## Bulk операции
+## Bulk operations
 
 ### Bulk INSERT
 
@@ -199,22 +199,22 @@ func (s *Store) BulkCreate(ctx context.Context, maintenances []*entity.Maintenan
 }
 ```
 
-## Отладка SQL
+## Debugging SQL
 
-### Получение сгенерированного SQL
+### Getting the generated SQL
 
 ```go
 stmt := table.Maintenances.
     SELECT(table.Maintenances.AllColumns).
     WHERE(table.Maintenances.ID.EQ(postgres.UUID(id)))
 
-// Вывод SQL и аргументов
+// Print the SQL and its arguments
 query, args := stmt.Sql()
 fmt.Printf("SQL: %s\n", query)
 fmt.Printf("Args: %v\n", args)
 ```
 
-### Логирование запросов
+### Logging queries
 
 ```go
 func (s *Store) GetWithLogging(ctx context.Context, id uuid.UUID) (*entity.Maintenance, error) {
@@ -222,7 +222,7 @@ func (s *Store) GetWithLogging(ctx context.Context, id uuid.UUID) (*entity.Maint
         SELECT(table.Maintenances.AllColumns).
         WHERE(table.Maintenances.ID.EQ(postgres.UUID(id)))
 
-    // Логирование SQL
+    // Log the SQL
     query, args := stmt.Sql()
     xlog.FromContext(ctx).Debug("Executing query",
         zap.String("sql", query),

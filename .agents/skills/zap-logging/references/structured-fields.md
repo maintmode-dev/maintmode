@@ -1,8 +1,8 @@
 # Structured Fields
 
-## Стандартные типы полей
+## Standard field types
 
-### Строковые поля
+### String fields
 
 ```go
 zap.String("user_id", "123")
@@ -10,41 +10,41 @@ zap.ByteString("data", []byte("hello"))
 zap.Strings("tags", []string{"tag1", "tag2"})
 ```
 
-### Числовые поля
+### Numeric fields
 
 ```go
-// Целые числа
+// Integers
 zap.Int("count", 42)
 zap.Int64("big_number", 1234567890)
 zap.Uint("unsigned", 100)
 
-// Числа с плавающей точкой
+// Floating-point numbers
 zap.Float64("price", 19.99)
 zap.Float32("rating", 4.5)
 ```
 
-### Булевы поля
+### Boolean fields
 
 ```go
 zap.Bool("is_active", true)
 zap.Bool("verified", false)
 ```
 
-### Временные поля
+### Time fields
 
 ```go
 zap.Time("created_at", time.Now())
 zap.Duration("latency", time.Millisecond*150)
 ```
 
-### Ошибки
+### Errors
 
 ```go
 zap.Error(err)
 zap.NamedError("db_error", dbErr)
 ```
 
-## Кастомные поля для бизнес-логики
+## Custom fields for business logic
 
 ### UUID
 
@@ -53,30 +53,30 @@ zap.String("id", uuid.New().String())
 zap.String("maintenance_id", maint.ID.String())
 ```
 
-### Enum типы
+### Enum types
 
 ```go
 zap.String("status", string(entity.StatusActive))
 zap.String("type", string(resource.TypeServer))
 ```
 
-### JSON данные
+### JSON data
 
 ```go
 jsonData, _ := json.Marshal(payload)
 zap.String("payload", string(jsonData))
 ```
 
-## Логирование сложных данных
+## Logging complex data
 
-### Any - универсальный тип
+### Any - the universal type
 
 ```go
-// Логирование структуры
+// Logging a struct
 user := &User{ID: "123", Name: "John"}
 logger.Info("User data", zap.Any("user", user))
 
-// Логирование map
+// Logging a map
 metadata := map[string]interface{}{
     "key1": "value1",
     "key2": 42,
@@ -84,10 +84,10 @@ metadata := map[string]interface{}{
 logger.Info("Metadata", zap.Any("metadata", metadata))
 ```
 
-### Object - кастомная сериализация
+### Object - custom serialization
 
 ```go
-// Реализация ObjectMarshaler
+// Implementing ObjectMarshaler
 type User struct {
     ID   string
     Name string
@@ -99,23 +99,23 @@ func (u *User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
     return nil
 }
 
-// Использование
+// Usage
 user := &User{ID: "123", Name: "John"}
 logger.Info("User created", zap.Object("user", user))
 ```
 
-## Массивы и вложенные структуры
+## Arrays and nested structures
 
-### Array поля
+### Array fields
 
 ```go
-// Массив строк
+// Array of strings
 zap.Strings("tags", []string{"tag1", "tag2", "tag3"})
 
-// Массив чисел
+// Array of numbers
 zap.Ints("ids", []int{1, 2, 3})
 
-// Кастомный массив
+// Custom array
 type UserArray []User
 
 func (ua UserArray) MarshalLogArray(enc zapcore.ArrayEncoder) error {
@@ -128,7 +128,7 @@ func (ua UserArray) MarshalLogArray(enc zapcore.ArrayEncoder) error {
 logger.Info("Users", zap.Array("users", UserArray{user1, user2}))
 ```
 
-## Стандартные поля для HTTP
+## Standard fields for HTTP
 
 ```go
 logger.Info("HTTP request",
@@ -141,7 +141,7 @@ logger.Info("HTTP request",
 )
 ```
 
-## Стандартные поля для операций
+## Standard fields for operations
 
 ```go
 // Request ID
@@ -166,22 +166,22 @@ zap.Error(err)
 zap.Stack("stack")
 ```
 
-## Производительность полей
+## Field performance
 
-| Тип поля | Allocation | Рекомендация |
+| Field type | Allocation | Recommendation |
 |----------|-----------|--------------|
-| String | Zero | ✅ Используйте |
-| Int | Zero | ✅ Используйте |
-| Any | Allocates | ⚠️ Для прототипов |
-| Error | Zero | ✅ Используйте |
-| Object | Zero* | ✅ Для структур |
+| String | Zero | ✅ Use it |
+| Int | Zero | ✅ Use it |
+| Any | Allocates | ⚠️ For prototypes |
+| Error | Zero | ✅ Use it |
+| Object | Zero* | ✅ For structs |
 
-*Zero если ObjectMarshaler реализован эффективно
+*Zero if ObjectMarshaler is implemented efficiently
 
 ## Best Practices
 
-1. **Используйте типизированные поля** вместо Any когда возможно
-2. **Добавляйте контекст** - operation, request_id, user_id
-3. **Измеряйте время** - используйте Duration для performance tracking
-4. **Структурируйте ошибки** - используйте Error() для корректного форматирования
-5. **Избегайте вложенности** - предпочитайте плоскую структуру полей
+1. **Use typed fields** instead of Any whenever possible
+2. **Add context** - operation, request_id, user_id
+3. **Measure time** - use Duration for performance tracking
+4. **Structure errors** - use Error() so they are formatted correctly
+5. **Avoid nesting** - prefer a flat field structure

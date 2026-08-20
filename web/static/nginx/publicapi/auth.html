@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -245,8 +245,8 @@
 <div class="subtitle">OAuth login, JWT access token, refresh flow, roles, audit, JWKS</div>
 
 <div class="info-box">
-    Основной flow: логин через Google OAuth, access token хранится на клиенте, refresh идёт через cookie.
-    Роли можно просматривать и управлять ими через API.
+    Main flow: log in with Google OAuth, the access token is kept on the client, refresh goes through a cookie.
+    Roles can be viewed and managed through the API.
 </div>
 
 <div class="card" id="auth-card">
@@ -289,7 +289,7 @@
         <div class="panel-body">
             <div class="form-group">
                 <label>User ID / Username</label>
-                <label for="roleUser"></label><input type="text" id="roleUser" placeholder="оставь пустым, чтобы использовать current user">
+                <label for="roleUser"></label><input type="text" id="roleUser" placeholder="leave empty to use the current user">
             </div>
             <div class="form-group">
                 <label>Role</label>
@@ -607,7 +607,7 @@
         const role = document.getElementById('roleName').value.trim();
 
         if (!targetUser || !role) {
-            alert('Укажи user и role');
+            alert('Specify a user and a role');
             return;
         }
 
@@ -629,7 +629,7 @@
         const role = document.getElementById('roleName').value.trim();
 
         if (!targetUser || !role) {
-            alert('Укажи user и role');
+            alert('Specify a user and a role');
             return;
         }
 

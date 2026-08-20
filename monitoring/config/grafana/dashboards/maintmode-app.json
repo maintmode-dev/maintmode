@@ -4412,12 +4412,8 @@
       },
       {
         "current": {
-          "text": [
-            "maintmode-deploy-maintmode-25"
-          ],
-          "value": [
-            "maintmode-deploy-maintmode-25"
-          ]
+          "text": [],
+          "value": []
         },
         "datasource": {
           "type": "prometheus",

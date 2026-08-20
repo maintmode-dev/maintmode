@@ -20,8 +20,9 @@
 #   compose.app.ci.yaml     — pre-built images for CI
 #   compose.k6.yaml         — k6 load testing
 #
-# Production/dev VM deploy orchestration lives in the separate maintmode-deploy
-# repo (pulls images from GHCR). Operator docs: maintmode-docs/ops/
+# This file targets local development. Production/dev VM deploys are driven by
+# a separate private orchestration repo that pulls released images from GHCR,
+# so changes here affect local stacks only.
 
 services:
   # -----------------------------------------------------------------
@@ -350,12 +351,12 @@ services:
     networks:
       - theapp
 
-  # Grafana Tempo — трейсинг-бэкенд. Локальный диск,
-  # retention 1 день (см. monitoring/config/tempo/tempo.yaml). Принимает OTLP от
-  # otel-collector, запрашивается датасорсом Grafana на :3200. Отдельного UI нет.
-  # Тег запиннен (в отличие от соседей на :latest): tempo:latest уехал на v3.0.0
-  # с несовместимой схемой конфига (ingester/compactor отвалились). 2.7.x —
-  # текущая рабочая линия; бампать осознанно.
+  # Grafana Tempo — the tracing backend. Local disk,
+  # retention 1 day (see monitoring/config/tempo/tempo.yaml). Accepts OTLP from
+  # otel-collector, queried by the Grafana datasource on :3200. It has no UI of
+  # its own. The tag is pinned (unlike the neighbours on :latest): tempo:latest
+  # moved to v3.0.0 with an incompatible config schema (ingester/compactor broke).
+  # 2.7.x is the current working line; bump it deliberately.
   tempo:
     image: grafana/tempo:2.7.1
     profiles: ["monitoring"]
@@ -381,27 +382,28 @@ services:
     networks:
       - theapp
 
-  # Pyroscope — continuous-profiling backend (RUK-190). Alloy скрейпит pprof
-  # приложения и пишет профили сюда; Grafana читает их через datasource
-  # pyroscope_ds. Версия пиньётся осознанно (как tempo), latest не берём.
+  # Pyroscope — continuous-profiling backend (RUK-190). Alloy scrapes the
+  # application's pprof and writes the profiles here; Grafana reads them through
+  # the pyroscope_ds datasource. The version is pinned deliberately (like tempo),
+  # we do not take latest.
   #
-  # Держим линию 1.x: она стабильно работает как единый all-in-one `server`.
-  # 2.x переехал на metastore/raft-архитектуру, и монолитный контейнер в ней
-  # падает по gRPC keepalive (ENHANCE_YOUR_CALM / too_many_pings) — проверено
-  # на 2.1.0. Бампать на 2.x только с полноценным multi-target деплоем.
+  # We stay on the 1.x line: it works reliably as a single all-in-one `server`.
+  # 2.x moved to a metastore/raft architecture, in which the monolithic container
+  # dies on gRPC keepalive (ENHANCE_YOUR_CALM / too_many_pings) — verified on
+  # 2.1.0. Bump to 2.x only together with a proper multi-target deployment.
   pyroscope:
     image: grafana/pyroscope:1.14.1
     profiles: ["monitoring"]
     ports:
       - "4040" # internal port
-    # Данные кладём на named volume, чтобы профили переживали рестарт.
-    # Два независимых рычага ретеншена:
-    #  - по времени: блоки старше 2 суток (48h) удаляет compactor — профили
-    #    нужны для диагностики недавних инцидентов (рядом с Tempo 24h), не для
-    #    истории;
-    #  - по диску (страховка от разрастания): если на хосте свободно < 10 ГБ,
-    #    старые блоки чистятся раньше срока.
-    # Флаги вместо config-файла: без риска не-распарсенного ключа.
+    # Data goes on a named volume so profiles survive a restart.
+    # Two independent retention levers:
+    #  - by time: the compactor drops blocks older than 2 days (48h) — profiles
+    #    are for diagnosing recent incidents (next to Tempo's 24h), not for
+    #    history;
+    #  - by disk (a safeguard against growth): if the host has < 10 GB free,
+    #    old blocks are cleaned up ahead of schedule.
+    # Flags instead of a config file: no risk of an unparsed key.
     command:
       - "server"
       - "-pyroscopedb.data-path=/data"
@@ -412,9 +414,9 @@ services:
     networks:
       - theapp
 
-  # Alloy — забирает pprof со всех реплик maintmode и форвардит в Pyroscope.
-  # Таргеты берутся через discovery.docker (см. config.alloy), поэтому нужен
-  # доступ к docker-сокету (ro). Так покрывается `--scale maintmode=N`.
+  # Alloy — pulls pprof from every maintmode replica and forwards it to Pyroscope.
+  # Targets come from discovery.docker (see config.alloy), hence the access to the
+  # docker socket (ro). That is how `--scale maintmode=N` is covered.
   alloy:
     image: grafana/alloy:v1.17.1
     profiles: ["monitoring"]

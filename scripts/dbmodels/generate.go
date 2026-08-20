@@ -99,7 +99,7 @@ func genTemplateSchema(schemaMetaData metadata.Schema) template.Schema {
 					UseField(func(columnMetaData metadata.Column) template.TableModelField {
 						defaultTableModelField := template.DefaultTableModelField(columnMetaData)
 
-						// Добавляем тег db с именем столбца
+						// Add a db tag carrying the column name
 						return defaultTableModelField.UseTags(
 							fmt.Sprintf(`db:"%s.%s"`, table.Name, columnMetaData.Name),
 						)

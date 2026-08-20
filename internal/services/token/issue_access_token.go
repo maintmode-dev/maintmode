@@ -27,15 +27,16 @@ func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Dura
 
 	now := s.getNowF()
 
-	// OIDC-провайдеры (напр. Google) не гарантируют claim `name`, а users.name —
-	// NOT NULL DEFAULT ''. Без фолбэка такой юзер получил бы токен с пустым
-	// user_name, который RequireAccessToken зарубит как невалидный (вечный 401).
+	// OIDC providers (e.g. Google) do not guarantee the `name` claim, and
+	// users.name is NOT NULL DEFAULT ''. Without a fallback such a user would get
+	// a token with an empty user_name, which RequireAccessToken rejects as
+	// invalid (a permanent 401).
 	claims := entity.AccessClaims{
 		UserName:  cmp.Or(user.Name, user.Email, "unknown"),
 		UserEmail: user.Email,
 		UserRoles: user.Roles,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        xuuid.NewString(), // jti — для blacklist при logout
+			ID:        xuuid.NewString(), // jti — for the blacklist on logout
 			Subject:   user.ID.String(),
 			Issuer:    s.issuer,
 			IssuedAt:  jwt.NewNumericDate(now),

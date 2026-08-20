@@ -1,343 +1,222 @@
-# Project Overview
+# MaintMode
 
-# Maintenance Calendar
+**Maintenance calendar for engineering teams.** Plan technical work without
+collisions and without surprise incidents.
 
-**Maintenance Calendar** — B2B веб-приложение для инженерных команд, которое помогает **планировать и выполнять технические работы без конфликтов и неожиданных инцидентов**.
+Several teams share the same infrastructure. Two changes touch the same database
+in overlapping windows and nobody notices until something breaks. MaintMode makes
+that visible before it happens:
 
-Продукт предоставляет единый календарь технических работ, учитывает **временные пересечения и общие ресурсы**, а также разделяет **плановое и фактическое выполнение** работ.
+> **Time + shared resources = risk.**
 
-Основная цель — **предотвращение продакшн-проблем до их возникновения**, за счёт прозрачности и координации между командами.
+The service keeps one calendar of maintenance work, tracks which resources each
+piece of work touches, separates what was *planned* from what actually *happened*,
+and flags overlaps as conflicts.
 
----
+This repository is the backend — a Go service exposing the API. The web interface
+lives in [maintmode-ui](https://github.com/maintmode-dev/maintmode-ui).
 
-## Для кого
+## Status
 
-* Tech Leads
-* SRE / DevOps инженеры
-* Platform и Backend команды
-* Компании с 10–100 инженерами и общей инфраструктурой
+Used in production by its author, and open to anyone who wants to run it. The
+API is not versioned for external consumers yet, so expect breaking changes
+between releases.
 
----
+## Self-hosting
 
-## Ключевая идея
+Self-hosting is free and unlimited — no seat counting, no licence checks, no
+phoning home. See [Licensing and telemetry](#licensing-and-telemetry) below for
+exactly what that means in the code.
 
-> **Время + общие ресурсы = риск**
+The quickest way to get an instance running is
+[maintmode-selfhost](https://github.com/maintmode-dev/maintmode-selfhost), which
+provides a Docker Compose setup and step-by-step instructions. What follows here
+is for working on the backend itself.
 
-Если несколько изменений затрагивают один и тот же ресурс в пересекающееся время, это потенциальный инцидент.
-Приложение делает такие ситуации **явными и управляемыми**.
+## Features
 
----
+- One calendar of maintenance work — week and month views
+- Planned window vs. actual execution time, tracked separately
+- Shared resources: services, databases, clusters
+- Conflict detection on overlapping work against shared resources
+- Approval flows for work that needs sign-off
+- Notifications to Slack, Telegram, and email
+- Role-based access control, invitation-based user management
+- Audit log
 
-## Возможности
+## Architecture
 
-* Единый календарь технических работ (неделя / месяц)
-* Планирование работ с указанием временного окна
-* Фиксация фактического времени выполнения
-* Учет общих ресурсов (сервисы, базы данных, кластеры)
-* Обнаружение временных конфликтов
-* Наглядная визуализация рисков
-* Уведомления для команд
+One Go binary serves both the authentication routes (`/auth/*`) and the
+application API (`/maintmode/*`) — there is no separate auth service.
 
----
+- **Language**: Go (see `go.mod` for the required version)
+- **HTTP**: Echo
+- **Database**: PostgreSQL — the source of truth. Time ranges are modelled as
+  `tstzrange` with GiST indexes, so overlap detection is a database operation
+  rather than application logic.
+- **SQL**: `jet` (type-safe query builder), `sqlx`, `goose` for migrations
+- **Cache / queues**: Valkey — idempotency keys, rate limiting
+- **Background work**: a Postgres-backed task queue using
+  `FOR UPDATE SKIP LOCKED`, so replicas never pick up the same task twice
+- **Authorization**: Casbin
+- **Observability**: Prometheus metrics, OpenTelemetry traces, structured logs
 
-## Архитектурный подход
+Design principles the code actually follows: clear separation between layers,
+Postgres as the source of truth, time as a first-class domain concept, atomic
+operations that behave correctly under concurrency, and as little magic as
+possible.
 
-* Чёткое разделение ответственности между слоями
-* PostgreSQL как источник истины
-* Работа с временем как с доменной сущностью
-* Атомарные операции и корректная работа в конкурентной среде
-* Минимум магии, максимум предсказуемости
+## Getting started
 
----
-
-## Tech Stack
-
-### Backend стек
-
-- **Language**: Go 1.25.0+
-- **Database**: PostgreSQL
-
-- **HTTP Framework**: Echo
-- **Database Libraries**:
-  - `jet` - Type-safe SQL builder
-  - `sqlx` - Extensions for database/sql
-  - `goose` - Database migrations
-  * `tstzrange`
-  * GiST индексы
-* Миграции: `goose` / `migrate`
-* Valkey (вне ядра): idempotency, rate limiting
-- **Logging**: `zap` with `xlog` wrapper (github.com/ruko1202/xlog)
-
-### Deployment
-
-- **Format**: Docker image
----
-
-### Frontend стек
-
-* **React**
-* **TypeScript**
-* **Vite**
-* **MUI (Material UI)**
-* **FullCalendar**
-
-UI ориентирован на:
-
-* быстрый обзор планируемых работ
-* минимальное количество действий
-* понятную визуализацию конфликтов и рисков
-
----
-
-## Интеграции
-
-* Slack (уведомления и действия)
-* Email (опционально)
-
----
-
-## Философия проекта
-
-* Простота важнее универсальности
-* Предсказуемость важнее магии
-* Предотвращение важнее реакции
-* Инженерная честность важнее количества фич
-
----
-
-Если хочешь, следующим шагом можем:
-
-* сократить README под **лендинг**
-* оформить **архитектурную диаграмму**
-* подготовить **onboarding для первых пользователей**
-
-
-
-
-
-## Operations
-
-Deploy orchestration (single-VM Docker Compose, HTTPS via Caddy, monitoring,
-rolling deploy) lives in the separate **[`maintmode-deploy`](../maintmode-deploy/README.md)**
-repository — it pulls the images this repo's CI publishes to GHCR. This repo
-keeps only what's needed for local dev and CI (`compose.yaml`, the dev Caddy
-image/config, app configs). Operator runbooks, backup procedures, and the
-smoke-test checklist are in **maintmode-docs/ops/**
-([`maintmode-docs`](../maintmode-docs/ops/README.md)).
-
-### Scaling
-
-`maintmode` and `auth` are stateless and can run as N replicas on the
-same VM. `make app-up` accepts replica counts (default 1/1):
+Requirements: Go (version per `go.mod`), Docker with Compose, `make`.
 
 ```bash
-make app-up MAINTMODE_REPLICAS=3 AUTH_REPLICAS=3
-# or directly:
-docker compose --profile storages --profile app --profile monitoring \
-  up -d --scale maintmode=3 --scale auth=3
+make deps          # tool dependencies into ./bin
+make bin-deps      # binary tools (goose, golangci-lint, mockgen, ...)
+make secrets       # create deployment/maintmode/<env>/app.secrets.yaml from samples
+make docker-up     # postgres, pg_doorman, valkey
+make db-up         # apply migrations
+make run           # start the service
 ```
 
-How it works:
+`make air` runs the service with live reload and a Delve listener on `:2345`.
 
-- Docker assigns each replica a unique name (`*-maintmode-1`,
-  `*-maintmode-2`, ...). The service-name DNS (`maintmode`, `auth`)
-  resolves to all replica IPs.
-- Caddy load-balances across replicas (`lb_policy round_robin`) with
-  passive health checks and request retries on a peer.
-- The Goque task queue uses `FOR UPDATE SKIP LOCKED`, so the same task
-  is never picked up by two replicas.
-- OAuth login rate-limiting is shared via Valkey with a per-replica
-  in-memory fallback if Valkey is unreachable (alert
-  `RateLimiterValkeyFallback`).
-- Prometheus discovers every replica via Docker SD; Loki/Promtail
-  labels logs by `container_name` so replica logs are easy to filter.
-
-Deploys are rolling and zero-downtime: the deploy repo's `make deploy` rolls
-the new image through one replica at a time, leaning on the in-app drain
-(Readiness → 503 on SIGTERM) and Caddy's active `/readiness` health check so
-the pool never drops below its healthy count. See
-[rolling-deploy.md](../maintmode-docs/ops/rolling-deploy.md).
-
-Known limitations on a single VM:
-
-- Postgres, Valkey, and Caddy stay single-instance — true HA needs
-  external infra (multi-node HA is the P2 Kubernetes milestone, not this
-  target).
-- After changing the replica count, restart Caddy
-  (`docker compose restart caddy`) so it re-resolves DNS.
-
-### Quick Start
+### Checks
 
 ```bash
-# 1. Install dependencies
-make deps
-
-# 2. Install binary tools
-make bin-deps
-
-# 3. Build application
-make build
-
-# 4. Run application
-./bin/maintmode
+make fmt           # gofmt + goimports
+make lint          # golangci-lint
+make tloc          # unit tests
+make tloc-cov      # unit tests with coverage
+make test-api      # API integration tests (brings up a compose stack)
 ```
 
-### Configuration and Secrets
+## Configuration and secrets
 
-Application config and secrets are split intentionally:
+Configuration and secrets are deliberately separate:
 
-- `app.*.yaml` contains non-secret settings and secret references such as `<secret:db/dsn>`.
-- `secrets.yaml` is a flat key-value file mounted at runtime and ignored by git.
-- Tracked `secrets.*.sample.yaml` files are only for local/dev/ci bootstrapping.
+- `app.config.yaml` holds non-secret settings and *references* to secrets, written
+  as `<secret:db/dsn>`.
+- `app.secrets.yaml` is a flat key-value file, mounted at runtime and **never
+  committed** — it is gitignored for every environment, including dev and local.
+- Only `app.secrets.sample.yaml` files are tracked. They are templates for
+  bootstrapping, not real values.
 
-Each service reads `app.config.yaml` and `app.secrets.yaml` from
-`<APP>_CONFIG_DIR`, and `model.conf` + `policy.csv` from
-`<APP>_AUTHZ_DIR`. File names can be overridden via
-`<APP>_CONFIG_FILE` / `<APP>_SECRETS_FILE`. All env vars default to
-`.` (cwd) when unset.
+The service reads `app.config.yaml` and `app.secrets.yaml` from
+`MAINTMODE_CONFIG_DIR`, and `model.conf` + `policy.csv` from `MAINTMODE_AUTHZ_DIR`.
+File names can be overridden with `MAINTMODE_CONFIG_FILE` / `MAINTMODE_SECRETS_FILE`.
+Unset variables default to the current directory.
 
 ```bash
-MAINTMODE_CONFIG_DIR=deployment/maintmode/prod
+MAINTMODE_CONFIG_DIR=deployment/maintmode/local
 MAINTMODE_AUTHZ_DIR=deployment/maintmode/authz
 ```
 
-Production deploys should keep real values in the cloud secret manager, then mount or generate a read-only `/app.secrets.yaml` for each container. The app does not call cloud-specific secret APIs.
+In production, keep real values in a secret manager and mount a read-only
+`app.secrets.yaml` into the container. The service does not call cloud-specific
+secret APIs itself.
 
-### Development Commands
+## First login
+
+A fresh installation has no users. The first person to sign in through Google
+becomes an administrator — that is how the initial account is created, and it
+applies whenever the instance has no active administrators.
+
+This is deliberately first-login-wins, with no locking. It assumes the operator
+signs in before anyone else can reach the instance, so **sign in first, then
+expose it**. After that, `allow_open_signup` stays `false` by default and further
+users join by invitation.
+
+## Licensing and telemetry
+
+Two different things share the word "licence" here, so to be explicit:
+
+**The code** is licensed under the GNU AGPL v3 — see [LICENSE](LICENSE).
+
+**The commercial licence gate** in `internal/services/license` and
+`internal/gateways/license` applies to the hosted SaaS offering, which charges by
+seat. It is inert in self-hosted installations:
+
+- The gate activates only when *both* `license.url` and `license.instance_token`
+  are configured. A half-configured block stays off. Leave them unset — as the
+  sample configs do — and there is no heartbeat, no seat limit, and no outbound
+  request.
+- With the gate off, nothing in this repository contacts an external service
+  about your instance. There is no usage telemetry, no analytics, no phone-home.
+
+The code stays in this repository rather than being stripped out because the same
+binary serves both cases. You can read exactly what it does.
+
+## Deployment
+
+`compose.yaml` in this repository is for local development and CI: Postgres,
+pg_doorman, Valkey, the app, Caddy, and the monitoring stack.
+
+For running an instance:
+
+- **Self-hosting** — see
+  [maintmode-selfhost](https://github.com/maintmode-dev/maintmode-selfhost).
+- **This repo's CI** publishes images to GHCR on every release.
+
+### Scaling
+
+The service is stateless and runs as N replicas:
 
 ```bash
-# Run lightweight secret checks
-make secret-scan
-
-# Run tests with coverage
-make tloc-cov
-
-# Run linter
-make lint
-
-# Format code
-make fmt
-
-# Build application
-make build
-
-# Start database (Docker)
-make docker-up
-
-# Start the app without build
-make run
-
-# Start the app with live reload
-# allowed debug connection in IDE
-###########################
-# GoLand
-#   Run → Edit Configurations
-#   Go Remote
-#   Host: localhost
-#   Port: 2345
-###########################
-# Vscode
-# {
-#  "version": "0.2.0",
-#  "configurations": [
-#    {
-#      "name": "Attach to Delve (Air)",
-#      "type": "go",
-#      "request": "attach",
-#      "mode": "remote",
-#      "remotePath": "${workspaceFolder}",
-#      "port": 2345,
-#      "host": "127.0.0.1"
-#    }
-#  ]
-# }
- 
-make air
+make app-up MAINTMODE_REPLICAS=3
+# or:
+docker compose --profile storages --profile app up -d --scale maintmode=3
 ```
 
-## Компоненты мониторинга
-| Сервис | URL | Логин/Пароль |
-|--------|-----|--------------|
-| Grafana | http://localhost:8003 | admin/admin |
-| VictoriaMetrics | http://localhost:8428 | - |
-| Loki | http://localhost:3100 | - |
+- Docker gives each replica a unique name; service-name DNS resolves to all of
+  them, and Caddy load-balances with passive health checks and retries.
+- The task queue uses `FOR UPDATE SKIP LOCKED`, so a task is never processed twice.
+- Login rate limiting is shared through Valkey, with a per-replica in-memory
+  fallback if Valkey is unreachable (alert: `RateLimiterValkeyFallback`).
+- Prometheus discovers replicas through Docker service discovery; Promtail labels
+  logs by container name.
 
-### VictoriaMetrics
-- **Порт**: 8428
-- **Назначение**: Time Series Database для метрик
-- **Retention**: 30 дней
-- **Конфигурация**: [`monitoring/config/prometheus.yml`](config-monitoring-prometheus.yml.md)
+Deploys are rolling: the app drains on `SIGTERM` (readiness flips to 503) while
+Caddy's active `/readiness` check keeps the pool above its healthy count.
 
-### Grafana
-- **Порт**: 3000
-- **Назначение**: Визуализация метрик и логов
-- **Datasources**: VictoriaMetrics, Loki
-- **Дашборды**: Автоматическая загрузка из provisioning
+Postgres, Valkey, and Caddy remain single-instance — real HA needs infrastructure
+beyond a single VM. After changing the replica count, restart Caddy so it
+re-resolves DNS.
 
-### Loki
-- **Порт**: 3100
-- **Назначение**: Агрегация логов
-- **Retention**: 30 дней
-- **Конфигурация**: [`monitoring/config/loki/local-config.yaml`](config-monitoring-loki-local-config.yaml.md)
+## Monitoring
 
-### Promtail
-- **Назначение**: Сбор логов из Docker контейнеров
-- **Конфигурация**: [`monitoring/config/promtail/config.yml`](config-monitoring-promtail-config.yml.md)
+The compose stack includes a full observability setup, all optional for
+development:
 
-### Pyroscope (continuous profiling, RUK-190)
-- **Порт**: 4040 (внутренний, наружу не публикуется)
-- **Назначение**: Непрерывное профилирование приложения (CPU, heap, allocations,
-  goroutines, block, mutex)
-- **Модель**: pull — Grafana **Alloy** скрейпит стандартные Go `pprof`-эндпоинты
-  приложения (на infra-сервере `:8001`) и форвардит профили в Pyroscope. Приложение
-  ничего не пушит; SDK не подключается.
-- **Масштабирование**: Alloy находит цели через `discovery.docker` по лейблу
-  `prometheus.service=maintmode`, поэтому `docker compose up --scale maintmode=N`
-  профилируется автоматически (по цели на реплику).
-- **Хранение**: named volume `pyroscope:/data`. Ретеншен двумя рычагами:
-  по времени — блоки старше 2 суток (48h, рядом с Tempo 24h); по диску —
-  страховка от разрастания: чистка старых блоков, если на хосте свободно < 10 ГБ.
-- **Просмотр**: Grafana → datasource **Pyroscope** (Explore) или дашборд
-  **MaintMode Profiling**; ищите по тегу `service_name="maintmode"`.
-- **Конфигурация**: [`monitoring/config/alloy/config.alloy`](config-monitoring-alloy-config.alloy.md)
-- **Версии**: `grafana/pyroscope:1.14.1` (стабильная all-in-one линия; 2.x требует
-  multi-target деплой), `grafana/alloy:v1.17.1`.
+| Service | Port | Purpose |
+|---------|------|---------|
+| Grafana | 8003 | Dashboards (default login `admin`/`admin`) |
+| VictoriaMetrics | 8428 | Metrics, 30-day retention |
+| Loki | 3100 | Log aggregation, 30-day retention |
+| Tempo | — | Traces |
+| Pyroscope | 4040 | Continuous profiling (internal only) |
 
-### Экспортеры
-- **Node Exporter** (9100) - Метрики хост-системы
-- **cAdvisor** (8080) - Метрики Docker контейнеров
-- **PostgreSQL Exporter** (9187) - Метрики PostgreSQL
-- **Valkey Exporter** (9121) - Метрики Valkey
+Metrics come from the app (`echo_http_requests_total`,
+`echo_http_request_duration_seconds`, Go runtime metrics) plus exporters for the
+host, containers, Postgres, and Valkey. Profiling is pull-based: Grafana Alloy
+scrapes the standard Go `pprof` endpoints and forwards them to Pyroscope — the
+application pushes nothing and links no profiling SDK.
 
-## Дашборды
+Configuration lives in `monitoring/config/`.
 
-| Дашборд | Описание | Источник |
-|---------|-----------|----------|
-| MaintMode Application | HTTP метрики, бизнес-метрики, Go runtime | Custom |
-| PostgreSQL Database | Производительность PostgreSQL | Marketplace (ID: 9628) |
-| Valkey Dashboard | Производительность Valkey | Marketplace (ID: 11835) |
-| PgBouncer Exporter | Метрики pg_doorman | Marketplace (ID: 11271) |
-| cAdvisor | Метрики Docker контейнеров | Marketplace (ID: 893) |
-| Node Exporter Full | Метрики хост-системы | Marketplace (ID: 1860) |
-| MaintMode Profiling | Флеймграфы CPU/heap/alloc/goroutine/block/mutex (Pyroscope) | Custom |
+## Contributing
 
-## Метрики приложения
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues:
+[SECURITY.md](SECURITY.md) — please do not open a public issue for those.
 
-### HTTP метрики (echoprometheus)
-- `echo_http_requests_total{method, path, status}` - Общее количество HTTP запросов
-- `echo_http_request_duration_seconds_bucket{method, path, le}` - Histogram latency
-- `echo_http_requests_in_flight{method, path}` - Текущие запросы
+You will see `RUK-123` identifiers in comments and commit messages. They
+reference the project's own issue tracker, which is not public; the surrounding
+comment is meant to stand on its own.
 
-### Go runtime
-- `go_goroutines` - Количество goroutines
-- `go_gc_duration_seconds_sum` - Суммарное время GC
-- `go_gc_duration_seconds_count` - Количество GC циклов
+## Licence
 
+[GNU Affero General Public License v3.0](LICENSE).
 
-## Полезные ссылки
-
-- [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)
-- [Grafana Documentation](https://grafana.com/docs/)
-- [Loki Documentation](https://grafana.com/docs/loki/latest/)
-- [Grafana Marketplace](https://grafana.com/grafana/dashboards/)
-- [Prometheus Best Practices](https://prometheus.io/docs/practices/naming/)
+In short: you can run, modify, and distribute this, including commercially. If
+you offer a modified version to others over a network, you have to make your
+modified source available to them.

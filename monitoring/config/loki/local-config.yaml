@@ -36,18 +36,19 @@ schema_config:
 ruler:
   alertmanager_url: http://localhost:9093
 
-# Настройки для разработки
+# Development settings
 limits_config:
   reject_old_samples: true
   reject_old_samples_max_age: 168h
   max_streams_per_user: 0
   max_line_size: 256kb
 
-  # Время хранения логов (14 дней). Логи объёмнее метрик и нужны для разбора
-  # недавних инцидентов, а не истории — поэтому короче метрик (30d).
+  # Log retention (14 days). Logs are bulkier than metrics and are needed for
+  # investigating recent incidents rather than history — hence shorter than the
+  # metrics (30d).
   retention_period: 336h
 
-  # Пределы для запросов (чуть больше retention, чтобы покрыть весь период)
+  # Query limits (slightly above retention so the whole period is covered)
   split_queries_by_interval: 30m
   max_query_length: 337h
   max_query_parallelism: 32

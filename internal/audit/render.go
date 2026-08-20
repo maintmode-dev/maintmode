@@ -240,8 +240,8 @@ func setActor(payload *entity.ProcessorTaskPayloadAuditWrite, actor *entity.User
 	payload.ActorDisplayName = actor.Name
 }
 
-// maxUserAgentLen ограничивает User-Agent в метаданных аудита: заголовок
-// приходит от клиента и без лимита раздувает каждую запись лога.
+// maxUserAgentLen caps the User-Agent in audit metadata: the header comes from
+// the client and without a limit it bloats every log record.
 const maxUserAgentLen = 256
 
 func sanitizeMetadata(m *entity.AuditMetadata) *entity.AuditMetadata {

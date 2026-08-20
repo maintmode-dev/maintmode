@@ -11,29 +11,29 @@ import (
 type AuditLog struct {
 	ID     uuid.UUID          `json:"id"`
 	Action entity.AuditAction `json:"action"`
-	// Actor — email актора (для system-событий — системный email).
+	// Actor is the actor's email (for system events, the system email).
 	Actor string `json:"actor"`
-	// ActorID — стабильный ID актора (user UUID); пуст для system-актора и
-	// неопознанных пользователей (login_failed по неизвестному email).
+	// ActorID is the stable actor ID (user UUID); empty for the system actor and
+	// for unidentified users (login_failed on an unknown email).
 	ActorID string `json:"actor_id,omitempty"`
-	// ActorDisplayName — имя актора на момент события (снапшот, не резолвится
-	// заново на чтении). Пуст у записей, созданных до введения поля.
+	// ActorDisplayName is the actor name at event time (a snapshot, not resolved
+	// again on read). Empty on records created before the field was introduced.
 	ActorDisplayName string                 `json:"actor_display_name,omitempty"`
 	EntityType       entity.AuditEntityType `json:"entity_type,omitempty"`
 	EntityID         string                 `json:"entity_id,omitempty"`
-	// Details — человекочитаемое описание события (legacy/fallback-строка).
+	// Details is a human-readable description of the event (legacy/fallback string).
 	Details string `json:"details,omitempty"`
-	// Metadata — структурированный action-specific payload для expand-грида.
+	// Metadata is the structured action-specific payload for the expand grid.
 	Metadata  *AuditLogMetadata `json:"metadata,omitempty"`
 	CreatedAt time.Time         `json:"created_at"`
 }
 
-// AuditLogMetadata — структурированные, whitelist-safe детали события.
-// Заполненность полей зависит от action:
-//   - login_success / login_failed: ip, user_agent, session_id (+failure_reason для failed);
+// AuditLogMetadata carries structured, whitelist-safe details of an event.
+// Which fields are populated depends on the action:
+//   - login_success / login_failed: ip, user_agent, session_id (+failure_reason for failed);
 //   - logout_success: session_id, logout_kind (auto|manual);
 //   - assigned / revoked: roles, target_email, target_display_name;
-//   - replaced: roles (итоговый набор), roles_added, roles_removed, target_email, target_display_name;
+//   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;
 //   - blocked / unblocked: target_email, target_display_name.
 type AuditLogMetadata struct {
 	IP                string   `json:"ip,omitempty"`

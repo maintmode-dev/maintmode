@@ -64,8 +64,8 @@ func fromDBEntry(ctx context.Context, e *model.AuditLog) *entity.AuditEntry {
 	}
 }
 
-// metadataToJSON сериализует whitelist-метаданные в JSONB-колонку. Ошибка
-// сериализации не валит запись аудита — метаданные деградируют до "{}".
+// metadataToJSON serializes the whitelist metadata into the JSONB column. A
+// serialization error does not fail the audit record — the metadata degrades to "{}".
 func metadataToJSON(ctx context.Context, m *entity.AuditMetadata) string {
 	if m == nil {
 		return emptyMetadataJSON
@@ -78,8 +78,8 @@ func metadataToJSON(ctx context.Context, m *entity.AuditMetadata) string {
 	return string(raw)
 }
 
-// metadataFromJSON парсит JSONB-колонку; пустой объект и битый JSON дают nil,
-// чтобы API мог опустить поле целиком.
+// metadataFromJSON parses the JSONB column; an empty object and broken JSON both
+// yield nil so the API can omit the field entirely.
 func metadataFromJSON(ctx context.Context, raw string) *entity.AuditMetadata {
 	if raw == "" || raw == emptyMetadataJSON {
 		return nil

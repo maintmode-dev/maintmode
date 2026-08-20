@@ -150,7 +150,7 @@ func TestService_SeatsUsageMatchesEnforcement(t *testing.T) {
 // The mocks model exactly that interleaving: the active read returns the
 // pre-accept world, the pending read returns the post-accept one.
 //
-// Fixing it was considered and rejected — see "Решение по гонке" in
+// Fixing it was considered and rejected — see the race decision section in
 // tasks/plan.md: every remedy either introduces the codebase's first read-only
 // isolation-level transaction, crosses module storage boundaries, or shifts the
 // heartbeat's license report to Console. The window is microseconds and this is

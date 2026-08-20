@@ -34,8 +34,8 @@ func TestPagingParams(t *testing.T) {
 				raw:        "1",
 				wantOffset: 1,
 			}, {
-				// Отрицательная позиция — выход за диапазон, а не ошибка ввода:
-				// приводится к началу набора молча.
+				// A negative position is out-of-range, not an input error:
+				// it is silently coerced to the start of the set.
 				name:       "negative coerced to zero without error",
 				raw:        "-5",
 				wantOffset: 0,
@@ -49,8 +49,8 @@ func TestPagingParams(t *testing.T) {
 				raw:        "10000",
 				wantOffset: MaxPagingOffset,
 			}, {
-				// Кламп в max, а не в 0: сброс в начало вернул бы самую
-				// первую страницу вместо ближайшей к запрошенной.
+				// Clamped to max, not to 0: a reset to the start would return
+				// the very first page instead of the one nearest to requested.
 				name:       "max plus one clamps to max",
 				raw:        "10001",
 				wantOffset: MaxPagingOffset,
@@ -59,15 +59,16 @@ func TestPagingParams(t *testing.T) {
 				raw:        "100000000",
 				wantOffset: MaxPagingOffset,
 			}, {
-				// Потолок здесь не совпадает с дефолтным: эти три кейса ловят
-				// подмену клампа константой MaxPagingOffset и потерю опции по
-				// дороге — на дефолтном потолке оба дефекта неотличимы от
-				// корректного поведения.
+				// The ceiling here differs from the default one: these three
+				// cases catch a clamp substituted with the MaxPagingOffset
+				// constant and an option dropped along the way — at the default
+				// ceiling both defects are indistinguishable from correct
+				// behaviour.
 				//
-				// Чего эта тройка не ловит — сдвиг сравнения на `>=`: кламп
-				// отдаёт ровно потолок, поэтому на offset == max обе версии
-				// дают одно число. Это эквивалентная мутация, а не пробел в
-				// покрытии; убить её нельзя ничем.
+				// What this trio does not catch is the comparison shifted to
+				// `>=`: the clamp yields exactly the ceiling, so at offset ==
+				// max both versions produce the same number. That is an
+				// equivalent mutation, not a coverage gap; nothing can kill it.
 				name:       "custom max: just below max passes through unclamped",
 				raw:        "9",
 				opts:       []PagingOption{WithMaxOffset(10)},
@@ -83,9 +84,9 @@ func TestPagingParams(t *testing.T) {
 				opts:       []PagingOption{WithMaxOffset(10)},
 				wantOffset: 10,
 			}, {
-				// Опция умеет только опускать потолок. Попытка поднять его выше
-				// глобального игнорируется — иначе вызывающий отменял бы ровно
-				// то ограничение, ради которого пакет существует.
+				// The option can only lower the ceiling. An attempt to raise it
+				// above the global one is ignored — otherwise a caller would
+				// undo the very limit this package exists for.
 				name:       "custom max above the global cap is ignored",
 				raw:        "1000000",
 				opts:       []PagingOption{WithMaxOffset(1_000_000)},
@@ -99,7 +100,7 @@ func TestPagingParams(t *testing.T) {
 
 				requireUnparseable(t, err, tc.wantUnparseable, "offset")
 				require.Equal(t, tc.wantOffset, paging.Offset)
-				// Разбор одного параметра не портит второй.
+				// Parsing one parameter does not spoil the other.
 				require.Equal(t, defaultPagingLimit, paging.Limit)
 			})
 		}
@@ -127,8 +128,8 @@ func TestPagingParams(t *testing.T) {
 				raw:       "200",
 				wantLimit: 200,
 			}, {
-				// Ключевое отличие от offset: превышение потолка даёт дефолт,
-				// а не кламп в потолок.
+				// The key difference from offset: exceeding the ceiling yields
+				// the default, not a clamp to the ceiling.
 				name:      "above default max falls back to default not max",
 				raw:       "201",
 				wantLimit: defaultPagingLimit,
@@ -146,14 +147,14 @@ func TestPagingParams(t *testing.T) {
 				wantLimit:       defaultPagingLimit,
 				wantUnparseable: true,
 			}, {
-				// Конфигурация audit: 100 служит и дефолтом, и потолком.
+				// The audit configuration: 100 serves as both default and ceiling.
 				name:      "custom max exactly at ceiling is valid",
 				raw:       "100",
 				opts:      []PagingOption{WithDefaultLimit(100), WithMaxLimit(100)},
 				wantLimit: 100,
 			}, {
-				// Прямая защита audit от регресса: 101 обязан дать 100 и НЕ
-				// обязан быть ошибкой.
+				// A direct regression guard for audit: 101 must yield 100 and
+				// must NOT be an error.
 				name:      "custom max plus one falls back to custom default",
 				raw:       "101",
 				opts:      []PagingOption{WithDefaultLimit(100), WithMaxLimit(100)},
@@ -165,8 +166,9 @@ func TestPagingParams(t *testing.T) {
 				wantLimit:       100,
 				wantUnparseable: true,
 			}, {
-				// Комбинации def != max нет ни у одного вызывающего: без неё
-				// контракт держался бы совпадением чисел, а не определением.
+				// No caller has the def != max combination: without it the
+				// contract would rest on the numbers coinciding, not on the
+				// definition.
 				name:      "def differs from max: violation yields def not max",
 				raw:       "101",
 				opts:      []PagingOption{WithDefaultLimit(50), WithMaxLimit(100)},
@@ -177,9 +179,9 @@ func TestPagingParams(t *testing.T) {
 				opts:      []PagingOption{WithDefaultLimit(50), WithMaxLimit(100)},
 				wantLimit: 100,
 			}, {
-				// Дефолт выше потолка — ошибка конфигурации вызывающего;
-				// потолок обязан удержать и его, иначе хелпер отдаёт страницу
-				// больше той, ради ограничения которой он и заведён.
+				// A default above the ceiling is a caller misconfiguration; the
+				// ceiling must hold it too, otherwise the helper serves a page
+				// larger than the one it exists to cap.
 				name:      "def above max is capped at max",
 				opts:      []PagingOption{WithDefaultLimit(500), WithMaxLimit(100)},
 				wantLimit: 100,
@@ -189,8 +191,8 @@ func TestPagingParams(t *testing.T) {
 				opts:      []PagingOption{WithDefaultLimit(500), WithMaxLimit(100)},
 				wantLimit: 100,
 			}, {
-				// Нижняя граница того же инварианта: дефолт 0 или ниже дал бы
-				// пустую страницу на любом запросе без limit.
+				// The lower bound of the same invariant: a default of 0 or less
+				// would yield an empty page for any request without limit.
 				name:      "def below one is raised to one",
 				opts:      []PagingOption{WithDefaultLimit(0)},
 				wantLimit: 1,
@@ -228,12 +230,12 @@ func TestPagingParams(t *testing.T) {
 			QueryValues: url.Values{"limit": {"abc"}, "offset": {"xyz"}},
 		}.ToContext(t)
 
-		// Текст односоставный: вызывающий подставляет его в 400 как есть.
+		// The text is single-clause: the caller drops it into a 400 as is.
 		paging, err := PagingParams(c)
 		require.ErrorIs(t, err, ErrUnparseable)
 		require.Equal(t, "invalid limit", err.Error())
 
-		// Paging валиден целиком, даже когда некорректны оба параметра.
+		// Paging is valid as a whole even when both parameters are invalid.
 		require.Equal(t, defaultPagingLimit, paging.Limit)
 		require.Equal(t, int64(0), paging.Offset)
 	})

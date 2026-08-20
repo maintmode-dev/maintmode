@@ -1,9 +1,11 @@
-// Package license owns the SaaS license lifecycle on the instance side:
-// collecting the heartbeat report (seat usage, last activity), talking to the
-// Console license server, caching the returned license, and answering the
-// block gate (the suspend middleware). The license is an
-// optional feature: without it the process still starts and every consumer is
-// wired with Noop instead — nothing is ever enforced.
+// Package license owns the license lifecycle on the instance side for the paid
+// seat-based SaaS offering: collecting the heartbeat report (seat usage, last
+// activity), talking to the Console license server, caching the returned
+// license, and answering the block gate (the suspend middleware). The license
+// is an optional feature, off unless config.LicenseConfig.Enabled() is true
+// (both a Console url and an instance_token). Self-hosted sets neither, so the
+// process still starts and every consumer is wired with Noop instead — no
+// heartbeat, no seat cap, nothing enforced.
 package license
 
 import (

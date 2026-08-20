@@ -4,9 +4,10 @@
 # Starter set focused on single-VM Docker Compose deployment health.
 # Extend with app-level SLOs as MaintMode evolves.
 #
-# Every rule sets `runbook_url` to the matching section in
-# maintmode-docs/ops/alert-runbooks.md so on-call has a one-click
-# triage doc in the Telegram message.
+# Each rule carries its triage hint inline: `summary` names what fired and
+# `description` says what it means and where to look. Add a `runbook_url`
+# annotation per rule if you keep operator runbooks of your own — alertmanager
+# surfaces it in the notification.
 
 groups:
   - name: maintmode.availability
@@ -20,7 +21,6 @@ groups:
         annotations:
           summary: "{{ $labels.job }} target down"
           description: "Prometheus cannot scrape {{ $labels.instance }} ({{ $labels.job }}). Container likely stopped, crashed, or network is partitioned."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#instancedown"
 
       - alert: HighHTTP5xxRate
         # The app exposes OTel HTTP server metrics
@@ -39,7 +39,6 @@ groups:
         annotations:
           summary: "{{ $labels.service_name }}: 5xx rate > 5%"
           description: "Service {{ $labels.service_name }} is returning more than 5% 5xx responses over the last 5 minutes."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#highhttp5xxrate"
 
       - alert: MaintmodeCrashLooping
         # process_start_time_seconds resets on every process (re)start, so
@@ -56,7 +55,6 @@ groups:
         annotations:
           summary: "{{ $labels.instance }} is crash-looping / redeploying repeatedly"
           description: "{{ $labels.instance }} has restarted {{ $value }} times in the last 5 minutes. A rolling deploy restarts a replica once — repeated restarts mean a crash loop or a deploy failing its readiness check. Check the container logs and the last deploy."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintmodecrashlooping"
 
   # Login failures are invisible to HighHTTP5xxRate: a rejected token is a 401
   # or a 400, never a 5xx (see httperrors/mapper.go — ErrInvalidAccessToken and
@@ -102,7 +100,6 @@ groups:
         annotations:
           summary: "Google ID-token exchange is rejecting logins"
           description: "The BFF's id_token exchange has been returning 4xx for 10m. The BFF only calls this after Google authenticated the user, so we are rejecting tokens Google just issued — no new user can log in. Check JWKS reachability, that oauth/google/client_id still matches the client maintmode-ui uses, and the container clock."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#oauthexchangefailing"
 
       - alert: InvitationAcceptFailing
         # In prod the exchange endpoint above is blocked by NotAllowedInProd, so
@@ -121,7 +118,6 @@ groups:
         annotations:
           summary: "Invitation acceptance is failing repeatedly"
           description: "More than ~3 invitation accepts per minute have failed with 4xx for 10m. Isolated failures are expected (expired or reused invite, email mismatch), but a sustained rate means ID-token verification or the invitation flow is broken — and in prod this is the only way a new user can sign in."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#invitationacceptfailing"
 
       - alert: TokenRefreshFailureRateHigh
         # /refresh returning 401 is routine — every expired refresh token lands
@@ -146,7 +142,6 @@ groups:
         annotations:
           summary: "Most token refreshes are failing"
           description: "Over 50% of /api/v1/refresh calls have returned 4xx for 15m. A single expired refresh token is normal; a majority failing means the JWT signing key rotated under live sessions or the refresh-token store is unreadable — every active user is being logged out."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#tokenrefreshfailureratehigh"
 
   - name: maintmode.audit
     interval: 30s
@@ -164,7 +159,6 @@ groups:
         annotations:
           summary: "Audit log writes are failing"
           description: "The audit-write processor has been failing to insert audit_log rows for 5m. Audit events are queued and retried, but the trail is behind — investigate the audit store / DB health."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#auditwriteerrors"
 
   - name: maintmode.notify
     interval: 30s
@@ -187,7 +181,6 @@ groups:
         annotations:
           summary: "Owner messenger handles are being rejected by the notification sanitizer"
           description: "A stored messenger handle has been failing the render-time sanitizer for 15m. Input validation should have made this impossible — find the row and how the value got in."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintnotifyownermentionrejected"
 
       - alert: MaintNotifyDispatchErrors
         # The dispatch path swallows these failures so a business operation that
@@ -201,7 +194,6 @@ groups:
         annotations:
           summary: "Maintenance notifications are being dropped during dispatch"
           description: "Notification dispatch has been failing for 15m (see the reason label: resolve = notify targets unreadable, render = template failure). Affected maintenances started, completed or were cancelled without notifying anyone."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#maintnotifydispatcherrors"
 
   - name: maintmode.storage
     interval: 30s
@@ -218,7 +210,6 @@ groups:
         annotations:
           summary: "Postgres connection pool > 80% utilized"
           description: "{{ $value | humanizePercentage }} of max_connections in use. Investigate connection leaks or scale max_connections."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#postgresconnectionshigh"
 
       - alert: ValkeyDown
         # The metric is `redis_up`, not `valkey_up`: the exporter
@@ -233,7 +224,6 @@ groups:
         annotations:
           summary: "Valkey is down"
           description: "valkey-exporter reports redis_up == 0. Cache misses will fall through to Postgres; rate limiting and session storage are degraded."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#valkeydown"
 
       - alert: ValkeyExporterMissing
         # ValkeyDown can only fire while the series exists. If the exporter
@@ -250,7 +240,6 @@ groups:
         annotations:
           summary: "Valkey exporter is not being scraped"
           description: "redis_up is absent — the exporter is down or the scrape target is misconfigured. ValkeyDown cannot fire while this is true."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#valkeyexportermissing"
 
       - alert: RateLimiterValkeyFallback
         # The rate limiter increments this counter when a Valkey call
@@ -268,7 +257,6 @@ groups:
         annotations:
           summary: "Rate limiter sustained Valkey fallback"
           description: "The rate limiter has been falling back to its in-memory store at > 1/s for 5m. The shared limit is degraded across replicas; check Valkey health and network."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#ratelimitervalkeyfallback"
 
       - alert: GoquePayloadDecodeErrors
         # goque cancels (or retries) a task whose payload no longer decodes —
@@ -283,7 +271,6 @@ groups:
         annotations:
           summary: "goque payload decode errors for task_type {{ $labels.task_type }}"
           description: "goque has been failing to decode {{ $labels.task_type }} task payloads for 5m. Tasks are being canceled or retried instead of processed — likely a payload schema mismatch from a recent deploy."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#goquepayloaddecodeerrors"
 
       - alert: PgDoormanPoolSaturated
         # pg_doorman exports pools-by-status as pg_doorman_pools_clients
@@ -302,7 +289,6 @@ groups:
         annotations:
           summary: "pg_doorman pool {{ $labels.user }}@{{ $labels.database }} > 90% saturated"
           description: "Connection pooler is close to capacity for {{ $labels.user }}@{{ $labels.database }}. Investigate slow queries or raise pool_size."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#pgdoormanpoolsaturated"
 
       - alert: PgDoormanClientsWaiting
         # Clients waiting for a server connection means the pool is exhausted
@@ -314,7 +300,6 @@ groups:
         annotations:
           summary: "pg_doorman clients waiting for {{ $labels.user }}@{{ $labels.database }}"
           description: "Clients have been waiting for a pooled server connection for 2m. The pool is exhausted — raise pool_size or investigate long-held connections."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#pgdoormanpoolsaturated"
 
   # Host + per-container resource pressure, backed by node-exporter and
   # cAdvisor (added in RUK-191). Thresholds are intentionally conservative
@@ -330,7 +315,6 @@ groups:
         annotations:
           summary: "Host memory > 90% used"
           description: "{{ $value | humanizePercentage }} of VM memory is in use for 5m. Risk of OOM kills; investigate the heaviest containers on the Resources dashboard."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostmemoryhigh"
 
       - alert: HostDiskLow
         expr: |
@@ -344,7 +328,6 @@ groups:
         annotations:
           summary: "Host root filesystem < 15% free"
           description: "Only {{ $value | humanizePercentage }} free on /. Postgres, Loki, and VictoriaMetrics volumes live here — free space or grow the disk before writes start failing."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostdisklow"
 
       - alert: HostCPUHigh
         expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.85
@@ -354,7 +337,6 @@ groups:
         annotations:
           summary: "Host CPU > 85% for 10m"
           description: "Sustained host CPU saturation ({{ $value | humanizePercentage }}). Identify the hot container on the Resources dashboard; the VM may need more cores."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#hostcpuhigh"
 
       - alert: ContainerMemoryHigh
         # Per-container working set as a share of total host memory. No
@@ -371,7 +353,6 @@ groups:
         annotations:
           summary: "Container {{ $labels.service_name }} using > 50% of host memory"
           description: "{{ $labels.service_name }} has held more than half of the VM's memory for 5m. Investigate a leak or right-size the VM."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#containermemoryhigh"
 
       - alert: ContainerCPUHigh
         # Per-container CPU in cores vs total host cores.
@@ -385,4 +366,3 @@ groups:
         annotations:
           summary: "Container {{ $labels.service_name }} using > 85% of host CPU"
           description: "{{ $labels.service_name }} has consumed more than 85% of total host CPU for 10m. Investigate a hot loop or scale out."
-          runbook_url: "https://github.com/maintmode-dev/maintmode-docs/blob/main/ops/alert-runbooks.md#containercpuhigh"

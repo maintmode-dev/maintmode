@@ -22,9 +22,9 @@ type TokenVerifier interface {
 	VerifyAccessToken(ctx context.Context, tokenString string) (*entity.AccessClaims, error)
 }
 
-// RequireAccessToken создаёт middleware для проверки JWT токенов.
-// Парсит Authorization: Bearer <token>, верифицирует подпись,
-// записывает userID
+// RequireAccessToken builds a middleware that validates JWT tokens.
+// It parses Authorization: Bearer <token>, verifies the signature and
+// records the userID.
 func RequireAccessToken(tokenSrv TokenVerifier) echo.MiddlewareFunc {
 	op := "authenticate"
 

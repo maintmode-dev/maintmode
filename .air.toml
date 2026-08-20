@@ -2,7 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-# Генерация swagger + сборка
+# Swagger generation + build
 cmd = "make build-dev"
 
 env_files = [".env.local"]

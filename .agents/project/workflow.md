@@ -41,7 +41,7 @@ The project ships as a **single binary**: `cmd/maintmode`. There is no separate
 monolith. Module boundaries (core / auth / notificator / audit / integration /
 license) are logical, enforced at lint time by the `depguard` rules in
 `.golangci.yaml` (the store-fortress rules, commented there as
-"крепость сторов"), not by separate processes. A
+"Store fortress"), not by separate processes. A
 store belongs to exactly one module and may only be imported from that module;
 cross-module data access goes through a consumer-declared interface. Because
 everything runs in one process, there is no version skew *between* modules —

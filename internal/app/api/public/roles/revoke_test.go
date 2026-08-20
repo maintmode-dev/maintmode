@@ -22,7 +22,7 @@ func TestRevoke(t *testing.T) {
 
 	impl := initImpl(t)
 
-	t.Run("ок", func(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
 		target := createUser(ctx, t, impl, apimodels.RoleGuest, apimodels.RoleEditor)

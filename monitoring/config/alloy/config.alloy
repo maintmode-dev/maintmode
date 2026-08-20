@@ -1,22 +1,23 @@
-// RUK-190: непрерывное профилирование maintmode через Pyroscope (pull-модель).
+// RUK-190: continuous profiling of maintmode through Pyroscope (pull model).
 //
-// Alloy сам НЕ хранит профили — он их собирает с pprof-эндпоинтов приложения
-// и форвардит в Pyroscope. Схема: discovery.docker (найти реплики maintmode)
-// → discovery.relabel (собрать адрес <ip>:8001 и проставить service_name)
-// → pyroscope.scrape (снять профили) → pyroscope.write (отдать в Pyroscope).
+// Alloy itself does NOT store profiles — it collects them from the application's
+// pprof endpoints and forwards them to Pyroscope. The chain: discovery.docker
+// (find the maintmode replicas) -> discovery.relabel (build the <ip>:8001 address
+// and set service_name) -> pyroscope.scrape (take the profiles) ->
+// pyroscope.write (hand them to Pyroscope).
 
-// 1. Куда пишем профили.
+// 1. Where the profiles are written.
 pyroscope.write "local_pyroscope" {
 	endpoint {
 		url = "http://pyroscope:4040"
 	}
 }
 
-// 2. Обнаружение целей через Docker.
-//    Берём ВСЕ контейнеры и фильтруем по лейблу prometheus.service=maintmode
-//    (тот же лейбл, по которому maintmode находит Prometheus). Так покрывается
-//    горизонтальное масштабирование `docker compose up --scale maintmode=N`:
-//    discovery отдаёт по цели на каждую реплику, статический таргет не нужен.
+// 2. Target discovery through Docker.
+//    We take ALL containers and filter by the prometheus.service=maintmode label
+//    (the same label by which Prometheus finds maintmode). That covers horizontal
+//    scaling with `docker compose up --scale maintmode=N`: discovery yields one
+//    target per replica, so no static target is needed.
 discovery.docker "maintmode" {
 	host = "unix:///var/run/docker.sock"
 
@@ -26,10 +27,11 @@ discovery.docker "maintmode" {
 	}
 }
 
-// 3. Приводим найденные контейнеры к пригодным для скрейпа целям:
-//    - __address__ = <ip контейнера в сети theapp>:8001 (порт pprof живёт на
-//      infra-сервере, наружу не публикуется, поэтому порт фиксируем литералом);
-//    - service_name = maintmode — тег, по которому профили ищутся в Grafana.
+// 3. Turn the discovered containers into scrapeable targets:
+//    - __address__ = <container ip in the theapp network>:8001 (the pprof port
+//      lives on the infra server and is not published outside, so the port is
+//      pinned as a literal);
+//    - service_name = maintmode — the tag by which profiles are found in Grafana.
 discovery.relabel "maintmode" {
 	targets = discovery.docker.maintmode.targets
 
@@ -45,20 +47,20 @@ discovery.relabel "maintmode" {
 	}
 }
 
-// 4. Скрейпим стандартные Go pprof-профили со всех обнаруженных реплик.
+// 4. Scrape the standard Go pprof profiles from every discovered replica.
 pyroscope.scrape "maintmode_app" {
 	targets    = discovery.relabel.maintmode.output
 	forward_to = [pyroscope.write.local_pyroscope.receiver]
 
-	// Как часто снимать профили с каждой реплики. Не заданы → дефолты Alloy:
-	// scrape_interval = 15s, scrape_timeout = 18s. 15s = профилирование почти
-	// непрерывное (CPU-профиль снимается окном ~10-15s), что даёт постоянную
-	// небольшую нагрузку на приложение и растит объём в Pyroscope при многих
-	// репликах. Раскомментируй и увеличь (напр. 60s), если нужно реже/дешевле.
+	// How often profiles are taken from each replica. Unset -> Alloy defaults:
+	// scrape_interval = 15s, scrape_timeout = 18s. 15s means profiling is almost
+	// continuous (a CPU profile is taken over a ~10-15s window), which puts a
+	// constant small load on the application and grows the volume in Pyroscope
+	// with many replicas. Uncomment and raise it (e.g. 60s) for a rarer/cheaper run.
 	// scrape_interval = "15s"
 	// scrape_timeout  = "18s"
 
-	// Собираем все типы профилей: CPU, память, горутины, block, mutex.
+	// Collect every profile type: CPU, memory, goroutines, block, mutex.
 	profiling_config {
 		profile.process_cpu { enabled = true }
 		profile.memory { enabled = true }

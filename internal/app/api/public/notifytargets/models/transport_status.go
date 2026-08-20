@@ -8,7 +8,7 @@ import (
 )
 
 // TransportStatus reports whether the integration backing a transport can
-// deliver right now. It is a read-model signal only (RUK-198, вариант В): the
+// deliver right now. It is a read-model signal only (RUK-198, variant B): the
 // coupling between channels and the integration registry stays weak — channel
 // create/update never validates against the registry, and the dispatch path
 // keeps its best-effort drop on a disabled integration. The FE uses this to

@@ -8,35 +8,36 @@ import (
 )
 
 const (
-	// MaxPagingOffset ограничивает глубину offset-пагинации во всех листингах.
-	// OFFSET в Postgres линеен: база проходит и отбрасывает все пропускаемые
-	// строки, поэтому без потолка клиент задаёт объём работы БД сам. 10_000 —
-	// заведомо глубже любого осмысленного просмотра (200-я страница при limit=50).
+	// MaxPagingOffset caps offset pagination depth across every listing.
+	// OFFSET in Postgres is linear: the database walks and discards every skipped
+	// row, so without a ceiling the client dictates how much work the DB does.
+	// 10_000 is far deeper than any meaningful browsing (page 200 at limit=50).
 	MaxPagingOffset int64 = 10_000
 
-	// defaultPagingLimit и defaultPagingMaxLimit — размер страницы и её потолок,
-	// одинаковые у четырёх из пяти листингов. Вынесены сюда, чтобы 200 не
-	// повторялось в каждом пакете, как будто это осознанный выбор эндпоинта.
+	// defaultPagingLimit and defaultPagingMaxLimit are the page size and its
+	// ceiling, identical in four listings out of five. They live here so that 200
+	// is not repeated in every package as if it were a per-endpoint decision.
 	defaultPagingLimit    int64 = 50
 	defaultPagingMaxLimit int64 = 200
 )
 
-// ErrUnparseable — значение не является числом. Отделено от выхода за
-// диапазон намеренно, и вот принцип, по которому листинги здесь расходятся:
-// нераспарсиваемое значение — ошибка клиента, и эндпоинт вправе её отвергнуть;
-// выход за диапазон — запрос за границей возможного, на который есть
-// корректный ответ. Поэтому audit отвечает 400 на "abc", но молча правит
-// limit=101, а четыре read-only листинга молчат в обоих случаях.
-// Слить ветки в один error нельзя: audit начнёт 400-ить limit=101.
+// ErrUnparseable means the value is not a number. Keeping it apart from
+// out-of-range is deliberate, and it is the principle along which the listings
+// diverge here: an unparseable value is a client mistake, and an endpoint is
+// entitled to reject it; an out-of-range value is a request past the edge of
+// what is possible, and it has a correct answer. That is why audit answers 400
+// to "abc" yet silently fixes up limit=101, while the four read-only listings
+// stay quiet in both cases. The two branches cannot be merged into one error:
+// audit would start returning 400 for limit=101.
 //
-// Ошибка несёт имя параметра и целиком годится в тело 400: текст вида
-// "invalid limit" / "invalid offset" закреплён тестами audit, поэтому
-// оборачивающему хендлеру не нужно ни разбирать сентинел, ни собирать
-// сообщение самому.
+// The error carries the parameter name and is fit to be used as a 400 body
+// verbatim: text of the form "invalid limit" / "invalid offset" is pinned by
+// the audit tests, so the wrapping handler need neither unwrap the sentinel nor
+// assemble the message itself.
 var ErrUnparseable = errors.New("invalid")
 
-// Paging — разобранные страничные параметры, уже приведённые к допустимому
-// диапазону: Offset в [0, maxOffset], Limit в [1, maxLimit].
+// Paging holds the parsed paging parameters, already coerced into the allowed
+// range: Offset in [0, maxOffset], Limit in [1, maxLimit].
 type Paging struct {
 	Limit  int64
 	Offset int64
@@ -54,43 +55,44 @@ type pagingConfig struct {
 // listing needs no options at all.
 type PagingOption func(*pagingConfig)
 
-// WithDefaultLimit переопределяет размер страницы по умолчанию (50).
+// WithDefaultLimit overrides the default page size (50).
 func WithDefaultLimit(def int64) PagingOption {
 	return func(c *pagingConfig) { c.defaultLimit = def }
 }
 
-// WithMaxLimit переопределяет потолок размера страницы (по умолчанию 200).
-// Нужен там, где страница дороже: audit отдаёт максимум 100.
+// WithMaxLimit overrides the page size ceiling (200 by default).
+// Needed where a page is more expensive: audit serves at most 100.
 func WithMaxLimit(maxLimit int64) PagingOption {
 	return func(c *pagingConfig) { c.maxLimit = maxLimit }
 }
 
-// WithMaxOffset ОПУСКАЕТ глубину offset-пагинации ниже MaxPagingOffset. Поднять
-// её этой опцией нельзя: значение выше глобального потолка игнорируется, иначе
-// вызывающий мог бы отменить ровно то ограничение, ради которого пакет и
-// существует. Комментарий такую границу не удержал бы — опция экспортирована,
-// а пять листингов копируют друг у друга.
+// WithMaxOffset LOWERS offset pagination depth below MaxPagingOffset. It cannot
+// raise it: a value above the global ceiling is ignored, otherwise a caller
+// could undo the very limit this package exists for. A comment would not have
+// held that boundary — the option is exported, and the five listings copy from
+// one another.
 //
-// У продакшн-вызывающих причин её звать нет — один потолок на все листинги
-// осознанный выбор. Она нужна тестам: на дефолтном потолке подмена cfg.maxOffset
-// константой MaxPagingOffset неотличима от корректного поведения.
+// Production callers have no reason to use it — a single ceiling for all
+// listings is a deliberate choice. It exists for the tests: at the default
+// ceiling, substituting cfg.maxOffset with the MaxPagingOffset constant is
+// indistinguishable from correct behaviour.
 func WithMaxOffset(maxOffset int64) PagingOption {
 	return func(c *pagingConfig) { c.maxOffset = min(maxOffset, MaxPagingOffset) }
 }
 
-// PagingParams разбирает limit/offset. Возвращённый Paging валиден всегда,
-// поэтому вызывающий волен ошибку проигнорировать.
+// PagingParams parses limit/offset. The returned Paging is always valid, so the
+// caller is free to ignore the error.
 //
-// Приведение к диапазону различается по параметрам намеренно:
-//   - limit вне [1, max] → def. Отдать меньшую страницу корректно.
-//   - offset > max → max (кламп, не def). Кламп никогда не возвращает более
-//     раннюю страницу, чем запрошено, — в отличие от сброса в 0, который
-//     всегда возвращает самую первую.
+// The coercion differs per parameter on purpose:
+//   - limit outside [1, max] → def. Serving a smaller page is correct.
+//   - offset > max → max (clamp, not def). A clamp never returns an earlier page
+//     than the one requested — unlike a reset to 0, which always returns the
+//     very first one.
 //
-// Граница в обоих случаях одна и та же: `> max`, само значение max валидно.
+// The boundary is the same in both cases: `> max`, the value max itself is valid.
 //
-// Ошибка — только ErrUnparseable с именем параметра; выход за диапазон
-// ошибкой не считается (см. док ErrUnparseable).
+// The only error is ErrUnparseable with the parameter name; out-of-range is not
+// treated as an error (see the ErrUnparseable doc).
 func PagingParams(c *echo.Context, opts ...PagingOption) (Paging, error) {
 	cfg := pagingConfig{
 		defaultLimit: defaultPagingLimit,
@@ -100,18 +102,18 @@ func PagingParams(c *echo.Context, opts ...PagingOption) (Paging, error) {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	// Дефолт — тоже значение limit, и потолок обязан держать его так же, как
-	// пришедший из query: иначе WithDefaultLimit(500) поверх WithMaxLimit(100)
-	// отдавал бы 500 страницей по умолчанию.
+	// The default is a limit value too, and the ceiling must hold it just like a
+	// value coming from the query: otherwise WithDefaultLimit(500) on top of
+	// WithMaxLimit(100) would serve 500 as the default page.
 	cfg.defaultLimit = min(max(cfg.defaultLimit, 1), cfg.maxLimit)
 
 	limit, limitErr := pagingLimit(c, cfg)
 	offset, offsetErr := pagingOffset(c, cfg)
 	paging := Paging{Limit: limit, Offset: offset}
 
-	// Оба параметра разбираются всегда, чтобы Paging был валиден целиком, но
-	// наружу уходит одна ошибка — про первый некорректный параметр. Так текст
-	// остаётся односоставным ("invalid limit"), как и до переезда на хелпер.
+	// Both parameters are always parsed so that Paging is valid as a whole, but
+	// only one error escapes — about the first invalid parameter. That keeps the
+	// text single-clause ("invalid limit"), as it was before the move to the helper.
 	if limitErr != nil {
 		return paging, limitErr
 	}
@@ -119,9 +121,9 @@ func PagingParams(c *echo.Context, opts ...PagingOption) (Paging, error) {
 	return paging, offsetErr
 }
 
-// pagingLimit возвращает валидный размер страницы всегда: на нераспарсиваемом
-// значении echo.QueryParamOr отдаёт нуль типа, а не дефолт, поэтому дефолт
-// проставляется здесь явно.
+// pagingLimit always returns a valid page size: on an unparseable value
+// echo.QueryParamOr yields the zero value of the type rather than the default,
+// so the default is applied explicitly here.
 func pagingLimit(c *echo.Context, cfg pagingConfig) (int64, error) {
 	limit, err := echo.QueryParamOr[int64](c, "limit", cfg.defaultLimit)
 	if err != nil {
@@ -135,8 +137,8 @@ func pagingLimit(c *echo.Context, cfg pagingConfig) (int64, error) {
 	return limit, nil
 }
 
-// pagingOffset возвращает валидную позицию всегда: ниже нуля — начало набора,
-// выше потолка — самая глубокая доступная страница, а не начало.
+// pagingOffset always returns a valid position: below zero is the start of the
+// set, above the ceiling is the deepest available page rather than the start.
 func pagingOffset(c *echo.Context, cfg pagingConfig) (int64, error) {
 	offset, err := echo.QueryParamOr[int64](c, "offset", 0)
 	if err != nil {

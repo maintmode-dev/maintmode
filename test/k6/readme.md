@@ -1,22 +1,22 @@
 # K6 Load Tests - Quick Start
 
-## 1. Как запустить
+## 1. How to run
 
-### Запустить окружение с инфраструктурой
+### Bring up the environment with the infrastructure
 
 ```bash
-# Запустить приложение + мониторинг (Grafana, Victoria Metrics)
+# Start the application + monitoring (Grafana, Victoria Metrics)
 make app-with-monitoring-up
 ```
 
-### Получить токен авторизации
+### Get an authorization token
 
-API требует Bearer-токен. Signup по умолчанию invite-only (обычный exchange
-через стаб даст отказ, guest или — только на пустой базе — bootstrap-админа),
-поэтому токен минтится через OAuth-стаб **с dev-only заголовком
-`X-Test-Roles`** — он создаёт стаб-пользователя и выдаёт нужные сценариям роли
-(admin покрывает все записи). У токена ограниченный TTL — для длинных soak-ов
-переминтите его перед запуском:
+The API requires a Bearer token. Signup is invite-only by default (a plain
+exchange through the stub yields a rejection, a guest or — on an empty database
+only — the bootstrap admin), so the token is minted through the OAuth stub
+**with the dev-only `X-Test-Roles` header** — it creates a stub user and grants
+the roles the scenarios need (admin covers every write). The token has a limited
+TTL — for long soak runs, re-mint it right before starting:
 
 ```bash
 AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exchange/google" \
@@ -24,82 +24,82 @@ AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exch
   -d '{"id_token":"k6-load-test"}' | jq -r '.access_token')
 ```
 
-Токен передаётся в сценарии через env:
+The token is passed into the scenarios through the environment:
 
 ```bash
 AUTH_TOKEN=$AUTH_TOKEN make k6
-# или напрямую: k6 run -e AUTH_TOKEN=$AUTH_TOKEN scenarios/00-full-scenario-test.js
+# or directly: k6 run -e AUTH_TOKEN=$AUTH_TOKEN scenarios/00-full-scenario-test.js
 ```
 
-### Запустить нагрузочный тест
+### Run a load test
 
 ```bash
-# Запустить полный сценарий (рекомендуется для первого раза)
+# Run the full scenario (recommended for the first run)
 make k6
 ```
 
-Тест автоматически:
-- Подключится к API на `http://maintmode:8000`
-- Отправит метрики в Victoria Metrics
-- Запустит имитацию работы команды инженеров (~5 минут)
+The test automatically:
+- Connects to the API at `http://maintmode:8000`
+- Sends metrics to Victoria Metrics
+- Simulates the work of an engineering team (~5 minutes)
 
-## 2. Как настроить нагрузочные тесты
+## 2. How to configure the load tests
 
-### Изменить профиль нагрузки
+### Change the load profile
 
-Откройте нужный тест в `test/k6/scenarios/` и измените `options.stages`:
+Open the test you need in `test/k6/scenarios/` and edit `options.stages`:
 
 ```javascript
 export const options = {
   stages: [
-    { duration: '30s', target: 5 },   // Плавный рост до 5 VUs за 30 секунд
-    { duration: '1m', target: 10 },   // Рост до 10 VUs за 1 минуту
-    { duration: '2m', target: 10 },   // Удержание 10 VUs в течение 2 минут
-    { duration: '30s', target: 0 },   // Плавное снижение до 0 за 30 секунд
+    { duration: '30s', target: 5 },   // Ramp up smoothly to 5 VUs over 30 seconds
+    { duration: '1m', target: 10 },   // Ramp up to 10 VUs over 1 minute
+    { duration: '2m', target: 10 },   // Hold 10 VUs for 2 minutes
+    { duration: '30s', target: 0 },   // Ramp down smoothly to 0 over 30 seconds
   ],
 };
 ```
 
-**Параметры:**
-- `duration` - длительность этапа (`30s`, `1m`, `2m`)
-- `target` - целевое количество виртуальных пользователей (VUs)
+**Parameters:**
+- `duration` - the length of the stage (`30s`, `1m`, `2m`)
+- `target` - the target number of virtual users (VUs)
 
-### Изменить пороги успешности (thresholds)
+### Change the success thresholds
 
 ```javascript
 export const options = {
   thresholds: {
-    http_req_duration: ['p(95)<500', 'p(99)<1000'], // 95% запросов < 500ms
-    http_req_failed: ['rate<0.05'],                  // Ошибок < 5%
-    checks: ['rate>0.95'],                           // Проверок успешно > 95%
+    http_req_duration: ['p(95)<500', 'p(99)<1000'], // 95% of requests < 500ms
+    http_req_failed: ['rate<0.05'],                  // Errors < 5%
+    checks: ['rate>0.95'],                           // Checks passing > 95%
   },
 };
 ```
 
-### Настроить паузы между запросами
+### Tune the pauses between requests
 
 ```javascript
 import { sleep } from 'k6';
 
 export default function() {
-  // Ваш тест
+  // Your test
 
-  sleep(1);  // Пауза 1 секунда между итерациями
-  // или
-  sleep(Math.random() * 3); // Случайная пауза 0-3 секунды
+  sleep(1);  // A 1 second pause between iterations
+  // or
+  sleep(Math.random() * 3); // A random pause of 0-3 seconds
 }
 ```
 
-### Примеры профилей нагрузки
+### Example load profiles
 
-**Легкий тест (smoke test):**
+**Light test (smoke test):**
 ```javascript
 stages: [
-  { duration: '1m', target: 1 },  // 1 пользователь
+  { duration: '1m', target: 1 },  // 1 user
 ]
 ```
 
-**Средняя нагрузка:**
+**Moderate load:**
 ```javascript
 stages: [
   { duration: '1m', target: 10 },
@@ -108,48 +108,48 @@ stages: [
 ]
 ```
 
-**Стресс-тест:**
+**Stress test:**
 ```javascript
 stages: [
   { duration: '2m', target: 50 },
   { duration: '5m', target: 50 },
-  { duration: '2m', target: 100 },  // Резкий скачок
+  { duration: '2m', target: 100 },  // A sharp spike
   { duration: '3m', target: 100 },
   { duration: '2m', target: 0 },
 ]
 ```
 
-**Spike test (пиковая нагрузка):**
+**Spike test (peak load):**
 ```javascript
 stages: [
-  { duration: '10s', target: 100 },  // Резкий скачок
+  { duration: '10s', target: 100 },  // A sharp spike
   { duration: '1m', target: 100 },
   { duration: '10s', target: 0 },
 ]
 ```
 
-## 3. Где смотреть результаты
+## 3. Where to look at the results
 
-### В Grafana (визуализация в реальном времени)
+### In Grafana (real-time visualization)
 
 ```bash
-# Открыть Grafana dashboard
+# Open the Grafana dashboard
 open http://localhost:8003/d/k6-load-testing
 ```
 
-**Логин:** `admin` / **Пароль:** `admin`
+**Login:** `admin` / **Password:** `admin`
 
-**Dashboard показывает:**
-- 📊 **Performance Overview** - VUs, время ответа, request rate, ошибки
-- ⏱️ **HTTP Latency Timings** - разбивка времени запроса (connecting, waiting, receiving)
-- 📈 **HTTP Request Rate** - throughput (запросов в секунду)
-- 📋 **Requests by URL** - статистика по каждому endpoint (p50/p95/p99)
-- ✅ **Checks** - успешность бизнес-проверок
-- 📦 **Data Transfer** - объем переданных данных
+**The dashboard shows:**
+- 📊 **Performance Overview** - VUs, response time, request rate, errors
+- ⏱️ **HTTP Latency Timings** - a breakdown of the request time (connecting, waiting, receiving)
+- 📈 **HTTP Request Rate** - throughput (requests per second)
+- 📋 **Requests by URL** - statistics per endpoint (p50/p95/p99)
+- ✅ **Checks** - the pass rate of the business checks
+- 📦 **Data Transfer** - the volume of data transferred
 
-### В консоли (после завершения теста)
+### In the console (after the test finishes)
 
-k6 выводит итоговую статистику:
+k6 prints the final statistics:
 
 ```
      ✓ Create Resource: status is 200
@@ -163,15 +163,15 @@ k6 выводит итоговую статистику:
      vus............................: 20     min=1     max=24
 ```
 
-**Ключевые метрики:**
-- ✅ `checks` > 95% - бизнес-логика работает корректно
-- ⚡ `http_req_duration` p(95) < 500ms - производительность в норме
-- ❌ `http_req_failed` < 5% - низкий уровень ошибок
-- 🔄 `http_reqs` - общий throughput
+**Key metrics:**
+- ✅ `checks` > 95% - the business logic works correctly
+- ⚡ `http_req_duration` p(95) < 500ms - performance is within the norm
+- ❌ `http_req_failed` < 5% - a low error rate
+- 🔄 `http_reqs` - the overall throughput
 
-### Критерии успешности
+### Success criteria
 
-| Метрика | 🟢 Отлично | 🟡 Приемлемо | 🔴 Плохо |
+| Metric | 🟢 Excellent | 🟡 Acceptable | 🔴 Poor |
 |---------|-----------|-------------|---------|
 | **Checks** | > 95% | 90-95% | < 90% |
 | **p95 response time** | < 300ms | 300-500ms | > 500ms |
@@ -180,29 +180,29 @@ k6 выводит итоговую статистику:
 
 ## Troubleshooting
 
-### Приложение не отвечает
+### The application does not respond
 
 ```bash
-# Проверить статус контейнеров
+# Check the container status
 docker ps
 
-# Проверить логи
+# Check the logs
 docker logs maintmode
 ```
 
-### Метрики не появляются в Grafana
+### Metrics do not show up in Grafana
 
 ```bash
-# Проверить Victoria Metrics
+# Check Victoria Metrics
 curl http://localhost:8428/-/healthy
 
-# Проверить метрики k6
+# Check the k6 metrics
 curl 'http://localhost:8428/api/v1/query?query=k6_vus'
 ```
 
-### Много ошибок в тестах
+### Too many errors in the tests
 
-1. Проверьте логи API: `make app-logs`
-2. Уменьшите нагрузку (меньше VUs)
-3. Увеличьте паузы между запросами
+1. Check the API logs: `make app-logs`
+2. Reduce the load (fewer VUs)
+3. Increase the pauses between requests
 

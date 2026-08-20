@@ -319,11 +319,14 @@ type CryptoConfig struct {
 }
 
 // LicenseConfig wires the instance to the closed MaintMode Console license
-// server (SaaS mode). Self-hosted deployments leave the whole block
-// empty: Enabled() reports false, the license client never starts and no
-// limits apply. With both fields set, the instance heartbeats Console, caches
-// the returned license in its own DB and enforces its status: a blocked license
-// rejects every mutating business request (the block gate).
+// server, which exists only for the paid seat-based SaaS offering. Self-hosted
+// deployments leave the whole block empty — the sample configs under
+// deployment/ ship no license section — so Enabled() reports false, the
+// heartbeat processor is never registered, the license client is never built,
+// no seat cap applies and nothing is sent anywhere. With both fields set, the
+// instance heartbeats Console, caches the returned license in its own DB and
+// enforces its status: a blocked license rejects every mutating business
+// request (the block gate).
 type LicenseConfig struct {
 	// URL is the Console base URL; the heartbeat goes to
 	// {URL}/cloud/v1/instances/heartbeat.
@@ -341,8 +344,10 @@ type LicenseConfig struct {
 	CacheReloadInterval time.Duration `mapstructure:"cache_reload_interval"`
 }
 
-// Enabled reports whether the SaaS license mode is on. Both knobs are required;
-// a half-set block is rejected at startup by validateLicense.
+// Enabled reports whether the SaaS license mode is on. Both knobs are required,
+// so a half-set block leaves the feature entirely off rather than half-armed:
+// an instance with a url but no token cannot authenticate a heartbeat, and one
+// with a token but no url has nowhere to send it.
 func (c LicenseConfig) Enabled() bool {
 	return c.URL != "" && c.InstanceToken != ""
 }

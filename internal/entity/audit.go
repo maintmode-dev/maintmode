@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// AuditAction описывает тип события для аудит-лога.
+// AuditAction describes the event type of an audit log entry.
 type AuditAction string
 
 const (
@@ -78,34 +78,34 @@ const (
 	AuditEntityTypeIntegration AuditEntityType = "integration"
 )
 
-// AuditEntry представляет структурированную запись аудит-лога.
+// AuditEntry represents a structured audit log record.
 //
-// Дизайн:
-//   - EntityType + EntityID — привязка к конкретной сущности для быстрого поиска.
-//     НЕ foreign key — сущность может быть удалена, аудит остаётся.
-//   - EntityID хранится как string (не UUID) — чтобы не ломаться при удалении сущности
-//     и поддерживать разные типы ID (UUID, string name, int).
+// Design:
+//   - EntityType + EntityID bind the record to a concrete entity for fast lookup.
+//     NOT a foreign key — the entity may be deleted, the audit trail stays.
+//   - EntityID is stored as a string (not a UUID) so it does not break when the
+//     entity is deleted and can carry different ID kinds (UUID, string name, int).
 type AuditEntry struct {
 	ID               uuid.UUID
 	EventID          uuid.UUID // per-event idempotency key (RUK-179); uuid.Nil for legacy/non-outbox writes
 	Action           AuditAction
-	Actor            string          // кто совершил действие (email)
-	ActorID          string          // стабильный ID актора (user UUID, string — не FK); пустой для system
-	ActorDisplayName string          // снапшот имени актора на момент события (не резолвится на чтении)
-	EntityID         string          // ID основной сущности (string, не FK)
-	EntityType       AuditEntityType // тип основной сущности: user, maint, etc
-	Details          string          // человекочитаемое описание
-	Metadata         *AuditMetadata  // структурированный action-specific payload (опционально)
+	Actor            string          // who performed the action (email)
+	ActorID          string          // stable actor ID (user UUID, string — not an FK); empty for system
+	ActorDisplayName string          // snapshot of the actor name at event time (not resolved on read)
+	EntityID         string          // ID of the primary entity (string, not an FK)
+	EntityType       AuditEntityType // type of the primary entity: user, maint, etc
+	Details          string          // human-readable description
+	Metadata         *AuditMetadata  // structured action-specific payload (optional)
 	CreatedAt        time.Time
 }
 
 type AuditFailureReason string
 
-// Whitelist-safe причины отказа логина для аудит-метаданных. Сырой текст
-// ошибки в аудит не пишется — он может содержать внутренние детали (RUK-81).
+// Whitelist-safe login failure reasons for audit metadata. The raw error text is
+// never written to the audit trail — it may carry internal details (RUK-81).
 const (
 	AuditFailureUserProvisioning AuditFailureReason = "user provisioning failed"
-	//nolint:gosec // G101 false positive: человекочитаемая причина отказа, не credential
+	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureTokenIssuance AuditFailureReason = "token issuance failed"
 	// AuditFailureSignupDisabled marks an OAuth login of an unknown user rejected
 	// because neither an invitation nor open signup authorized creating the account.
@@ -119,15 +119,15 @@ const (
 	AuditLogoutKindAuto   = "auto"
 )
 
-// AuditMetadata — структурированный, action-specific payload записи аудита.
-// Строго whitelist безопасных полей: IP, user agent, session id, имена ролей.
-// НИКОГДА не класть сюда токены, куки, секреты или сырые payload'ы (см. RUK-81).
+// AuditMetadata is the structured, action-specific payload of an audit record.
+// Strictly a whitelist of safe fields: IP, user agent, session id, role names.
+// NEVER put tokens, cookies, secrets or raw payloads here (see RUK-81).
 //
-// Заполненность зависит от action:
-//   - login_success / login_failed: IP, UserAgent, SessionID (+FailureReason для failed);
+// Which fields are populated depends on the action:
+//   - login_success / login_failed: IP, UserAgent, SessionID (+FailureReason for failed);
 //   - logout_success: SessionID, LogoutKind;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
-//   - replaced: Roles (итоговый набор), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
+//   - replaced: Roles (resulting set), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
 //   - blocked / unblocked: TargetEmail, TargetDisplayName;
 //   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
 //     TargetDisplayName.

@@ -11,13 +11,13 @@ const (
 
 var AllRoles = []Role{RoleGuest, RoleEditor, RoleReviewer, RoleAdmin}
 
-// AssignRoleRequest — тело запроса на назначение роли.
+// AssignRoleRequest is the request body for assigning a role.
 type AssignRoleRequest struct {
 	UserID string `json:"user_id"`
 	Role   Role   `json:"role"`
 }
 
-// RevokeRoleRequest — тело запроса на отзыв роли.
+// RevokeRoleRequest is the request body for revoking a role.
 type RevokeRoleRequest struct {
 	UserID string `json:"user_id"`
 	Role   Role   `json:"role"`

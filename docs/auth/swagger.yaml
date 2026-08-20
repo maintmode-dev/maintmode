@@ -26,22 +26,22 @@ components:
                 action:
                     $ref: '#/components/schemas/entity.AuditAction'
                 actor:
-                    description: Actor — email актора (для system-событий — системный email).
+                    description: Actor is the actor's email (for system events, the system email).
                     type: string
                 actor_display_name:
                     description: |-
-                        ActorDisplayName — имя актора на момент события (снапшот, не резолвится
-                        заново на чтении). Пуст у записей, созданных до введения поля.
+                        ActorDisplayName is the actor name at event time (a snapshot, not resolved
+                        again on read). Empty on records created before the field was introduced.
                     type: string
                 actor_id:
                     description: |-
-                        ActorID — стабильный ID актора (user UUID); пуст для system-актора и
-                        неопознанных пользователей (login_failed по неизвестному email).
+                        ActorID is the stable actor ID (user UUID); empty for the system actor and
+                        for unidentified users (login_failed on an unknown email).
                     type: string
                 created_at:
                     type: string
                 details:
-                    description: Details — человекочитаемое описание события (legacy/fallback-строка).
+                    description: Details is a human-readable description of the event (legacy/fallback string).
                     type: string
                 entity_id:
                     type: string
@@ -62,7 +62,7 @@ components:
                     type: string
             type: object
         apiauthmodels.AuditLogMetadata:
-            description: Metadata — структурированный action-specific payload для expand-грида.
+            description: Metadata is the structured action-specific payload for the expand grid.
             properties:
                 changes:
                     items:

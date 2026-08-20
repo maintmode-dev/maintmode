@@ -1,8 +1,8 @@
-# Работа с транзакциями
+# Working with transactions
 
-## Транзакционный менеджер
+## Transaction manager
 
-Создайте файл `internal/utils/dbtx/tx_manager.go`:
+Create the file `internal/utils/dbtx/tx_manager.go`:
 
 ```go
 package dbtx
@@ -46,15 +46,15 @@ func (tm *TxManager) InTx(ctx context.Context, fn func(context.Context) error) e
 }
 ```
 
-## Использование транзакций
+## Using transactions
 
-### Пример с несколькими операциями
+### Example with several operations
 
 ```go
 func (s *Store) CreateWithResources(ctx context.Context, maint *entity.Maintenance, resources []*entity.Resource) error {
     dbMaint := toDBMaintenance(maint)
 
-    // Вставка основной записи
+    // Insert the main record
     stmt := table.Maintenances.INSERT(
         table.Maintenances.ID,
         table.Maintenances.Title,
@@ -70,7 +70,7 @@ func (s *Store) CreateWithResources(ctx context.Context, maint *entity.Maintenan
         return err
     }
 
-    // Вставка связанных ресурсов
+    // Insert the related resources
     for _, resource := range resources {
         dbResource := toDBMaintenanceResource(maint.ID, resource)
 
@@ -90,18 +90,18 @@ func (s *Store) CreateWithResources(ctx context.Context, maint *entity.Maintenan
 }
 ```
 
-### Использование через TxManager
+### Usage through TxManager
 
 ```go
 func (s *Service) CreateMaintenanceWithResources(ctx context.Context, req *CreateRequest) error {
     return s.txManager.InTx(ctx, func(txCtx context.Context) error {
-        // Создание maintenance
+        // Create the maintenance
         maint, err := s.store.Create(txCtx, req.Maintenance)
         if err != nil {
             return err
         }
 
-        // Создание связанных ресурсов
+        // Create the related resources
         for _, resource := range req.Resources {
             if err := s.resourceStore.Link(txCtx, maint.ID, resource.ID); err != nil {
                 return err
@@ -113,9 +113,9 @@ func (s *Service) CreateMaintenanceWithResources(ctx context.Context, req *Creat
 }
 ```
 
-## Работа с контекстом в транзакциях
+## Working with context inside transactions
 
-### Передача транзакции через контекст
+### Passing the transaction through the context
 
 ```go
 type txKey struct{}
@@ -130,7 +130,7 @@ func TxFromContext(ctx context.Context) (*sqlx.Tx, bool) {
 }
 ```
 
-### Executor с поддержкой транзакций
+### Executor with transaction support
 
 ```go
 func (db *DB) Executor(ctx context.Context) Executor {
@@ -154,10 +154,10 @@ func (e *executor) ExecContext(ctx context.Context, query string, args ...interf
 }
 ```
 
-## Лучшие практики
+## Best practices
 
-1. **Используйте короткие транзакции** - держите транзакции максимально короткими
-2. **Обрабатывайте ошибки** - всегда проверяйте ошибки и делайте rollback
-3. **Используйте defer для rollback** - гарантирует rollback даже при panic
-4. **Передавайте контекст** - используйте context для передачи транзакции между слоями
-5. **Избегайте вложенных транзакций** - если транзакция уже существует, используйте её
+1. **Use short transactions** - keep transactions as short as possible
+2. **Handle errors** - always check errors and roll back
+3. **Use defer for rollback** - this guarantees a rollback even on panic
+4. **Pass the context** - use context to carry the transaction between layers
+5. **Avoid nested transactions** - if a transaction already exists, reuse it

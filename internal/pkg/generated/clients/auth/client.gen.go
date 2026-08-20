@@ -258,25 +258,25 @@ type ApiauthmodelsAuditFacets struct {
 type ApiauthmodelsAuditLog struct {
 	Action *EntityAuditAction `json:"action,omitempty"`
 
-	// Actor Actor — email актора (для system-событий — системный email).
+	// Actor Actor is the actor's email (for system events, the system email).
 	Actor *string `json:"actor,omitempty"`
 
-	// ActorDisplayName ActorDisplayName — имя актора на момент события (снапшот, не резолвится
-	// заново на чтении). Пуст у записей, созданных до введения поля.
+	// ActorDisplayName ActorDisplayName is the actor name at event time (a snapshot, not resolved
+	// again on read). Empty on records created before the field was introduced.
 	ActorDisplayName *string `json:"actor_display_name,omitempty"`
 
-	// ActorId ActorID — стабильный ID актора (user UUID); пуст для system-актора и
-	// неопознанных пользователей (login_failed по неизвестному email).
+	// ActorId ActorID is the stable actor ID (user UUID); empty for the system actor and
+	// for unidentified users (login_failed on an unknown email).
 	ActorId   *string `json:"actor_id,omitempty"`
 	CreatedAt *string `json:"created_at,omitempty"`
 
-	// Details Details — человекочитаемое описание события (legacy/fallback-строка).
+	// Details Details is a human-readable description of the event (legacy/fallback string).
 	Details    *string                `json:"details,omitempty"`
 	EntityId   *string                `json:"entity_id,omitempty"`
 	EntityType *EntityAuditEntityType `json:"entity_type,omitempty"`
 	Id         *string                `json:"id,omitempty"`
 
-	// Metadata Metadata — структурированный action-specific payload для expand-грида.
+	// Metadata Metadata is the structured action-specific payload for the expand grid.
 	Metadata *ApiauthmodelsAuditLogMetadata `json:"metadata,omitempty"`
 }
 
@@ -287,7 +287,7 @@ type ApiauthmodelsAuditLogFieldChange struct {
 	Old   *string `json:"old,omitempty"`
 }
 
-// ApiauthmodelsAuditLogMetadata Metadata — структурированный action-specific payload для expand-грида.
+// ApiauthmodelsAuditLogMetadata Metadata is the structured action-specific payload for the expand grid.
 type ApiauthmodelsAuditLogMetadata struct {
 	Changes       *[]ApiauthmodelsAuditLogFieldChange      `json:"changes,omitempty"`
 	FailureReason *string                                  `json:"failure_reason,omitempty"`

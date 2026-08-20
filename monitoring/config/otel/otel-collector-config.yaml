@@ -6,10 +6,11 @@
 # gives a buffer + one place to add processing/sampling without touching app
 # configs. Internal-only on the `theapp` network; no host ports needed.
 #
-# Single source of truth: this file lives in the backend repo and is pulled
-# into maintmode-deploy at deploy time (like the Grafana dashboards) — no
-# per-environment copy to drift. Everything here is environment-independent
-# (hostnames are docker service names, ports are fixed, no env-specific paths).
+# Single source of truth: this file lives in the backend repo and is pulled by
+# the deploy tooling at deploy time (like the Grafana dashboards) — no
+# per-environment copy to drift. Keep it environment-independent, which is what
+# makes that work: hostnames are docker service names, ports are fixed, and
+# there are no env-specific paths.
 
 receivers:
   otlp:

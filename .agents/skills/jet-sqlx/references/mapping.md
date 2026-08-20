@@ -1,8 +1,8 @@
-# Маппинг данных
+# Data mapping
 
 ## Entity -> Model (toDBEntity)
 
-Конвертация из бизнес-логики entity в database model.
+Conversion from a business-logic entity into a database model.
 
 ```go
 package maintenances
@@ -31,7 +31,7 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
         UpdatedAt:             m.UpdatedAt,
     }
 
-    // Обработка nullable полей
+    // Handling nullable fields
     if m.ActualPeriod != nil {
         actualPeriod := xtime.ToPgRange(lo.FromPtr(m.ActualPeriod))
         maint.ActualPeriod = &actualPeriod
@@ -43,7 +43,7 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
 
 ## Model -> Entity (fromDBEntity)
 
-Конвертация из database model в бизнес-логику entity.
+Conversion from a database model into a business-logic entity.
 
 ```go
 func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
@@ -61,7 +61,7 @@ func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
         UpdatedAt:           m.UpdatedAt,
     }
 
-    // Обработка nullable полей
+    // Handling nullable fields
     if m.ActualPeriod != nil {
         actualPeriod := xtime.FromPgRange(lo.FromPtr(m.ActualPeriod))
         maint.ActualPeriod = &actualPeriod
@@ -71,10 +71,10 @@ func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
 }
 ```
 
-## Работа с enum типами
+## Working with enum types
 
 ```go
-// Entity использует типизированные enum
+// The entity uses typed enums
 type MaintenanceStatus string
 
 const (
@@ -84,17 +84,17 @@ const (
     StatusCompleted MaintenanceStatus = "completed"
 )
 
-// Конвертация в model
+// Conversion into the model
 Status: string(m.Status)
 
-// Конвертация из model
+// Conversion from the model
 Status: entity.MaintenanceStatus(m.Status)
 ```
 
-## Работа с вложенными структурами
+## Working with nested structures
 
 ```go
-// Для составных ключей или связанных сущностей
+// For composite keys or related entities
 type MaintenanceResource struct {
     MaintenanceID uuid.UUID
     ResourceID    uuid.UUID
@@ -110,25 +110,25 @@ func toDBMaintenanceResource(maintID uuid.UUID, r *entity.Resource) *model.Maint
 }
 ```
 
-## Обработка nullable полей
+## Handling nullable fields
 
 ```go
 import "github.com/samber/lo"
 
-// Конвертация в nullable pointer
+// Conversion into a nullable pointer
 CanceledReasonCode: lo.ToPtr(string(m.CancelReason))
 
-// Конвертация из nullable pointer
+// Conversion from a nullable pointer
 CancelReason: entity.MaintenanceCancelReason(lo.FromPtr(m.CanceledReasonCode))
 
-// Условная конвертация
+// Conditional conversion
 if m.ActualPeriod != nil {
     actualPeriod := xtime.FromPgRange(lo.FromPtr(m.ActualPeriod))
     maint.ActualPeriod = &actualPeriod
 }
 ```
 
-## Конвертация временных типов
+## Converting time types
 
 ```go
 // Postgres range types

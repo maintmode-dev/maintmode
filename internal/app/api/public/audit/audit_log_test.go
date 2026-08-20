@@ -60,14 +60,14 @@ func TestAuditLog(t *testing.T) {
 				queryValues:  url.Values{"limit": {fmt.Sprint(defaultMaxLogsCount + 1)}},
 				maxLogsCount: defaultMaxLogsCount,
 			}, {
-				// Отрицательный offset коэрсится в 0, а не отвергается: 400
-				// отдаётся только на нераспарсиваемом значении.
+				// A negative offset is coerced to 0, not rejected: a 400 is
+				// returned only for an unparseable value.
 				name:         "offset=-5 is coerced, not rejected",
 				queryValues:  url.Values{"offset": {"-5"}},
 				maxLogsCount: defaultMaxLogsCount,
 			}, {
-				// Глубина за потолком клампится в него же — запрос валиден,
-				// просто указывает за границу возможного.
+				// A depth past the cap is clamped to the cap — the request is
+				// valid, it just points past the edge of what is possible.
 				name:         "offset beyond cap is clamped",
 				queryValues:  url.Values{"offset": {"100000000"}},
 				maxLogsCount: defaultMaxLogsCount,
@@ -96,10 +96,11 @@ func TestAuditLog(t *testing.T) {
 	t.Run("limit above ceiling yields exactly the ceiling", func(t *testing.T) {
 		t.Parallel()
 
-		// Отдельный кейс с фильтром по actor: в общей таблице ассертить точную
-		// длину можно только на своих строках. Без точного равенства кламп в
-		// 100 неотличим от клампа в дефолт 50 — тот самый тихий регресс, если
-		// хелперу передать один потолок вместо потолка и дефолта.
+		// A separate case with an actor filter: in a shared table the exact
+		// length can only be asserted over rows of our own. Without exact
+		// equality, a clamp to 100 is indistinguishable from a clamp to the
+		// default 50 — precisely the silent regression that appears if the
+		// helper is given only a ceiling instead of a ceiling and a default.
 		actor := xuuid.NewString() + "@example.com"
 		user := &entity.User{ID: xuuid.New(), Email: actor}
 		for range defaultMaxLogsCount + 1 {
@@ -126,8 +127,8 @@ func TestAuditLog(t *testing.T) {
 	t.Run("structured login entry", func(t *testing.T) {
 		t.Parallel()
 
-		// Email уникален на каждый прогон: тестовая БД общая, и фильтр по actor
-		// не должен цеплять записи предыдущих прогонов (-count 2 в make tloc).
+		// The email is unique per run: the test DB is shared, and the actor
+		// filter must not pick up records from previous runs (-count 2 in make tloc).
 		user := &entity.User{
 			ID:    xuuid.New(),
 			Email: xuuid.NewString() + "@example.com",

@@ -1,14 +1,14 @@
 # Grafana Tempo — distributed tracing backend.
 #
-# Single-binary, локальный диск, retention 1 день. Спаны прилетают через
-# otel-collector (otel → tempo:4317). Запрашивается датасорсом Grafana на :3200.
-# Отдельного UI нет — трейсы смотрим через Grafana.
+# Single-binary, local disk, retention 1 day. Spans arrive through the
+# otel-collector (otel -> tempo:4317). Queried by the Grafana datasource on :3200.
+# It has no UI of its own — traces are viewed through Grafana.
 
 server:
-  http_listen_port: 3200      # query/API — на него смотрит Grafana datasource
+  http_listen_port: 3200      # query/API — what the Grafana datasource points at
   grpc_listen_port: 9095
 
-# OTLP-приём: otel-collector форвардит сюда.
+# OTLP intake: the otel-collector forwards here.
 distributor:
   receivers:
     otlp:
@@ -19,7 +19,7 @@ distributor:
           endpoint: 0.0.0.0:4318
 
 ingester:
-  max_block_duration: 5m      # быстрый флаш на низком трафике локалки
+  max_block_duration: 5m      # a fast flush at the low traffic of a local setup
 
 storage:
   trace:
@@ -31,24 +31,24 @@ storage:
 
 compactor:
   compaction:
-    block_retention: 24h      # 1 день (RUK-189)
+    block_retention: 24h      # 1 day (RUK-189)
 
-# Service Graph: metrics-generator строит per-edge метрики (request/error/
-# duration) из спанов и remote-write'ит их в VictoriaMetrics (Prometheus-
-# совместимая). Grafana рисует граф из этих метрик. Включён ТОЛЬКО процессор
-# service-graphs (без span-metrics), чтобы кардинальность/место были минимальны.
+# Service Graph: the metrics-generator builds per-edge metrics (request/error/
+# duration) from the spans and remote-writes them to VictoriaMetrics (Prometheus-
+# compatible). Grafana draws the graph from those metrics. ONLY the service-graphs
+# processor is enabled (no span-metrics) to keep cardinality/disk minimal.
 metrics_generator:
   registry:
     external_labels:
       source: tempo
   storage:
-    path: /var/tempo/generator/wal   # свой небольшой WAL, отдельно от trace WAL
+    path: /var/tempo/generator/wal   # its own small WAL, separate from the trace WAL
     remote_write:
       - url: http://victoria-metrics:8428/api/v1/write
         send_exemplars: true
 
-# Генератор работает per-tenant; в single-binary процессоры включаются через
-# overrides для дефолтного (анонимного) тенанта.
+# The generator works per-tenant; in single-binary mode the processors are
+# enabled through overrides for the default (anonymous) tenant.
 overrides:
   defaults:
     metrics_generator:

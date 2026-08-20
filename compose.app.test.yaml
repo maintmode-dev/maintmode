@@ -1,7 +1,7 @@
 services:
 
 
-  # Основное приложение maintmode
+  # The main maintmode application
   maintmode:
     environment:
       MAINTMODE_CONFIG_DIR: /app

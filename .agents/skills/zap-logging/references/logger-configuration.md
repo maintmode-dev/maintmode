@@ -1,6 +1,6 @@
-# Конфигурация Logger
+# Logger configuration
 
-## Базовая настройка logger
+## Basic logger setup
 
 ```go
 package config
@@ -38,7 +38,7 @@ func NewLogger(env Environment) *zap.Logger {
 }
 ```
 
-## Development конфигурация
+## Development configuration
 
 ```go
 func NewDevLogger() *zap.Logger {
@@ -55,7 +55,7 @@ func NewDevLogger() *zap.Logger {
 }
 ```
 
-## Production конфигурация
+## Production configuration
 
 ```go
 func NewProdLogger() *zap.Logger {

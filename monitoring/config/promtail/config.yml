@@ -9,46 +9,46 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Сбор логов из всех Docker контейнеров
+  # Collect logs from every Docker container
   - job_name: docker-containers
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
     relabel_configs:
-      # service_name = docker-compose service (стабильное имя, БЕЗ номера
-      # реплики). Иначе Loki сам выводит service_name из имени контейнера
-      # (maintmode-deploy-maintmode-25), которое меняется на каждом редеплое и
-      # не совпадает с service_name="maintmode" в метриках. Ставим явно из
-      # лейбла com.docker.compose.service, чтобы логи и метрики совпадали.
+      # service_name = the docker-compose service (a stable name, WITHOUT the
+      # replica number). Otherwise Loki derives service_name from the container
+      # name (<project>-maintmode-<N>), which changes on every redeploy and does
+      # not match service_name="maintmode" in the metrics. We set it explicitly
+      # from the com.docker.compose.service label so logs and metrics line up.
       - source_labels: [__meta_docker_container_label_com_docker_compose_service]
         target_label: service_name
-      # Извлекаем имя контейнера (конкретная реплика — для точечного дебага)
+      # Extract the container name (the specific replica — for pinpoint debugging)
       - source_labels: [__meta_docker_container_name]
         regex: '/(.*)'
         target_label: container_name
-      # Добавляем метку job
+      # Add the job label
       - source_labels: [__meta_docker_container_name]
         regex: '/(.*)'
         target_label: job
         replacement: docker-logs
-      # Добавляем метку environment
+      # Add the environment label
       - target_label: environment
         replacement: development
-      # Добавляем метку cluster
+      # Add the cluster label
       - target_label: cluster
         replacement: maintmode-dev
 
-    # Pipeline для обработки логов
+    # Pipeline for processing the logs
     pipeline_stages:
-      # Извлечение уровня логирования (INFO, ERROR, WARN, DEBUG)
+      # Extract the log level (INFO, ERROR, WARN, DEBUG)
       - regex:
           expression: '^\S+\s+(?P<level>INFO|ERROR|WARN|DEBUG|FATAL|PANIC|TRACE)'
 
-      # Добавление извлеченного уровня как label
+      # Add the extracted level as a label
       - labels:
           level:
 
-  # Сбор логов из хост-системы
+  # Collect logs from the host system
   - job_name: host-logs
     static_configs:
       - targets:

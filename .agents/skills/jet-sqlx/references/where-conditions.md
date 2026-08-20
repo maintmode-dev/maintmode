@@ -1,33 +1,33 @@
-# WHERE условия
+# WHERE conditions
 
-## Простые условия
+## Simple conditions
 
 ```go
-// EQ (равно)
+// EQ (equal to)
 WHERE(table.Maintenances.ID.EQ(postgres.UUID(id)))
 
-// NEQ (не равно)
+// NEQ (not equal to)
 WHERE(table.Maintenances.Status.NEQ(postgres.String("deleted")))
 
-// GT, GTE, LT, LTE (больше, больше-равно, меньше, меньше-равно)
+// GT, GTE, LT, LTE (greater than, greater than or equal, less than, less than or equal)
 WHERE(table.Maintenances.CreatedAt.GTE(postgres.TimestampTz(startTime)))
 
-// LIKE (поиск по шаблону)
+// LIKE (pattern matching)
 WHERE(table.Maintenances.Title.LIKE(postgres.String("%maintenance%")))
 
-// IN (в списке значений)
+// IN (within a list of values)
 WHERE(table.Maintenances.Status.IN(postgres.String("draft"), postgres.String("active")))
 
-// IS NULL (значение NULL)
+// IS NULL (the value is NULL)
 WHERE(table.Maintenances.ActualPeriod.IS_NULL())
 
-// IS NOT NULL (значение не NULL)
+// IS NOT NULL (the value is not NULL)
 WHERE(table.Maintenances.ActualPeriod.IS_NOT_NULL())
 ```
 
-## Сложные условия
+## Complex conditions
 
-### AND условие
+### AND condition
 
 ```go
 WHERE(
@@ -36,7 +36,7 @@ WHERE(
 )
 ```
 
-### OR условие
+### OR condition
 
 ```go
 WHERE(
@@ -45,7 +45,7 @@ WHERE(
 )
 ```
 
-### Комбинация AND и OR
+### Combining AND and OR
 
 ```go
 WHERE(
@@ -59,7 +59,7 @@ WHERE(
 
 ## ORDER BY
 
-### Простая сортировка
+### Simple sorting
 
 ```go
 stmt := table.Maintenances.
@@ -67,7 +67,7 @@ stmt := table.Maintenances.
     ORDER_BY(table.Maintenances.CreatedAt.DESC())
 ```
 
-### Множественная сортировка
+### Multi-column sorting
 
 ```go
 ORDER_BY(
@@ -76,7 +76,7 @@ ORDER_BY(
 )
 ```
 
-## LIMIT и OFFSET
+## LIMIT and OFFSET
 
 ```go
 stmt := table.Maintenances.

@@ -43,7 +43,7 @@ func ensureTelegramIntegration(ctx context.Context, t *testing.T, enabled bool) 
 	require.Equal(t, http.StatusOK, status, "ensure telegram integration enabled=%s: %s", enabledJSON, respBody)
 }
 
-// TestNotifyTransportStatusAPI pins the RUK-198 variant-В contract end-to-end:
+// TestNotifyTransportStatusAPI pins the RUK-198 variant-B contract end-to-end:
 // the transport↔kind coupling stays weak (a channel is created on a disabled
 // integration without complaint), but every channel read model and the
 // transports catalog surface transport_status so the FE can flag silent

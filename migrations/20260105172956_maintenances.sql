@@ -5,9 +5,9 @@ CREATE TABLE maintenances (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     title TEXT NOT NULL,
     description TEXT NOT NULL ,
-    -- Плановый период (всегда есть)
+    -- Planned period (always present)
     planned_period tstzrange NOT NULL,
-    -- Фактический период (NULL до старта, может быть open-ended)
+    -- Actual period (NULL before the start, may be open-ended)
     actual_period tstzrange,
 
     impact TEXT NOT NULL,
@@ -19,14 +19,14 @@ CREATE TABLE maintenances (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ,
 
-    -- planned_period всегда корректен
+    -- planned_period is always well-formed
     CHECK (
         NOT isempty(planned_period)
         AND lower(planned_period) < upper(planned_period)
         AND upper(planned_period) IS NOT NULL
     ),
 
-    -- actual_period либо NULL, либо корректный
+    -- actual_period is either NULL or well-formed
     CHECK (
         actual_period IS NULL
         or (
@@ -39,13 +39,13 @@ CREATE TABLE maintenances (
     )
 );
 
---  Индекс для collision detection (core)
+--  Index for collision detection (core)
 CREATE INDEX maint_planned_period_gist ON maintenances USING GIST (planned_period);
---  Индекс для runtime (что сейчас выполняется)
+--  Index for runtime (what is running right now)
 CREATE INDEX maint_actual_period_gist ON maintenances USING GIST (actual_period)
     WHERE actual_period IS NOT NULL;
 
--- Ускорение выборок по статусу (MVP достаточно)
+-- Speeds up status lookups (enough for the MVP)
 CREATE INDEX maint_status_idx ON maintenances (status);
 -- +goose StatementEnd
 

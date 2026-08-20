@@ -1,8 +1,8 @@
-# Генерация моделей Jet
+# Jet model generation
 
-## Скрипт генерации моделей
+## Model generation script
 
-Создайте файл `scripts/dbmodels/generate.go`:
+Create the file `scripts/dbmodels/generate.go`:
 
 ```go
 package main
@@ -49,7 +49,7 @@ func main() {
 }
 ```
 
-## Запуск генерации через Makefile
+## Running generation through the Makefile
 
 ```makefile
 .PHONY: db-models
@@ -58,13 +58,13 @@ db-models: ## Generate models
 	@go run ./scripts/dbmodels/generate.go --driver=$(DB_DRIVER) --dsn=$(DB_DSN) --dest="internal/pkg/generated/"
 ```
 
-### Использование
+### Usage
 
 ```bash
 make db-models
 ```
 
-## Структура сгенерированных моделей
+## Structure of the generated models
 
 ```
 internal/pkg/generated/
@@ -80,9 +80,9 @@ internal/pkg/generated/
             └── resources.go
 ```
 
-## Создание Store
+## Creating a Store
 
-### Базовая структура Store
+### Basic Store structure
 
 ```go
 package maintenances
@@ -101,9 +101,9 @@ func NewStore(db *sqlx.DB) *Store {
 }
 ```
 
-### Утилита dbtx.Executor
+### The dbtx.Executor utility
 
-Создайте файл `internal/utils/dbtx/executor.go`:
+Create the file `internal/utils/dbtx/executor.go`:
 
 ```go
 package dbtx

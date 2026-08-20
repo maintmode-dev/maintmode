@@ -2,6 +2,15 @@
 // per tick carries the instance report and brings back the license. There is
 // no retry — the heartbeat cadence is the retry, and every failure is
 // fail-open (the caller keeps the cached license).
+//
+// This path serves the paid seat-based SaaS offering only. Nothing here runs
+// unless config.LicenseConfig.Enabled() is true, which requires BOTH the
+// Console url and an instance_token; a half-set block stays off. Self-hosted
+// deployments set neither (the sample configs under deployment/ ship no
+// license block at all), so bootstrap wires license.Noop instead: the
+// heartbeat processor is never registered, this client is never constructed,
+// no seat cap is enforced and no request ever leaves the instance. The code
+// ships in the public repo because both offerings run the same binary.
 package license
 
 import (

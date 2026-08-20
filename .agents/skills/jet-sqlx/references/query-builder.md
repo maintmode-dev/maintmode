@@ -1,8 +1,8 @@
 # Query Builder
 
-## SELECT запросы
+## SELECT queries
 
-### Простой SELECT
+### Simple SELECT
 
 ```go
 import (
@@ -29,7 +29,7 @@ func (s *Store) Get(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance
 }
 ```
 
-### SELECT с FOR UPDATE
+### SELECT with FOR UPDATE
 
 ```go
 func (s *Store) GetForUpdate(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance, error) {
@@ -51,7 +51,7 @@ func (s *Store) GetForUpdate(ctx context.Context, maintID uuid.UUID) (*entity.Ma
 }
 ```
 
-### SELECT с JOIN
+### SELECT with JOIN
 
 ```go
 func (s *Store) GetWithResources(ctx context.Context, maintID uuid.UUID) (*entity.Maintenance, error) {
@@ -81,9 +81,9 @@ func (s *Store) GetWithResources(ctx context.Context, maintID uuid.UUID) (*entit
 }
 ```
 
-## INSERT запросы
+## INSERT queries
 
-### Простой INSERT
+### Simple INSERT
 
 ```go
 func (s *Store) Create(ctx context.Context, maint *entity.Maintenance) error {
@@ -104,7 +104,7 @@ func (s *Store) Create(ctx context.Context, maint *entity.Maintenance) error {
 }
 ```
 
-### INSERT с RETURNING
+### INSERT with RETURNING
 
 ```go
 func (s *Store) CreateWithReturning(ctx context.Context, maint *entity.Maintenance) (*entity.Maintenance, error) {
@@ -130,9 +130,9 @@ func (s *Store) CreateWithReturning(ctx context.Context, maint *entity.Maintenan
 }
 ```
 
-## UPDATE запросы
+## UPDATE queries
 
-### Простой UPDATE
+### Simple UPDATE
 
 ```go
 func (s *Store) Update(ctx context.Context, maint *entity.Maintenance) error {
@@ -153,7 +153,7 @@ func (s *Store) Update(ctx context.Context, maint *entity.Maintenance) error {
 }
 ```
 
-### UPDATE с условием
+### UPDATE with a condition
 
 ```go
 func (s *Store) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
@@ -167,9 +167,9 @@ func (s *Store) UpdateStatus(ctx context.Context, id uuid.UUID, status string) e
 }
 ```
 
-## DELETE запросы
+## DELETE queries
 
-### Простой DELETE
+### Simple DELETE
 
 ```go
 func (s *Store) Delete(ctx context.Context, id uuid.UUID) error {
@@ -181,7 +181,7 @@ func (s *Store) Delete(ctx context.Context, id uuid.UUID) error {
 }
 ```
 
-### DELETE с условием
+### DELETE with a condition
 
 ```go
 func (s *Store) DeleteByStatus(ctx context.Context, status string) error {

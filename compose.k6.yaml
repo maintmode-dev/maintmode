@@ -6,7 +6,7 @@ services:
       - theapp
     volumes:
       - ./test/k6:/k6:ro
-      - ./test/k6/results:/results  # Для сохранения результатов
+      - ./test/k6/results:/results  # To persist results
     environment:
       - BASE_URL=http://maintmode:8000
       - K6_PROMETHEUS_RW_SERVER_URL=http://victoria-metrics:8428/api/v1/write

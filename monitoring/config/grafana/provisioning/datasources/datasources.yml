@@ -36,8 +36,8 @@ datasources:
     version: 1
 
   # Tempo - Distributed Tracing datasource.
-  # Запрашивается по HTTP API на :3200; спаны прилетают через
-  # otel-collector → tempo. Отдельного UI нет.
+  # Queried over the HTTP API on :3200; spans arrive through
+  # otel-collector -> tempo. It has no UI of its own.
   - name: Tempo
     uid: tempo_ds
     type: tempo
@@ -47,11 +47,11 @@ datasources:
     editable: true
     version: 1
     jsonData:
-      # Service Graph: берём метрики рёбер, которые генератор Tempo пишет в VM.
+      # Service Graph: read the edge metrics that Tempo's generator writes to VM.
       serviceMap:
         datasourceUid: vm_ds
 
-      # Traces to Logs (Tempo использует схему tracesToLogsV2)
+      # Traces to Logs (Tempo uses the tracesToLogsV2 schema)
       tracesToLogsV2:
         datasourceUid: loki_ds
         spanStartTimeShift: '-5m'
