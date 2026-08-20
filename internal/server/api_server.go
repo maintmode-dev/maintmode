@@ -180,15 +180,13 @@ func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []ec
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
 // /users/:id/... param routes, so the static segment is not shadowed.
-func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
+func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta *buildmeta.AppBuildMeta) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
 		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
 	)
-	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
-		middlewares.NotAllowedInProd(env),
-	)
+	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
 
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
