@@ -262,8 +262,10 @@ type Auth struct {
 	// OAuth login. Default false: once the first admin exists, login of an
 	// unknown user without an invitation is rejected (invite-only). Read at
 	// startup, per-replica — a config rollout may briefly diverge across
-	// replicas. Bootstrap correctness does not depend on it (advisory lock in
-	// the shared DB).
+	// replicas. Bootstrap correctness does not depend on it: the first-admin
+	// decision is first-login-wins and takes no advisory lock, resting instead
+	// on the operational model that the operator logs in before any other
+	// traffic reaches the instance (see GetOrCreateByOAuthInfo).
 	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
 }
 
