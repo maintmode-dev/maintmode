@@ -75,7 +75,7 @@ func WithMaxLimit(maxLimit int64) PagingOption {
 // Production callers have no reason to use it — a single ceiling for all
 // listings is a deliberate choice. It exists for the tests: at the default
 // ceiling, substituting cfg.maxOffset with the MaxPagingOffset constant is
-// indistinguishable from correct behaviour.
+// indistinguishable from correct behavior.
 func WithMaxOffset(maxOffset int64) PagingOption {
 	return func(c *pagingConfig) { c.maxOffset = min(maxOffset, MaxPagingOffset) }
 }

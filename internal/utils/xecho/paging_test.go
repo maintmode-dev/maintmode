@@ -63,7 +63,7 @@ func TestPagingParams(t *testing.T) {
 				// cases catch a clamp substituted with the MaxPagingOffset
 				// constant and an option dropped along the way — at the default
 				// ceiling both defects are indistinguishable from correct
-				// behaviour.
+				// behavior.
 				//
 				// What this trio does not catch is the comparison shifted to
 				// `>=`: the clamp yields exactly the ceiling, so at offset ==
