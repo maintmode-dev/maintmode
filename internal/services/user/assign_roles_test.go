@@ -125,7 +125,7 @@ func TestAssignRoles_SeatCap(t *testing.T) {
 			UserID: u.ID,
 		})
 		require.ErrorIs(t, err, apperr.ErrSeatsLimitExceeded)
-		require.Equal(t, 1, guard.called, "a guest→seat transition must consult the guard")
+		require.Equal(t, 1, guard.callCount(), "a guest→seat transition must consult the guard")
 	})
 
 	t.Run("guest to seat filling the last seat passes (off-by-one)", func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestAssignRoles_SeatCap(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Contains(t, updated.Roles, entity.RoleReviewer)
-		require.Equal(t, 1, guard.called)
+		require.Equal(t, 1, guard.callCount())
 	})
 
 	t.Run("adding a second seat role to an already-seat user skips the guard", func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestAssignRoles_SeatCap(t *testing.T) {
 		})
 		require.NoError(t, err, "already-seat user consumes no new seat")
 		require.Contains(t, updated.Roles, entity.RoleReviewer)
-		require.Zero(t, guard.called, "no non-seat→seat transition: guard must not fire")
+		require.Zero(t, guard.callCount(), "no non-seat→seat transition: guard must not fire")
 	})
 
 	t.Run("assigning a guest role never fires the guard", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestAssignRoles_SeatCap(t *testing.T) {
 			UserID: u.ID,
 		})
 		require.NoError(t, err)
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 
 	t.Run("no-op re-assign at full cap skips the guard", func(t *testing.T) {
@@ -190,6 +190,6 @@ func TestAssignRoles_SeatCap(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, u.Roles, updated.Roles)
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 }

@@ -63,7 +63,7 @@ func TestUnblockUser_SeatCap(t *testing.T) {
 
 		err := srv.UnblockUser(ctx, &entity.UnblockUserCmd{Actor: actor, UserID: target.ID})
 		require.ErrorIs(t, err, apperr.ErrSeatsLimitExceeded)
-		require.Equal(t, 1, guard.called, "restoring a seat must consult the guard")
+		require.Equal(t, 1, guard.callCount(), "restoring a seat must consult the guard")
 
 		// Rejected unblock leaves the user blocked.
 		got, err := setup.GetByID(ctx, target.ID)
@@ -80,7 +80,7 @@ func TestUnblockUser_SeatCap(t *testing.T) {
 
 		err := srv.UnblockUser(ctx, &entity.UnblockUserCmd{Actor: actor, UserID: target.ID})
 		require.NoError(t, err, "a guest restores no seat")
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 
 	t.Run("unblocking restoring the last seat passes (off-by-one)", func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestUnblockUser_SeatCap(t *testing.T) {
 
 		err := srv.UnblockUser(ctx, &entity.UnblockUserCmd{Actor: actor, UserID: target.ID})
 		require.NoError(t, err)
-		require.Equal(t, 1, guard.called)
+		require.Equal(t, 1, guard.callCount())
 	})
 
 	t.Run("unblocking an already-active user skips the guard", func(t *testing.T) {
@@ -103,6 +103,6 @@ func TestUnblockUser_SeatCap(t *testing.T) {
 
 		err := srv.UnblockUser(ctx, &entity.UnblockUserCmd{Actor: actor, UserID: target.ID})
 		require.NoError(t, err, "no-op unblock (ErrNotChanged) must not fire the guard")
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 }

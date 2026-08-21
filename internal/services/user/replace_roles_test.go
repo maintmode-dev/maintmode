@@ -171,7 +171,7 @@ func TestReplaceRoles_SeatCap(t *testing.T) {
 			Roles:  []entity.Role{entity.RoleEditor},
 		})
 		require.ErrorIs(t, err, apperr.ErrSeatsLimitExceeded)
-		require.Equal(t, 1, guard.called)
+		require.Equal(t, 1, guard.callCount())
 
 		// Rejected replace leaves the role set untouched.
 		roles, err := setup.GetRoles(ctx, u.ID)
@@ -191,7 +191,7 @@ func TestReplaceRoles_SeatCap(t *testing.T) {
 			Roles:  []entity.Role{entity.RoleReviewer},
 		})
 		require.NoError(t, err)
-		require.Equal(t, 1, guard.called)
+		require.Equal(t, 1, guard.callCount())
 	})
 
 	t.Run("replace that keeps an existing seat skips the guard", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestReplaceRoles_SeatCap(t *testing.T) {
 			Roles:  []entity.Role{entity.RoleReviewer},
 		})
 		require.NoError(t, err, "seat→seat consumes no new seat")
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 
 	t.Run("seat to non-seat (downgrade) never fires the guard", func(t *testing.T) {
@@ -221,6 +221,6 @@ func TestReplaceRoles_SeatCap(t *testing.T) {
 			Roles:  []entity.Role{entity.RoleGuest},
 		})
 		require.NoError(t, err, "downgrade frees a seat, never consumes one")
-		require.Zero(t, guard.called)
+		require.Zero(t, guard.callCount())
 	})
 }

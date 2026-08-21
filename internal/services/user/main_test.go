@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"os"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -38,14 +40,30 @@ func TestMain(m *testing.M) {
 }
 
 // fakeTokenRevoker records the user IDs whose tokens were revoked, so block
-// tests can assert that BlockUser triggers session revocation.
+// tests can assert that BlockUser triggers session revocation. A single fake is
+// shared by parallel subtests and by the concurrent racers in the race tests, so
+// both the recording and the reading are guarded by mu.
 type fakeTokenRevoker struct {
+	mu      sync.Mutex
 	revoked []uuid.UUID
 }
 
 func (f *fakeTokenRevoker) RevokeRefreshTokenByUserID(_ context.Context, userID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.revoked = append(f.revoked, userID)
+
 	return nil
+}
+
+// revokedIDs returns a snapshot of the recorded user IDs, so assertions never
+// read the slice while another goroutine appends to it.
+func (f *fakeTokenRevoker) revokedIDs() []uuid.UUID {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.revoked)
 }
 
 // newTestAuditPublisher builds the audit publisher backed by the test DB's goque
@@ -117,13 +135,27 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 // tests can assert both the outcome (over-cap rejects) and that the guard is
 // only called on a real non-seat→seat transition (no-ops skip it).
 type fakeSeatGuard struct {
+	mu     sync.Mutex
 	err    error
 	called int
 }
 
 func (f *fakeSeatGuard) EnsureSeatAvailable(context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.called++
+
 	return f.err
+}
+
+// callCount reports how many times the guard fired, safe to read while
+// concurrent mutations are still in flight.
+func (f *fakeSeatGuard) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.called
 }
 
 // initServiceWithSeatGuard builds a service whose seat guard is the supplied

@@ -32,7 +32,7 @@ func TestBlockUser(t *testing.T) {
 		// roles preserved on block
 		require.Equal(t, target.Roles, got.Roles)
 		// target's sessions revoked
-		require.Contains(t, revoker.revoked, target.ID)
+		require.Contains(t, revoker.revokedIDs(), target.ID)
 	})
 
 	t.Run("idempotent on already blocked", func(t *testing.T) {
