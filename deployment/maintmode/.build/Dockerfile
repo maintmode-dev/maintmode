@@ -10,7 +10,8 @@
 #                     the GoReleaser-recommended split, and avoids the
 #                     version=v0.0.0 / commit=none problem of building without .git.
 #                       docker build --target ci -f .../Dockerfile .
-#                     Context must provide ./tmp/bin/maintmode (linux/amd64).
+#                     Context must provide ./tmp/bin/<arch>/maintmode for
+#                     each platform being built (amd64, arm64).
 
 # --- Stage 0: base (local build only) ---
 FROM golang:1.25-alpine AS base
@@ -67,8 +68,12 @@ CMD ["./maintmode"]
 
 # --- Target: ci — copy the prebuilt binary from the build context ---
 FROM runtime AS ci
+# Set by buildx per platform (amd64 / arm64). The CI build job cross-compiles
+# one binary per architecture into tmp/bin/<arch>/, so a multi-platform build
+# picks the right one instead of putting an amd64 binary in the arm64 image.
+ARG TARGETARCH
 USER root
-COPY tmp/bin/maintmode .
+COPY tmp/bin/${TARGETARCH}/maintmode .
 # chmod +x too: GitHub's upload/download-artifact does not preserve the
 # executable bit, so the artifact may arrive as 0644.
 RUN chown nonroot:nonroot maintmode && chmod +x maintmode

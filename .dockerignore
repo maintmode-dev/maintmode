@@ -3,9 +3,13 @@
 .agents
 bin
 tmp
-# ...but the CI (`--target ci`) image needs the prebuilt binary that the
-# build-maintmode job drops here. Un-ignore just that one file.
-!tmp/bin/maintmode
+# ...but the CI (`--target ci`) image needs the prebuilt binaries that the
+# build-maintmode job drops here, one per architecture. Both the directory and
+# the file have to be un-ignored: an excluded directory is never descended
+# into, so `!tmp/bin/*/maintmode` alone would still match nothing.
+!tmp/bin
+!tmp/bin/*
+!tmp/bin/*/maintmode
 dist
 coverage.tmp
 coverage.out

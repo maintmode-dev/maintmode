@@ -22,7 +22,12 @@ builds:
       - CGO_ENABLED=0
     no_unique_dist_dir: true
     main: ./cmd/maintmode
-    binary: "{{ .ProjectName }}_{{ .Target }}"
+    # dist/<os>/<arch>/maintmode. The CI image build mounts dist/linux as the
+    # binary source and lets buildx pick the architecture directory, so the
+    # layout has to be predictable — {{ .Target }} is not: it carries a
+    # microarchitecture suffix that differs per GOARCH (amd64_v1, arm64_v8.0).
+    # `make build` passes --output explicitly, so it is unaffected.
+    binary: "{{ .Os }}/{{ .Arch }}/{{ .ProjectName }}"
     goos:
       - linux
       - darwin

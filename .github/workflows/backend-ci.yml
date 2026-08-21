@@ -76,17 +76,38 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: mkdir -p tmp/bin
+      # Both Linux architectures, not --single-target. The image is published
+      # for amd64 and arm64 (a self-hosted operator on an ARM Mac cannot pull
+      # an amd64-only image), and each one needs its own binary — Docker can
+      # emulate a foreign architecture, but it cannot make an amd64 binary run
+      # on arm64. Cross-compiling here is cheap: CGO is off, so it is two `go
+      # build` invocations rather than an emulated toolchain.
       - uses: goreleaser/goreleaser-action@v6.4.0
         with:
           version: v2.13.1
-          args: build -f deployment/maintmode/.build/.goreleaser.yaml --snapshot --single-target --clean --id main --output=./tmp/bin/maintmode
-      # Hand the built binary to image-maintmode so it doesn't rebuild it in
+          args: build -f deployment/maintmode/.build/.goreleaser.yaml --snapshot --clean --id main
+      # Hand the built binaries to image-maintmode so it doesn't rebuild them in
       # Docker. Only needed on image-building runs (main/tag), but uploading on
       # PRs too is cheap and keeps the job identical.
+      # Stage the two binaries under a directory of their own before uploading.
+      # upload-artifact derives the archive root from the least common ancestor
+      # of what it matches, so uploading `dist/linux` directly makes the entries
+      # depend on what else goreleaser happened to leave in that tree. Staging
+      # makes the archive contents exactly <arch>/maintmode, which is what
+      # image-maintmode unpacks into tmp/bin for the Dockerfile's TARGETARCH
+      # lookup. `cp` also fails loudly here if a build did not produce one.
+      - name: Stage the linux binaries for the image job
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            mkdir -p "tmp/bin/$arch"
+            cp "dist/linux/$arch/maintmode" "tmp/bin/$arch/maintmode"
+          done
+          find tmp/bin -type f | sort
       - uses: actions/upload-artifact@v4
         with:
           name: maintmode-binary
-          path: tmp/bin/maintmode
+          path: tmp/bin
           retention-days: 1
           if-no-files-found: error
 
@@ -137,6 +158,24 @@ jobs:
         with:
           name: maintmode-binary
           path: tmp/bin
+      # The Dockerfile reads tmp/bin/<arch>/maintmode. Assert that rather than
+      # letting a layout change surface 40 lines later as an opaque buildx
+      # "failed to calculate checksum ... not found", which is what a mismatch
+      # here looked like the first time.
+      - name: Check the binaries arrived per architecture
+        run: |
+          set -euo pipefail
+          echo "--- unpacked artifact ---"
+          find tmp/bin -type f | sort
+          for arch in amd64 arm64; do
+            [ -f "tmp/bin/$arch/maintmode" ] || {
+              echo "::error::tmp/bin/$arch/maintmode missing — see the listing above"
+              exit 1
+            }
+          done
+      # Registers binfmt handlers so buildx can run the arm64 stages on an
+      # amd64 runner. Without it a multi-platform build fails on the first RUN.
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -160,6 +199,9 @@ jobs:
           context: .
           file: deployment/maintmode/.build/Dockerfile
           target: ci
+          # The `ci` target picks tmp/bin/$TARGETARCH/maintmode, so each
+          # platform gets the binary built for it in build-maintmode.
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -181,6 +223,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Registers binfmt handlers so buildx can run the arm64 stages on an
+      # amd64 runner. Without it a multi-platform build fails on the first RUN.
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -202,6 +247,10 @@ jobs:
         with:
           context: .
           file: deployment/migrations/Dockerfile
+          # Built for both architectures: a self-hosted operator on an ARM Mac
+          # cannot pull an amd64-only image, and this one is just SQL copied
+          # onto a base image that already ships both.
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
