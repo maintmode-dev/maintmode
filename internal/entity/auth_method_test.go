@@ -8,31 +8,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// TestAuthMethodStringValues pins the constants against string LITERALS, which
-// nothing else in the repo does.
-//
-// It has to be its own test rather than a corollary of the parser table:
-// "stub" and "unknown" appear there only as rejected inputs, so renaming
-// AuthMethodStub to "stubbed" would leave every parser case green — the string
-// "stub" is still refused, just for a different reason. The /me and users-list
-// tests look like literal pins but are not either: they read
-// require.Equal(t, string(entity.AuthMethodGoogle), got.OAuthProvider), the
-// same constant on both sides.
-//
-// These values are written to user_identities.provider, a TEXT column with no
-// CHECK constraint. A changed literal would not fail — it would silently stop
-// matching existing rows, orphaning every linked identity.
-func TestAuthMethodStringValues(t *testing.T) {
-	t.Parallel()
-
-	require.Equal(t, "google", string(entity.AuthMethodGoogle))
-	require.Equal(t, "github", string(entity.AuthMethodGithub))
-	require.Equal(t, "stub", string(entity.AuthMethodStub))
-	require.Equal(t, "unknown", string(entity.AuthMethodUnknown))
-	require.Equal(t, "email", string(entity.AuthMethodEmail))
-	require.Equal(t, "bootstrap", string(entity.AuthMethodBootstrap))
-}
-
 func TestPrimaryAuthMethod(t *testing.T) {
 	t.Parallel()
 

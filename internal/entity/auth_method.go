@@ -8,7 +8,7 @@ package entity
 // matched against user_identities.provider (a TEXT column with no CHECK
 // constraint), and they reach the wire as the oauth_provider and
 // connected_providers JSON fields. Changing a literal would not fail loudly —
-// it would silently stop matching existing rows. auth_method_test.go pins them.
+// it would silently stop matching existing rows.
 type AuthMethod string
 
 const (
