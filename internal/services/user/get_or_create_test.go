@@ -74,7 +74,7 @@ func oauthInfo() *entity.OAuthProviderUserInfo {
 	}
 }
 
-func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
+func TestGetOrCreateByAuthInfo_CreationPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// One active admin: the bootstrap branch stays off, only the policy decides.
@@ -172,7 +172,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 	})
 }
 
-func TestGetOrCreateByOAuthInfo_Bootstrap(t *testing.T) {
+func TestGetOrCreateByAuthInfo_Bootstrap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// Zero active admins reported on every count: the bootstrap branch is

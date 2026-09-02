@@ -14,7 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 )
 
-// fakeProvider is a minimal OAuthProvider stand-in. The registry only ever calls
+// fakeProvider is a minimal AuthMethod stand-in. The registry only ever calls
 // MethodID() on the providers it is given (to key the map), so Authenticate is
 // here to satisfy the interface and records nothing.
 type fakeProvider struct {
