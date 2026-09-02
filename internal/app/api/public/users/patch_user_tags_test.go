@@ -27,7 +27,7 @@ func TestUpdateUserTags(t *testing.T) {
 
 	newUser := func(t *testing.T) *entity.User {
 		t.Helper()
-		user, err := impl.userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+		user, err := impl.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 			ID:    "oauth-" + uuid.NewString(),
 			Email: uuid.NewString() + "@test.local",
 			Name:  "Patch Tags User",
@@ -101,8 +101,8 @@ func TestUpdateUserTags(t *testing.T) {
 		// the response straight into the row it edited.
 		got := testjsonudils.JSONToAny[apimodels.User](t, rec.Body)
 		require.Equal(t, target.Email, got.Email)
-		require.Equal(t, []string{string(entity.OAuthProviderGoogle)}, got.ConnectedProviders)
-		require.Equal(t, string(entity.OAuthProviderGoogle), got.OAuthProvider)
+		require.Equal(t, []string{string(entity.AuthMethodGoogle)}, got.ConnectedProviders)
+		require.Equal(t, string(entity.AuthMethodGoogle), got.OAuthProvider)
 		require.False(t, got.IsLastAdmin)
 	})
 

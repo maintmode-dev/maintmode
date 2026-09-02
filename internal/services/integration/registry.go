@@ -1,6 +1,6 @@
 // Package integration owns the registry of external-system connections
 // (Slack, Telegram, SMTP, ...) whose config and secrets live in the DB and are
-// managed by an admin at runtime (RUK-196). This file defines the per-kind
+// managed by an admin at runtime. This file defines the per-kind
 // contract and the static registry that maps a kind to its implementation, so
 // adding a new integration type is one registration plus a small
 // parser/validator/transport-builder — no schema change.

@@ -26,7 +26,7 @@ func TestIntrospect(t *testing.T) {
 		oauthUser := exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -56,7 +56,7 @@ func TestIntrospect(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -81,7 +81,7 @@ func TestIntrospect(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -147,7 +147,7 @@ func TestEnsureActiveToken(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -163,7 +163,7 @@ func TestEnsureActiveToken(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -184,7 +184,7 @@ func TestEnsureActiveToken(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})

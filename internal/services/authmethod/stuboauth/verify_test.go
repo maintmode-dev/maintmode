@@ -11,27 +11,27 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider/stuboauth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/stuboauth"
 )
 
-func TestServiceProviderID(t *testing.T) {
+func TestServiceMethodID(t *testing.T) {
 	t.Parallel()
 
 	require.Equal(
 		t,
-		entity.OAuthProviderStub,
-		stuboauth.NewService().ProviderID(),
+		entity.AuthMethodStub,
+		stuboauth.NewService().MethodID(),
 	)
 }
 
-func TestServiceVerifyToken(t *testing.T) {
+func TestServiceAuthenticate(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	t.Run("accepts any token and synthesizes claims", func(t *testing.T) {
 		t.Parallel()
 
-		claims, err := stuboauth.NewService().VerifyToken(ctx, "anything-at-all")
+		claims, err := stuboauth.NewService().Authenticate(ctx, "anything-at-all")
 		require.NoError(t, err)
 		require.NotNil(t, claims)
 		require.NotEmpty(t, claims.Subject)
@@ -50,7 +50,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		// The stub only rejects one hardcoded sentinel; everything else, including
 		// the empty string, is waved through. This documents that the stub performs
 		// no validation whatsoever, which is why it is gated on dev.
-		claims, err := stuboauth.NewService().VerifyToken(ctx, "")
+		claims, err := stuboauth.NewService().Authenticate(ctx, "")
 		require.NoError(t, err)
 		require.NotEmpty(t, claims.Subject)
 	})
@@ -58,7 +58,7 @@ func TestServiceVerifyToken(t *testing.T) {
 	t.Run("rejects the sentinel invalid token", func(t *testing.T) {
 		t.Parallel()
 
-		claims, err := stuboauth.NewService().VerifyToken(ctx, "this-is-not-a-valid-jwt")
+		claims, err := stuboauth.NewService().Authenticate(ctx, "this-is-not-a-valid-jwt")
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
@@ -75,7 +75,7 @@ func TestServiceVerifyToken(t *testing.T) {
 			"this-is-not-a-valid-jwt-really",
 			"This-Is-Not-A-Valid-Jwt",
 		} {
-			claims, err := srv.VerifyToken(ctx, token)
+			claims, err := srv.Authenticate(ctx, token)
 			require.NoError(t, err, "token %q should not match the sentinel", token)
 			require.NotNil(t, claims)
 		}
@@ -86,9 +86,9 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		srv := stuboauth.NewService()
 
-		first, err := srv.VerifyToken(ctx, "token")
+		first, err := srv.Authenticate(ctx, "token")
 		require.NoError(t, err)
-		second, err := srv.VerifyToken(ctx, "token")
+		second, err := srv.Authenticate(ctx, "token")
 		require.NoError(t, err)
 
 		// The stub is not a fake user store: the same token yields a different user
@@ -100,7 +100,7 @@ func TestServiceVerifyToken(t *testing.T) {
 	t.Run("an email token becomes the identity", func(t *testing.T) {
 		t.Parallel()
 
-		claims, err := stuboauth.NewService().VerifyToken(ctx, "invited@example.com")
+		claims, err := stuboauth.NewService().Authenticate(ctx, "invited@example.com")
 		require.NoError(t, err)
 
 		// The strict invitation email check now runs in dev too, so a dev stand
@@ -116,9 +116,9 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		srv := stuboauth.NewService()
 
-		first, err := srv.VerifyToken(ctx, "repeat@example.com")
+		first, err := srv.Authenticate(ctx, "repeat@example.com")
 		require.NoError(t, err)
-		second, err := srv.VerifyToken(ctx, "repeat@example.com")
+		second, err := srv.Authenticate(ctx, "repeat@example.com")
 		require.NoError(t, err)
 
 		// Subject keys the user record, so a random one would create a second
@@ -132,9 +132,9 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		srv := stuboauth.NewService()
 
-		lower, err := srv.VerifyToken(ctx, "casing@example.com")
+		lower, err := srv.Authenticate(ctx, "casing@example.com")
 		require.NoError(t, err)
-		upper, err := srv.VerifyToken(ctx, "Casing@Example.com")
+		upper, err := srv.Authenticate(ctx, "Casing@Example.com")
 		require.NoError(t, err)
 
 		// Email comparison upstream is case-insensitive, so the identity keyed
@@ -160,16 +160,16 @@ func TestServiceVerifyToken(t *testing.T) {
 			"Display Name <padded@example.com>",
 			"<padded@example.com>",
 		} {
-			claims, err := srv.VerifyToken(ctx, token)
+			claims, err := srv.Authenticate(ctx, token)
 			require.NoError(t, err, "token %q", token)
 			require.Equal(t, "padded@example.com", claims.Email, "token %q", token)
 			require.Equal(t, "User Name[padded]", claims.Name, "token %q", token)
 		}
 
 		// And the identity is the same one the bare address resolves to.
-		bare, err := srv.VerifyToken(ctx, "padded@example.com")
+		bare, err := srv.Authenticate(ctx, "padded@example.com")
 		require.NoError(t, err)
-		spaced, err := srv.VerifyToken(ctx, " padded@example.com")
+		spaced, err := srv.Authenticate(ctx, " padded@example.com")
 		require.NoError(t, err)
 		require.Equal(t, bare.Subject, spaced.Subject)
 	})
@@ -183,9 +183,9 @@ func TestServiceVerifyToken(t *testing.T) {
 		// call minting a fresh user; only a parseable address opts into the
 		// deterministic branch.
 		for _, token := range []string{"api-test-seed-approver", "token", "", "not@an@address"} {
-			first, err := srv.VerifyToken(ctx, token)
+			first, err := srv.Authenticate(ctx, token)
 			require.NoError(t, err, "token %q", token)
-			second, err := srv.VerifyToken(ctx, token)
+			second, err := srv.Authenticate(ctx, token)
 			require.NoError(t, err, "token %q", token)
 
 			require.NotEqual(t, first.Subject, second.Subject, "token %q", token)
@@ -200,7 +200,7 @@ func TestServiceVerifyToken(t *testing.T) {
 	t.Run("subject is not reused as the email local part", func(t *testing.T) {
 		t.Parallel()
 
-		claims, err := stuboauth.NewService().VerifyToken(ctx, "token")
+		claims, err := stuboauth.NewService().Authenticate(ctx, "token")
 		require.NoError(t, err)
 
 		// verify.go draws two independent UUIDs: `id` feeds the email and name,

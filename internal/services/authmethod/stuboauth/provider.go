@@ -14,6 +14,6 @@ func NewService() *Service {
 	return &Service{}
 }
 
-func (p *Service) ProviderID() entity.OAuthProvider {
-	return entity.OAuthProviderStub
+func (p *Service) MethodID() entity.AuthMethod {
+	return entity.AuthMethodStub
 }

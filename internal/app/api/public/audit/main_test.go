@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 
 // seedAuditFunc writes the audit row an action would produce, synchronously —
 // it runs the same render + AddLog path the audit-write goque processor runs in
-// production (RUK-179), without spinning up a worker. Tests use it to seed rows
+// production, without spinning up a worker. Tests use it to seed rows
 // and then read them back through the API.
 type seedAuditFunc func(ctx context.Context, action auditaction.Action)
 

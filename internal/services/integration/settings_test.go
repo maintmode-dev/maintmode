@@ -13,7 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-// TestSettings_ErrorTaxonomy pins the RUK-200 error contract of the resolve
+// TestSettings_ErrorTaxonomy pins the error contract of the resolve
 // seam — the single source both the delivery path and the transport_status
 // read model classify from:
 //
@@ -54,8 +54,8 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		require.NotErrorIs(t, err, apperr.ErrIntegrationNotConfigured)
 	})
 
-	// The RUK-200 production incident: the KEK a DEK was wrapped with is no
-	// longer known to the keyring (rollback across a rotation phase).
+	// The production incident this case comes from: the KEK a DEK was wrapped
+	// with is no longer known to the keyring (rollback across a rotation phase).
 	t.Run("unknown KEK is unreadable, not disabled", func(t *testing.T) {
 		t.Parallel()
 		svc, kinds, _ := initService(t)

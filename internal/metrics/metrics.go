@@ -106,7 +106,7 @@ func MaintNotifyOwnerMentionDegraded(ctx context.Context, reason OwnerMentionRea
 }
 
 // auditWriteErrors counts audit_log write failures in the audit-write goque
-// processor (RUK-179). The processor returns the error so goque retries, but a
+// processor. The processor returns the error so goque retries, but a
 // sustained rate>0 means the audit trail is falling behind or a write is
 // permanently failing — for a compliance log that must be visible. Alert on
 // rate>0.

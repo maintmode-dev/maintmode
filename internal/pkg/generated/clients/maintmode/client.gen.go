@@ -258,7 +258,7 @@ type ApimodelsChannel struct {
 
 	// TransportStatus TransportStatus reports whether the integration backing the transport can
 	// deliver right now (ok | disabled | not_configured), so the channel-create
-	// form can flag transports that would silently not deliver (RUK-198). The
+	// form can flag transports that would silently not deliver. The
 	// catalog stays advisory: creating a channel on a disabled/unconfigured
 	// transport is still allowed.
 	TransportStatus *ApimodelsTransportStatus `json:"transport_status,omitempty"`
@@ -544,7 +544,7 @@ type ApimodelsTransport struct {
 
 	// TransportStatus TransportStatus reports whether the integration backing the transport can
 	// deliver right now (ok | disabled | not_configured), so the channel-create
-	// form can flag transports that would silently not deliver (RUK-198). The
+	// form can flag transports that would silently not deliver. The
 	// catalog stays advisory: creating a channel on a disabled/unconfigured
 	// transport is still allowed.
 	TransportStatus *ApimodelsTransportStatus `json:"transport_status,omitempty"`
@@ -552,7 +552,7 @@ type ApimodelsTransport struct {
 
 // ApimodelsTransportStatus TransportStatus reports whether the integration backing the transport can
 // deliver right now (ok | disabled | not_configured), so the channel-create
-// form can flag transports that would silently not deliver (RUK-198). The
+// form can flag transports that would silently not deliver. The
 // catalog stays advisory: creating a channel on a disabled/unconfigured
 // transport is still allowed.
 type ApimodelsTransportStatus string

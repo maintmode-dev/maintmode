@@ -60,7 +60,7 @@ func TestService_ToggleWithoutActorRejected(t *testing.T) {
 	require.ErrorIs(t, err, apperr.ErrValidation, "nil actor must be a typed error, not a panic")
 }
 
-// Update and Toggle must advance updated_at; before RUK-196 review the store wrote
+// Update and Toggle must advance updated_at; an earlier version of the store wrote
 // back the stale timestamp so it silently froze. The store stamps updated_at to the
 // app clock on every write, so consecutive writes are monotonic — assert against a
 // prior write's stamp (same clock source) rather than create's DB-default now(),

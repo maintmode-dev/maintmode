@@ -161,7 +161,7 @@ func TestAuthAPIInvitations_RevokeResend(t *testing.T) {
 // registered, so this covers the parser gate specifically: the refusal holds
 // even where the provider exists. That the stub is also absent from the
 // registry outside dev is a separate property, covered by the unit test in
-// internal/services/oauthprovider.
+// internal/services/authmethod.
 func TestAuthAPIInvitations_AcceptRejectsStubProvider(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 

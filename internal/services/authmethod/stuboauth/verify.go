@@ -15,7 +15,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-func (p *Service) VerifyToken(ctx context.Context, token string) (*entity.OAuthIDTokenClaims, error) {
+func (p *Service) Authenticate(ctx context.Context, token string) (*entity.OAuthIDTokenClaims, error) {
+	// The span name deliberately still says VerifyToken after the method was
+	// renamed to Authenticate: it is a telemetry identifier that existing
+	// dashboards and saved queries match on, not a code identifier.
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.VerifyToken")
 	defer span.End()
 
@@ -25,7 +28,7 @@ func (p *Service) VerifyToken(ctx context.Context, token string) (*entity.OAuthI
 
 	// A token that parses as an email address is taken as the caller stating who
 	// they are. Invitation accept compares the verified email against the invited
-	// one in every environment (RUK-249 removed the dev bypass), so without this
+	// one in every environment -- there is no dev bypass -- so without this
 	// the random identity below could never match an invitation and the flow
 	// would be untestable on a dev stand. Subject is derived from the address so
 	// a repeat login resolves to the same user instead of creating a new one.

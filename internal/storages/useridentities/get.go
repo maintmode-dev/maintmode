@@ -15,7 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) GetByProviderSubject(ctx context.Context, provider entity.OAuthProvider, subject string) (*entity.UserIdentity, error) {
+func (s *Store) GetByProviderSubject(ctx context.Context, provider entity.AuthMethod, subject string) (*entity.UserIdentity, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByProviderSubject")
 	defer span.End()
 
@@ -29,7 +29,7 @@ func (s *Store) GetByProviderSubject(ctx context.Context, provider entity.OAuthP
 	return s.get(ctx, stmt)
 }
 
-func (s *Store) GetByUserAndProvider(ctx context.Context, userID uuid.UUID, provider entity.OAuthProvider) (*entity.UserIdentity, error) {
+func (s *Store) GetByUserAndProvider(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod) (*entity.UserIdentity, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByUserAndProvider")
 	defer span.End()
 

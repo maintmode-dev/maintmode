@@ -1,5 +1,5 @@
 // Package secrets provides the crypto-low foundation for protecting integration
-// secrets at rest (RUK-196). It implements envelope encryption on Google Tink
+// secrets at rest. It implements envelope encryption on Google Tink
 // (tink-go/v2): a data-encryption key (DEK) seals each secret value, and a
 // key-encryption key (KEK) seals the DEK. Only the wrapped DEK and the sealed
 // secrets are persisted — plaintext key material never touches the database.

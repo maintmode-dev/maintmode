@@ -161,7 +161,7 @@ func TestService_CreatePublishesAuditWithoutSecret(t *testing.T) {
 }
 
 // The audit action records the acting admin, not just the kind — actor threading
-// is the point of the RUK-182 audit design.
+// is the point of the audit design.
 func TestService_CreatePublishesAuditWithActor(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

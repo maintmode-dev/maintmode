@@ -25,7 +25,7 @@ func TestConnectProvider(t *testing.T) {
 
 		// Seed a user whose only identity is github, so connecting google adds a
 		// new provider (one identity per provider).
-		user, err := srv.usersSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGithub, &entity.OAuthProviderUserInfo{
+		user, err := srv.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGithub, &entity.OAuthProviderUserInfo{
 			ID:    xuuid.NewString(),
 			Email: xuuid.NewString() + "@example.com",
 			Name:  "User",
@@ -38,13 +38,13 @@ func TestConnectProvider(t *testing.T) {
 			Email:   xuuid.NewString() + "@example.com",
 			Name:    "User",
 		}
-		mocks.oauthProvider.EXPECT().
-			VerifyToken(gomock.Any(), "id-token").
+		mocks.authMethod.EXPECT().
+			Authenticate(gomock.Any(), "id-token").
 			Return(connectClaims, nil)
 
 		err = srv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
 			UserID:   user.ID,
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 		})
 		require.NoError(t, err)
@@ -55,13 +55,13 @@ func TestConnectProvider(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		mocks.oauthProvider.EXPECT().
-			VerifyToken(gomock.Any(), gomock.Any()).
+		mocks.authMethod.EXPECT().
+			Authenticate(gomock.Any(), gomock.Any()).
 			Return(nil, apperr.ErrInvalidAccessToken)
 
 		err := srv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
 			UserID:   xuuid.New(),
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "bad",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
@@ -74,7 +74,7 @@ func TestConnectProvider(t *testing.T) {
 
 		err := srv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
 			UserID:   xuuid.New(),
-			Provider: entity.OAuthProviderGithub,
+			Provider: entity.AuthMethodGithub,
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)

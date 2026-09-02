@@ -215,8 +215,8 @@ func startInfraServer(
 			Specs: []swaggerui.Spec{
 				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
 				// "auth" is the dropdown label for the auth API spec, not a per-binary
-				// identity — kept as a literal so RUK-195 can drop the AuthAppName
-				// build-meta constant without touching this.
+				// identity — kept as a literal so the AuthAppName build-meta constant
+				// can be dropped without touching this.
 				{Name: "auth", Content: docs.AuthSpec},
 			},
 			PrimarySpecName: buildmeta.MaintModeAppName,

@@ -74,7 +74,7 @@ func oauthInfo() *entity.OAuthProviderUserInfo {
 	}
 }
 
-func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
+func TestGetOrCreateByAuthInfo_CreationPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// One active admin: the bootstrap branch stays off, only the policy decides.
@@ -87,14 +87,14 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		srv, _ := initPolicyService(t, steadyStore(), false)
 		info := oauthInfo()
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, info, entity.UserCreationPolicy{})
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, info, entity.UserCreationPolicy{})
 		require.ErrorIs(t, err, apperr.ErrSignupDisabled)
 		require.Nil(t, user)
 
 		// Zero rows behind: neither the user nor the identity exists.
 		_, err = users.NewStore(db).GetByEmail(ctx, info.Email)
 		require.ErrorIs(t, err, apperr.ErrUserNotFound)
-		_, err = useridentities.NewStore(db).GetByProviderSubject(ctx, entity.OAuthProviderGoogle, info.ID)
+		_, err = useridentities.NewStore(db).GetByProviderSubject(ctx, entity.AuthMethodGoogle, info.ID)
 		require.ErrorIs(t, err, apperr.ErrProviderNotConnected)
 	})
 
@@ -102,7 +102,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		t.Parallel()
 		srv, _ := initPolicyService(t, steadyStore(), false)
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, oauthInfo(),
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, oauthInfo(),
 			entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 		require.Equal(t, entity.DefaultRoles, user.Roles)
@@ -112,7 +112,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		t.Parallel()
 		srv, rec := initPolicyService(t, steadyStore(), false)
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, oauthInfo(),
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, oauthInfo(),
 			entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{entity.RoleEditor}})
 		require.NoError(t, err)
 		require.ElementsMatch(t, []entity.Role{entity.RoleGuest, entity.RoleEditor}, user.Roles)
@@ -128,7 +128,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		srv, _ := initPolicyService(t, steadyStore(), false)
 		info := oauthInfo()
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, info,
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, info,
 			entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{"warlord"}})
 		require.ErrorIs(t, err, apperr.ErrInvalidRole)
 		require.Nil(t, user)
@@ -141,7 +141,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		t.Parallel()
 		srv, _ := initPolicyService(t, steadyStore(), true)
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, oauthInfo(), entity.UserCreationPolicy{})
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, oauthInfo(), entity.UserCreationPolicy{})
 		require.NoError(t, err)
 		require.Equal(t, entity.DefaultRoles, user.Roles)
 	})
@@ -151,7 +151,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		srv, rec := initPolicyService(t, steadyStore(), false)
 		info := oauthInfo()
 
-		created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, info,
+		created, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, info,
 			entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
 		require.Equal(t, entity.DefaultRoles, created.Roles)
@@ -160,7 +160,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 		// on the policy does NOT escalate the roles of a user that already
 		// exists. Logging in never grants privileges — that is an explicit
 		// admin action, not a side effect of authentication.
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, info,
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, info,
 			entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{entity.RoleEditor}})
 		require.NoError(t, err)
 		require.Equal(t, created.ID, user.ID)
@@ -172,7 +172,7 @@ func TestGetOrCreateByOAuthInfo_CreationPolicy(t *testing.T) {
 	})
 }
 
-func TestGetOrCreateByOAuthInfo_Bootstrap(t *testing.T) {
+func TestGetOrCreateByAuthInfo_Bootstrap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// Zero active admins reported on every count: the bootstrap branch is
@@ -186,7 +186,7 @@ func TestGetOrCreateByOAuthInfo_Bootstrap(t *testing.T) {
 		t.Parallel()
 		srv, rec := initPolicyService(t, emptyStore(), false)
 
-		user, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, oauthInfo(), entity.UserCreationPolicy{})
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, oauthInfo(), entity.UserCreationPolicy{})
 		require.NoError(t, err)
 		require.True(t, user.IsAdmin(), "first user must be promoted to admin, got roles %v", user.Roles)
 

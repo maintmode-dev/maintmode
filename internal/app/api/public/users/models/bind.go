@@ -50,9 +50,9 @@ func FromAPIRolesFilter(roles []string) ([]entity.Role, error) {
 // system-wide number of non-blocked admins; is_last_admin is true when this user
 // is an active admin and the only one left. connectedProviders are the OAuth
 // providers linked to the user (provider ASC); oauth_provider is the primary
-// provider (entity.PrimaryOAuthProvider) — "unknown" when none — as in MeResponse.
-func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []entity.OAuthProvider) *User {
-	connected := lo.Map(connectedProviders, func(p entity.OAuthProvider, _ int) string {
+// provider (entity.PrimaryAuthMethod) — "unknown" when none — as in MeResponse.
+func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []entity.AuthMethod) *User {
+	connected := lo.Map(connectedProviders, func(p entity.AuthMethod, _ int) string {
 		return string(p)
 	})
 
@@ -60,13 +60,13 @@ func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []enti
 		ID:                 u.ID,
 		Email:              u.Email,
 		DisplayName:        u.Name,
-		OAuthProvider:      string(entity.PrimaryOAuthProvider(connectedProviders)),
+		OAuthProvider:      string(entity.PrimaryAuthMethod(connectedProviders)),
 		ConnectedProviders: connected,
 		Roles: lo.Map(u.Roles, func(item entity.Role, _ int) string {
 			return string(item)
 		}),
 		CreatedAt: u.CreatedAt,
-		// last_seen_at is not tracked yet (out of scope for RUK-150).
+		// last_seen_at is not tracked yet: nothing records user activity.
 		LastSeenAt:  nil,
 		IsLastAdmin: u.IsActiveAdmin() && activeAdminCount == 1,
 		BlockedAt:   u.BlockedAt,
@@ -75,7 +75,7 @@ func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []enti
 	}
 }
 
-func ToAPIUsers(users []*entity.User, activeAdminCount int64, providersByUser map[uuid.UUID][]entity.OAuthProvider) []*User {
+func ToAPIUsers(users []*entity.User, activeAdminCount int64, providersByUser map[uuid.UUID][]entity.AuthMethod) []*User {
 	return lo.Map(users, func(u *entity.User, _ int) *User {
 		return ToAPIUser(u, activeAdminCount, providersByUser[u.ID])
 	})

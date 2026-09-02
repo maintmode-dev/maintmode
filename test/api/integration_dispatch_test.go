@@ -21,8 +21,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-// This file is the API-level smoke for delivery on DB-backed settings
-// (RUK-196, SPEC §11): the test binary runs with notify_transport.use_stub
+// This file is the API-level smoke for delivery on DB-backed settings: the
+// test binary runs with notify_transport.use_stub
 // OFF, so a dispatch resolves its transport through the live path — registry
 // row in integration_settings -> decrypt -> builder — instead of the stub. No
 // integration is ever enabled here, so the resolve ends in the best-effort

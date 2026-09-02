@@ -265,13 +265,13 @@ type Auth struct {
 	// replicas. Bootstrap correctness does not depend on it: the first-admin
 	// decision is first-login-wins and takes no advisory lock, resting instead
 	// on the operational model that the operator logs in before any other
-	// traffic reaches the instance (see GetOrCreateByOAuthInfo).
+	// traffic reaches the instance (see GetOrCreateByAuthInfo).
 	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
 }
 
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
-// credentials (Slack/Telegram/SMTP) moved to the DB-backed integration registry
-// in RUK-196; the only remaining knob is the dev stub short-circuit.
+// credentials (Slack/Telegram/SMTP) live in the DB-backed integration registry,
+// not here; the only remaining knob is the dev stub short-circuit.
 type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.
@@ -644,7 +644,7 @@ func (c *AppConfig) validateJWTKey() error {
 // config would turn every login into an unauthenticated one. dev's own
 // app.config.yaml ships use_stub: true, which is exactly the file someone
 // copies when seeding a new environment. Defense in depth: the runtime gate in
-// oauthprovider.NewOAuthProviders still stands, and this makes the config that
+// authmethod.NewAuthMethods still stands, and this makes the config that
 // would rely on it refuse to boot.
 func (c *AppConfig) validateUseStubInDev() error {
 	if c.Environment.IsDev() {

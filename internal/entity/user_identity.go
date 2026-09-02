@@ -11,7 +11,7 @@ import (
 type UserIdentity struct {
 	ID        uuid.UUID
 	UserID    uuid.UUID
-	Provider  OAuthProvider
+	Provider  AuthMethod
 	Subject   string
 	Email     string
 	CreatedAt time.Time

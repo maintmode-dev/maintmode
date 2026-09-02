@@ -16,7 +16,7 @@ import (
 // LinkIdentity attaches a provider identity (provider + subject) to userID.
 // It rejects identities already linked to this user (ErrProviderAlreadyConnected)
 // or to a different user (ErrProviderLinkedToAnotherUser).
-func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.OAuthProvider, claims *entity.OAuthIDTokenClaims) error {
+func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod, claims *entity.OAuthIDTokenClaims) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.LinkIdentity",
 		xfield.String("provider", string(provider)),
 	)
@@ -75,7 +75,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 // UnlinkIdentity removes the provider identity from userID. It refuses to remove
 // the last remaining identity (ErrCannotDisconnectLastProvider). Disconnecting a
 // provider the user is not linked to is a no-op success (idempotent).
-func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.OAuthProvider) error {
+func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.UnlinkIdentity",
 		xfield.String("provider", string(provider)),
 	)
@@ -114,7 +114,7 @@ func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider
 
 // ListConnectedProviders returns the providers linked to userID, ordered by
 // provider ASC.
-func (s *Service) ListConnectedProviders(ctx context.Context, userID uuid.UUID) ([]entity.OAuthProvider, error) {
+func (s *Service) ListConnectedProviders(ctx context.Context, userID uuid.UUID) ([]entity.AuthMethod, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.ListConnectedProviders")
 	defer span.End()
 

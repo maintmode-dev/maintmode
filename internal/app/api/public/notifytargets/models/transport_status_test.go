@@ -11,8 +11,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// TestStatusFromResolve pins the resolve-outcome → TransportStatus mapping
-// (RUK-200): nil → ok, ErrIntegrationNotConfigured → not_configured (checked
+// TestStatusFromResolve pins the resolve-outcome → TransportStatus mapping:
+// nil → ok, ErrIntegrationNotConfigured → not_configured (checked
 // BEFORE disabled — it wraps it), ErrIntegrationUnreadable → unreadable,
 // ErrIntegrationDisabled → disabled, anything else → unclassified (the caller
 // must 500, never invent a status).

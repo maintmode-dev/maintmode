@@ -4,7 +4,7 @@ name: Monitoring CI
 # config, vmalert rules). Backend CI deliberately runs without the monitoring
 # profile, so without this job a broken dashboard, a datasource-by-name
 # regression, or a rule referencing a non-existent metric would pass CI green
-# — which is exactly how PgDoormanPoolSaturated shipped dead (RUK-191).
+# — which is exactly how PgDoormanPoolSaturated once shipped dead.
 #
 # These checks are static and fast (seconds, no live stack needed).
 

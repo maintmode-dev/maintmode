@@ -294,7 +294,7 @@ type ApiauthmodelsAuditLogMetadata struct {
 	Ip            *string                                  `json:"ip,omitempty"`
 	LogoutKind    *ApiauthmodelsAuditLogMetadataLogoutKind `json:"logout_kind,omitempty"`
 
-	// MaintTitle Maintenance action fields (RUK-182). Populated for maintenance.* /
+	// MaintTitle Maintenance action fields. Populated for maintenance.* /
 	// maintenance_step.* actions:
 	//   - maintenance.* / maintenance_step.*: maint_title;
 	//   - maintenance.updated: changes (before/after per changed scalar).

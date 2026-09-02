@@ -1,5 +1,5 @@
 // Package integrationapi is the admin-only HTTP layer for the integration
-// registry (RUK-196). It binds requests, threads the authenticated admin actor,
+// registry. It binds requests, threads the authenticated admin actor,
 // calls the integration service, maps domain errors to HTTP, and resolves
 // authorship on read. It never surfaces a plaintext or ciphertext secret — the
 // service returns a masked view and this layer passes it through.

@@ -53,7 +53,7 @@ type CreateMaintenanceCmd struct {
 	// Actor is the authenticated user creating the draft, resolved at the API
 	// boundary. Carries the identity (email/name) the audit snapshot records;
 	// CreatedByUserID stays the persisted author id. Always set on the public
-	// path (RUK-182).
+	// path.
 	Actor *User
 }
 
@@ -81,25 +81,24 @@ type UpdateMaintenanceCmd struct {
 	Mentions       *[]*MentionInput
 	ApproverUserID *uuid.UUID // nil = unchanged (no clear-to-null)
 	// Actor is the authenticated user performing the mutation, resolved at the
-	// API boundary for the audit snapshot. Always set on the public path
-	// (RUK-182).
+	// API boundary for the audit snapshot. Always set on the public path.
 	Actor *User
 }
 type StartMaintenanceCmd struct {
 	MaintID uuid.UUID
-	Actor   *User // audit actor (RUK-182), resolved at the API boundary
+	Actor   *User // audit actor, resolved at the API boundary
 }
 
 type CancelMaintenanceCmd struct {
 	MaintID       uuid.UUID
 	Reason        MaintenanceCancelReason
 	ReasonComment string
-	Actor         *User // audit actor (RUK-182), resolved at the API boundary
+	Actor         *User // audit actor, resolved at the API boundary
 }
 
 type CompleteMaintenanceCmd struct {
 	MaintID uuid.UUID
-	Actor   *User // audit actor (RUK-182), resolved at the API boundary
+	Actor   *User // audit actor, resolved at the API boundary
 }
 
 type ApproveMaintenanceCmd struct {
@@ -110,7 +109,7 @@ type ApproveMaintenanceCmd struct {
 	// user assigned as the maintenance approver may approve it.
 	ActorUserID uuid.UUID
 	// Actor is the same authenticated user, carrying the identity (email/name)
-	// the audit snapshot records. ActorUserID stays the authz key (RUK-182).
+	// the audit snapshot records. ActorUserID stays the authz key.
 	Actor *User
 }
 
@@ -119,19 +118,19 @@ type ApproveMaintenanceCmd struct {
 type StartMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
-	Actor   *User // audit actor (RUK-182), resolved at the API boundary
+	Actor   *User // audit actor, resolved at the API boundary
 }
 
 type CompleteMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
-	Actor   *User // audit actor (RUK-182), resolved at the API boundary
+	Actor   *User // audit actor, resolved at the API boundary
 }
 
 type CancelMaintenanceStepCmd struct {
 	MaintID uuid.UUID
 	StepID  uuid.UUID
-	Actor   *User // audit actor (RUK-182), resolved at the API boundary
+	Actor   *User // audit actor, resolved at the API boundary
 }
 
 // --- Conflicts commands ---
@@ -239,7 +238,7 @@ type ListChannelsResult struct {
 // --- Authorization commands ---
 
 type ExchangeIDTokenCmd struct {
-	Provider  OAuthProvider
+	Provider  AuthMethod
 	IDToken   string
 	ClientIP  string
 	UserAgent string
@@ -251,13 +250,13 @@ type ExchangeIDTokenCmd struct {
 
 type ConnectProviderCmd struct {
 	UserID   uuid.UUID
-	Provider OAuthProvider
+	Provider AuthMethod
 	IDToken  string
 }
 
 type DisconnectProviderCmd struct {
 	UserID   uuid.UUID
-	Provider OAuthProvider
+	Provider AuthMethod
 }
 
 // --- Roles commands ---
@@ -340,7 +339,7 @@ type ListUsersResult struct {
 	// ProvidersByUser maps a user ID to its connected OAuth providers (provider
 	// ASC). Users with no identities are absent. Fetched in one batch query to
 	// avoid an N+1 over the page.
-	ProvidersByUser map[uuid.UUID][]OAuthProvider
+	ProvidersByUser map[uuid.UUID][]AuthMethod
 }
 
 // ListAssignableUsersQuery describes a request for users selectable in a

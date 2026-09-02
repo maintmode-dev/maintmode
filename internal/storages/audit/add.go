@@ -13,8 +13,8 @@ func (s *Store) AddLog(ctx context.Context, entry *entity.AuditEntry) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.Audit.AddLog")
 	defer span.End()
 
-	// created_at is written explicitly from the event's occurred-at time
-	// (RUK-179): ordering must reflect when the event happened, not when the
+	// created_at is written explicitly from the event's occurred-at time:
+	// ordering must reflect when the event happened, not when the
 	// drain processor inserted the row. id stays a DB-generated uuidv7 PK; GetLogs
 	// uses it as the created_at tie-breaker for stable ordering.
 	//

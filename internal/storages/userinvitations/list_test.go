@@ -168,9 +168,9 @@ func TestListStatusFilter(t *testing.T) {
 	})
 }
 
-// TestListExpiredFilterUnifiesPersistedAndDerived guards the RUK-211 read-path
-// fix: once rotation persists status='expired', the "expired" filter must return
-// both persisted-expired rows AND pending rows already past expiry that rotation
+// TestListExpiredFilterUnifiesPersistedAndDerived guards the read path against
+// rotation: once rotation persists status='expired', the "expired" filter must
+// return both persisted-expired rows AND pending rows past expiry that rotation
 // has not yet flipped — otherwise a rotated invite would vanish from the admin
 // list's expired view.
 func TestListExpiredFilterUnifiesPersistedAndDerived(t *testing.T) {

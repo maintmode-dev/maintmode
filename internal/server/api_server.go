@@ -35,7 +35,7 @@ const integrationBodyLimitBytes int64 = 64 * 1024
 
 // APIServerHandlers holds the per-domain Echo handler implementations served
 // by the API server. Adding a new domain means adding a field here, not a new
-// constructor argument. With auth folded in-process (RUK-194) it carries both
+// constructor argument. With auth folded in-process it carries both
 // the core (maint/resource/calendar/notify/userpicker) handlers and the auth
 // (auth/roles/users/invitations/audit) handlers.
 type APIServerHandlers struct {
@@ -261,7 +261,7 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 	}
 
 	// integrations API group — admin-only registry of external-system connections
-	// (RUK-196). Reads require integration.read; writes require integration.manage.
+	// Reads require integration.read; writes require integration.manage.
 	// Body-limited: config/secrets are free-form JSON stored verbatim, so this is
 	// the one write surface accepting arbitrary payloads — cap it well above any
 	// real integration config but below anything that could bloat rows/memory.

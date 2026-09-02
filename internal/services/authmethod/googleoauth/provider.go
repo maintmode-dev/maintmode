@@ -47,8 +47,8 @@ func NewProvider(ctx context.Context, cfg *config.GoogleOauthProvider) (*Service
 	return s, nil
 }
 
-func (s *Service) ProviderID() entity.OAuthProvider {
-	return entity.OAuthProviderGoogle
+func (s *Service) MethodID() entity.AuthMethod {
+	return entity.AuthMethodGoogle
 }
 
 func (s *Service) updateLastRefreshFailedAt(ctx context.Context) {

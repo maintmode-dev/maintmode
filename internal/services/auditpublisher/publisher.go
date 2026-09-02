@@ -1,6 +1,6 @@
 // Package auditpublisher publishes audited actions to the durable audit outbox.
 //
-// It is the publish side of the audit trail (RUK-179): a service that performs
+// It is the publish side of the audit trail: a service that performs
 // an audited action calls Publish, which renders the point-in-time AuditEntry
 // snapshot and enqueues an audit.write goque task. The task is drained later by
 // the audit-write processor — after commit, outside any tx — so a publish can
@@ -10,7 +10,7 @@
 // (audit), so the path action → snapshot → outbox reads straight and the
 // task-type ↔ processor link is direct. The publisher holds no audit store — it
 // only enqueues — so it can run on any binary (auth publishes user/auth actions;
-// maintmode will publish maint actions, RUK-182), while the audit-write processor
+// maintmode publishes maint actions), while the audit-write processor
 // that drains audit.write lives on the auth binary, which owns the audit store.
 package auditpublisher
 

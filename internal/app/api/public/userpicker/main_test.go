@@ -80,7 +80,7 @@ func seedUserNamed(
 	// so identifiers derived from the test name would collide on the second pass.
 	unique := uuid.NewString()
 
-	user, err := services.User.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	user, err := services.User.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    "picker-" + unique,
 		Email: "picker-" + unique + "@test.local",
 		Name:  "Picker " + label + " " + marker,

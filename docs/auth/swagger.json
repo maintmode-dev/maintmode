@@ -107,7 +107,7 @@
                         "type": "string"
                     },
                     "maint_title": {
-                        "description": "Maintenance action fields (RUK-182). Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.* / maintenance_step.*: maint_title;\n  - maintenance.updated: changes (before/after per changed scalar).",
+                        "description": "Maintenance action fields. Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.* / maintenance_step.*: maint_title;\n  - maintenance.updated: changes (before/after per changed scalar).",
                         "type": "string"
                     },
                     "roles": {

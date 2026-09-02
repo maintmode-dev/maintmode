@@ -14,10 +14,10 @@ import (
 //
 // The mirror of this assertion lives in the userpicker service test, which pins
 // that the picker leaves the flag off. Both directions need a test: without this
-// one, dropping SearchMessengerTags here would silently kill the RUK-217
-// scenario (an admin tracing a complaint back to a tag) while every other test
-// stayed green — the store-level tag tests set the flag themselves, so they
-// cannot notice that production stopped setting it.
+// one, dropping SearchMessengerTags here would silently kill the scenario this
+// search exists for — an admin tracing a complaint back to a tag — while every
+// other test stayed green: the store-level tag tests set the flag themselves,
+// so they cannot notice that production stopped setting it.
 func TestQueryToListUsersCmdOptsIntoTagSearch(t *testing.T) {
 	t.Parallel()
 

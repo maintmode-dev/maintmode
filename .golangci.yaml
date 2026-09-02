@@ -189,7 +189,7 @@ linters:
           msg: >-
             WithBodyLogging writes request and response bodies to the log, and
             bodies are the one thing redaction cannot make safe. It is a local
-            debugging tool: never enable it in code that ships (RUK-248).
+            debugging tool: never enable it in code that ships.
 
     nestif:
       min-complexity: 4
@@ -271,7 +271,7 @@ linters:
               desc: "api package is not allowed"
 
         # ---------------------------------------------------------------------
-        # "Store fortress" (RUK-193, modular monolith Stage A).
+        # "Store fortress" (modular monolith, stage A).
         # A store of any domain module (core/auth/notificator/audit) may only be
         # imported from packages of the SAME module. Importing a foreign store —
         # direct access to another domain's data bypassing its interface — is an
@@ -365,8 +365,8 @@ linters:
             - "**/internal/services/jwtverifier/**/*.go"
             - "**/internal/services/invitation/*.go"
             - "**/internal/services/invitation/**/*.go"
-            - "**/internal/services/oauthprovider/*.go"
-            - "**/internal/services/oauthprovider/**/*.go"
+            - "**/internal/services/authmethod/*.go"
+            - "**/internal/services/authmethod/**/*.go"
             - "**/internal/services/auth/*.go"
             - "**/internal/services/auth/**/*.go"
             - "**/internal/services/state_codec/*.go"
@@ -425,7 +425,7 @@ linters:
             - "**/internal/services/deferrednotifications/*.go"
             - "**/internal/services/deferrednotifications/**/*.go"
             # transportresolver is the delivery side of the integration split
-            # (RUK-196): it must reach configs/secrets ONLY through the
+            # it must reach configs/secrets ONLY through the
             # integration service, never the ciphertext/DEK tables — its deny
             # list below includes the integration storages.
             - "**/internal/services/transportresolver/*.go"
@@ -521,7 +521,7 @@ linters:
             - pkg: github.com/ruko1202/maintmode/internal/storages/licensecache
               desc: "audit must not import the license storage directly — use a consumer interface"
 
-        # Integration registry module (RUK-196): the integration service + its
+        # Integration registry module: the integration service + its
         # kinds, the DEK rotator, and the two stores holding encrypted
         # credentials. The stores are walled in here so no other module can read
         # ciphertext/DEKs directly — only this module: the integration service
@@ -632,7 +632,7 @@ linters:
 
         # Entrypoint layers (goque_processors, gateways) must not reach storage
         # directly — only through services. We forbid ANY storages/* so the
-        # invariant is enforced rather than assumed (RUK-193 ship-review).
+        # invariant is enforced rather than assumed.
         # notifytransport (external transport) and gateways/auth (S2S, leaving in
         # stage B) hold no stores — the blanket ban does not affect them.
         entrypoints-no-stores:

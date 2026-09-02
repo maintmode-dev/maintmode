@@ -41,19 +41,19 @@ func (s *Service) ExchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 }
 
 func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTokenCmd) (*entity.TokenPair, *entity.User, error) {
-	oauthProvider, err := s.oauthProviders.Get(ctx, cmd.Provider)
+	authMethod, err := s.authMethods.Get(ctx, cmd.Provider)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get oauth provider: %w", err)
 	}
 
-	claims, err := oauthProvider.VerifyToken(ctx, cmd.IDToken)
+	claims, err := authMethod.Authenticate(ctx, cmd.IDToken)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// TestRoles are filled only by the dev component of the API layer; in prod
 	// the field is always empty, so creation falls back to bootstrap/open-signup.
-	user, err := s.usersSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
+	user, err := s.usersSrv.GetOrCreateByAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,

@@ -27,7 +27,7 @@ groups:
         # (http_server_request_duration_seconds_*), with the response status in
         # the http_response_status_code label — NOT the old echo_http_requests_total
         # series, which never existed in this stack and shipped the rule dead.
-        # Same metric the maintmode-app dashboard's 5xx panels query (RUK-191).
+        # Same metric the maintmode-app dashboard's 5xx panels query.
         expr: |
           sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
           /
@@ -148,7 +148,7 @@ groups:
     rules:
       - alert: AuditWriteErrors
         # The audit-write goque processor increments this counter when an
-        # audit_log INSERT fails (RUK-179). The task is retried, but a sustained
+        # audit_log INSERT fails. The task is retried, but a sustained
         # rate>0 means the compliance audit trail is falling behind or a write is
         # permanently failing — which must never be silent. Alert on any
         # sustained rate.
@@ -263,7 +263,7 @@ groups:
         # e.g. a payload schema change across a deploy. The cancel is otherwise
         # silent, so a bad deploy could quietly evaporate a batch of tasks. goque
         # exports this counter natively (labeled by task_type); alert on any
-        # sustained rate so the drop is visible (RUK-179 / review finding M4).
+        # sustained rate so the drop is visible.
         expr: sum by (task_type) (rate(goque_payload_decode_errors_total[5m])) > 0
         for: 5m
         labels:
@@ -277,7 +277,7 @@ groups:
         # {status="active|idle|waiting"} and the configured cap as
         # pg_doorman_pool_size, both keyed by (user, database). The previous
         # expr used pgdoorman_databases_pool_clients_active / _pool_size, which
-        # this build does not emit — the rule could never fire (RUK-191).
+        # this build does not emit — the rule could never fire.
         expr: |
           max by (user, database) (pg_doorman_pools_clients{status="active"})
           /
@@ -302,7 +302,7 @@ groups:
           description: "Clients have been waiting for a pooled server connection for 2m. The pool is exhausted — raise pool_size or investigate long-held connections."
 
   # Host + per-container resource pressure, backed by node-exporter and
-  # cAdvisor (added in RUK-191). Thresholds are intentionally conservative
+  # cAdvisor. Thresholds are intentionally conservative
   # starting points for the single-VM stack — tune as real load is observed.
   - name: maintmode.resources
     interval: 30s
@@ -342,7 +342,7 @@ groups:
         # Per-container working set as a share of total host memory. No
         # per-container limit is set in this stack, so we compare against the
         # host total rather than container_spec_memory_limit_bytes (unset).
-        # service_name is the relabeled container name (RUK-191).
+        # service_name is the relabeled container name.
         expr: |
           sum by (service_name) (container_memory_working_set_bytes{name=~".+"})
           / scalar(node_memory_MemTotal_bytes)

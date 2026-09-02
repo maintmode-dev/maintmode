@@ -573,41 +573,41 @@ func (c *MockUserServiceGetByEmailCall) DoAndReturn(f func(context.Context, stri
 	return c
 }
 
-// GetOrCreateByOAuthInfo mocks base method.
-func (m *MockUserService) GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
+// GetOrCreateByAuthInfo mocks base method.
+func (m *MockUserService) GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOrCreateByOAuthInfo", ctx, provider, info, policy)
+	ret := m.ctrl.Call(m, "GetOrCreateByAuthInfo", ctx, provider, info, policy)
 	ret0, _ := ret[0].(*entity.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetOrCreateByOAuthInfo indicates an expected call of GetOrCreateByOAuthInfo.
-func (mr *MockUserServiceMockRecorder) GetOrCreateByOAuthInfo(ctx, provider, info, policy any) *MockUserServiceGetOrCreateByOAuthInfoCall {
+// GetOrCreateByAuthInfo indicates an expected call of GetOrCreateByAuthInfo.
+func (mr *MockUserServiceMockRecorder) GetOrCreateByAuthInfo(ctx, provider, info, policy any) *MockUserServiceGetOrCreateByAuthInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreateByOAuthInfo", reflect.TypeOf((*MockUserService)(nil).GetOrCreateByOAuthInfo), ctx, provider, info, policy)
-	return &MockUserServiceGetOrCreateByOAuthInfoCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreateByAuthInfo", reflect.TypeOf((*MockUserService)(nil).GetOrCreateByAuthInfo), ctx, provider, info, policy)
+	return &MockUserServiceGetOrCreateByAuthInfoCall{Call: call}
 }
 
-// MockUserServiceGetOrCreateByOAuthInfoCall wrap *gomock.Call
-type MockUserServiceGetOrCreateByOAuthInfoCall struct {
+// MockUserServiceGetOrCreateByAuthInfoCall wrap *gomock.Call
+type MockUserServiceGetOrCreateByAuthInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUserServiceGetOrCreateByOAuthInfoCall) Return(arg0 *entity.User, arg1 error) *MockUserServiceGetOrCreateByOAuthInfoCall {
+func (c *MockUserServiceGetOrCreateByAuthInfoCall) Return(arg0 *entity.User, arg1 error) *MockUserServiceGetOrCreateByAuthInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceGetOrCreateByOAuthInfoCall) Do(f func(context.Context, entity.OAuthProvider, *entity.OAuthProviderUserInfo, entity.UserCreationPolicy) (*entity.User, error)) *MockUserServiceGetOrCreateByOAuthInfoCall {
+func (c *MockUserServiceGetOrCreateByAuthInfoCall) Do(f func(context.Context, entity.AuthMethod, *entity.OAuthProviderUserInfo, entity.UserCreationPolicy) (*entity.User, error)) *MockUserServiceGetOrCreateByAuthInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceGetOrCreateByOAuthInfoCall) DoAndReturn(f func(context.Context, entity.OAuthProvider, *entity.OAuthProviderUserInfo, entity.UserCreationPolicy) (*entity.User, error)) *MockUserServiceGetOrCreateByOAuthInfoCall {
+func (c *MockUserServiceGetOrCreateByAuthInfoCall) DoAndReturn(f func(context.Context, entity.AuthMethod, *entity.OAuthProviderUserInfo, entity.UserCreationPolicy) (*entity.User, error)) *MockUserServiceGetOrCreateByAuthInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

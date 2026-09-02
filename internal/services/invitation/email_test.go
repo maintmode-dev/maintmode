@@ -32,7 +32,7 @@ func TestRenderInvitationEmailHTML(t *testing.T) {
 	// The buggy original copy must be gone.
 	require.NotContains(t, body, "If you don't know who you are")
 
-	// Minimal-email constraint (RUK-155): no styling, no images, no <style>.
+	// Minimal-email constraint: no styling, no images, no <style>.
 	require.NotContains(t, body, "<style")
 	require.NotContains(t, body, "<img")
 	require.NotContains(t, body, "style=")

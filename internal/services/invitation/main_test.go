@@ -20,9 +20,9 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
+	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
@@ -50,10 +50,10 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	oauthProvider *mock_oauthprovider.MockOAuthProvider
-	tokenIssuer   *mock_invitation.MockTokenIssuer
-	tokenRevoker  *mock_user.MockTokenRevoker
-	sender        *mock_invitation.MockMessageSender
+	authMethod   *mock_authmethod.MockAuthMethod
+	tokenIssuer  *mock_invitation.MockTokenIssuer
+	tokenRevoker *mock_user.MockTokenRevoker
+	sender       *mock_invitation.MockMessageSender
 
 	// seatGuard is the seats-cap guard shared by the invitation service (Create)
 	// and the underlying user service (Accept → AssignRoles). Tests flip its err
@@ -91,15 +91,15 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	txManager := dbtx.NewTxManager(db)
 
 	mocks := &serviceMocks{
-		tokenIssuer:   mock_invitation.NewMockTokenIssuer(ctrl),
-		tokenRevoker:  mock_user.NewMockTokenRevoker(ctrl),
-		oauthProvider: mock_oauthprovider.NewMockOAuthProvider(ctrl),
-		sender:        mock_invitation.NewMockMessageSender(ctrl),
-		seatGuard:     &fakeSeatGuard{}, // passes by default; cap tests flip err
-		sentEmail:     &sentEmail{},
+		tokenIssuer:  mock_invitation.NewMockTokenIssuer(ctrl),
+		tokenRevoker: mock_user.NewMockTokenRevoker(ctrl),
+		authMethod:   mock_authmethod.NewMockAuthMethod(ctrl),
+		sender:       mock_invitation.NewMockMessageSender(ctrl),
+		seatGuard:    &fakeSeatGuard{}, // passes by default; cap tests flip err
+		sentEmail:    &sentEmail{},
 	}
-	mocks.oauthProvider.EXPECT().
-		ProviderID().Return(entity.OAuthProviderGoogle).
+	mocks.authMethod.EXPECT().
+		MethodID().Return(entity.AuthMethodGoogle).
 		AnyTimes()
 
 	// SendAsync captures the enqueued message for assertions and succeeds. The
@@ -128,7 +128,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			false,           // allowOpenSignup: the accept flow must authorize creation itself
 		),
 		mocks.tokenIssuer,
-		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
+		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		mocks.sender,
 		mocks.seatGuard, // Create runs the guard directly
 	), mocks
@@ -191,7 +191,7 @@ func newUUID() uuid.UUID {
 // makeAdmin creates a real user to act as the inviter (invited_by_id FK).
 func makeAdmin(ctx context.Context, t *testing.T, s *Service) *entity.User {
 	t.Helper()
-	u, err := s.userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	u, err := s.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@admin-test.com",
 		Name:  "Inviter",

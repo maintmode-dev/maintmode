@@ -12,16 +12,17 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
-	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
 	mock_user "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/user"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/license"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 func TestAcceptGuards(t *testing.T) {
@@ -34,7 +35,7 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    "missing",
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -49,11 +50,51 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    raw,
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
+
+	// ParseAuthMethod was widened to accept "email" and "bootstrap", which
+	// have no implementation behind them yet. That is the one non-rename change
+	// in the ticket, so it gets the one new test: those values must reach the
+	// registry, miss it, and be refused exactly like an unknown token -- no user
+	// created, no token pair issued, invitation still pending.
+	//
+	// This is decidable here, and only here. Methods.Get substitutes the stub
+	// whenever useStub is true, and useStub is isDev && cfg.OauthProviders.UseStub.
+	// "local" counts as dev, so the stub IS registered -- what saves this test is
+	// that main_test.go loads plain config.LoadAppConfig(), and the local config
+	// sets oauth_providers.use_stub: false. A canary built on
+	// testconfigutils.LoadAuthConfig (which force-sets UseStub = true) or run
+	// against the test stack would route "email" to the stub, get matching claims
+	// back, and accept the invitation -- asserting the opposite of production.
+	for _, method := range []entity.AuthMethod{entity.AuthMethodEmail, entity.AuthMethodBootstrap} {
+		t.Run("unimplemented method "+string(method)+" is refused", func(t *testing.T) {
+			t.Parallel()
+			svc, mocks := initService(t)
+			emailAddr := uniqueEmail(t)
+			inv := mustCreate(ctx, t, svc, emailAddr)
+			raw := rawTokenFromLink(t, mocks.sentEmail.body)
+
+			// No EXPECT() on the authMethod mock or the token issuer: gomock fails
+			// the test if either is called, which is the point -- the refusal must
+			// happen at the registry, before any credential is verified.
+			_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
+				Token:    raw,
+				Provider: method,
+				IDToken:  "tok",
+			})
+			require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
+
+			// The invitation survives the refusal, so a legitimate accept can
+			// still follow.
+			stored, err := svc.store.GetByID(ctx, inv.ID)
+			require.NoError(t, err)
+			require.Equal(t, entity.InvitationStatusPending, stored.EffectiveStatus(xtime.UTCNow()))
+		})
+	}
 
 	t.Run("email mismatch is rejected without issuing a token", func(t *testing.T) {
 		t.Parallel()
@@ -62,7 +103,7 @@ func TestAcceptGuards(t *testing.T) {
 		raw := rawTokenFromLink(t, mocks.sentEmail.body)
 
 		// OAuth verifies, but resolves to a different email than the invite.
-		mocks.oauthProvider.EXPECT().VerifyToken(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+		mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
 			Subject: newUUID().String(),
 			Email:   "someone-else@evil.com",
 			Name:    "Mallory",
@@ -72,7 +113,7 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    raw,
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrEmailMismatch)
@@ -88,7 +129,7 @@ func TestAcceptSuccess(t *testing.T) {
 	mustCreate(ctx, t, svc, emailAddr, entity.RoleReviewer)
 	raw := rawTokenFromLink(t, mocks.sentEmail.body)
 
-	mocks.oauthProvider.EXPECT().VerifyToken(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
 		Subject: newUUID().String(),
 		Email:   emailAddr,
 		Name:    "Invited User",
@@ -106,7 +147,7 @@ func TestAcceptSuccess(t *testing.T) {
 
 	pair, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.OAuthProviderGoogle,
+		Provider: entity.AuthMethodGoogle,
 		IDToken:  "tok",
 		ClientIP: "127.0.0.1",
 	})
@@ -118,7 +159,7 @@ func TestAcceptSuccess(t *testing.T) {
 	// The invitation is now accepted, so a second accept fails as invalid.
 	_, err = svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.OAuthProviderGoogle,
+		Provider: entity.AuthMethodGoogle,
 		IDToken:  "tok",
 	})
 	require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -137,7 +178,7 @@ func TestAcceptConcurrentSingleUse(t *testing.T) {
 	raw := rawTokenFromLink(t, mocks.sentEmail.body)
 
 	// Both racers verify OAuth to the invited email; the DB claim decides.
-	mocks.oauthProvider.EXPECT().VerifyToken(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
 		Subject: newUUID().String(),
 		Email:   emailAddr,
 		Name:    "Invited User",
@@ -156,7 +197,7 @@ func TestAcceptConcurrentSingleUse(t *testing.T) {
 			<-start
 			_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 				Token:    raw,
-				Provider: entity.OAuthProviderGoogle,
+				Provider: entity.AuthMethodGoogle,
 				IDToken:  "tok",
 			})
 			results <- err
@@ -275,7 +316,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	)
 
 	tokenIssuer := mock_invitation.NewMockTokenIssuer(ctrl)
-	oauthProvider := mock_oauthprovider.NewMockOAuthProvider(ctrl)
+	authMethod := mock_authmethod.NewMockAuthMethod(ctrl)
 	sender := mock_invitation.NewMockMessageSender(ctrl)
 
 	sent := &sentEmail{}
@@ -286,7 +327,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 			sent.body = msg.Body
 			return nil
 		}).AnyTimes()
-	oauthProvider.EXPECT().ProviderID().Return(entity.OAuthProviderGoogle).AnyTimes()
+	authMethod.EXPECT().MethodID().Return(entity.AuthMethodGoogle).AnyTimes()
 
 	userSrv := user.NewService(
 		txManager,
@@ -304,7 +345,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 		invStore,
 		userSrv,
 		tokenIssuer,
-		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{oauthProvider}),
+		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{authMethod}),
 		sender,
 		licenseSrv, // Create runs the real guard too (unused here, invite made below via userSrv-free path)
 	)
@@ -324,7 +365,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 
 	// Bind the seat store to the user id the accept will create/resolve.
 	subject := newUUID().String()
-	oauthProvider.EXPECT().VerifyToken(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+	authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
 		Subject: subject,
 		Email:   emailAddr,
 		Name:    "Invited User",
@@ -337,7 +378,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	// before the guard counts (the guard runs inside accept's tx, before token
 	// issuance). GetOrCreate is idempotent, so pre-creating here yields the same
 	// row the accept resolves.
-	created, err := userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	created, err := userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    subject,
 		Email: emailAddr,
 		Name:  "Invited User",
@@ -349,7 +390,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	// identity broke (guard no longer shares MarkAccepted's tx).
 	pair, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.OAuthProviderGoogle,
+		Provider: entity.AuthMethodGoogle,
 		IDToken:  "tok",
 		ClientIP: "127.0.0.1",
 	})

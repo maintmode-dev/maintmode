@@ -11,7 +11,7 @@ import (
 )
 
 // TestMapError_IntegrationSentinels pins the HTTP status mapping for the
-// integration registry domain errors (RUK-196): not-found -> 404, conflict -> 409,
+// integration registry domain errors: not-found -> 404, conflict -> 409,
 // unknown-kind (wraps ErrValidation) -> 400. Wrapped variants must map the same.
 func TestMapError_IntegrationSentinels(t *testing.T) {
 	t.Parallel()

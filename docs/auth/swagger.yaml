@@ -80,7 +80,7 @@ components:
                     type: string
                 maint_title:
                     description: |-
-                        Maintenance action fields (RUK-182). Populated for maintenance.* /
+                        Maintenance action fields. Populated for maintenance.* /
                         maintenance_step.* actions:
                           - maintenance.* / maintenance_step.*: maint_title;
                           - maintenance.updated: changes (before/after per changed scalar).

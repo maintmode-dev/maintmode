@@ -2,7 +2,7 @@ environment: local
 
 app:
   # Used by the auth OAuth callback/exchange to redirect back to the frontend.
-  # Moved in from the auth config (RUK-194) — the merged process serves the auth
+  # Moved in from the auth config — the merged process serves the auth
   # routes, so it needs this or those redirects target an empty URL.
   frontend_url: http://localhost:9000
 
@@ -15,7 +15,7 @@ auth:
 jwtverifier:
   jwt_issuer: oauth-service
   # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
-  # itself (RUK-194), so the verifier fetches from localhost, not via the auth
+  # itself, so the verifier fetches from localhost, not via the auth
   # upstream.
   jwks_url: http://localhost:8000/api/v1/.well-known/jwks.json
   jwks_refresh_interval: 1h
@@ -38,14 +38,14 @@ api_server:
   host: 0.0.0.0
   port: 8000
   # Rate limiter for the auth login surface (/login/oauth), now served by the
-  # merged process (RUK-194). Moved in from the auth config — without it the
+  # merged process. Moved in from the auth config — without it the
   # login/oauth endpoints lose their per-IP cap.
   rate_limiter:
     requests_per_minute: 30
     burst: 30
     expires_in: 3m
     timeout: 200ms
-  # Rate limiter for the /ui/v1 screen group (RUK-230). Keyed by user id from
+  # Rate limiter for the /ui/v1 screen group. Keyed by user id from
   # the token, not by IP: a whole team behind one corporate NAT shares an
   # address, and an IP key would let one person's polling loop throttle their
   # colleagues. Separate from the block above because that one is an
@@ -112,7 +112,7 @@ notify_transport:
   # stub messenger. This lets a developer watch deliveries in app logs
   # without real Slack/Telegram tokens. Per-transport credentials
   # (Slack/Telegram/SMTP) now live in the DB-backed integration registry
-  # (RUK-196) — configure them via POST /api/v1/integrations, not here.
+  # — configure them via POST /api/v1/integrations, not here.
   use_stub: true
 
 task_processor:
@@ -125,7 +125,7 @@ task_processor:
     cron_spec: "* * * * *"
     threshold: 15m
     batch_limit: 100
-  # audit_prune moved in with auth (RUK-194): the merged process owns the
+  # audit_prune moved in with auth: the merged process owns the
   # audit-retention cron, so its spec must live here or NewTaskProcessors panics
   # building the cron job ("empty spec string").
   audit_prune:

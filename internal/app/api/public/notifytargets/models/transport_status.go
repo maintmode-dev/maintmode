@@ -8,7 +8,7 @@ import (
 )
 
 // TransportStatus reports whether the integration backing a transport can
-// deliver right now. It is a read-model signal only (RUK-198, variant B): the
+// deliver right now. It is a read-model signal only: the
 // coupling between channels and the integration registry stays weak — channel
 // create/update never validates against the registry, and the dispatch path
 // keeps its best-effort drop on a disabled integration. The FE uses this to
@@ -16,7 +16,7 @@ import (
 //
 // The status is derived from the SAME resolve call the delivery path makes
 // (transportresolver.Get → integration.Settings), so it can never disagree
-// with what a real send would do locally (RUK-200). "ok" means "a transport
+// with what a real send would do locally. "ok" means "a transport
 // resolves and its secrets open" — NOT "delivery is guaranteed": a token
 // revoked on the messenger side is only detectable by an actual send.
 type TransportStatus string
@@ -27,7 +27,7 @@ const (
 	TransportStatusOK TransportStatus = "ok"
 	// TransportStatusUnreadable means an enabled integration exists but cannot
 	// be resolved locally (rolled-back KEK, corrupt envelope, missing DEK row,
-	// unparseable settings) — delivery will fail at dispatch (RUK-200).
+	// unparseable settings) — delivery will fail at dispatch.
 	TransportStatusUnreadable TransportStatus = "unreadable"
 	// TransportStatusDisabled means the integration exists but is switched off.
 	TransportStatusDisabled TransportStatus = "disabled"

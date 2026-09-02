@@ -40,7 +40,7 @@ func TestAddLog_WritesCreatedAtFromEntry(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 	// created_at must reflect the event time the entry carried, not NOW() at
-	// insert — the RUK-179 ordering fix.
+	// insert.
 	require.WithinDuration(t, occurred, logs[0].CreatedAt, time.Millisecond)
 }
 

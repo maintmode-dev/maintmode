@@ -30,12 +30,12 @@ func TestExchangeIDToken(t *testing.T) {
 			Email:   xuuid.NewString() + "@example.com",
 			Name:    "Alice",
 		}
-		mocks.oauthProvider.EXPECT().
-			VerifyToken(gomock.Any(), "google-id-token").
+		mocks.authMethod.EXPECT().
+			Authenticate(gomock.Any(), "google-id-token").
 			Return(expClaims, nil)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "google-id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -63,20 +63,20 @@ func TestExchangeIDToken(t *testing.T) {
 			Email:   xuuid.NewString() + "@example.com",
 			Name:    "Bob",
 		}
-		mocks.oauthProvider.EXPECT().
-			VerifyToken(gomock.Any(), gomock.Any()).
+		mocks.authMethod.EXPECT().
+			Authenticate(gomock.Any(), gomock.Any()).
 			Return(expClaims, nil).
 			Times(2)
 
 		pair1, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "tok-1",
 			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
 
 		pair2, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "tok-2",
 			ClientIP: "10.0.0.1",
 		})
@@ -94,12 +94,12 @@ func TestExchangeIDToken(t *testing.T) {
 
 		srv, mocks := initService(t)
 
-		mocks.oauthProvider.EXPECT().
-			VerifyToken(gomock.Any(), gomock.Any()).
+		mocks.authMethod.EXPECT().
+			Authenticate(gomock.Any(), gomock.Any()).
 			Return(nil, apperr.ErrInvalidAccessToken)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "bad",
 			ClientIP: "10.0.0.1",
 		})
@@ -112,7 +112,7 @@ func TestExchangeIDToken(t *testing.T) {
 
 		srv, _ := initService(t)
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGithub,
+			Provider: entity.AuthMethodGithub,
 			IDToken:  "tok",
 			ClientIP: "10.0.0.1",
 		})

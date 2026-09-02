@@ -38,7 +38,7 @@ func (i *Implementation) AcceptInvitation(c *echo.Context) error {
 
 	// An unknown/unsupported provider is just another invalid invitation — the
 	// mapper surfaces it as code "invalid" with no detail.
-	provider, ok := entity.ParseOAuthProvider(req.OAuthPayload.Provider)
+	provider, ok := entity.ParseAuthMethod(req.OAuthPayload.Provider)
 	if !ok {
 		return httperrors.ToAPIError(c, op, apperr.ErrInvalidInvitation)
 	}
