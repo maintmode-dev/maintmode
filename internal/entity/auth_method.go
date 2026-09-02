@@ -1,8 +1,8 @@
 package entity
 
 // AuthMethod names a way a user can authenticate. Today every method is an
-// OAuth provider, but the vocabulary is deliberately wider: RUK-284 onward add
-// a password and an emailed code, neither of which is a provider.
+// OAuth provider, but the vocabulary is deliberately wider: later work adds a
+// password and an emailed code, neither of which is a provider.
 //
 // The string values are DATA, not just identifiers: they are written to and
 // matched against user_identities.provider (a TEXT column with no CHECK
@@ -20,8 +20,8 @@ const (
 	AuthMethodGithub AuthMethod = "github"
 	// AuthMethodEmail and AuthMethodBootstrap are accepted by ParseAuthMethod
 	// but have NO implementation behind them yet: the registry has no entry, so
-	// Methods.Get refuses them. They exist here so tasks 2/13 onward inherit a
-	// decided vocabulary instead of renaming it again (RUK-283).
+	// Methods.Get refuses them. They exist here so the follow-up work inherits a
+	// decided vocabulary instead of renaming it again.
 	AuthMethodEmail     AuthMethod = "email"
 	AuthMethodBootstrap AuthMethod = "bootstrap"
 	// AuthMethodUnknown is an output-only sentinel for "no method known".

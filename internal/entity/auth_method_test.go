@@ -39,8 +39,8 @@ func TestParseAuthMethod(t *testing.T) {
 		{name: "google is a login method", input: "google", want: entity.AuthMethodGoogle, ok: true},
 		{name: "github is a login method", input: "github", want: entity.AuthMethodGithub, ok: true},
 		// Accepted by the parser, but no implementation stands behind them yet:
-		// Methods.Get misses the registry and the caller refuses the request
-		// (RUK-283). Tasks 2/13 onward add the implementations.
+		// Methods.Get misses the registry and the caller refuses the request.
+		// The implementations arrive with the follow-up work.
 		{name: "email is accepted with no implementation", input: "email", want: entity.AuthMethodEmail, ok: true},
 		{name: "bootstrap is accepted with no implementation", input: "bootstrap", want: entity.AuthMethodBootstrap, ok: true},
 		// The stub accepts any token and mints an identity. The method name

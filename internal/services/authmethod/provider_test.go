@@ -137,7 +137,7 @@ func TestProvidersGet(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
 	})
 
-	// RUK-283 made ParseAuthMethod accept "email" and "bootstrap" before anything
+	// ParseAuthMethod accepts "email" and "bootstrap" before anything
 	// implements them. This pins the other half of that arrangement: the registry
 	// must NOT resolve them, so a value that clears the parser still gets refused.
 	// It is deliberately checked here rather than only through the invitation

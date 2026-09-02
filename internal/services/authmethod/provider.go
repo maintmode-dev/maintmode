@@ -21,8 +21,8 @@ import (
 // backend only verifies that token offline against the provider's JWKS, which
 // is why it needs a client_id (the expected audience) but no client_secret.
 //
-// The credential is typed as a plain string because RUK-284 onward put a
-// password and an emailed code behind this same interface. The return type is
+// The credential is typed as a plain string because a password and an emailed
+// code will sit behind this same interface. The return type is
 // still OAuth-shaped; that asymmetry is temporary and is resolved when the
 // first non-OAuth method lands.
 type AuthMethod interface {

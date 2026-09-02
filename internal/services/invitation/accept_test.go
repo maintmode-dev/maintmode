@@ -56,7 +56,7 @@ func TestAcceptGuards(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 
-	// RUK-283 widened ParseAuthMethod to accept "email" and "bootstrap", which
+	// ParseAuthMethod was widened to accept "email" and "bootstrap", which
 	// have no implementation behind them yet. That is the one non-rename change
 	// in the ticket, so it gets the one new test: those values must reach the
 	// registry, miss it, and be refused exactly like an unknown token -- no user
