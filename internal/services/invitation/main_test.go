@@ -93,7 +93,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	mocks := &serviceMocks{
 		tokenIssuer:  mock_invitation.NewMockTokenIssuer(ctrl),
 		tokenRevoker: mock_user.NewMockTokenRevoker(ctrl),
-		authMethod:   mock_authmethod.NewMockOAuthProvider(ctrl),
+		authMethod:   mock_authmethod.NewMockAuthMethod(ctrl),
 		sender:       mock_invitation.NewMockMessageSender(ctrl),
 		seatGuard:    &fakeSeatGuard{}, // passes by default; cap tests flip err
 		sentEmail:    &sentEmail{},

@@ -17,28 +17,67 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockAuthMethod is a mock of OAuthProvider interface.
+// MockAuthMethod is a mock of AuthMethod interface.
 type MockAuthMethod struct {
 	ctrl     *gomock.Controller
-	recorder *MockOAuthProviderMockRecorder
+	recorder *MockAuthMethodMockRecorder
 	isgomock struct{}
 }
 
-// MockOAuthProviderMockRecorder is the mock recorder for MockAuthMethod.
-type MockOAuthProviderMockRecorder struct {
+// MockAuthMethodMockRecorder is the mock recorder for MockAuthMethod.
+type MockAuthMethodMockRecorder struct {
 	mock *MockAuthMethod
 }
 
-// NewMockOAuthProvider creates a new mock instance.
-func NewMockOAuthProvider(ctrl *gomock.Controller) *MockAuthMethod {
+// NewMockAuthMethod creates a new mock instance.
+func NewMockAuthMethod(ctrl *gomock.Controller) *MockAuthMethod {
 	mock := &MockAuthMethod{ctrl: ctrl}
-	mock.recorder = &MockOAuthProviderMockRecorder{mock}
+	mock.recorder = &MockAuthMethodMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockAuthMethod) EXPECT() *MockOAuthProviderMockRecorder {
+func (m *MockAuthMethod) EXPECT() *MockAuthMethodMockRecorder {
 	return m.recorder
+}
+
+// Authenticate mocks base method.
+func (m *MockAuthMethod) Authenticate(ctx context.Context, credential string) (*entity.OAuthIDTokenClaims, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Authenticate", ctx, credential)
+	ret0, _ := ret[0].(*entity.OAuthIDTokenClaims)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Authenticate indicates an expected call of Authenticate.
+func (mr *MockAuthMethodMockRecorder) Authenticate(ctx, credential any) *MockAuthMethodAuthenticateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticate", reflect.TypeOf((*MockAuthMethod)(nil).Authenticate), ctx, credential)
+	return &MockAuthMethodAuthenticateCall{Call: call}
+}
+
+// MockAuthMethodAuthenticateCall wrap *gomock.Call
+type MockAuthMethodAuthenticateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodAuthenticateCall) Return(arg0 *entity.OAuthIDTokenClaims, arg1 error) *MockAuthMethodAuthenticateCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodAuthenticateCall) Do(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockAuthMethodAuthenticateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodAuthenticateCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockAuthMethodAuthenticateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // MethodID mocks base method.
@@ -50,70 +89,31 @@ func (m *MockAuthMethod) MethodID() entity.AuthMethod {
 }
 
 // MethodID indicates an expected call of MethodID.
-func (mr *MockOAuthProviderMockRecorder) MethodID() *MockOAuthProviderProviderIDCall {
+func (mr *MockAuthMethodMockRecorder) MethodID() *MockAuthMethodMethodIDCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MethodID", reflect.TypeOf((*MockAuthMethod)(nil).MethodID))
-	return &MockOAuthProviderProviderIDCall{Call: call}
+	return &MockAuthMethodMethodIDCall{Call: call}
 }
 
-// MockOAuthProviderProviderIDCall wrap *gomock.Call
-type MockOAuthProviderProviderIDCall struct {
+// MockAuthMethodMethodIDCall wrap *gomock.Call
+type MockAuthMethodMethodIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockOAuthProviderProviderIDCall) Return(arg0 entity.AuthMethod) *MockOAuthProviderProviderIDCall {
+func (c *MockAuthMethodMethodIDCall) Return(arg0 entity.AuthMethod) *MockAuthMethodMethodIDCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderProviderIDCall) Do(f func() entity.AuthMethod) *MockOAuthProviderProviderIDCall {
+func (c *MockAuthMethodMethodIDCall) Do(f func() entity.AuthMethod) *MockAuthMethodMethodIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderProviderIDCall) DoAndReturn(f func() entity.AuthMethod) *MockOAuthProviderProviderIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Authenticate mocks base method.
-func (m *MockAuthMethod) Authenticate(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authenticate", ctx, idToken)
-	ret0, _ := ret[0].(*entity.OAuthIDTokenClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Authenticate indicates an expected call of Authenticate.
-func (mr *MockOAuthProviderMockRecorder) Authenticate(ctx, idToken any) *MockOAuthProviderVerifyTokenCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticate", reflect.TypeOf((*MockAuthMethod)(nil).Authenticate), ctx, idToken)
-	return &MockOAuthProviderVerifyTokenCall{Call: call}
-}
-
-// MockOAuthProviderVerifyTokenCall wrap *gomock.Call
-type MockOAuthProviderVerifyTokenCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockOAuthProviderVerifyTokenCall) Return(arg0 *entity.OAuthIDTokenClaims, arg1 error) *MockOAuthProviderVerifyTokenCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockOAuthProviderVerifyTokenCall) Do(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockOAuthProviderVerifyTokenCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOAuthProviderVerifyTokenCall) DoAndReturn(f func(context.Context, string) (*entity.OAuthIDTokenClaims, error)) *MockOAuthProviderVerifyTokenCall {
+func (c *MockAuthMethodMethodIDCall) DoAndReturn(f func() entity.AuthMethod) *MockAuthMethodMethodIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

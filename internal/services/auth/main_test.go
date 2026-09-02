@@ -69,7 +69,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
-		authMethod: mock_authmethod.NewMockOAuthProvider(ctrl),
+		authMethod: mock_authmethod.NewMockAuthMethod(ctrl),
 	}
 	mocks.authMethod.EXPECT().
 		MethodID().

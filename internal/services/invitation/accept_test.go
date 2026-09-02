@@ -12,8 +12,8 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
 	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
+	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
 	mock_user "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/user"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/license"
@@ -275,7 +275,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	)
 
 	tokenIssuer := mock_invitation.NewMockTokenIssuer(ctrl)
-	authMethod := mock_authmethod.NewMockOAuthProvider(ctrl)
+	authMethod := mock_authmethod.NewMockAuthMethod(ctrl)
 	sender := mock_invitation.NewMockMessageSender(ctrl)
 
 	sent := &sentEmail{}
