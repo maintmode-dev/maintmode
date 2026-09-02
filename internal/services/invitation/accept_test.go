@@ -22,6 +22,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
 	"github.com/ruko1202/maintmode/internal/storages/users"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 func TestAcceptGuards(t *testing.T) {
@@ -54,6 +55,46 @@ func TestAcceptGuards(t *testing.T) {
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
+
+	// RUK-283 widened ParseAuthMethod to accept "email" and "bootstrap", which
+	// have no implementation behind them yet. That is the one non-rename change
+	// in the ticket, so it gets the one new test: those values must reach the
+	// registry, miss it, and be refused exactly like an unknown token -- no user
+	// created, no token pair issued, invitation still pending.
+	//
+	// This is decidable here, and only here. Methods.Get substitutes the stub
+	// whenever useStub is true, and useStub is isDev && cfg.OauthProviders.UseStub.
+	// "local" counts as dev, so the stub IS registered -- what saves this test is
+	// that main_test.go loads plain config.LoadAppConfig(), and the local config
+	// sets oauth_providers.use_stub: false. A canary built on
+	// testconfigutils.LoadAuthConfig (which force-sets UseStub = true) or run
+	// against the test stack would route "email" to the stub, get matching claims
+	// back, and accept the invitation -- asserting the opposite of production.
+	for _, method := range []entity.AuthMethod{entity.AuthMethodEmail, entity.AuthMethodBootstrap} {
+		t.Run("unimplemented method "+string(method)+" is refused", func(t *testing.T) {
+			t.Parallel()
+			svc, mocks := initService(t)
+			emailAddr := uniqueEmail(t)
+			inv := mustCreate(ctx, t, svc, emailAddr)
+			raw := rawTokenFromLink(t, mocks.sentEmail.body)
+
+			// No EXPECT() on the authMethod mock or the token issuer: gomock fails
+			// the test if either is called, which is the point -- the refusal must
+			// happen at the registry, before any credential is verified.
+			_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
+				Token:    raw,
+				Provider: method,
+				IDToken:  "tok",
+			})
+			require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
+
+			// The invitation survives the refusal, so a legitimate accept can
+			// still follow.
+			stored, err := svc.store.GetByID(ctx, inv.ID)
+			require.NoError(t, err)
+			require.Equal(t, entity.InvitationStatusPending, stored.EffectiveStatus(xtime.UTCNow()))
+		})
+	}
 
 	t.Run("email mismatch is rejected without issuing a token", func(t *testing.T) {
 		t.Parallel()
