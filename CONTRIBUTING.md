@@ -61,9 +61,10 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). Write the body to
 explain the reasoning, not the diff — the diff is already there.
 
-You may see `RUK-123` identifiers in the history and in comments. Those are
-issue references from the project's own tracker, which is not public. You are
-not expected to add them.
+You may see `RUK-123` identifiers in the commit history and in older migration
+files. Those are issue references from the project's own tracker, which is not
+public. Do not add new ones: code and comments must explain themselves without
+a tracker, and a comment whose payload is a pointer is worse than no comment.
 
 ## Licence
 

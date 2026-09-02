@@ -35,7 +35,7 @@ func TestGetResource(t *testing.T) {
 		require.Equal(t, resource.Name, got.Name)
 		require.Equal(t, "active", got.Status)
 
-		// Authorship is resolved on read (RUK-169): created_by carries the author;
+		// Authorship is resolved on read: created_by carries the author;
 		// an unedited resource has no updated_by.
 		require.NotNil(t, got.CreatedBy)
 		require.Equal(t, resource.CreatedBy.ID, got.CreatedBy.ID)

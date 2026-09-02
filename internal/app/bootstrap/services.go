@@ -45,7 +45,7 @@ import (
 // Services contains all service layer dependencies for the single maintmode
 // process: the core maintenance/resource/notify services and the auth
 // (user/token/invitation/audit) services collapsed in from the former auth
-// binary (RUK-194).
+// binary.
 type Services struct {
 	// Core services.
 	Maint         *maintSrv.Service
@@ -95,7 +95,7 @@ func NewServices(ctx context.Context,
 	stores *Stores,
 ) (*Services, error) {
 	// queue is the single goque task-queue manager for this process. The scheduler
-	// wraps it for delivery/reminder enqueue; the audit publisher (RUK-182)
+	// wraps it for delivery/reminder enqueue; the audit publisher
 	// enqueues audit.write tasks through it directly. Both the audit publisher and
 	// the messaging scheduler share this one queue manager (one connection per
 	// queue).

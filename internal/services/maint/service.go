@@ -23,7 +23,7 @@ type UserLister interface {
 	ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*entity.ListUsersResult, error)
 }
 
-// AuditPublisher enqueues an audited action to the durable outbox (RUK-179/182).
+// AuditPublisher enqueues an audited action to the durable outbox.
 // Defined consumer-side so the maint service depends only on the publish
 // capability and can be tested with a fake. Backed by auditpublisher.Publisher;
 // the audit.write task it enqueues is drained on the auth binary.

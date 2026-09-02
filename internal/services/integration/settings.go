@@ -23,7 +23,7 @@ import (
 // A missing integration returns ErrIntegrationNotConfigured and a disabled one
 // ErrIntegrationDisabled; the former wraps the latter, so the dispatch path's
 // errors.Is(err, ErrIntegrationDisabled) best-effort drop covers both, while
-// the read model can still tell them apart (RUK-200). An ENABLED integration
+// the read model can still tell them apart. An ENABLED integration
 // whose secrets cannot be opened locally (rolled-back KEK, corrupt envelope,
 // missing DEK row, unparseable settings) returns ErrIntegrationUnreadable —
 // surfaced as transport_status "unreadable" on reads, retried toward

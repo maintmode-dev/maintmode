@@ -1,4 +1,4 @@
-// RUK-190: continuous profiling of maintmode through Pyroscope (pull model).
+// Continuous profiling of maintmode through Pyroscope (pull model).
 //
 // Alloy itself does NOT store profiles — it collects them from the application's
 // pprof endpoints and forwards them to Pyroscope. The chain: discovery.docker

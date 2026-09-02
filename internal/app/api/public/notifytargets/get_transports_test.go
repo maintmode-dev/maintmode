@@ -32,7 +32,7 @@ func transportsImpl(t *testing.T, outcomes map[entity.NotifyTransport]error) *Im
 
 // TestGetTransports covers the transports catalog handler: the static
 // slack/telegram catalog enriched with per-transport transport_status derived
-// from the delivery resolver (RUK-198/RUK-200).
+// from the delivery resolver.
 func TestGetTransports(t *testing.T) {
 	t.Parallel()
 

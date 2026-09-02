@@ -15,7 +15,7 @@ import (
 const defaultTimeout = 10 * time.Second
 
 // Params is the constructor input for the Telegram transport. It is populated
-// from the DB-backed integration settings (RUK-196); BotToken is a secret and
+// from the DB-backed integration settings; BotToken is a secret and
 // the type intentionally has no Stringer/marshaler.
 type Params struct {
 	BotToken string

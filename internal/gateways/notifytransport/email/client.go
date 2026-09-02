@@ -2,7 +2,7 @@
 // notify Transport (TransportID + Send) so email lives in the same registry as
 // slack/telegram rather than a parallel abstraction.
 //
-// Real delivery is opt-in via the DB-backed integration registry (RUK-196): an
+// Real delivery is opt-in via the DB-backed integration registry: an
 // admin enables and configures the email transport at runtime. New fails fast
 // when the transport is enabled but misconfigured (e.g. an empty host or from),
 // so a broken integration surfaces at build time rather than silently never
@@ -26,7 +26,7 @@ const (
 )
 
 // Params is the constructor input for the email/SMTP transport. It is populated
-// from the DB-backed integration settings (RUK-196); Password is a secret and
+// from the DB-backed integration settings; Password is a secret and
 // the type intentionally has no Stringer/marshaler.
 type Params struct {
 	Host      string

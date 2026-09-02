@@ -304,7 +304,7 @@ services:
   # cAdvisor — per-container resource usage (cpu/mem/net/io). Emits
   # container_* metrics keyed by the `name` label, which prometheus.yml
   # relabels to `service_name` so the same $service dropdown finds the
-  # maintmode containers without editing container_name filters (RUK-191).
+  # maintmode containers without editing container_name filters.
   # Read-only host mounts + privileged are the upstream-recommended minimum
   # for reading cgroup/container stats on a Docker host. The :8080 host port
   # is dev-only; prod keeps it internal via a compose overlay.
@@ -330,8 +330,9 @@ services:
       - theapp
 
   # node-exporter — host-level totals (cpu/mem/disk/net capacity). This is the
-  # "available resources" half of RUK-191: node_* metrics report what the VM
-  # has, against which cAdvisor's per-container "consumed" is compared. The
+  # "available resources" half of the monitoring stack: node_* metrics report
+  # what the VM has, against which cAdvisor's per-container "consumed" is
+  # compared. The
   # :9100 host port is dev-only; prod keeps it internal via a compose overlay.
   node-exporter:
     image: prom/node-exporter:v1.8.2
@@ -382,7 +383,7 @@ services:
     networks:
       - theapp
 
-  # Pyroscope — continuous-profiling backend (RUK-190). Alloy scrapes the
+  # Pyroscope — continuous-profiling backend. Alloy scrapes the
   # application's pprof and writes the profiles here; Grafana reads them through
   # the pyroscope_ds datasource. The version is pinned deliberately (like tempo),
   # we do not take latest.

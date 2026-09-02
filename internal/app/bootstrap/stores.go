@@ -31,7 +31,7 @@ import (
 // Stores contains all storage layer dependencies for the single maintmode
 // process. It carries both the core (maintenance/resource/notify) stores and
 // the auth (user/token/invitation/audit) stores collapsed in from the former
-// auth binary (RUK-194).
+// auth binary.
 type Stores struct {
 	TxManager             *dbtx.TxManager
 	Maintenances          *maintenances.Store
@@ -42,7 +42,7 @@ type Stores struct {
 	DeferredNotifications *deferrednotifications.Store
 	ChannelCatalog        *notifychannel.Store
 
-	// Integration registry stores (RUK-196): the settings catalog and the wrapped
+	// Integration registry stores: the settings catalog and the wrapped
 	// data-encryption keys that protect its secrets at rest.
 	Integrations *integrationstore.Store
 	DataKeys     *datakey.Store

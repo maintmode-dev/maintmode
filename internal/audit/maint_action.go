@@ -2,13 +2,13 @@ package audit
 
 import "github.com/ruko1202/maintmode/internal/entity"
 
-// Maintenance audited actions (RUK-182). Each records a maintenance lifecycle,
+// Maintenance audited actions. Each records a maintenance lifecycle,
 // CRUD or step transition the maint service just performed. They mirror the user
 // actions in action.go: a concrete type per audit action, implementing the
 // Action marker, rendered to a maintenance-entity snapshot by the renderer.
 //
 // Actor is the user who performed the action, resolved at the API boundary
-// (handler). The automatic overdue-cancel path (RUK-181) has no human actor and
+// (handler). The automatic overdue-cancel path has no human actor and
 // publishes MaintCancelled with the synthetic entity.SystemUser as the actor.
 
 // MaintCreated records that Actor created a draft maintenance.

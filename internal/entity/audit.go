@@ -24,8 +24,8 @@ const (
 	// audited — see the audit.UserTagsChanged doc block.
 	AuditActionUserTagsChanged AuditAction = "user.tags_changed"
 
-	// Maintenance lifecycle/CRUD actions (RUK-182). AuditActionMaintAutoCanceled
-	// is the automatic overdue-cancel path (RUK-181) — system actor, no human.
+	// Maintenance lifecycle/CRUD actions. AuditActionMaintAutoCanceled
+	// is the automatic overdue-cancel path — system actor, no human.
 	// Values use the project's "canceled" spelling (matches MaintenanceStatusCancelled = "canceled").
 	AuditActionMaintCreated   AuditAction = "maintenance.created"
 	AuditActionMaintUpdated   AuditAction = "maintenance.updated"
@@ -38,7 +38,7 @@ const (
 	AuditActionMaintStepCompleted AuditAction = "maintenance_step.completed"
 	AuditActionMaintStepCanceled  AuditAction = "maintenance_step.canceled"
 
-	// Integration registry actions (RUK-196). The payload records the kind and
+	// Integration registry actions. The payload records the kind and
 	// enabled flag only — never secret values.
 	AuditActionIntegrationCreated AuditAction = "integration.created"
 	AuditActionIntegrationUpdated AuditAction = "integration.updated"
@@ -87,7 +87,7 @@ const (
 //     entity is deleted and can carry different ID kinds (UUID, string name, int).
 type AuditEntry struct {
 	ID               uuid.UUID
-	EventID          uuid.UUID // per-event idempotency key (RUK-179); uuid.Nil for legacy/non-outbox writes
+	EventID          uuid.UUID // per-event idempotency key; uuid.Nil for legacy/non-outbox writes
 	Action           AuditAction
 	Actor            string          // who performed the action (email)
 	ActorID          string          // stable actor ID (user UUID, string — not an FK); empty for system
@@ -102,7 +102,7 @@ type AuditEntry struct {
 type AuditFailureReason string
 
 // Whitelist-safe login failure reasons for audit metadata. The raw error text is
-// never written to the audit trail — it may carry internal details (RUK-81).
+// never written to the audit trail — it may carry internal details.
 const (
 	AuditFailureUserProvisioning AuditFailureReason = "user provisioning failed"
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
@@ -121,7 +121,8 @@ const (
 
 // AuditMetadata is the structured, action-specific payload of an audit record.
 // Strictly a whitelist of safe fields: IP, user agent, session id, role names.
-// NEVER put tokens, cookies, secrets or raw payloads here (see RUK-81).
+// NEVER put tokens, cookies, secrets or raw payloads here: the audit trail is
+// durable, is never redacted, and every admin can read it back through the API.
 //
 // Which fields are populated depends on the action:
 //   - login_success / login_failed: IP, UserAgent, SessionID (+FailureReason for failed);
@@ -143,7 +144,7 @@ type AuditMetadata struct {
 	TargetEmail       string             `json:"target_email,omitempty"`
 	TargetDisplayName string             `json:"target_display_name,omitempty"`
 
-	// Maintenance action fields (RUK-182). All omitempty; populated only for
+	// Maintenance action fields. All omitempty; populated only for
 	// maintenance.* / maintenance_step.* actions:
 	//   - maintenance.* / maintenance_step.*: MaintTitle;
 	//   - maintenance.updated: Changes (before/after per changed scalar).

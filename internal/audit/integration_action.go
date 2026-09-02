@@ -7,7 +7,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// Integration registry audited actions (RUK-196). Each records that Actor created
+// Integration registry audited actions. Each records that Actor created
 // or updated an integration of a given kind. The snapshot deliberately carries
 // only the kind and enabled flag — never config values and never secret values —
 // so a credential can't leak into the durable audit trail.

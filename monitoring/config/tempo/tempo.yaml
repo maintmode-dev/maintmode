@@ -31,7 +31,7 @@ storage:
 
 compactor:
   compaction:
-    block_retention: 24h      # 1 day (RUK-189)
+    block_retention: 24h      # 1 day
 
 # Service Graph: the metrics-generator builds per-edge metrics (request/error/
 # duration) from the spans and remote-writes them to VictoriaMetrics (Prometheus-

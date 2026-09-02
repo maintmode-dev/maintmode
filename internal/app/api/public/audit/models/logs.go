@@ -47,7 +47,7 @@ type AuditLogMetadata struct {
 	TargetEmail       string   `json:"target_email,omitempty"`
 	TargetDisplayName string   `json:"target_display_name,omitempty"`
 
-	// Maintenance action fields (RUK-182). Populated for maintenance.* /
+	// Maintenance action fields. Populated for maintenance.* /
 	// maintenance_step.* actions:
 	//   - maintenance.* / maintenance_step.*: maint_title;
 	//   - maintenance.updated: changes (before/after per changed scalar).

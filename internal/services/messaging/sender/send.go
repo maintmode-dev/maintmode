@@ -35,7 +35,7 @@ func (s *Service) Send(
 
 	tr, err := s.notifyTransportRegistry.Get(ctx, trName)
 	if err != nil {
-		// A disabled/unconfigured integration (RUK-196) is a routine drop, not a
+		// A disabled/unconfigured integration is a routine drop, not a
 		// fault — log it at Warn so it doesn't page on the Error channel, matching
 		// the async processor. The error still propagates; the caller decides.
 		if errors.Is(err, apperr.ErrIntegrationDisabled) {

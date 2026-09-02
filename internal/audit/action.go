@@ -1,5 +1,5 @@
 // Package audit defines the audited actions a service reports to the durable
-// audit trail (RUK-179), and renders them to the point-in-time snapshot the
+// audit trail, and renders them to the point-in-time snapshot the
 // audit-write outbox task carries.
 //
 // These are audit actions, not a general event system: there is one consumer

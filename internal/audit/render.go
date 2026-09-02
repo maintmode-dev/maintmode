@@ -154,7 +154,7 @@ func fillBlockedPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action A
 	return nil
 }
 
-// fillMaintPayload handles the maintenance (RUK-182) action cases, split out of
+// fillMaintPayload handles the maintenance action cases, split out of
 // fillPayload to keep each switch's cyclomatic complexity in check. It dispatches
 // to the lifecycle/CRUD or the per-step sub-handler; an unknown action returns
 // ErrUnsupportedEvent.
@@ -233,7 +233,8 @@ func fillMaintStepAction(
 // action. actor_display_name is the point-in-time snapshot (not resolved on
 // read). Note: for an unidentified actor (e.g. a login that failed before the
 // user was resolved) ID is the zero UUID and ActorID becomes its all-zeros
-// string — preserved verbatim from the pre-RUK-179 listener behavior.
+// string — preserved verbatim from the synchronous listener this outbox
+// renderer replaced.
 func setActor(payload *entity.ProcessorTaskPayloadAuditWrite, actor *entity.User) {
 	payload.Actor = actor.Email
 	payload.ActorID = actor.ID.String()

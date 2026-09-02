@@ -41,7 +41,7 @@ const (
 	ProcessorTaskAuditPrune     = "audit.prune"
 	ProcessorTaskAuditPruneCron = "audit.prune.cron"
 	// ProcessorTaskAuditWrite is the goque task type produced when a service
-	// publishes an audited domain event via auditpublisher.Publish (RUK-179). Its
+	// publishes an audited domain event via auditpublisher.Publish. Its
 	// processor decodes the rendered audit snapshot and writes it to audit_log
 	// after commit, outside any tx.
 	//
@@ -174,8 +174,8 @@ type ProcessorTaskPayloadInvitationPrune struct {
 	BatchLimit int64         `json:"batch_limit"`
 }
 
-// ProcessorTaskPayloadAuditWrite is the payload of an audit-write task
-// (RUK-179). It is the rendered, point-in-time snapshot of one audit event:
+// ProcessorTaskPayloadAuditWrite is the payload of an audit-write task.
+// It is the rendered, point-in-time snapshot of one audit event:
 // the publisher fills every persisted field at dispatch time and the processor
 // writes it verbatim. Unlike the other payloads it carries content, not an id
 // — audit records must not be re-resolved on read.

@@ -65,7 +65,7 @@ scrape_configs:
   # cAdvisor labels each series with `name` (the Docker container name).
   # Relabel it to the same `service_name` key every other job uses so a
   # single $service dropdown finds the maintmode containers without editing
-  # container_name filters (RUK-191). Series without a container name (the
+  # container_name filters. Series without a container name (the
   # machine-level roll-up) get service_name='host'.
   - job_name: 'cadvisor'
     static_configs:
@@ -95,7 +95,7 @@ scrape_configs:
   # Metrics on the admin endpoint :2019/metrics (enabled via `metrics` in the
   # Caddyfile global block). Gives request rate, latency, and 4xx/5xx at the
   # edge (incl. 429s from the rate limiter), plus upstream health — how many
-  # maintmode replicas Caddy considers healthy (RUK-147 drain visibility).
+  # maintmode replicas Caddy considers healthy (drain visibility).
   - job_name: 'caddy'
     static_configs:
       - targets: ['caddy:2019']

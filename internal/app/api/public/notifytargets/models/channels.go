@@ -25,7 +25,7 @@ type Channel struct {
 	// TransportStatus reports whether the integration backing the transport can
 	// deliver right now (ok | disabled | not_configured). Always present — the
 	// coupling to the registry stays weak, this is the read-model signal that
-	// makes silent non-delivery visible (RUK-198).
+	// makes silent non-delivery visible.
 	TransportStatus    TransportStatus `json:"transport_status" example:"ok"`
 	TransportChannelID string          `json:"transport_channel_id"`
 	Name               string          `json:"name"`

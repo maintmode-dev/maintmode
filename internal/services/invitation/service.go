@@ -4,8 +4,10 @@
 // token pair exactly like a normal login.
 //
 // Privacy is a first-class constraint: the public preview and accept endpoints
-// never reveal invitation contents (email, roles, inviter, message). See
-// RUK-94 and the apperr.ErrInvalidInvitation / ErrEmailMismatch comments.
+// never reveal invitation contents (email, roles, inviter, message). Anyone can
+// call them with a guessed token, so distinct failures — not found, expired,
+// already accepted, revoked — collapse into one generic "invalid" status; see
+// the apperr.ErrInvalidInvitation / ErrEmailMismatch comments.
 package invitation
 
 import (

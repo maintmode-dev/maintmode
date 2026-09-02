@@ -270,8 +270,8 @@ type Auth struct {
 }
 
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
-// credentials (Slack/Telegram/SMTP) moved to the DB-backed integration registry
-// in RUK-196; the only remaining knob is the dev stub short-circuit.
+// credentials (Slack/Telegram/SMTP) live in the DB-backed integration registry,
+// not here; the only remaining knob is the dev stub short-circuit.
 type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.

@@ -14,8 +14,8 @@ import (
 // NotifyTargetsReader reads notify targets of a maintenance. Defined
 // consumer-side (like maint.ApproverValidator) so calendar depends only on the
 // read capability, not on the notificator module's storage internals — that
-// cross-module storage import is forbidden by the depguard storage-fortress rule
-// (RUK-193). Backed by notifytargets.Store.
+// cross-module storage import is forbidden by the depguard storage-fortress
+// rule. Backed by notifytargets.Store.
 type NotifyTargetsReader interface {
 	ListByMaint(ctx context.Context, maintID uuid.UUID) ([]*entity.NotifyTarget, error)
 }
@@ -23,7 +23,7 @@ type NotifyTargetsReader interface {
 // DeferredNotificationsReader reads the deferred-notification schedule of a
 // maintenance. Defined consumer-side (like NotifyTargetsReader) so calendar does
 // not import another module's storage directly — that cross-module storage
-// import is forbidden by the depguard storage-fortress rule (RUK-193). Backed by
+// import is forbidden by the depguard storage-fortress rule. Backed by
 // deferrednotifications.Store.
 type DeferredNotificationsReader interface {
 	ListByMaint(ctx context.Context, maintID uuid.UUID) ([]*entity.DeferredNotification, error)

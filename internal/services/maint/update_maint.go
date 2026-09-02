@@ -391,7 +391,7 @@ func maintLifecycleEvent(from, to entity.MaintenanceStatus) (entity.NotifyEventK
 }
 
 // maintUpdateChanges diffs the pre- and post-update maintenance into the
-// structured before/after entries the audit metadata carries (RUK-182). Scalar
+// structured before/after entries the audit metadata carries. Scalar
 // fields record old → new; collection fields (steps, targets) record only a
 // changed flag (empty old/new) since element-level diffs are noisy.
 //

@@ -39,7 +39,7 @@ $(shell mkdir -p ./tmp)
 
 DOCKER_COMPOSE_APP_CONFIGS ?= -f compose.yaml
 
-# Compose profiles. After RUK-21, every service in compose.yaml declares a
+# Compose profiles. Every service in compose.yaml declares a
 # `profiles:` key, so any compose command that should start services must
 # pass these flags explicitly. Override COMPOSE_PROFILES_FLAGS=... for
 # selective runs (e.g. test-api drops monitoring).

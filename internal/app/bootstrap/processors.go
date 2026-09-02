@@ -92,7 +92,7 @@ func NewTaskProcessors(
 	)
 
 	// audit.write: domain events published via auditpublisher.Publish land here as
-	// rendered audit snapshots (RUK-179). The processor writes audit_log after
+	// rendered audit snapshots. The processor writes audit_log after
 	// commit, outside any tx. An idempotent INSERT (ON CONFLICT event_id) makes
 	// retries safe.
 	reg.RegisterProcessor(

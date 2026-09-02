@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These tests pin the read-time behavior RUK-211 relies on: a row the rotation
-// sweep has flipped to a persisted status='expired' must still resolve to
+// These tests pin the read-time behavior the invitation rotation relies on: a
+// row the sweep has flipped to a persisted status='expired' must still resolve to
 // "expired" through EffectiveStatus/PreviewStatus, exactly as a not-yet-rotated
 // pending-past-expiry row does. Without these, the "persisting expired is safe
 // for the read path" claim is unguarded.

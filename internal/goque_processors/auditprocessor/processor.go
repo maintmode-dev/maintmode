@@ -1,5 +1,5 @@
 // Package auditprocessor drains audit.write goque tasks: it decodes the
-// rendered audit snapshot and writes it to audit_log (RUK-179). It is the
+// rendered audit snapshot and writes it to audit_log. It is the
 // durable, after-commit replacement for the former in-process auditor listener,
 // and it runs outside any transaction so an audit write — or any future
 // network-backed listener that joins this pattern — can never hold a business

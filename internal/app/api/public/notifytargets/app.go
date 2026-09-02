@@ -21,7 +21,7 @@ import (
 // send paths use (transportresolver.Service, or the stub in dev), so
 // transport_status is derived from exactly what a real send would do:
 // resolves → ok, and the error's sentinel tells disabled / not_configured /
-// unreadable apart (RUK-200). The resolved transport itself is discarded by
+// unreadable apart. The resolved transport itself is discarded by
 // this layer; only the outcome is read. Secrets never surface here — they stay
 // inside the built client.
 type transportSource interface {

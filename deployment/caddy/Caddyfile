@@ -15,16 +15,16 @@
 #
 # Active health polls /readiness on the infra port (8001) every 2s and
 # drops a replica that reports not-200 — including one that flipped to 503
-# during graceful drain (RUK-147). Passive health (fail_duration /
+# during graceful drain. Passive health (fail_duration /
 # max_fails) plus lb_retries replay a request that errors mid-flight on a
 # healthy peer. Restart Caddy after changing replica count so it
 # re-resolves DNS.
 #
-# Perimeter rate limit (RUK-146): a coarse, per-client-IP anti-flood cap
+# Perimeter rate limit: a coarse, per-client-IP anti-flood cap
 # on the external /auth/* surface, provided by the caddy-ratelimit module
 # (baked into our custom image — see deployment/caddy/Dockerfile). This is
 # defense-in-depth IN FRONT of, not a replacement for, the app-level
-# Valkey-backed business limiter on /login/oauth (30 RPM/IP, RUK-145):
+# Valkey-backed business limiter on /login/oauth (30 RPM/IP):
 #   - app limiter  : precise business limit, replica-shared via Valkey
 #   - this limiter : coarse anti-flood before traffic reaches the app,
 #                    Caddy in-memory (single Caddy per VM → consistent)
@@ -47,7 +47,7 @@
 	# API listens on :2019 across all interfaces so VictoriaMetrics can scrape
 	# it over the theapp network (the default localhost:2019 is unreachable
 	# from another container). Safe here because compose does NOT publish 2019
-	# to the host — it stays internal to the theapp network (RUK-191).
+	# to the host — it stays internal to the theapp network.
 	admin :2019
 	metrics
 }
@@ -93,13 +93,13 @@
 	# Per-server HTTP metrics (caddy_http_requests_total,
 	# caddy_http_request_duration_seconds, ...). The global `metrics` option
 	# only exposes the /metrics endpoint + admin/upstream gauges; request-level
-	# series require this directive inside each site block (RUK-191).
+	# series require this directive inside each site block.
 	metrics
 
 	# JSON access log to stdout → promtail ships it to Loki under
 	# {container_name="caddy"}. Without this, Caddy only logs internal
 	# tls/config events, so HTTP status/duration/client_ip are unavailable
-	# to the Caddy dashboard's log panels (RUK-191).
+	# to the Caddy dashboard's log panels.
 	log {
 		output stdout
 		format json

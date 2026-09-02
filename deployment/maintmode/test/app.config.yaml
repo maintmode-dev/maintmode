@@ -2,7 +2,7 @@ environment: dev
 
 app:
   # Used by the auth OAuth callback/exchange to redirect back to the frontend.
-  # Moved in from the auth config (RUK-194) — the merged process serves the auth
+  # Moved in from the auth config — the merged process serves the auth
   # routes, so it needs this or those redirects target an empty URL.
   frontend_url: http://localhost:9000
 
@@ -15,7 +15,7 @@ auth:
 jwtverifier:
   jwt_issuer: oauth-service
   # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
-  # itself (RUK-194), so the verifier fetches from localhost, not the removed
+  # itself, so the verifier fetches from localhost, not the removed
   # auth service.
   jwks_url: http://localhost:8000/api/v1/.well-known/jwks.json
   jwks_refresh_interval: 1h
@@ -38,7 +38,7 @@ api_server:
   host: 0.0.0.0
   port: 8000
   # Rate limiter for the auth login surface (/login/oauth), now served by the
-  # merged process (RUK-194). The api e2e suite drives /login/oauth/* from one IP
+  # merged process. The api e2e suite drives /login/oauth/* from one IP
   # and, via tloc-api's -count=2, twice — past the prod-shaped 30 RPM cap, which
   # surfaces as spurious 429s. This is the test-only config; raise the ceiling far
   # clear of the suite's burst.
@@ -47,7 +47,7 @@ api_server:
     burst: 100000
     expires_in: 3m
     timeout: 200ms
-  # Rate limiter for the /ui/v1 screen group (RUK-230), keyed by user id rather
+  # Rate limiter for the /ui/v1 screen group, keyed by user id rather
   # than IP. Same reasoning as the block above, one step sharper: the api suite
   # drives the screen routes as a handful of users and, via tloc-api's -count=2,
   # twice over, so a prod-shaped 300 RPM cap would surface as spurious 429s.
@@ -109,7 +109,7 @@ jwt:
 notify_transport:
   # The channel catalog lives in Postgres (messenger_channels); tests
   # seed it via the storage layer. Per-transport credentials live in the
-  # DB-backed integration registry (RUK-196). use_stub is OFF here on
+  # DB-backed integration registry. use_stub is OFF here on
   # purpose: every dispatch in the API suite traverses the LIVE resolver
   # (registry -> decrypt -> builder). No test enables an integration, so
   # a delivery resolves to disabled/unconfigured and drops best-effort —
@@ -133,7 +133,7 @@ task_processor:
     cron_spec: "* * * * *"
     threshold: 15m
     batch_limit: 100
-  # audit_prune moved in with auth (RUK-194): the merged process owns the
+  # audit_prune moved in with auth: the merged process owns the
   # audit-retention cron, so its spec must live here or NewTaskProcessors panics
   # building the cron job ("empty spec string").
   audit_prune:

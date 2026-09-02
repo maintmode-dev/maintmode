@@ -66,7 +66,7 @@ func ToAPIUser(u *entity.User, activeAdminCount int64, connectedProviders []enti
 			return string(item)
 		}),
 		CreatedAt: u.CreatedAt,
-		// last_seen_at is not tracked yet (out of scope for RUK-150).
+		// last_seen_at is not tracked yet: nothing records user activity.
 		LastSeenAt:  nil,
 		IsLastAdmin: u.IsActiveAdmin() && activeAdminCount == 1,
 		BlockedAt:   u.BlockedAt,

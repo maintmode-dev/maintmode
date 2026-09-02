@@ -13,7 +13,7 @@ import (
 )
 
 // actorFromCtx resolves the authenticated user that the auth middleware put on
-// the echo context. It is the audit actor (RUK-182): every mutation records who
+// the echo context. It is the audit actor: every mutation records who
 // performed it, so a missing actor is a hard failure, not a silent system
 // fallback (the project does not degrade a required actor). A non-nil returned
 // error is the already-shaped API error response — the caller returns it as-is.

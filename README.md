@@ -209,9 +209,9 @@ Configuration lives in `monitoring/config/`.
 See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues:
 [SECURITY.md](SECURITY.md) — please do not open a public issue for those.
 
-You will see `RUK-123` identifiers in comments and commit messages. They
-reference the project's own issue tracker, which is not public; the surrounding
-comment is meant to stand on its own.
+You may still see `RUK-123` identifiers in commit messages and in older
+migration files. They reference the project's own issue tracker, which is not
+public — nothing you need to read the code depends on them.
 
 ## Licence
 
