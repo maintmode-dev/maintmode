@@ -136,7 +136,7 @@ type ResendInvitationCmd struct {
 // token from the email link plus the OAuth payload completed by the frontend.
 type AcceptInvitationCmd struct {
 	Token    string
-	Provider OAuthProvider
+	Provider AuthMethod
 	IDToken  string
 	ClientIP string
 }

@@ -239,7 +239,7 @@ type ListChannelsResult struct {
 // --- Authorization commands ---
 
 type ExchangeIDTokenCmd struct {
-	Provider  OAuthProvider
+	Provider  AuthMethod
 	IDToken   string
 	ClientIP  string
 	UserAgent string
@@ -251,13 +251,13 @@ type ExchangeIDTokenCmd struct {
 
 type ConnectProviderCmd struct {
 	UserID   uuid.UUID
-	Provider OAuthProvider
+	Provider AuthMethod
 	IDToken  string
 }
 
 type DisconnectProviderCmd struct {
 	UserID   uuid.UUID
-	Provider OAuthProvider
+	Provider AuthMethod
 }
 
 // --- Roles commands ---
@@ -340,7 +340,7 @@ type ListUsersResult struct {
 	// ProvidersByUser maps a user ID to its connected OAuth providers (provider
 	// ASC). Users with no identities are absent. Fetched in one batch query to
 	// avoid an N+1 over the page.
-	ProvidersByUser map[uuid.UUID][]OAuthProvider
+	ProvidersByUser map[uuid.UUID][]AuthMethod
 }
 
 // ListAssignableUsersQuery describes a request for users selectable in a
