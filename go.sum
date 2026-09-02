@@ -220,8 +220,6 @@ github.com/ruko1202/goque v0.8.10 h1:1K65omUwzAXH6HbiyWCdb/btTpIcPtih/zgzOabawR8
 github.com/ruko1202/goque v0.8.10/go.mod h1:cMgbkck5iHNkmUVlx9udI7157IbjaPdbRtG8zL1Mum4=
 github.com/ruko1202/swaggerui v0.5.0 h1:yLQ+39HK0eu9UaNavytsks9fkzyUnHu06g59WtNXVB4=
 github.com/ruko1202/swaggerui v0.5.0/go.mod h1:NDZyJKNThO7j+9jxc22dudQ75Uf+UAan/BCFkv0nDPU=
-github.com/ruko1202/xhttp v0.2.0 h1:74SFApoARUg7cfH4Bh/CUeNHoNpt3Jyteg0tZXzxMa0=
-github.com/ruko1202/xhttp v0.2.0/go.mod h1:+D7ELvGQqiP5SPsBsZ9U+DfsvdW1gdpKGeLOhW0mtdA=
 github.com/ruko1202/xhttp v0.2.1 h1:4iPqswgQyFK6EVEh90JPUTUnrya28/2jMlIBaWw6RMU=
 github.com/ruko1202/xhttp v0.2.1/go.mod h1:+D7ELvGQqiP5SPsBsZ9U+DfsvdW1gdpKGeLOhW0mtdA=
 github.com/ruko1202/xlog v0.5.1 h1:Nc6T+seiYZEyXZu47sAjd+LMU/GDmRpY/bmyZ1nOJKU=

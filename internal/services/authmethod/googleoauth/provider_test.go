@@ -166,7 +166,7 @@ func TestNewProvider(t *testing.T) {
 	})
 }
 
-func TestServiceVerifyToken(t *testing.T) {
+func TestServiceAuthenticate(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(t.Context(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 

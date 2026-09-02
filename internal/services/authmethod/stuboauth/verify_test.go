@@ -14,7 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/authmethod/stuboauth"
 )
 
-func TestServiceProviderID(t *testing.T) {
+func TestServiceMethodID(t *testing.T) {
 	t.Parallel()
 
 	require.Equal(
@@ -24,7 +24,7 @@ func TestServiceProviderID(t *testing.T) {
 	)
 }
 
-func TestServiceVerifyToken(t *testing.T) {
+func TestServiceAuthenticate(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
