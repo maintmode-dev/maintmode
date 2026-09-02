@@ -50,7 +50,7 @@ func NewAuthMethods(
 	// deprioritized outside dev — it must not exist. Registering it
 	// unconditionally made Get("stub") resolve in prod regardless of useStub,
 	// leaving the invitation email check as the only thing standing between a
-	// forged token and a session (RUK-249).
+	// forged token and a session.
 	isDev := cfg.Environment.IsDev()
 	if isDev {
 		methodsMap[entity.AuthMethodStub] = stuboauth.NewService()

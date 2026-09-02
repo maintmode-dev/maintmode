@@ -123,7 +123,7 @@ func NewService(
 
 // emailMatchesIgnoreCase is the anti-takeover guard and has no environment-gated
 // variant: a dev-only bypass that returned true unconditionally meant one wrong
-// gate disabled the check entirely (RUK-249). Dev stands keep working because
+// gate disabled the check entirely. Dev stands keep working because
 // the stub provider echoes an email-shaped id_token back as the identity.
 func emailMatchesIgnoreCase(ctx context.Context, email, invited string) bool {
 	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesIgnoreCase")

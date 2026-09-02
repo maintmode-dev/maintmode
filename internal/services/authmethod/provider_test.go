@@ -188,7 +188,7 @@ func TestProvidersGet(t *testing.T) {
 		// The stub accepts any token and mints an identity, so outside dev it must
 		// not exist rather than merely be unreachable through the useStub gate.
 		// Asking for it by name is indistinguishable from asking for any other
-		// unknown provider (RUK-249).
+		// unknown provider.
 		got, err := providers.Get(ctx, entity.AuthMethodStub)
 		require.Nil(t, got)
 		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)

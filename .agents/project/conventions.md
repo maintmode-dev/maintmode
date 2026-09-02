@@ -167,3 +167,34 @@ Avoid:
 // Set status to completed.
 step.Status = entity.MaintenanceStepStatusCompleted
 ```
+
+### No tracker references
+
+This is a public repository. Do not put issue keys, ticket numbers, or links to
+internal trackers and documents into code, comments, or test names. A reader who
+cannot open the tracker gets nothing from them, and a comment that defers to one
+is worse than no comment: it signals an explanation exists somewhere and then
+withholds it.
+
+Never write a comment whose payload is a pointer — "see RUK-123 for details",
+"rationale in the design doc", "as discussed in the ticket". If the reasoning is
+worth recording, state it here in full; if it is not, drop the comment.
+
+Avoid:
+
+```go
+// The stub is not registered outside dev (RUK-249).
+// Widened to accept email; see the design doc for the rollout plan.
+```
+
+Good:
+
+```go
+// The stub accepts any token and mints an identity, so it must not merely be
+// deprioritized outside dev -- it must not exist.
+```
+
+The same applies to commit messages and PR descriptions: describe the change and
+its reasoning on their own terms. A trailer such as `Refs ABC-123` is fine when
+the team wants traceability, because it is metadata rather than an explanation
+the reader needs.

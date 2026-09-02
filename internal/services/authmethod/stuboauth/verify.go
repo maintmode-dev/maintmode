@@ -28,7 +28,7 @@ func (p *Service) Authenticate(ctx context.Context, token string) (*entity.OAuth
 
 	// A token that parses as an email address is taken as the caller stating who
 	// they are. Invitation accept compares the verified email against the invited
-	// one in every environment (RUK-249 removed the dev bypass), so without this
+	// one in every environment -- there is no dev bypass -- so without this
 	// the random identity below could never match an invitation and the flow
 	// would be untestable on a dev stand. Subject is derived from the address so
 	// a repeat login resolves to the same user instead of creating a new one.

@@ -14,7 +14,7 @@ type AuthMethod string
 const (
 	// AuthMethodStub keys the dev-only stub provider in the registry. It is
 	// never accepted from a request: ParseAuthMethod rejects it, and outside
-	// dev the provider is not registered at all (RUK-249).
+	// dev the provider is not registered at all.
 	AuthMethodStub   AuthMethod = "stub"
 	AuthMethodGoogle AuthMethod = "google"
 	AuthMethodGithub AuthMethod = "github"
@@ -45,7 +45,7 @@ func PrimaryAuthMethod(methods []AuthMethod) AuthMethod {
 // method straight from the accept-invitation body.
 //
 // Matching is exact — no case folding. A folded match would let "STUB" smuggle
-// the stub provider back past this gate (RUK-249).
+// the stub provider back past this gate.
 func ParseAuthMethod(s string) (AuthMethod, bool) {
 	switch AuthMethod(s) {
 	case AuthMethodGoogle, AuthMethodGithub, AuthMethodEmail, AuthMethodBootstrap:

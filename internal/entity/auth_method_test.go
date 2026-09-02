@@ -45,7 +45,7 @@ func TestParseAuthMethod(t *testing.T) {
 		{name: "bootstrap is accepted with no implementation", input: "bootstrap", want: entity.AuthMethodBootstrap, ok: true},
 		// The stub accepts any token and mints an identity. The method name
 		// arrives straight from the accept-invitation request body, so it is
-		// refused at the API boundary in every environment (RUK-249).
+		// refused at the API boundary in every environment.
 		{name: "stub is refused", input: "stub", ok: false},
 		{name: "unknown is output-only", input: "unknown", ok: false},
 		{name: "empty is refused", input: "", ok: false},
