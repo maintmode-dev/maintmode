@@ -137,6 +137,27 @@ func TestProvidersGet(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
 	})
 
+	// RUK-283 made ParseAuthMethod accept "email" and "bootstrap" before anything
+	// implements them. This pins the other half of that arrangement: the registry
+	// must NOT resolve them, so a value that clears the parser still gets refused.
+	// It is deliberately checked here rather than only through the invitation
+	// service, because this assertion needs no config on disk and fails the moment
+	// someone registers a method ahead of its implementation.
+	t.Run("methods with no implementation are not registered", func(t *testing.T) {
+		t.Parallel()
+
+		for _, method := range []entity.AuthMethod{entity.AuthMethodEmail, entity.AuthMethodBootstrap} {
+			methods := authmethod.NewAuthMethods(
+				newConfig(config.DevEnvironment, false),
+				[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			)
+
+			got, err := methods.Get(ctx, method)
+			require.Nil(t, got, "method %q must not resolve", method)
+			require.ErrorIs(t, err, apperr.ErrUnsupportedProvider)
+		}
+	})
+
 	t.Run("unknown provider error names the provider that was requested", func(t *testing.T) {
 		t.Parallel()
 
