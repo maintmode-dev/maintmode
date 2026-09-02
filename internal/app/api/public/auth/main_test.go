@@ -62,7 +62,7 @@ func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *en
 	c := echotest.ContextConfig{}.ToContext(t)
 
 	tokenPair, err := impl.authSrv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider: entity.OAuthProviderGoogle,
+		Provider: entity.AuthMethodGoogle,
 		IDToken:  "stub-id-token",
 		ClientIP: c.RealIP(),
 	})

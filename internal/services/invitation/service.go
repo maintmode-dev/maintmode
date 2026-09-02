@@ -19,7 +19,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
@@ -42,7 +42,7 @@ type Store interface {
 // UserService is the subset of user.Service used by the invitation flow.
 type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
-	GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error)
+	GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error)
 	AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (*entity.User, error)
 }
 
@@ -82,15 +82,15 @@ type MessageSender interface {
 const defaultInvitationTTL = 7 * 24 * time.Hour
 
 type Service struct {
-	txManager      *dbtx.TxManager
-	store          Store
-	userSrv        UserService
-	tokenIssuer    TokenIssuer
-	oauthProviders *oauthprovider.Providers
-	sender         MessageSender
-	seatGuard      SeatGuard
-	ttl            time.Duration
-	frontendURL    string
+	txManager   *dbtx.TxManager
+	store       Store
+	userSrv     UserService
+	tokenIssuer TokenIssuer
+	authMethods *authmethod.Methods
+	sender      MessageSender
+	seatGuard   SeatGuard
+	ttl         time.Duration
+	frontendURL string
 }
 
 func NewService(
@@ -99,7 +99,7 @@ func NewService(
 	store Store,
 	userSrv UserService,
 	tokenIssuer TokenIssuer,
-	oauthProviders *oauthprovider.Providers,
+	authMethods *authmethod.Methods,
 	sender MessageSender,
 	seatGuard SeatGuard,
 ) *Service {
@@ -109,15 +109,15 @@ func NewService(
 	}
 
 	return &Service{
-		txManager:      txManager,
-		store:          store,
-		userSrv:        userSrv,
-		tokenIssuer:    tokenIssuer,
-		oauthProviders: oauthProviders,
-		sender:         sender,
-		seatGuard:      seatGuard,
-		ttl:            invitationTTL,
-		frontendURL:    cfg.App.FrontendURL,
+		txManager:   txManager,
+		store:       store,
+		userSrv:     userSrv,
+		tokenIssuer: tokenIssuer,
+		authMethods: authMethods,
+		sender:      sender,
+		seatGuard:   seatGuard,
+		ttl:         invitationTTL,
+		frontendURL: cfg.App.FrontendURL,
 	}
 }
 

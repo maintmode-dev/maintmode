@@ -12,7 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// GetOrCreateByOAuthInfo looks up a user by the provider identity (provider +
+// GetOrCreateByAuthInfo looks up a user by the provider identity (provider +
 // subject). If no identity exists, the creation decision is: first-admin
 // bootstrap (zero active admins) > policy.AllowCreate > open signup > refuse
 // with apperr.ErrSignupDisabled, leaving zero rows behind. The whole decision
@@ -20,7 +20,9 @@ import (
 // before anyone else can reach the instance, so concurrent first logins are
 // excluded by assumption and the bootstrap decision needs no extra
 // serialization.
-func (s *Service) GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
+func (s *Service) GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
+	// Frozen telemetry identifier: the span name keeps its old spelling after the
+	// method was renamed, so existing dashboards and saved queries keep matching.
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.GetOrCreateByOAuthInfo",
 		xfield.String("provider", string(provider)),
 		xfield.String("email", info.Email),
@@ -71,7 +73,7 @@ func (s *Service) GetOrCreateByOAuthInfo(ctx context.Context, provider entity.OA
 // getUserByIdentity resolves the user owning a given provider identity, reading
 // it as-is (no role changes). Used both on the ordinary login lookup and to
 // recover the winner after a concurrent same-subject race.
-func (s *Service) getUserByIdentity(ctx context.Context, provider entity.OAuthProvider, subject string) (*entity.User, error) {
+func (s *Service) getUserByIdentity(ctx context.Context, provider entity.AuthMethod, subject string) (*entity.User, error) {
 	identity, err := s.identitiesStore.GetByProviderSubject(ctx, provider, subject)
 	if err != nil {
 		return nil, fmt.Errorf("get identity after race: %w", err)
@@ -89,7 +91,7 @@ func (s *Service) getUserByIdentity(ctx context.Context, provider entity.OAuthPr
 // branch and decides whether this login may create the user. The bootstrap
 // grant is a plain AssignRoles(admin) — its RolesChanged(actor=system) already
 // records the promotion in the audit log.
-func (s *Service) createByPolicy(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
+func (s *Service) createByPolicy(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
 	admins, err := s.usersStore.CountActiveAdmins(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count active admins: %w", err)
@@ -115,7 +117,7 @@ func (s *Service) createByPolicy(ctx context.Context, provider entity.OAuthProvi
 // createWithIdentity inserts the user with the default roles plus its first
 // provider identity, then unions grantRoles on top through AssignRoles — the
 // same path (and RolesChanged audit, actor=system) as invitation roles.
-func (s *Service) createWithIdentity(ctx context.Context, provider entity.OAuthProvider, info *entity.OAuthProviderUserInfo, grantRoles []entity.Role) (*entity.User, error) {
+func (s *Service) createWithIdentity(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, grantRoles []entity.Role) (*entity.User, error) {
 	user, err := s.usersStore.Create(ctx, &entity.User{
 		Email: info.Email,
 		Name:  info.Name,

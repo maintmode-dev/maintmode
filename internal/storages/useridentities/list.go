@@ -16,7 +16,7 @@ import (
 // ListProvidersByUserID returns the providers linked to userID, ordered by
 // provider ASC. There is at most one identity per (user, provider), so the
 // result is already distinct.
-func (s *Store) ListProvidersByUserID(ctx context.Context, userID uuid.UUID) ([]entity.OAuthProvider, error) {
+func (s *Store) ListProvidersByUserID(ctx context.Context, userID uuid.UUID) ([]entity.AuthMethod, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.ListProvidersByUserID")
 	defer span.End()
 
@@ -31,8 +31,8 @@ func (s *Store) ListProvidersByUserID(ctx context.Context, userID uuid.UUID) ([]
 		return nil, err
 	}
 
-	return lo.Map(rows, func(item *model.UserIdentities, _ int) entity.OAuthProvider {
-		return entity.OAuthProvider(item.Provider)
+	return lo.Map(rows, func(item *model.UserIdentities, _ int) entity.AuthMethod {
+		return entity.AuthMethod(item.Provider)
 	}), nil
 }
 
@@ -41,12 +41,12 @@ func (s *Store) ListProvidersByUserID(ctx context.Context, userID uuid.UUID) ([]
 // first element is a deterministic primary (as in ListProvidersByUserID). Users
 // with no identities are absent from the map. A single query avoids the N+1 that
 // calling ListProvidersByUserID per row would incur on the admin user list.
-func (s *Store) ListProvidersByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]entity.OAuthProvider, error) {
+func (s *Store) ListProvidersByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]entity.AuthMethod, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.ListProvidersByUserIDs")
 	defer span.End()
 
 	if len(userIDs) == 0 {
-		return map[uuid.UUID][]entity.OAuthProvider{}, nil
+		return map[uuid.UUID][]entity.AuthMethod{}, nil
 	}
 
 	idExprs := lo.Map(userIDs, func(id uuid.UUID, _ int) postgres.Expression {
@@ -65,9 +65,9 @@ func (s *Store) ListProvidersByUserIDs(ctx context.Context, userIDs []uuid.UUID)
 		return nil, err
 	}
 
-	result := make(map[uuid.UUID][]entity.OAuthProvider, len(userIDs))
+	result := make(map[uuid.UUID][]entity.AuthMethod, len(userIDs))
 	for _, row := range rows {
-		result[row.UserID] = append(result[row.UserID], entity.OAuthProvider(row.Provider))
+		result[row.UserID] = append(result[row.UserID], entity.AuthMethod(row.Provider))
 	}
 
 	return result, nil

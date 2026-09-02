@@ -30,10 +30,10 @@ import (
 // @Router /api/v1/login/oauth/exchange/google [post]
 // Exchange verifies a Google ID token and issues a backend token pair.
 func (i *Implementation) ExchangeGoogleToken(c *echo.Context) error {
-	return i.exchange(c, entity.OAuthProviderGoogle)
+	return i.exchange(c, entity.AuthMethodGoogle)
 }
 
-func (i *Implementation) exchange(c *echo.Context, provider entity.OAuthProvider) error {
+func (i *Implementation) exchange(c *echo.Context, provider entity.AuthMethod) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), fmt.Sprintf("api.Auth.Exchange.%s", provider))
 	defer span.End()
 	op := "auth exchange"

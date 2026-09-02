@@ -25,7 +25,7 @@ func TestMe(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		user, err := impl.userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+		user, err := impl.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 			ID:    "oauth-" + uuid.NewString(),
 			Email: uuid.NewString() + "@test.local",
 			Name:  "Me Test User",
@@ -43,8 +43,8 @@ func TestMe(t *testing.T) {
 		require.Equal(t, user.ID.String(), got.ID)
 		require.Equal(t, user.Email, got.Email)
 		require.Equal(t, user.Name, got.DisplayName)
-		require.Equal(t, string(entity.OAuthProviderGoogle), got.OAuthProvider)
-		require.Equal(t, []string{string(entity.OAuthProviderGoogle)}, got.ConnectedProviders)
+		require.Equal(t, string(entity.AuthMethodGoogle), got.OAuthProvider)
+		require.Equal(t, []string{string(entity.AuthMethodGoogle)}, got.ConnectedProviders)
 		require.Nil(t, got.Timezone, "fresh user has no timezone")
 	})
 

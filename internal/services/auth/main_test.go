@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -20,7 +20,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 
-	mock_oauthprovider "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/oauthprovider"
+	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 
 	"github.com/ruko1202/maintmode/internal/services/user"
 
@@ -62,18 +62,18 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	oauthProvider *mock_oauthprovider.MockOAuthProvider
+	authMethod *mock_authmethod.MockAuthMethod
 }
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
-		oauthProvider: mock_oauthprovider.NewMockOAuthProvider(ctrl),
+		authMethod: mock_authmethod.NewMockOAuthProvider(ctrl),
 	}
-	mocks.oauthProvider.EXPECT().
-		ProviderID().
-		Return(entity.OAuthProviderGoogle).
+	mocks.authMethod.EXPECT().
+		MethodID().
+		Return(entity.AuthMethodGoogle).
 		AnyTimes()
 
 	txManager := dbtx.NewTxManager(db)
@@ -109,7 +109,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),
-		oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{mocks.oauthProvider}),
+		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		tokenSrv,
 		newTestAuditPublisher(t),
 	), mocks
@@ -126,7 +126,7 @@ func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
 	return auditpublisher.New(goque.NewTaskQueueManager(storage))
 }
 
-// exchangeIDTokenMock sets up the VerifyToken expectation for the ID-token
+// exchangeIDTokenMock sets up the Authenticate expectation for the ID-token
 // exchange flow and returns the identity the mocked provider resolves. Tests use
 // it to mint a token pair via srv.ExchangeIDToken. The returned value carries
 // the resolved email so callers can assert on the provisioned user.
@@ -136,8 +136,8 @@ func exchangeIDTokenMock(mocks *serviceMocks, times int) *entity.OAuthProviderUs
 		Email: xuuid.NewString() + "_alice@example.com",
 		Name:  "alice",
 	}
-	mocks.oauthProvider.EXPECT().
-		VerifyToken(gomock.Any(), "id-token").
+	mocks.authMethod.EXPECT().
+		Authenticate(gomock.Any(), "id-token").
 		Return(&entity.OAuthIDTokenClaims{
 			Subject: oauthUser.ID,
 			Email:   oauthUser.Email,

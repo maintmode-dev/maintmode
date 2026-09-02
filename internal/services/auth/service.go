@@ -9,7 +9,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
@@ -29,7 +29,7 @@ type Service struct {
 	txManager      *dbtx.TxManager
 	usersSrv       *user.Service
 	tokenSrv       *token.Service
-	oauthProviders *oauthprovider.Providers
+	authMethods    *authmethod.Methods
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
 	auditPublisher AuditPublisher
@@ -41,7 +41,7 @@ func NewService(
 	usersSrv *user.Service,
 	locker *distributedlock.Store,
 	blacklistStore *blacklisttoken.Store,
-	oauthProviders *oauthprovider.Providers,
+	authMethods *authmethod.Methods,
 	tokenSvc *token.Service,
 	auditPublisher AuditPublisher,
 ) *Service {
@@ -51,7 +51,7 @@ func NewService(
 		usersSrv:       usersSrv,
 		locker:         locker,
 		blacklistStore: blacklistStore,
-		oauthProviders: oauthProviders,
+		authMethods:    authMethods,
 		tokenSrv:       tokenSvc,
 		auditPublisher: auditPublisher,
 	}

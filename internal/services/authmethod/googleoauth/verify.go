@@ -27,7 +27,8 @@ type googleIDTokenClaims struct {
 	HostedDomain  string `json:"hd"`
 }
 
-func (s *Service) VerifyToken(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
+func (s *Service) Authenticate(ctx context.Context, idToken string) (*entity.OAuthIDTokenClaims, error) {
+	// Frozen telemetry identifier -- see the note in stuboauth/verify.go.
 	ctx, span := xlog.WithOperationSpan(ctx, "service.OAuth.Google.Verify")
 	defer span.End()
 

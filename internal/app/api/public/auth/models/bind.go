@@ -9,10 +9,10 @@ import (
 // FromAPIConnectableProvider validates the :provider path parameter against the
 // set of providers a user may connect or disconnect. The stub provider is an
 // internal dev-only login backend and is intentionally not connectable.
-func FromAPIConnectableProvider(s string) (entity.OAuthProvider, error) {
-	provider := entity.OAuthProvider(s)
+func FromAPIConnectableProvider(s string) (entity.AuthMethod, error) {
+	provider := entity.AuthMethod(s)
 	switch provider {
-	case entity.OAuthProviderGoogle, entity.OAuthProviderGithub:
+	case entity.AuthMethodGoogle, entity.AuthMethodGithub:
 		return provider, nil
 	default:
 		return "", fmt.Errorf("unsupported provider: %q", s)

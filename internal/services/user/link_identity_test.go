@@ -30,13 +30,13 @@ func TestLinkIdentity(t *testing.T) {
 
 		user := makeUser(ctx, t, srv)
 
-		err := srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com"))
+		err := srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com"))
 		require.NoError(t, err)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
-		require.Contains(t, providers, entity.OAuthProviderGoogle)
-		require.Contains(t, providers, entity.OAuthProviderGithub)
+		require.Contains(t, providers, entity.AuthMethodGoogle)
+		require.Contains(t, providers, entity.AuthMethodGithub)
 	})
 
 	t.Run("already connected to this user", func(t *testing.T) {
@@ -45,9 +45,9 @@ func TestLinkIdentity(t *testing.T) {
 		user := makeUser(ctx, t, srv)
 		claims := claimsFor("gh-" + xuuid.NewString() + "@example.com")
 
-		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claims))
+		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claims))
 
-		err := srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claims)
+		err := srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claims)
 		require.ErrorIs(t, err, apperr.ErrProviderAlreadyConnected)
 	})
 
@@ -56,16 +56,16 @@ func TestLinkIdentity(t *testing.T) {
 
 		user := makeUser(ctx, t, srv)
 
-		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claimsFor("gh-a-"+xuuid.NewString()+"@example.com")))
+		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-a-"+xuuid.NewString()+"@example.com")))
 
 		// A second github identity under a different subject must be rejected so
 		// the user keeps at most one identity per provider.
-		err := srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claimsFor("gh-b-"+xuuid.NewString()+"@example.com"))
+		err := srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-b-"+xuuid.NewString()+"@example.com"))
 		require.ErrorIs(t, err, apperr.ErrProviderAlreadyConnected)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
-		require.ElementsMatch(t, []entity.OAuthProvider{entity.OAuthProviderGoogle, entity.OAuthProviderGithub}, providers)
+		require.ElementsMatch(t, []entity.AuthMethod{entity.AuthMethodGoogle, entity.AuthMethodGithub}, providers)
 	})
 
 	t.Run("linked to another user", func(t *testing.T) {
@@ -75,9 +75,9 @@ func TestLinkIdentity(t *testing.T) {
 		other := makeUser(ctx, t, srv)
 		claims := claimsFor("gh-" + xuuid.NewString() + "@example.com")
 
-		require.NoError(t, srv.LinkIdentity(ctx, owner.ID, entity.OAuthProviderGithub, claims))
+		require.NoError(t, srv.LinkIdentity(ctx, owner.ID, entity.AuthMethodGithub, claims))
 
-		err := srv.LinkIdentity(ctx, other.ID, entity.OAuthProviderGithub, claims)
+		err := srv.LinkIdentity(ctx, other.ID, entity.AuthMethodGithub, claims)
 		require.ErrorIs(t, err, apperr.ErrProviderLinkedToAnotherUser)
 	})
 }
@@ -92,14 +92,14 @@ func TestUnlinkIdentity(t *testing.T) {
 		t.Parallel()
 
 		user := makeUser(ctx, t, srv)
-		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
+		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
 
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.OAuthProviderGithub)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGithub)
 		require.NoError(t, err)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, []entity.OAuthProvider{entity.OAuthProviderGoogle}, providers)
+		require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, providers)
 	})
 
 	t.Run("lockout - cannot disconnect the only provider", func(t *testing.T) {
@@ -107,12 +107,12 @@ func TestUnlinkIdentity(t *testing.T) {
 
 		user := makeUser(ctx, t, srv)
 
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.OAuthProviderGoogle)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle)
 		require.ErrorIs(t, err, apperr.ErrCannotDisconnectLastProvider)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, []entity.OAuthProvider{entity.OAuthProviderGoogle}, providers)
+		require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, providers)
 	})
 
 	t.Run("not connected provider is a no-op success", func(t *testing.T) {
@@ -121,13 +121,13 @@ func TestUnlinkIdentity(t *testing.T) {
 		user := makeUser(ctx, t, srv)
 		// Link a second provider so the lockout guard passes; disconnecting a
 		// provider the user never linked must succeed without changing anything.
-		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.OAuthProviderGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
+		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
 
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.OAuthProviderStub)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodStub)
 		require.NoError(t, err)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
-		require.ElementsMatch(t, []entity.OAuthProvider{entity.OAuthProviderGoogle, entity.OAuthProviderGithub}, providers)
+		require.ElementsMatch(t, []entity.AuthMethod{entity.AuthMethodGoogle, entity.AuthMethodGithub}, providers)
 	})
 }

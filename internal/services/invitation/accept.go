@@ -26,7 +26,7 @@ import (
 //   - apperr.ErrEmailMismatch — OAuth email != invited email ("email_mismatch")
 //
 // Ordering & transactions:
-//   - GetOrCreateByOAuthInfo runs first, in its own transaction. Its
+//   - GetOrCreateByAuthInfo runs first, in its own transaction. Its
 //     concurrent-first-login recovery retries on a clean connection after a
 //     unique violation, so it must own its tx and cannot be nested.
 //   - MarkAccepted (the single-use claim) and AssignRoles then run together in
@@ -59,13 +59,13 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	provider, err := s.oauthProviders.Get(ctx, cmd.Provider)
+	provider, err := s.authMethods.Get(ctx, cmd.Provider)
 	if err != nil {
 		xlog.Error(ctx, "accept: get oauth provider failed", xfield.Error(err))
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	claims, err := provider.VerifyToken(ctx, cmd.IDToken)
+	claims, err := provider.Authenticate(ctx, cmd.IDToken)
 	if err != nil {
 		xlog.Error(ctx, "accept: verify oauth token failed", xfield.Error(err))
 		return nil, apperr.ErrInvalidInvitation
@@ -80,12 +80,12 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 	}
 
 	// Resolve (or create) the user before the claim transaction.
-	// GetOrCreateByOAuthInfo's concurrent-first-login recovery retries on a
+	// GetOrCreateByAuthInfo's concurrent-first-login recovery retries on a
 	// clean connection after a unique violation aborts its own transaction, so
 	// it must own its transaction and cannot be nested in the claim tx below.
 	// The valid invitation itself authorizes the creation; the invitation's
 	// roles are assigned by the claim transaction below, not via the policy.
-	user, err := s.userSrv.GetOrCreateByOAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
+	user, err := s.userSrv.GetOrCreateByAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,

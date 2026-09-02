@@ -20,7 +20,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider/googleoauth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/googleoauth"
 )
 
 const (
@@ -149,7 +149,7 @@ func TestNewProvider(t *testing.T) {
 		t.Parallel()
 
 		srv, _ := newProvider(ctx, t, testClientID)
-		require.Equal(t, entity.OAuthProviderGoogle, srv.ProviderID())
+		require.Equal(t, entity.AuthMethodGoogle, srv.MethodID())
 	})
 
 	t.Run("construction tolerates an unreachable jwks endpoint", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		srv, key := newProvider(ctx, t, testClientID)
 
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
 		require.NoError(t, err)
 		require.Equal(t, testSubject, claims.Subject)
 		require.Equal(t, "alice@example.com", claims.Email)
@@ -193,7 +193,7 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		signed := signToken(t, key, testKID, newValidClaims("attacker-client-id.apps.googleusercontent.com"))
 
-		claims, err := srv.VerifyToken(ctx, signed)
+		claims, err := srv.Authenticate(ctx, signed)
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		require.ErrorIs(t, err, jwt.ErrTokenInvalidAudience)
@@ -209,7 +209,7 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		// jwt.WithAudience makes `aud` mandatory, so an absent audience surfaces as a
 		// required-claim error rather than an audience mismatch.
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		require.ErrorIs(t, err, jwt.ErrTokenRequiredClaimMissing)
@@ -223,7 +223,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		// Correct kid, wrong key: the JWKS lookup succeeds but the signature does not.
 		signed := signToken(t, newTestKey(t), testKID, newValidClaims(testClientID))
 
-		claims, err := srv.VerifyToken(ctx, signed)
+		claims, err := srv.Authenticate(ctx, signed)
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
@@ -237,7 +237,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		c.IssuedAt = jwt.NewNumericDate(time.Now().Add(-2 * time.Hour))
 		c.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-time.Hour))
 
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
 	})
@@ -250,7 +250,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		c := newValidClaims(testClientID)
 		c.Issuer = "https://evil.example.com"
 
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		// Rejected by the jwt_issuers allowlist in validateClaims, not by the
@@ -270,7 +270,7 @@ func TestServiceVerifyToken(t *testing.T) {
 
 		// Signature and registered claims are fine; validateClaims is what rejects
 		// this, so the failure proves the post-parse claim validation runs.
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		require.Contains(t, err.Error(), "email_verified")
@@ -284,7 +284,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		c := newValidClaims(testClientID)
 		c.ExpiresAt = nil
 
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
@@ -305,7 +305,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		// the allow-list, the JWKS alg binding would still reject the token, so a
 		// bare ErrInvalidAccessToken assertion would keep passing and quietly stop
 		// guarding the allow-list at all.
-		claims, err := srv.VerifyToken(ctx, signed)
+		claims, err := srv.Authenticate(ctx, signed)
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		require.ErrorIs(t, err, jwt.ErrTokenSignatureInvalid)
@@ -318,7 +318,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		srv, _ := newProvider(ctx, t, testClientID)
 
 		for _, token := range []string{"", "not-a-jwt", "a.b.c"} {
-			claims, err := srv.VerifyToken(ctx, token)
+			claims, err := srv.Authenticate(ctx, token)
 			require.Nil(t, claims, "token %q", token)
 			require.ErrorIs(t, err, apperr.ErrInvalidAccessToken, "token %q", token)
 		}
@@ -341,7 +341,7 @@ func TestServiceVerifyToken(t *testing.T) {
 			c := newValidClaims(testClientID)
 			c.HostedDomain = "example.com"
 
-			claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+			claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 			require.NoError(t, err)
 			require.Equal(t, testSubject, claims.Subject)
 		})
@@ -350,14 +350,14 @@ func TestServiceVerifyToken(t *testing.T) {
 			c := newValidClaims(testClientID)
 			c.HostedDomain = "evil.com"
 
-			claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, c))
+			claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, c))
 			require.Nil(t, claims)
 			require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 			require.Contains(t, err.Error(), "hd")
 		})
 
 		t.Run("rejects a missing hd", func(t *testing.T) {
-			claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
+			claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
 			require.Nil(t, claims)
 			require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 		})
@@ -371,7 +371,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		// The JWKS is reachable and non-empty, so authUnavailable() is false and the
 		// error carries the underlying key-not-found cause rather than the
 		// short-circuit message.
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, "kid-unknown", newValidClaims(testClientID)))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, "kid-unknown", newValidClaims(testClientID)))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
@@ -387,7 +387,7 @@ func TestServiceVerifyToken(t *testing.T) {
 		require.NoError(t, err)
 
 		// No keys were ever cached, so verification fails closed.
-		claims, err := srv.VerifyToken(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
+		claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, newValidClaims(testClientID)))
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})

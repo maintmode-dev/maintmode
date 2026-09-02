@@ -55,14 +55,14 @@ func InitServicesT(
 // ApproverUserID so the maint create/update approver-eligibility check
 // (reviewer/admin, not blocked) passes against the real user backend.
 //
-// It creates the user through GetOrCreateByOAuthInfo (synthetic OAuth identity)
+// It creates the user through GetOrCreateByAuthInfo (synthetic OAuth identity)
 // and then replaces its roles with RoleReviewer via ReplaceRoles (a SystemUser
 // actor avoids the self-revoke guard), making it eligible regardless of
 // environment-specific default-role assignment.
 func SeedEligibleApprover(ctx context.Context, t *testing.T, services *bootstrap.Services) *entity.User {
 	t.Helper()
 
-	user, err := services.User.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	user, err := services.User.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    "approver-" + uuid.NewString(),
 		Email: "approver-" + uuid.NewString() + "@test.local",
 		Name:  "Eligible Approver",

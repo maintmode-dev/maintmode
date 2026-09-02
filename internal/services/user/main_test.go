@@ -178,7 +178,7 @@ func initServiceWithSeatGuard(t *testing.T, guard SeatGuard) *Service {
 func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.Role) *entity.User {
 	t.Helper()
 
-	created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	created, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@email.com",
 		Name:  "Name" + t.Name(),

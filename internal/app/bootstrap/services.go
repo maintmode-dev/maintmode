@@ -19,6 +19,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auditor"
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/auth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/googleoauth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
@@ -32,8 +34,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider"
-	"github.com/ruko1202/maintmode/internal/services/oauthprovider/googleoauth"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/transportresolver"
@@ -119,7 +119,7 @@ func NewServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
 	}
 
-	oauthProviders, err := initOAuthProviders(ctx, cfg)
+	authMethods, err := initAuthMethods(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init oauth providers: %w", err)
 	}
@@ -130,7 +130,7 @@ func NewServices(ctx context.Context,
 		userSrv,
 		stores.Locker,
 		stores.TokenBlackList,
-		oauthProviders,
+		authMethods,
 		tokenSrv,
 		auditPublisher,
 	)
@@ -154,7 +154,7 @@ func NewServices(ctx context.Context,
 		stores.UserInvitations,
 		userSrv,
 		authSrv,
-		oauthProviders,
+		authMethods,
 		messageSender,
 		enforcement,
 	)
@@ -359,13 +359,13 @@ func newCoreServices(
 	}, nil
 }
 
-func initOAuthProviders(ctx context.Context, cfg *config.AppConfig) (*oauthprovider.Providers, error) {
+func initAuthMethods(ctx context.Context, cfg *config.AppConfig) (*authmethod.Methods, error) {
 	google, err := googleoauth.NewProvider(ctx, &cfg.OauthProviders.Google)
 	if err != nil {
 		return nil, fmt.Errorf("init google oauth provider: %w", err)
 	}
 
-	return oauthprovider.NewOAuthProviders(cfg, []oauthprovider.OAuthProvider{
+	return authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{
 		google,
 	}), nil
 }

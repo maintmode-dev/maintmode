@@ -15,7 +15,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-func (p *Service) VerifyToken(ctx context.Context, token string) (*entity.OAuthIDTokenClaims, error) {
+func (p *Service) Authenticate(ctx context.Context, token string) (*entity.OAuthIDTokenClaims, error) {
+	// The span name deliberately still says VerifyToken after the method was
+	// renamed to Authenticate: it is a telemetry identifier that existing
+	// dashboards and saved queries match on, not a code identifier.
 	_, span := xlog.WithOperationSpan(ctx, "service.OAuth.Stub.VerifyToken")
 	defer span.End()
 

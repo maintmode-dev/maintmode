@@ -29,7 +29,7 @@ func TestRefresh(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -53,7 +53,7 @@ func TestRefresh(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -87,7 +87,7 @@ func TestRefresh(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -126,7 +126,7 @@ func TestRefresh(t *testing.T) {
 			exchangeIDTokenMock(mocks, 1)
 
 			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.OAuthProviderGoogle,
+				Provider: entity.AuthMethodGoogle,
 				IDToken:  "id-token",
 				ClientIP: "10.0.0.1",
 			})
@@ -160,7 +160,7 @@ func TestRefresh(t *testing.T) {
 			exchangeIDTokenMock(mocks, 1)
 
 			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.OAuthProviderGoogle,
+				Provider: entity.AuthMethodGoogle,
 				IDToken:  "id-token",
 				ClientIP: "10.0.0.1",
 			})
@@ -194,7 +194,7 @@ func TestRefresh(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})
@@ -228,7 +228,7 @@ func TestRefresh(t *testing.T) {
 		exchangeIDTokenMock(mocks, 1)
 
 		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.OAuthProviderGoogle,
+			Provider: entity.AuthMethodGoogle,
 			IDToken:  "id-token",
 			ClientIP: "10.0.0.1",
 		})

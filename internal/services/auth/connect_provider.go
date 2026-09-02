@@ -19,12 +19,12 @@ func (s *Service) ConnectProvider(ctx context.Context, cmd *entity.ConnectProvid
 	)
 	defer span.End()
 
-	oauthProvider, err := s.oauthProviders.Get(ctx, cmd.Provider)
+	authMethod, err := s.authMethods.Get(ctx, cmd.Provider)
 	if err != nil {
 		return fmt.Errorf("get oauth provider: %w", err)
 	}
 
-	claims, err := oauthProvider.VerifyToken(ctx, cmd.IDToken)
+	claims, err := authMethod.Authenticate(ctx, cmd.IDToken)
 	if err != nil {
 		xlog.Error(ctx, "verify id token failed", xfield.Error(err))
 		return err

@@ -27,8 +27,8 @@ type MeResponse struct {
 	SlackTag    *string `json:"slack_tag"`
 }
 
-func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeResponse {
-	connected := lo.Map(providers, func(p entity.OAuthProvider, _ int) string {
+func ToAPIMeResponse(u *entity.User, providers []entity.AuthMethod) *MeResponse {
+	connected := lo.Map(providers, func(p entity.AuthMethod, _ int) string {
 		return string(p)
 	})
 
@@ -39,7 +39,7 @@ func ToAPIMeResponse(u *entity.User, providers []entity.OAuthProvider) *MeRespon
 		Roles: lo.Map(u.Roles, func(item entity.Role, _ int) string {
 			return string(item)
 		}),
-		OAuthProvider:      string(entity.PrimaryOAuthProvider(providers)),
+		OAuthProvider:      string(entity.PrimaryAuthMethod(providers)),
 		ConnectedProviders: connected,
 		Timezone:           u.Timezone,
 		TelegramTag:        u.TelegramTag,

@@ -9,7 +9,7 @@ func fromDB(r *model.UserIdentities) *entity.UserIdentity {
 	return &entity.UserIdentity{
 		ID:        r.ID,
 		UserID:    r.UserID,
-		Provider:  entity.OAuthProvider(r.Provider),
+		Provider:  entity.AuthMethod(r.Provider),
 		Subject:   r.Subject,
 		Email:     r.Email,
 		CreatedAt: r.CreatedAt,

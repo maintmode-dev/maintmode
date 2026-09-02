@@ -72,7 +72,7 @@ func initImpl(t *testing.T) *Implementation {
 func createUser(ctx context.Context, t *testing.T, impl *Implementation, apiRoles ...apimodels.Role) *entity.User {
 	t.Helper()
 
-	user, err := impl.userSrv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	user, err := impl.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    "oauth-" + uuid.NewString(),
 		Email: uuid.NewString() + "@test.local",
 		Name:  "Test User",

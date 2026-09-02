@@ -14,7 +14,7 @@ import (
 // DeleteByUserAndProvider removes the identity linking userID to provider.
 // Deleting a non-existent identity is a no-op (idempotent): only a real DB
 // failure returns an error.
-func (s *Store) DeleteByUserAndProvider(ctx context.Context, userID uuid.UUID, provider entity.OAuthProvider) error {
+func (s *Store) DeleteByUserAndProvider(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.DeleteByUserAndProvider")
 	defer span.End()
 

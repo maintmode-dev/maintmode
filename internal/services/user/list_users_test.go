@@ -27,7 +27,7 @@ func makeNamedUser(ctx context.Context, t *testing.T, srv *Service, name string,
 func makeNamedUserWithEmail(ctx context.Context, t *testing.T, srv *Service, name, email string, roles ...entity.Role) {
 	t.Helper()
 
-	created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+	created, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: email,
 		Name:  name,
@@ -119,7 +119,7 @@ func TestListUsers(t *testing.T) {
 
 		srv := initService(t)
 		token := "provtok" + xuuid.NewString()
-		// Each user created via GetOrCreateByOAuthInfo(google, ...) gets exactly
+		// Each user created via GetOrCreateByAuthInfo(google, ...) gets exactly
 		// one google identity, so the batch lookup must return ["google"] for it.
 		makeNamedUser(ctx, t, srv, "Pat "+token)
 		makeNamedUser(ctx, t, srv, "Sam "+token)
@@ -129,7 +129,7 @@ func TestListUsers(t *testing.T) {
 		require.Len(t, res.Users, 2)
 
 		for _, u := range res.Users {
-			require.Equal(t, []entity.OAuthProvider{entity.OAuthProviderGoogle}, res.ProvidersByUser[u.ID],
+			require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, res.ProvidersByUser[u.ID],
 				"expected google provider for user %s", u.Name)
 		}
 	})
@@ -142,13 +142,13 @@ func TestListUsers(t *testing.T) {
 		// Create the user with a google identity, then link a github one. The
 		// batch query must return both ordered by provider ASC (github, google),
 		// so connected[0] — the primary — is deterministic.
-		created, err := srv.GetOrCreateByOAuthInfo(ctx, entity.OAuthProviderGoogle, &entity.OAuthProviderUserInfo{
+		created, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 			ID:    xuuid.NewString(),
 			Email: token + "@email.com",
 			Name:  "Multi " + token,
 		}, entity.UserCreationPolicy{AllowCreate: true})
 		require.NoError(t, err)
-		require.NoError(t, srv.LinkIdentity(ctx, created.ID, entity.OAuthProviderGithub, &entity.OAuthIDTokenClaims{
+		require.NoError(t, srv.LinkIdentity(ctx, created.ID, entity.AuthMethodGithub, &entity.OAuthIDTokenClaims{
 			Subject: xuuid.NewString(),
 			Email:   token + "@email.com",
 			Name:    "Multi " + token,
@@ -158,7 +158,7 @@ func TestListUsers(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, res.Users, 1)
 		require.Equal(t,
-			[]entity.OAuthProvider{entity.OAuthProviderGithub, entity.OAuthProviderGoogle},
+			[]entity.AuthMethod{entity.AuthMethodGithub, entity.AuthMethodGoogle},
 			res.ProvidersByUser[created.ID],
 		)
 	})
