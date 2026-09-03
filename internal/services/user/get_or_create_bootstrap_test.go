@@ -346,3 +346,65 @@ func TestGetOrCreateByAuthInfo_BootstrapPublishesRolesChanged(t *testing.T) {
 	require.Len(t, publisher.rolesChanged(), 1,
 		"a repeat break-glass login must not fabricate a second promotion")
 }
+
+// The founding case: `docker compose up` on an empty database, nobody in the
+// system yet, and the operator signs in for the first time. This is the
+// scenario the whole feature exists for, and it takes a DIFFERENT branch from
+// every other test in this file.
+//
+// createByPolicy checks `admins == 0` BEFORE the link branch and before
+// AllowCreate, and that branch hardcodes []Role{RoleAdmin} while ignoring
+// policy.GrantRoles entirely. So the policy the auth service passes is dead
+// here, and the admin role arrives by a path no other test walks — which is
+// exactly why it needs its own coverage rather than being assumed from the
+// populated-instance tests.
+func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstance(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	srv := initServiceWithAdminCount(t, 0) // nobody has ever signed in
+	subject, email := bootstrapIdentity()
+
+	user, err := srv.GetOrCreateByAuthInfo(
+		ctx, entity.AuthMethodBootstrap, bootstrapInfo(subject, email), bootstrapPolicy(),
+	)
+	require.NoError(t, err)
+	require.Equal(t, email, user.Email, "the identity comes from configuration")
+	require.Contains(t, user.Roles, entity.RoleAdmin,
+		"the first login on an admin-less instance must yield an admin")
+
+	// And it is a real, resolvable identity — the next login is a pure lookup
+	// rather than a second creation.
+	again, err := srv.GetOrCreateByAuthInfo(
+		ctx, entity.AuthMethodBootstrap, bootstrapInfo(subject, email), bootstrapPolicy(),
+	)
+	require.NoError(t, err)
+	require.Equal(t, user.ID, again.ID)
+}
+
+// The zero-admin branch grants admin through a path of its own, so the seat-cap
+// exemption has to hold there too — an instance can be at its licensed cap and
+// still have no admin, which is precisely when break-glass is needed and
+// precisely when a cap would refuse it.
+func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstanceIgnoresTheSeatCap(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	guard := &fakeSeatGuard{err: apperr.ErrSeatsLimitExceeded}
+	srv := NewService(
+		dbtx.NewTxManager(db),
+		fixedAdminCountStore{UsersStore: users.NewStore(db), activeAdmins: 0},
+		useridentities.NewStore(db),
+		newTestAuditPublisher(t),
+		&fakeTokenRevoker{},
+		guard,
+		false,
+	)
+
+	subject, email := bootstrapIdentity()
+	user, err := srv.GetOrCreateByAuthInfo(
+		ctx, entity.AuthMethodBootstrap, bootstrapInfo(subject, email), bootstrapPolicy(),
+	)
+	require.NoError(t, err, "the first admin must be creatable even at the seat cap")
+	require.Contains(t, user.Roles, entity.RoleAdmin)
+}
