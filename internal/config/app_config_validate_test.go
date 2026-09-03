@@ -392,3 +392,148 @@ func TestInitConfig_RunsTheNewValidators(t *testing.T) {
 		require.Contains(t, panicMessage(t, dir), "placeholder")
 	})
 }
+
+// The bootstrap password is a secret, so every shipped config must reference it
+// through the secrets file rather than carry a literal. Two failures are
+// possible here and both are silent until deploy:
+//
+//   - a config that forgets the reference would ship a real password in a
+//     tracked file, or an empty one that silently generates a new credential on
+//     every restart;
+//   - a reference whose key is missing from the secrets file crash-loops the
+//     process, because the resolver hard-fails on a missing key.
+//
+// Pairing each config with its own sample secrets proves the two halves agree.
+func TestReadConfig_ShippedDeploymentConfigsResolveBootstrapPassword(t *testing.T) {
+	t.Parallel()
+
+	for _, env := range []string{"local", "dev", "test", "prod"} {
+		t.Run(env, func(t *testing.T) {
+			t.Parallel()
+
+			dir := filepath.Join("..", "..", "deployment", "maintmode", env)
+
+			cfg, err := readConfig(filepath.Join(dir, defaultConfigFile))
+			require.NoError(t, err)
+			require.Equal(t, "<secret:bootstrap/password>", cfg.Bootstrap.Password,
+				"deployment/maintmode/%s/app.config.yaml must take the password from the secrets file", env)
+
+			// The sample is the documented key set; if the reference resolves
+			// against it, a real secrets file built from it resolves too.
+			secrets, err := readSecrets(filepath.Join(dir, "app.secrets.sample.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, cfg.applySecrets(secrets),
+				"bootstrap/password is missing from the %s sample secrets, so the app would panic at boot", env)
+
+			if env == "prod" {
+				// The prod config and its sample secrets both ship placeholders —
+				// for the email and the password respectively — and BOTH must be
+				// rejected. Each clears its own shallow check (the address parses,
+				// the password clears the length floor), so only the explicit
+				// placeholder rejection stops an operator who copies the samples
+				// and misses a line from booting with credentials published in
+				// this repository.
+				require.ErrorContains(t, cfg.validateBootstrapConfig(), "placeholder")
+
+				withRealEmail := *cfg
+				withRealEmail.Bootstrap.Email = "ops@example.com"
+				require.ErrorContains(t, withRealEmail.validateBootstrapConfig(), "bootstrap.password is a placeholder")
+				return
+			}
+			require.NoError(t, cfg.validateBootstrapConfig(),
+				"the resolved bootstrap password must pass validation")
+		})
+	}
+}
+
+// An empty resolved password is not a misconfiguration — it is the documented
+// "generate one at startup" signal, and the local/dev/test samples ship exactly
+// that. A validator written to reject short passwords without excluding the
+// empty case would panic those deployments at boot.
+func TestReadConfig_EmptyBootstrapSecretIsAccepted(t *testing.T) {
+	t.Parallel()
+
+	for _, env := range []string{"local", "dev", "test"} {
+		t.Run(env, func(t *testing.T) {
+			t.Parallel()
+
+			dir := filepath.Join("..", "..", "deployment", "maintmode", env)
+
+			cfg, err := readConfig(filepath.Join(dir, defaultConfigFile))
+			require.NoError(t, err)
+			secrets, err := readSecrets(filepath.Join(dir, "app.secrets.sample.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, cfg.applySecrets(secrets))
+
+			require.Empty(t, cfg.Bootstrap.Password,
+				"the %s sample must leave the password empty so a fresh stand generates one", env)
+			require.NoError(t, cfg.validateBootstrapConfig(),
+				"an empty password must pass validation: it is the generate-at-startup signal")
+		})
+	}
+}
+
+// The email is an admin-grant primitive: linkBootstrapToExistingUser resolves
+// an account by it and grants that account admin. It is therefore validated
+// BEFORE the empty-password early return — a generated password is the common
+// case, and the identity has to be sound there too.
+func TestValidate_BootstrapEmail(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		email   string
+		wantErr string
+	}{
+		{name: "a real address passes", email: "ops@example.com"},
+		{name: "empty is rejected", email: "", wantErr: "required"},
+		{name: "the shipped prod placeholder is rejected", email: "replace-me@example.com", wantErr: "placeholder"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Password left empty on purpose: the email check must fire even on
+			// the generate-at-startup path, which is where it would otherwise be
+			// skipped by the early return.
+			cfg := &AppConfig{Bootstrap: BootstrapConfig{Email: tc.email}}
+			err := cfg.validateBootstrapConfig()
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidate_BootstrapConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		password string
+		wantErr  bool
+	}{
+		{name: "empty means generate at startup", password: "", wantErr: false},
+		{name: "at the minimum length", password: "123456789012", wantErr: false},
+		{name: "comfortably above it", password: "a-long-enough-break-glass-password", wantErr: false},
+		{name: "one short of the minimum", password: "12345678901", wantErr: true},
+		{name: "obviously too short", password: "admin", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &AppConfig{Bootstrap: BootstrapConfig{Email: "ops@example.com", Password: tc.password}}
+			err := cfg.validateBootstrapConfig()
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}

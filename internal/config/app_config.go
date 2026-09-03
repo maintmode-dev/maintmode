@@ -10,6 +10,7 @@ import (
 	"log"
 	"path"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ruko1202/xlog"
@@ -484,6 +485,33 @@ type AppConfig struct {
 	TaskProcessor   TaskProcessorConfig   `mapstructure:"task_processor"`
 	Crypto          CryptoConfig          `mapstructure:"crypto"`
 	License         LicenseConfig         `mapstructure:"license"`
+	Bootstrap       BootstrapConfig       `mapstructure:"bootstrap"`
+}
+
+// BootstrapConfig configures the break-glass admin sign-in — the emergency
+// login that breaks the "to configure a provider you must sign in, to sign in
+// you must configure a provider" loop.
+//
+// Password is the only secret here and it never reaches the database: it comes
+// from the secrets file (key "bootstrap/password", resolved by applySecrets)
+// and from nowhere else. There is deliberately no environment-variable
+// override: an env var is readable by anything that can inspect the process or
+// the compose file, which is a wider blast radius than the secrets file this
+// deployment already treats as the one place credentials live.
+//
+// An empty value is not a misconfiguration, it is the signal to generate a
+// random one at startup and log it once — see bootstrapauth.ResolvePassword.
+// The local/dev/test samples ship exactly that, so validateBootstrapConfig must
+// keep accepting an empty password. The KEY, however, must be present in the
+// secrets file: the resolver hard-fails on a missing one.
+//
+// Email determines the identity of the break-glass admin. It deliberately comes
+// from configuration rather than the request body: whoever controls the
+// deployment decides who the admin is, not whoever guessed the password, and a
+// later sign-in resolves to the same user instead of creating a second one.
+type BootstrapConfig struct {
+	Email    string `mapstructure:"email"`
+	Password string `mapstructure:"password"`
 }
 
 const (
@@ -501,6 +529,18 @@ const (
 	// AUTHZ_DIR is the directory holding RBAC model + policy files.
 	// File names themselves come from rbac.model / rbac.policy in YAML.
 	authzDirEnv = "AUTHZ_DIR"
+
+	// secretPlaceholderMarker is the substring every shipped sample secret uses
+	// for a value an operator must replace ("replace-me-prod-value"). Matching on
+	// it turns a forgotten line into a startup error instead of a live
+	// credential that is published in this repository.
+	secretPlaceholderMarker = "replace-me"
+
+	// minBootstrapPasswordLen follows NIST 800-63B: length is the requirement
+	// that matters, character-class rules are not. It applies ONLY to a
+	// configured password — an empty one means "generate at startup" and a
+	// generated one is specified by entropy instead.
+	minBootstrapPasswordLen = 12
 )
 
 func initConfig(appName string) *AppConfig {
@@ -560,7 +600,68 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateBootstrapConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	return cfg
+}
+
+// validateBootstrapConfig rejects a configured break-glass password too short to
+// be worth having. It deliberately does NOT reject an empty one: emptiness is
+// the documented "generate a random password at startup" signal, and every
+// shipped app.config.yaml carries it — a validator that treated empty as "too
+// short" would panic every deployment at boot, which is precisely the outage
+// this endpoint exists to prevent.
+//
+// A generated password is not checked here at all; it is specified by entropy
+// (see bootstrapauth.ResolvePassword) and never passes through this function.
+func (c *AppConfig) validateBootstrapConfig() error {
+	// Email is checked FIRST, before the empty-password early return: a
+	// generated password is the common case, and the identity still has to be
+	// sound there. It is not decoration — linkBootstrapToExistingUser resolves
+	// an account by this address and grants it admin, so an empty or
+	// placeholder value is an admin grant pointed at the wrong row (or, when
+	// empty, at a user created with an empty email that permanently occupies
+	// the NOT NULL UNIQUE slot).
+	if c.Bootstrap.Email == "" {
+		return fmt.Errorf("bootstrap.email is required: it decides which account the break-glass login grants admin to")
+	}
+
+	if strings.Contains(c.Bootstrap.Email, secretPlaceholderMarker) {
+		return fmt.Errorf(
+			"bootstrap.email is a placeholder (%q): set the address of the operator who should hold break-glass access",
+			c.Bootstrap.Email,
+		)
+	}
+
+	if c.Bootstrap.Password == "" {
+		return nil
+	}
+
+	if len(c.Bootstrap.Password) < minBootstrapPasswordLen {
+		return fmt.Errorf(
+			"bootstrap.password is too short: %d characters, expected at least %d "+
+				"(leave it empty to have one generated at startup)",
+			len(c.Bootstrap.Password), minBootstrapPasswordLen,
+		)
+	}
+
+	// The sample secrets ship a "replace-me-prod-value" placeholder, and it is
+	// long enough to clear the length floor above — so without this check an
+	// operator who copies the prod sample and misses this one line boots a
+	// production instance whose break-glass admin password is a string published
+	// in this repository. validateJWTKey rejects its own placeholder for exactly
+	// this reason.
+	if strings.Contains(c.Bootstrap.Password, secretPlaceholderMarker) {
+		return fmt.Errorf(
+			"bootstrap.password is a placeholder (%q): set a real password in the secrets file, "+
+				"or leave it empty to have one generated at startup",
+			c.Bootstrap.Password,
+		)
+	}
+
+	return nil
 }
 
 // validateEnvironment rejects any value outside the known set. IsProd() and
