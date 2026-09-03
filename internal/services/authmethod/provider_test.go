@@ -146,7 +146,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("methods with no implementation are not registered", func(t *testing.T) {
 		t.Parallel()
 
-		for _, method := range []entity.AuthMethod{entity.AuthMethodEmail, entity.AuthMethodBootstrap} {
+		// AuthMethodBootstrap was dropped from this list once it gained an
+		// implementation (RUK-284); AuthMethodEmail is still vocabulary-only.
+		for _, method := range []entity.AuthMethod{entity.AuthMethodEmail} {
 			methods := authmethod.NewAuthMethods(
 				newConfig(config.DevEnvironment, false),
 				[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
@@ -246,4 +248,39 @@ func TestProvidersGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Same(t, github, gotGithub)
 	})
+}
+
+// The stub short-circuit must not swallow the break-glass method.
+//
+// Get rewrites the requested method to AuthMethodStub whenever useStub is on,
+// and useStub is `isDev && cfg.OauthProviders.UseStub` — both halves matter, so
+// this must be exercised with an IsDev environment AND the flag, or the
+// short-circuit is not live and the test would pass with the exclusion removed.
+//
+// Without the exclusion a bootstrap login on the dev or test stand (both ship
+// use_stub: true) authenticates through the stub, which accepts any credential
+// and reports Subject "stub" — creating a DIFFERENT user while appearing to
+// work. That is worse than an error: it silently breaks "a repeat login
+// resolves the same user".
+func TestProvidersGet_BootstrapBypassesTheStub(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	bootstrap := &fakeProvider{id: entity.AuthMethodBootstrap}
+	stub := &fakeProvider{id: entity.AuthMethodStub}
+	methods := authmethod.NewAuthMethods(
+		newConfig(config.DevEnvironment, true),
+		[]authmethod.AuthMethod{bootstrap, stub, &fakeProvider{id: entity.AuthMethodGoogle}},
+	)
+
+	got, err := methods.Get(ctx, entity.AuthMethodBootstrap)
+	require.NoError(t, err)
+	require.Same(t, bootstrap, got, "bootstrap must never resolve to the stub")
+
+	// The short-circuit itself is untouched for everyone else: google still
+	// resolves to the stub under the same config.
+	got, err = methods.Get(ctx, entity.AuthMethodGoogle)
+	require.NoError(t, err)
+	require.Equal(t, entity.AuthMethodStub, got.MethodID(),
+		"the stub substitution must still apply to other methods")
 }

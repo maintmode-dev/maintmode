@@ -20,6 +20,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/googleoauth"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
@@ -365,8 +366,24 @@ func initAuthMethods(ctx context.Context, cfg *config.AppConfig) (*authmethod.Me
 		return nil, fmt.Errorf("init google oauth provider: %w", err)
 	}
 
+	// The break-glass method is registered in EVERY environment, production
+	// included. Gating it on "is a password configured" would recreate the loop
+	// it exists to break: a clean production instance with nothing configured
+	// would have no way in at all. Its safety comes from the secret's entropy,
+	// the rate limiter in front of the endpoint and an audit record per attempt
+	// — not from being absent. (Contrast the stub, which is dev-only precisely
+	// because it accepts ANY credential.)
+	//
+	// Resolution happens here, once per process: a generated password is logged
+	// exactly once, at startup, and never again.
+	bootstrapPassword, err := bootstrapauth.ResolvePassword(ctx, cfg.Bootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("resolve bootstrap password: %w", err)
+	}
+
 	return authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{
 		google,
+		bootstrapauth.NewService(cfg.Bootstrap, bootstrapPassword),
 	}), nil
 }
 
