@@ -334,6 +334,26 @@ type ApiauthmodelsJWKSResponse struct {
 	Keys *[]EntityJWK `json:"keys,omitempty"`
 }
 
+// ApiauthmodelsLoginWithPasswordRequest defines model for apiauthmodels.LoginWithPasswordRequest.
+type ApiauthmodelsLoginWithPasswordRequest struct {
+	// Email Email is REQUIRED and must be a well-formed address of at most 254
+	// characters, even though the bootstrap method ignores it when deciding who
+	// signs in — that identity comes from configuration. It is required because
+	// a failed attempt is attributed to it in the audit trail, and because the
+	// later email_password method identifies by it.
+	//
+	// Saying so here matters more than usual: every failure of this endpoint
+	// answers with the same opaque 401, so a client that omits the field gets
+	// no runtime signal about why. This contract is the only place that can
+	// tell an integrator the field is mandatory.
+	Email    string `json:"email"`
+	Password string `json:"password"`
+
+	// RememberMe RememberMe is accepted and currently ignored: session modes are a separate
+	// change. Present now so adding them later needs no wire-format change.
+	RememberMe *bool `json:"remember_me,omitempty"`
+}
+
 // ApiauthmodelsMeResponse defines model for apiauthmodels.MeResponse.
 type ApiauthmodelsMeResponse struct {
 	ConnectedProviders *[]string `json:"connected_providers,omitempty"`
@@ -612,6 +632,9 @@ type GetApiV1UsersListParams struct {
 // PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
 type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
 
+// PostApiV1LoginPasswordJSONRequestBody defines body for PostApiV1LoginPassword for application/json ContentType.
+type PostApiV1LoginPasswordJSONRequestBody = ApiauthmodelsLoginWithPasswordRequest
+
 // PostApiV1LogoutJSONRequestBody defines body for PostApiV1Logout for application/json ContentType.
 type PostApiV1LogoutJSONRequestBody = AuthRefreshTokenJSONRequest
 
@@ -725,6 +748,11 @@ type ClientInterface interface {
 	PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1LoginPasswordWithBody request with any body
+	PostApiV1LoginPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1LoginPassword(ctx context.Context, body PostApiV1LoginPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LogoutWithBody request with any body
 	PostApiV1LogoutWithBody(ctx context.Context, params *PostApiV1LogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -858,6 +886,30 @@ func (c *Client) PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, 
 
 func (c *Client) PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOauthExchangeGoogleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginPasswordRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginPassword(ctx context.Context, body PostApiV1LoginPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginPasswordRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1417,6 +1469,46 @@ func NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server string, contentT
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/login/oauth/exchange/google")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1LoginPasswordRequest calls the generic PostApiV1LoginPassword builder with application/json body
+func NewPostApiV1LoginPasswordRequest(server string, body PostApiV1LoginPasswordJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1LoginPasswordRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1LoginPasswordRequestWithBody generates requests for PostApiV1LoginPassword with any type of body
+func NewPostApiV1LoginPasswordRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/password")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2386,6 +2478,11 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
 
+	// PostApiV1LoginPasswordWithBodyWithResponse request with any body
+	PostApiV1LoginPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error)
+
+	PostApiV1LoginPasswordWithResponse(ctx context.Context, body PostApiV1LoginPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error)
+
 	// PostApiV1LogoutWithBodyWithResponse request with any body
 	PostApiV1LogoutWithBodyWithResponse(ctx context.Context, params *PostApiV1LogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LogoutResponse, error)
 
@@ -2593,6 +2690,38 @@ func (r PostApiV1LoginOauthExchangeGoogleResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginOauthExchangeGoogleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1LoginPasswordResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsTokenPairResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1LoginPasswordResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1LoginPasswordResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1LoginPasswordResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3340,6 +3469,23 @@ func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithResponse(ctx 
 	return ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp)
 }
 
+// PostApiV1LoginPasswordWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginPasswordResponse
+func (c *ClientWithResponses) PostApiV1LoginPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error) {
+	rsp, err := c.PostApiV1LoginPasswordWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginPasswordResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1LoginPasswordWithResponse(ctx context.Context, body PostApiV1LoginPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error) {
+	rsp, err := c.PostApiV1LoginPassword(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginPasswordResponse(rsp)
+}
+
 // PostApiV1LogoutWithBodyWithResponse request with arbitrary body returning *PostApiV1LogoutResponse
 func (c *ClientWithResponses) PostApiV1LogoutWithBodyWithResponse(ctx context.Context, params *PostApiV1LogoutParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LogoutResponse, error) {
 	rsp, err := c.PostApiV1LogoutWithBody(ctx, params, contentType, body, reqEditors...)
@@ -3776,6 +3922,46 @@ func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostAp
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1LoginPasswordResponse parses an HTTP response from a PostApiV1LoginPasswordWithResponse call
+func ParsePostApiV1LoginPasswordResponse(rsp *http.Response) (*PostApiV1LoginPasswordResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1LoginPasswordResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsTokenPairResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 

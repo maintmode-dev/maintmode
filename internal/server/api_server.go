@@ -188,6 +188,22 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
 
+	// The break-glass password sign-in. Registered in every environment: it is
+	// what breaks the "to configure a provider you must sign in" loop on a fresh
+	// instance, so gating it would recreate the lockout it exists to prevent.
+	//
+	// NOTE: this is a third limiter instance over the SAME bucket, not an
+	// independent one. NewRateLimiter sets no IdentifierExtractor, so echo keys
+	// on the client IP and HybridRateLimiter builds "ratelimit:<app>:<ip>" with
+	// no group component — login/oauth, users/invitations and this route share
+	// one per-IP budget. Brute-forcing this endpoint therefore also exhausts the
+	// OAuth and invitation budgets for that IP, which is acceptable (same
+	// attacker, same address) but is not the isolation the shape suggests.
+	loginPasswordGr := gr.Group("/login/password",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+	)
+	loginPasswordGr.Add(http.MethodPost, "", s.handlers.Auth.LoginWithPassword)
+
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
 	invitesGr := gr.Group("/users/invitations",
