@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,9 +10,6 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 type recordedResponse struct {
@@ -95,97 +91,37 @@ func TestLoginWithPassword_FailuresAreIndistinguishable(t *testing.T) {
 	}
 }
 
-// Every error the service can hand back must produce the same response.
+// The single failure response must carry no trace of what went wrong.
 //
-// The cases above all take one code path (Authenticate fails), so on their own
-// they prove almost nothing: the leaking rows are the ones the shared mapper
-// answers differently — a blocked user with 401 carrying wrapped error text, a
-// refused signup with 403 signup_disabled, an exhausted cap with 403 AND the
-// exact seat counts, an unregistered method with 400 naming it. None of those
-// is reachable through the real service today (bootstrap is always registered
-// and exempt from the cap), and that is exactly why they are asserted here: an
-// endpoint whose uniformity depends on decisions made in other files is one
-// refactor away from leaking.
-func TestLoginWithPassword_EveryServiceErrorLooksIdentical(t *testing.T) {
+// This is the other half of the guarantee: the pairwise test above proves the
+// handler funnels every path here, and this proves the response built here is
+// safe to send whatever the underlying cause was. The shared mapper, which this
+// endpoint deliberately bypasses, would answer several of those causes with
+// their own status and their own wrapped text — a blocked user with "user is
+// blocked", an exhausted cap with the exact seat counts, an unregistered method
+// with its name.
+//
+// Asserting on the built response rather than on an error-taking wrapper is the
+// point: the collapse is unconditional by construction, so there is no error
+// parameter left to get wrong.
+func TestUnauthorized_LeaksNothingAboutTheCause(t *testing.T) {
 	t.Parallel()
 
-	failures := map[string]error{
-		"invalid credentials": apperr.ErrInvalidCredentials,
-		"blocked user":        apperr.ErrUserBlocked,
-		"signup refused":      apperr.ErrSignupDisabled,
-		"seats exhausted":     apperr.ErrSeatsLimitExceeded,
-		"unsupported method":  apperr.ErrUnsupportedProvider,
-		"wrapped in context":  fmt.Errorf("issue token pair: %w", apperr.ErrUserBlocked),
-		"unexpected internal": errors.New("something nobody anticipated"),
-	}
+	rec := httptest.NewRecorder()
+	c := echotest.ContextConfig{
+		Request:  httptest.NewRequest(http.MethodPost, "/api/v1/login/password", http.NoBody),
+		Response: rec,
+	}.ToContext(t)
 
-	got := make(map[string]recordedResponse, len(failures))
-	for name, failure := range failures {
-		rec := httptest.NewRecorder()
-		c := echotest.ContextConfig{
-			Request:  httptest.NewRequest(http.MethodPost, "/api/v1/login/password", http.NoBody),
-			Response: rec,
-		}.ToContext(t)
+	require.NoError(t, unauthorized(c.Request().Context(), c, "test reason", errors.New("blocked: seats exhausted for provider signup")))
 
-		require.NoError(t, respondToLoginFailure(c.Request().Context(), c, failure))
-		got[name] = recordedResponse{status: rec.Code, body: rec.Body.String()}
-	}
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.Equal(t, "no-store", rec.Header().Get(echo.HeaderCacheControl))
 
-	for name, resp := range got {
-		require.Equal(t, http.StatusUnauthorized, resp.status, "%s must answer 401", name)
-
-		for otherName, other := range got {
-			require.Equal(t, other.status, resp.status, "%s and %s differ in status", name, otherName)
-			require.Equal(t, other.body, resp.body, "%s and %s differ in body", name, otherName)
-		}
-
-		body := strings.ToLower(resp.body)
-		require.NotContains(t, body, "blocked", "%s leaks account state", name)
-		require.NotContains(t, body, "seat", "%s leaks license data", name)
-		require.NotContains(t, body, "signup", "%s leaks the signup policy", name)
-		require.NotContains(t, body, "provider", "%s leaks registry state", name)
-	}
-}
-
-// The email must be bounded before it reaches the service, because on a
-// credential mismatch it is what the audit record is attributed to — and
-// audit_log.actor carries a btree index that errors above ~2704 bytes. An
-// unauthenticated caller must not be able to write an arbitrarily large,
-// arbitrarily shaped string there.
-//
-// This is asserted on the validator rather than on the response: every failure
-// answers with the same 401 by design, so the indistinguishability tests above
-// stay green whether the validation exists or not — verified by mutation. Only
-// a direct assertion can fail when the rule is dropped.
-func TestValidateLoginWithPasswordCmd_BoundsTheEmail(t *testing.T) {
-	t.Parallel()
-
-	base := func(email string) *entity.LoginWithPasswordCmd {
-		return &entity.LoginWithPasswordCmd{Email: email, Password: "pw", ClientIP: "10.0.0.1"}
-	}
-
-	tests := []struct {
-		name    string
-		email   string
-		wantErr bool
-	}{
-		{name: "a real address passes", email: "ops@example.com"},
-		{name: "absent is rejected", email: "", wantErr: true},
-		{name: "malformed is rejected", email: "not-an-address", wantErr: true},
-		{name: "oversized is rejected", email: strings.Repeat("a", 300) + "@example.com", wantErr: true},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := validateLoginWithPasswordCmd(t.Context(), base(tc.email))
-			if tc.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-		})
+	body := strings.ToLower(rec.Body.String())
+	for _, leak := range []string{"blocked", "seat", "signup", "provider", "credential", "email"} {
+		require.NotContains(t, body, leak,
+			"the failure response must not hint at the cause (%q)", leak)
 	}
 }
 

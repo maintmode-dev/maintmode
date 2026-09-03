@@ -42,8 +42,7 @@ func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 		// this endpoint looks the same" is a rule that is only worth having if it
 		// has no exceptions to reason about — and a caller who can tell a
 		// bind failure from a rejected password has one bit more than intended.
-		xlog.Warn(ctx, "password login: malformed request body", xfield.Error(err))
-		return unauthorized(c)
+		return unauthorized(ctx, c, "malformed request body", err)
 	}
 
 	cmd := &entity.LoginWithPasswordCmd{
@@ -59,47 +58,52 @@ func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 		// password is a failed sign-in attempt, and telling the caller their
 		// input was malformed rather than wrong is a distinction worth nothing
 		// to a legitimate operator and something to an attacker.
-		return unauthorized(c)
+		return unauthorized(ctx, c, "invalid request", err)
 	}
 
 	pair, err := i.authSrv.LoginWithPassword(ctx, cmd)
 	if err != nil {
-		return respondToLoginFailure(ctx, c, err)
+		// The reason is not lost: it goes to the audit trail, and unauthorized
+		// logs it below.
+		return unauthorized(ctx, c, "authentication failed", err)
 	}
 
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusOK, apiauthmodels.ToAPITokenPairResponse(pair))
 }
 
-// respondToLoginFailure collapses every service error into the one response.
+// unauthorized is the single response every failed password login produces —
+// bind failure, validation failure, and every error the service can return.
 //
-// Deliberately not the shared mapper, which answers each of these differently:
+// Deliberately not the shared mapper, which answers each of those differently:
 // a blocked user gets 401 carrying the wrapped error text, a refused signup 403
 // signup_disabled, an exhausted seat cap 403 with the exact seat counts, an
 // unregistered method 400 naming it. Every one of those tells an
-// unauthenticated caller something about the account or the deployment.
+// unauthenticated caller something about the account or the deployment. It is
+// local rather than a change to the shared mapper because ErrUserBlocked's
+// global mapping is also what refresh and logout rely on.
 //
-// It is local rather than a change to the shared mapper because
-// ErrUserBlocked's global mapping is also what refresh and logout rely on.
-//
-// It is a named function rather than an inline branch so a test can drive it
-// with each sentinel directly: most of them are unreachable through the real
-// service today, and asserting them is the only way the guarantee survives a
-// change elsewhere that makes one reachable.
-//
-// The reason is not lost — it goes to the audit trail and to this WARN line,
-// which is where an operator diagnosing a lockout has to look anyway, since
-// reading the audit log needs the admin session they are trying to recover.
-func respondToLoginFailure(ctx context.Context, c *echo.Context, err error) error {
-	xlog.Warn(ctx, "password login rejected", xfield.Error(err))
-	return unauthorized(c)
-}
-
-// unauthorized is the single response every failed password login produces.
 // One function, one call shape: the guarantee is that no caller can tell two
 // failures apart, and that is easiest to keep true when there is exactly one
-// place the response is built.
-func unauthorized(c *echo.Context) error {
+// place the response is built. The collapse is unconditional by construction —
+// there is no error parameter feeding the response, so there is nothing to get
+// wrong per call site.
+func unauthorized(ctx context.Context, c *echo.Context, reason string, err error) error {
+	// Logged here rather than at each call site so that every failure is on
+	// record exactly once, with its cause. The response says nothing, so this
+	// line is the only thing standing between an operator and an undiagnosable
+	// lockout — reading the audit log needs the admin session they are trying to
+	// recover.
+	//
+	// WARN, not ERROR: a rejected sign-in is an expected event on a
+	// permanently-live endpoint, and logging it at ERROR would bury the failures
+	// that are genuinely the service's fault. A sustained rate of these is what
+	// the BootstrapLoginFailing alert is for.
+	xlog.Warn(ctx, "password login rejected",
+		xfield.String("reason", reason),
+		xfield.Error(err),
+	)
+
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 	return c.JSON(http.StatusUnauthorized,
 		httperrors.NewErrorResponse(httperrors.ErrUnauthorized, "authentication failed"))
