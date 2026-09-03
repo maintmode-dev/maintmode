@@ -67,13 +67,22 @@ type serviceMocks struct {
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
 	t.Helper()
+	return initServiceForMethod(t, entity.AuthMethodGoogle)
+}
+
+// initServiceForMethod builds the service with its single mock auth method
+// registered under methodID. The registry keys providers by MethodID(), so a
+// test exercising the password login must register the mock as
+// AuthMethodBootstrap or Get would not find it.
+func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *serviceMocks) {
+	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
 		authMethod: mock_authmethod.NewMockAuthMethod(ctrl),
 	}
 	mocks.authMethod.EXPECT().
 		MethodID().
-		Return(entity.AuthMethodGoogle).
+		Return(methodID).
 		AnyTimes()
 
 	txManager := dbtx.NewTxManager(db)

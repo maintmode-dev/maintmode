@@ -110,6 +110,14 @@ const (
 	// AuditFailureSignupDisabled marks an OAuth login of an unknown user rejected
 	// because neither an invitation nor open signup authorized creating the account.
 	AuditFailureSignupDisabled AuditFailureReason = "signup disabled"
+	// AuditFailureInvalidCredentials marks a password that did not match. Unlike
+	// the three reasons above it is PRE-identification: there is no verified
+	// identity behind the attempt, only a claim. It is deliberately its own
+	// value — the response to a bad password is indistinguishable from every
+	// other failure, so the audit trail is where a wrong password has to remain
+	// tellable from a refused or blocked account.
+	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
+	AuditFailureInvalidCredentials AuditFailureReason = "invalid credentials"
 )
 
 type AuditLogoutKind string
