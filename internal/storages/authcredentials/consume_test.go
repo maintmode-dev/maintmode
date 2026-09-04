@@ -56,6 +56,26 @@ func TestConsumeOTPConcurrent(t *testing.T) {
 	require.NotEqual(t, results[0], results[1], "exactly one caller must claim the code")
 }
 
+// TestConsumeOTPLeavesPasswordAlone pins the kind conjunct in the guard.
+// Without it the statement matches a password row -- which also has consumed_at
+// NULL -- stamps it as consumed and reports success. Nothing would reveal that:
+// the password getter has no consumed_at filter, so the corrupted row still
+// reads back normally. Every other test here stays green with that conjunct
+// deleted.
+func TestConsumeOTPLeavesPasswordAlone(t *testing.T) {
+	ctx := context.Background()
+	user := makeUser(ctx, t)
+	password := makePassword(ctx, t, user.ID)
+
+	claimed, err := store.ConsumeOTP(ctx, password.ID)
+	require.NoError(t, err)
+	require.False(t, claimed)
+
+	got, err := store.GetPasswordByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Nil(t, got.ConsumedAt, "a password must not be consumable")
+}
+
 // TestConsumeOTPStampsConsumption checks that consumption writes both
 // timestamps and that they agree.
 //
@@ -79,7 +99,7 @@ func TestConsumeOTPStampsConsumption(t *testing.T) {
 	require.True(t, claimed)
 
 	// Read back by id: a consumed code is by definition invisible to
-	// GetActiveOTPByUserID, and the store deliberately exposes no
+	// GetUnconsumedOTPByUserID, and the store deliberately exposes no
 	// get-regardless-of-state method for callers that do not need one.
 	var (
 		updatedAt  time.Time

@@ -61,6 +61,42 @@ func TestCreatePasswordConflictsAndCoexistsWithOTP(t *testing.T) {
 	makeOTP(ctx, t, user.ID)
 }
 
+// TestCreateIgnoresConsumedAt covers the column Create deliberately does not
+// insert. A caller that builds an entity from one it just read carries
+// consumed_at along; honoring it would create a code born dead -- outside the
+// active-code index, so blocking nothing and conflicting with nothing, and
+// returned by no read path.
+func TestCreateIgnoresConsumedAt(t *testing.T) {
+	ctx := context.Background()
+	user := makeUser(ctx, t)
+
+	past := time.Now().UTC().Add(-time.Hour)
+	expiresAt := time.Now().UTC().Add(10 * time.Minute)
+
+	created, err := store.Create(ctx, &entity.AuthCredential{
+		UserID:     user.ID,
+		Kind:       entity.AuthCredentialKindOTP,
+		SecretHash: uuid.NewString(),
+		ExpiresAt:  &expiresAt,
+		ConsumedAt: &past,
+	})
+	require.NoError(t, err)
+	require.Nil(t, created.ConsumedAt, "a credential must never be born consumed")
+
+	// The row is live: visible to the read path, and occupying the user's slot.
+	got, err := store.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, created.ID, got.ID)
+
+	_, err = store.Create(ctx, &entity.AuthCredential{
+		UserID:     user.ID,
+		Kind:       entity.AuthCredentialKindOTP,
+		SecretHash: uuid.NewString(),
+		ExpiresAt:  &expiresAt,
+	})
+	require.ErrorIs(t, err, apperr.ErrAuthCredentialConflict)
+}
+
 // TestCreateRejectsUnknownKind pins the kind CHECK. The user must be a real one:
 // with a random user_id the foreign key rejects the row first and the test would
 // pass without the CHECK existing at all, which is the hole it exists to close.

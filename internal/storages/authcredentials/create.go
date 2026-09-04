@@ -15,8 +15,17 @@ import (
 //
 // created_at and updated_at are left to the schema defaults: writing the Go
 // zero time over them would put the row in year 1 and make a later
-// "updated_at moved" check unreadable. Every other mutable column is inserted,
-// attempts included, so a caller can seed a row at a chosen count.
+// "updated_at moved" check unreadable.
+//
+// consumed_at is excluded because consuming is ConsumeOTP's job. Were it
+// insertable, a caller passing a non-nil value -- most easily by building the
+// entity from one it had just read -- would create a code born dead: it stays
+// out of the active-code index so it blocks nothing and conflicts with nothing,
+// no read path returns it, and consuming it always reports false. That is the
+// same shape of hole the kind constraint closes, reached through a different
+// column.
+//
+// attempts stays insertable, so a caller can seed a row at a chosen count.
 func (s *Store) Create(ctx context.Context, cred *entity.AuthCredential) (*entity.AuthCredential, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.AuthCredentials.Create")
 	defer span.End()
@@ -25,7 +34,11 @@ func (s *Store) Create(ctx context.Context, cred *entity.AuthCredential) (*entit
 
 	stmt := table.AuthCredentials.
 		INSERT(table.AuthCredentials.MutableColumns.
-			Except(table.AuthCredentials.CreatedAt, table.AuthCredentials.UpdatedAt),
+			Except(
+				table.AuthCredentials.ConsumedAt,
+				table.AuthCredentials.CreatedAt,
+				table.AuthCredentials.UpdatedAt,
+			),
 		).
 		MODEL(row).
 		RETURNING(table.AuthCredentials.AllColumns)
@@ -47,6 +60,13 @@ func (s *Store) Create(ctx context.Context, cred *entity.AuthCredential) (*entit
 		// A CHECK violation is deliberately not caught here. dbtx.ErrorIs
 		// matches one SQLSTATE, so a bad kind surfaces raw -- that is a
 		// programmer error, not something a caller can act on.
+		//
+		// That raw error is not safe to render freely: Postgres puts the entire
+		// failing row into the constraint violation's DETAIL field, secret_hash
+		// included, and lib/pq keeps it. Error() prints only the message and the
+		// code, so logging or spanning this error the ordinary way is fine;
+		// ErrorWithDetail, %+v on the *pq.Error, and any reporter that reflects
+		// over the error struct are not.
 		if dbtx.ErrorIs(err, dbtx.ErrPGUniqueViolation) {
 			return nil, apperr.ErrAuthCredentialConflict
 		}
