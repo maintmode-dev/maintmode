@@ -160,3 +160,22 @@ crypto:
   active_kek_uri: local-kms://test-1
   local_keys:
     "local-kms://test-1": <secret:crypto/kek/test-1>
+
+# Break-glass admin sign-in (POST /api/v1/login/password).
+#
+# The password is a secret and lives in app.secrets.yaml under
+# "bootstrap/password", alongside every other credential — not inline here, and
+# with no environment-variable override: an env var is readable by anything that
+# can inspect the process or the compose file.
+#
+# An EMPTY secret is valid and supported: the app then generates a random
+# password at startup and logs it once at WARN. The key itself must exist in the
+# secrets file even when empty — the resolver hard-fails on a missing key, so a
+# deployment whose secrets predate this key will not start until it is added.
+#
+# A generated password is valid for ONE replica only: with
+# `docker compose up --scale maintmode=N` each replica generates its own, so a
+# scaled deployment must set a real value.
+bootstrap:
+  email: admin@example.com
+  password: <secret:bootstrap/password>

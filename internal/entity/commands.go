@@ -248,6 +248,23 @@ type ExchangeIDTokenCmd struct {
 	TestRoles []Role
 }
 
+// LoginWithPasswordCmd is a sign-in with a password rather than an upstream
+// token. Today the only method behind it is the break-glass bootstrap admin;
+// email_password joins it later on the same endpoint.
+type LoginWithPasswordCmd struct {
+	// Email is carried for the later email_password method and is IGNORED by
+	// bootstrap, whose identity comes from configuration: whoever controls the
+	// deployment decides who the admin is, not whoever guessed the password.
+	Email    string
+	Password string
+	// RememberMe is accepted and currently ignored — session modes are a
+	// separate change. It is in the contract now so adding it later needs no
+	// wire-format change.
+	RememberMe bool
+	ClientIP   string
+	UserAgent  string
+}
+
 type ConnectProviderCmd struct {
 	UserID   uuid.UUID
 	Provider AuthMethod

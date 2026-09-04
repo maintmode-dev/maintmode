@@ -28,6 +28,15 @@ var (
 	// is what is refused. The HTTP message stays generic so the response never
 	// reveals whether an invitation exists for the email.
 	ErrSignupDisabled = errors.New("signup disabled")
+	// ErrInvalidCredentials marks a credential that did not match — today the
+	// break-glass bootstrap password. It is deliberately its own sentinel rather
+	// than a reuse of ErrUserBlocked or ErrSignupDisabled: the audit trail must
+	// be able to tell a wrong password from a refused account.
+	//
+	// It never reaches an API client on its own: the password login endpoint
+	// collapses every failure into one identical response, so this sentinel
+	// steers the audit record and the server-side log, not the body.
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
 // OAuth provider connect/disconnect errors.

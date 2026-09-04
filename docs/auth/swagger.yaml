@@ -141,6 +141,32 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apiauthmodels.LoginWithPasswordRequest:
+            properties:
+                email:
+                    description: |-
+                        Email is REQUIRED and must be a well-formed address of at most 254
+                        characters, even though the bootstrap method ignores it when deciding who
+                        signs in — that identity comes from configuration. It is required because
+                        a failed attempt is attributed to it in the audit trail, and because the
+                        later email_password method identifies by it.
+
+                        Saying so here matters more than usual: every failure of this endpoint
+                        answers with the same opaque 401, so a client that omits the field gets
+                        no runtime signal about why. This contract is the only place that can
+                        tell an integrator the field is mandatory.
+                    type: string
+                password:
+                    type: string
+                remember_me:
+                    description: |-
+                        RememberMe is accepted and currently ignored: session modes are a separate
+                        change. Present now so adding them later needs no wire-format change.
+                    type: boolean
+            required:
+                - email
+                - password
+            type: object
         apiauthmodels.MeResponse:
             properties:
                 connected_providers:
@@ -721,6 +747,38 @@ paths:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
                     description: Internal error
             summary: Exchange a Google ID token for a backend token pair
+            tags:
+                - Auth
+    /api/v1/login/password:
+        post:
+            description: Issues a backend token pair for a password-based sign-in. Every failure — wrong password, blocked account, refused signup, malformed body — answers with the same 401, so the response never reveals whether an account exists or what state it is in.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.LoginWithPasswordRequest'
+                description: Credentials
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Authentication failed
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Sign in with a password
             tags:
                 - Auth
     /api/v1/logout:

@@ -119,6 +119,39 @@ groups:
           summary: "Invitation acceptance is failing repeatedly"
           description: "More than ~3 invitation accepts per minute have failed with 4xx for 10m. Isolated failures are expected (expired or reused invite, email mismatch), but a sustained rate means ID-token verification or the invitation flow is broken — and in prod this is the only way a new user can sign in."
 
+      - alert: BootstrapLoginFailing
+        # The break-glass password endpoint is permanently live and
+        # unauthenticated by design — it is what lets an operator into a fresh
+        # instance, so it has no off switch. Detection is one of the three
+        # compensating controls that make that acceptable (the others being the
+        # secret's entropy and an audit record per attempt), and a sustained 401
+        # rate here is a brute-force attempt against an admin credential.
+        #
+        # Rate, not ratio, and not `> 0`: a lone 401 is an operator mistyping
+        # the password, which is expected and must not page anyone. The
+        # threshold mirrors InvitationAcceptFailing, the other endpoint where
+        # isolated failures are normal.
+        #
+        # 429 is EXCLUDED and the exclusion is load-bearing. The app-level rate
+        # limiter keys on the client IP with no route component
+        # (server/ratelimiter.go builds "ratelimit:<app>:<ip>"), so this route
+        # shares one per-IP budget with login/oauth and users/invitations. An
+        # OAuth burst from a single address therefore produces 429s HERE, on an
+        # endpoint that was never called — and a bare `4..` would report that as
+        # a break-glass brute force.
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{
+            http_route="/api/v1/login/password",
+            http_response_status_code=~"4..",
+            http_response_status_code!="429"
+          }[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Break-glass password logins are failing repeatedly"
+          description: "More than ~3 break-glass sign-in attempts per minute have been rejected for 10m. Isolated failures are expected (a mistyped password), but a sustained rate against a permanently-live admin credential is a brute-force attempt. The endpoint answers every failure identically, so the reason is only in the audit log (action=login_failed) and the app's WARN lines. If this is not an operator recovering access, treat the instance as under attack and set a strong bootstrap/password in the secrets file."
+
       - alert: TokenRefreshFailureRateHigh
         # /refresh returning 401 is routine — every expired refresh token lands
         # here and the BFF re-authenticates. So this is a RATIO, not a rate, and

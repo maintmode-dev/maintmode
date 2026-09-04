@@ -18,16 +18,34 @@ const (
 	AuthMethodStub   AuthMethod = "stub"
 	AuthMethodGoogle AuthMethod = "google"
 	AuthMethodGithub AuthMethod = "github"
-	// AuthMethodEmail and AuthMethodBootstrap are accepted by ParseAuthMethod
-	// but have NO implementation behind them yet: the registry has no entry, so
-	// Methods.Get refuses them. They exist here so the follow-up work inherits a
-	// decided vocabulary instead of renaming it again.
-	AuthMethodEmail     AuthMethod = "email"
+	// AuthMethodEmail is accepted by ParseAuthMethod but has NO implementation
+	// behind it yet: the registry has no entry, so Methods.Get refuses it. It
+	// exists here so the follow-up work inherits a decided vocabulary instead of
+	// renaming it again.
+	AuthMethodEmail AuthMethod = "email"
+	// AuthMethodBootstrap keys the break-glass admin sign-in. Like the stub it is
+	// never accepted from a request — ParseAuthMethod rejects it — but for the
+	// opposite reason: the stub is refused because it verifies nothing, while
+	// bootstrap is refused because it carries privileges no other method has (an
+	// identity resolved by configured email, and an admin grant that skips the
+	// seats cap). Those are safe only on the endpoint that gates them behind the
+	// break-glass secret, so the method is reachable by that endpoint naming it
+	// directly, never by a client naming it in a body.
 	AuthMethodBootstrap AuthMethod = "bootstrap"
 	// AuthMethodUnknown is an output-only sentinel for "no method known".
 	// It is never a real login method and is rejected by ParseAuthMethod.
 	AuthMethodUnknown AuthMethod = "unknown"
 )
+
+// BootstrapSubject is the user_identities.subject of the break-glass admin.
+//
+// Every other method takes its subject from an upstream provider; bootstrap has
+// no upstream, so the value is a constant. That constancy is what makes a
+// repeat break-glass login resolve to the same user instead of creating a new
+// one, and it is DATA in the same sense as the AuthMethod literals above: it is
+// matched against existing user_identities rows, so changing it would silently
+// orphan the admin identity rather than fail loudly.
+const BootstrapSubject = "bootstrap"
 
 // PrimaryAuthMethod returns the user's primary method — the first linked
 // one — or AuthMethodUnknown when the list is empty. Used to populate the
@@ -41,14 +59,24 @@ func PrimaryAuthMethod(methods []AuthMethod) AuthMethod {
 
 // ParseAuthMethod validates s against the methods a client may name in a
 // request and returns the typed method. The bool is false for unknown values,
-// and deliberately for AuthMethodStub as well: its only caller reads the
-// method straight from the accept-invitation body.
+// and deliberately for AuthMethodStub and AuthMethodBootstrap as well: its only
+// caller reads the method straight from the accept-invitation body.
+//
+// Bootstrap is rejected for the same reason as the stub, and the reason is
+// concrete rather than tidiness. Break-glass carries privileges no other method
+// has — its identity resolves by configured email rather than by an upstream
+// subject, and its admin grant deliberately skips the seats cap. Those
+// privileges are safe only on the endpoint that gates them behind the
+// break-glass secret. Letting a client NAME the method elsewhere would carry
+// them onto a flow that never intended them: accepting an invitation with
+// provider="bootstrap" would authenticate with the break-glass password and
+// then take the privileged branches inside GetOrCreateByAuthInfo.
 //
 // Matching is exact — no case folding. A folded match would let "STUB" smuggle
 // the stub provider back past this gate.
 func ParseAuthMethod(s string) (AuthMethod, bool) {
 	switch AuthMethod(s) {
-	case AuthMethodGoogle, AuthMethodGithub, AuthMethodEmail, AuthMethodBootstrap:
+	case AuthMethodGoogle, AuthMethodGithub, AuthMethodEmail:
 		return AuthMethod(s), true
 	default:
 		return "", false

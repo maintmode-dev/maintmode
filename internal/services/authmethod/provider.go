@@ -67,7 +67,13 @@ func NewAuthMethods(
 }
 
 func (p *Methods) Get(ctx context.Context, methodID entity.AuthMethod) (AuthMethod, error) {
-	if p.useStub {
+	// The break-glass method is exempt from the stub substitution. The stub
+	// accepts any credential and reports Subject "stub", so substituting it here
+	// would not merely bypass the password check — it would resolve a DIFFERENT
+	// user than the bootstrap identity, silently breaking "a repeat login
+	// resolves the same user" while appearing to work. Both the dev and test
+	// stands ship use_stub: true, so this is the common case there, not a corner.
+	if p.useStub && methodID != entity.AuthMethodBootstrap {
 		xlog.Warn(ctx, "using stub oauth provider")
 		methodID = entity.AuthMethodStub
 	}

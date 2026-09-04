@@ -38,15 +38,22 @@ func TestParseAuthMethod(t *testing.T) {
 	}{
 		{name: "google is a login method", input: "google", want: entity.AuthMethodGoogle, ok: true},
 		{name: "github is a login method", input: "github", want: entity.AuthMethodGithub, ok: true},
-		// Accepted by the parser, but no implementation stands behind them yet:
+		// Accepted by the parser, but no implementation stands behind it yet:
 		// Methods.Get misses the registry and the caller refuses the request.
-		// The implementations arrive with the follow-up work.
+		// The implementation arrives with the follow-up work.
 		{name: "email is accepted with no implementation", input: "email", want: entity.AuthMethodEmail, ok: true},
-		{name: "bootstrap is accepted with no implementation", input: "bootstrap", want: entity.AuthMethodBootstrap, ok: true},
 		// The stub accepts any token and mints an identity. The method name
 		// arrives straight from the accept-invitation request body, so it is
 		// refused at the API boundary in every environment.
 		{name: "stub is refused", input: "stub", ok: false},
+		// Bootstrap is refused for the same reason, and it is not hypothetical:
+		// the method is registered in every environment, so a client naming it
+		// here would authenticate with the break-glass password on the
+		// invitation-accept flow and then take the privileged branches inside
+		// GetOrCreateByAuthInfo — the email-keyed link and the seats-cap bypass,
+		// neither of which that flow ever intended. Break-glass is reachable
+		// only through the endpoint that gates it behind its own secret.
+		{name: "bootstrap is refused", input: "bootstrap", ok: false},
 		{name: "unknown is output-only", input: "unknown", ok: false},
 		{name: "empty is refused", input: "", ok: false},
 		// Matching is exact: no case folding that could smuggle the stub back in.
