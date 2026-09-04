@@ -10,12 +10,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-func TestGetActiveOTPByUserID(t *testing.T) {
+func TestGetUnconsumedOTPByUserID(t *testing.T) {
 	ctx := context.Background()
 	user := makeUser(ctx, t)
 	otp := makeOTP(ctx, t, user.ID)
 
-	got, err := store.GetActiveOTPByUserID(ctx, user.ID)
+	got, err := store.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
 	require.Equal(t, otp.ID, got.ID)
 
@@ -23,7 +23,7 @@ func TestGetActiveOTPByUserID(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, claimed)
 
-	_, err = store.GetActiveOTPByUserID(ctx, user.ID)
+	_, err = store.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
 }
 
@@ -45,7 +45,7 @@ func TestGettersDoNotCrossKinds(t *testing.T) {
 		user := makeUser(ctx, t)
 		makePassword(ctx, t, user.ID)
 
-		_, err := store.GetActiveOTPByUserID(ctx, user.ID)
+		_, err := store.GetUnconsumedOTPByUserID(ctx, user.ID)
 		require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
 	})
 
@@ -59,7 +59,7 @@ func TestGettersDoNotCrossKinds(t *testing.T) {
 		require.Equal(t, password.ID, gotPassword.ID)
 		require.Equal(t, entity.AuthCredentialKindPassword, gotPassword.Kind)
 
-		gotOTP, err := store.GetActiveOTPByUserID(ctx, user.ID)
+		gotOTP, err := store.GetUnconsumedOTPByUserID(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, otp.ID, gotOTP.ID)
 		require.Equal(t, entity.AuthCredentialKindOTP, gotOTP.Kind)

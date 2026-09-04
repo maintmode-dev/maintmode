@@ -21,6 +21,12 @@ const (
 // format is self-describing, so a verifier reads the algorithm out of the value
 // rather than assuming it from context.
 //
+// Compare the sha256 form with crypto/subtle.ConstantTimeCompare, never with
+// ==: a byte-wise comparison on a hex digest returns early on the first
+// mismatch and leaks the shared prefix length through response timing. The
+// argon2id form is compared by a function that is already constant-time. See
+// services/authmethod/bootstrapauth/authenticate.go for the precedent.
+//
 // ExpiresAt, ConsumedAt and SessionNonce are meaningful only for a one-time
 // code and are nil for a password. Nothing at this layer enforces that: which
 // combinations are legal is the calling service's policy.

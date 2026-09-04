@@ -63,5 +63,18 @@ CREATE INDEX auth_credentials_otp_expiry_idx
 
 -- +goose Down
 -- +goose StatementBegin
+
+-- Refuse to drop a populated table. The warning above is one a human has to
+-- read; this is one the database enforces, and rolling back under incident
+-- pressure is exactly when the comment goes unread.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM auth_credentials LIMIT 1) THEN
+        RAISE EXCEPTION 'auth_credentials is not empty: rolling back destroys every stored password hash'
+            USING HINT = 'Back it up first. If the loss is genuinely intended, TRUNCATE the table and re-run.';
+    END IF;
+END
+$$;
+
 DROP TABLE IF EXISTS auth_credentials;
 -- +goose StatementEnd
