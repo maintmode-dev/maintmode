@@ -91,4 +91,11 @@ var (
 	// ErrEmailMismatch is the accept-time guard: the OAuth email does not match
 	// the invitation email. Surfaced as status "email_mismatch" with no detail.
 	ErrEmailMismatch = fmt.Errorf("%w: email mismatch", ErrValidation)
+	// ErrAuthCredentialNotFound is returned when no credential row matches the
+	// lookup: the user has no password, or no unconsumed one-time code.
+	ErrAuthCredentialNotFound = errors.New("auth credential not found")
+	// ErrAuthCredentialConflict is a unique violation on one of the partial
+	// indexes: the user already has a password, or already has a live one-time
+	// code. Which one it is follows from the kind the caller was writing.
+	ErrAuthCredentialConflict = errors.New("auth credential already exists")
 )
