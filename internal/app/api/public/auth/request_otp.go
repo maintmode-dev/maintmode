@@ -51,15 +51,18 @@ func (i *Implementation) RequestOTP(c *echo.Context) error {
 		return i.rejected(ctx, c, start, "malformed request body", err)
 	}
 
+	// Normalized BEFORE validation, through the same function the limiter keys
+	// on. Both halves of that sentence matter: sharing the normalizer keeps the
+	// limiter's bucket and the identity lookup from drifting apart, and doing it
+	// first means every rule below judges the string the service will actually
+	// use, not the one the caller happened to type.
+	body.Email = xemail.Normalize(body.Email)
+
 	if err := validateRequestOTP(ctx, body); err != nil {
 		return i.rejected(ctx, c, start, "invalid request", err)
 	}
 
-	// Normalized through the same function the limiter keys on, for the reason
-	// spelled out on the verify endpoint: these two routes share one per-address
-	// tier, so normalizing on only one of them leaves the other able to split a
-	// victim's budget.
-	nonce, err := i.otpSrv.Request(ctx, xemail.Normalize(body.Email))
+	nonce, err := i.otpSrv.Request(ctx, body.Email)
 	if err != nil {
 		return i.rejected(ctx, c, start, "issue failed", err)
 	}
@@ -160,7 +163,6 @@ func (i *Implementation) waitOutFloor(start time.Time) {
 // rejected request.
 func validateRequestOTP(ctx context.Context, body *apiauthmodels.RequestOTPRequest) error {
 	return validation.ValidateStructWithContext(ctx, body,
-		validation.Field(&body.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat,
-			validation.By(canonicalEmail)),
+		validation.Field(&body.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat),
 	)
 }

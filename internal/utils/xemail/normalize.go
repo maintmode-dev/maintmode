@@ -29,27 +29,15 @@ func Normalize(s string) string {
 	return strings.ToLower(strings.TrimFunc(s, isTrimmable))
 }
 
-// IsCanonical reports whether s survives normalization unchanged.
-//
-// Callers use it to REJECT rather than to silently repair: an address carrying
-// an invisible character is not a typo a user made, and quietly accepting one
-// means the audited value differs from what any operator would search for.
-// Normalizing without this guard would still leave a caller able to write
-// arbitrary variants into the audit trail on paths that record the claimed
-// address.
-func IsCanonical(s string) bool {
-	return Normalize(s) == s
-}
-
 // isTrimmable reports whether r is whitespace or an invisible formatting
-// character. The explicit runes are the ones unicode.IsSpace omits but that
-// address validators accept: zero-width space, zero-width no-break space (BOM)
-// and word joiner.
+// character.
+//
+// unicode.IsSpace alone is not enough, and that is the whole reason this is a
+// function rather than a strings.TrimSpace at each call site: U+200B, U+FEFF and
+// U+2060 are not space by that definition, yet address validators accept them,
+// so a zero-width suffix used to key its own rate-limit bucket for the same
+// victim. They are category Cf, which is why one predicate covers all three
+// without naming them.
 func isTrimmable(r rune) bool {
-	switch r {
-	case '\u200b', '\ufeff', '\u2060':
-		return true
-	default:
-		return unicode.IsSpace(r) || unicode.Is(unicode.Cf, r)
-	}
+	return unicode.IsSpace(r) || unicode.Is(unicode.Cf, r)
 }

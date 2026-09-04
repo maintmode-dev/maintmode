@@ -39,8 +39,6 @@ func TestNormalizeStripsInvisibleCharacters(t *testing.T) {
 
 			require.Equal(t, base, Normalize(base+suffix),
 				"%s must not survive normalization, or it splits the victim's rate-limit bucket", name)
-			require.False(t, IsCanonical(base+suffix),
-				"%s must be refused rather than silently repaired", name)
 		})
 	}
 }
@@ -51,7 +49,6 @@ func TestNormalizeFoldsCase(t *testing.T) {
 	t.Parallel()
 
 	require.Equal(t, "user@example.com", Normalize("USER@Example.COM"))
-	require.False(t, IsCanonical("USER@Example.COM"))
 }
 
 // TestNormalizeLeavesACanonicalAddressAlone guards the direction that would
@@ -65,8 +62,7 @@ func TestNormalizeLeavesACanonicalAddressAlone(t *testing.T) {
 		"first.last+tag@sub.example.co.uk",
 		"u@e.io",
 	} {
-		require.Equal(t, addr, Normalize(addr))
-		require.True(t, IsCanonical(addr), "%q is an ordinary address and must be accepted", addr)
+		require.Equal(t, addr, Normalize(addr), "%q is an ordinary address and must pass through untouched", addr)
 		require.NoError(t, is.EmailFormat.Validate(addr))
 	}
 }

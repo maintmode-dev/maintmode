@@ -115,31 +115,71 @@ func (i *Implementation) succeeded(c *echo.Context, start time.Time, pair *entit
 	return c.JSON(http.StatusOK, apiauthmodels.ToAPITokenPairResponse(pair))
 }
 
-// otpRejected is the single response every failed redemption produces, apart
-// from the nonce mismatch below.
+// otpRejected is the response every failed redemption produces but one.
 //
-// It waits out the same response floor the request endpoint uses, and the reason
-// is an oracle that the uniform status alone does not close. An address with no
-// account returns after ONE indexed SELECT; an address with one costs a second
-// SELECT, an attempt-claim UPDATE, a hash and a comparison -- a read path against
-// a read-write path, a difference that grows under load rather than shrinking.
-// The rate limiters do not help here: enumeration needs one request per
-// candidate address, not many.
+// It takes no error and no response code: the collapse is unconditional by
+// construction, so there is nothing a call site can get wrong. Two failures
+// being indistinguishable is easiest to keep true when there is exactly one
+// place the body is built.
 //
-// One function, one call shape: the guarantee is that no caller can tell two
-// failures apart, and that is easiest to keep true when there is exactly one
-// place the response is built. The collapse is unconditional by construction —
-// no error feeds the response, so there is nothing to get wrong per call site.
-//
-// The cause is logged rather than returned, at WARN: a rejected sign-in is
-// expected traffic on a permanently-live public endpoint, and logging it at
-// ERROR would bury the failures that are genuinely the service's fault.
+// The floor is here because the uniform status alone does not close the oracle.
+// An address with no account returns after ONE indexed SELECT; an address with
+// one costs a second SELECT, an attempt-claim UPDATE, a hash and a comparison --
+// a read path against a read-write path, a difference that grows under load
+// rather than shrinking. The rate limiters do not help: enumeration needs one
+// request per candidate address, not many.
 func (i *Implementation) otpRejected(
 	ctx context.Context,
 	c *echo.Context,
 	start time.Time,
 	reason string,
 	err error,
+) error {
+	return i.answerFailure(ctx, c, start, reason, err,
+		httperrors.ErrUnauthorized, "authentication failed")
+}
+
+// otpSessionMismatch answers the one failure that is deliberately
+// distinguishable.
+//
+// Provoking it requires already holding a live code, so it discloses nothing
+// about whether an account exists. What it buys is a user who closed the tab
+// while the mail was in flight being told to ask for a new code, rather than
+// retyping a correct code forever against a nonce that no longer exists. The
+// message says what to do and nothing else -- not whose nonce, not what was
+// expected, not that a code exists for the address.
+//
+// It is a separate function rather than a flag on otpRejected so that the
+// endpoint's one exception is visible at the call site and cannot be selected
+// by a variable.
+func (i *Implementation) otpSessionMismatch(
+	ctx context.Context,
+	c *echo.Context,
+	start time.Time,
+	err error,
+) error {
+	return i.answerFailure(ctx, c, start, "session nonce mismatch", err,
+		httperrors.ErrOTPSessionMismatch, "request a new code")
+}
+
+// answerFailure writes a refused verification: log, floor, no-store, 401.
+//
+// Every failure of this endpoint shares all four, including the session
+// mismatch -- an unfloored exception would be the one failure with a telling
+// latency, which is the distinction the rest of this endpoint removes. Only the
+// error code and the message differ, and both callers pass constants.
+//
+// The cause is logged rather than returned, at WARN: a rejected sign-in is
+// expected traffic on a permanently-live public endpoint, and ERROR would bury
+// the failures that are genuinely the service's fault.
+func (i *Implementation) answerFailure(
+	ctx context.Context,
+	c *echo.Context,
+	start time.Time,
+	reason string,
+	err error,
+	code httperrors.ErrorCode,
+	message string,
 ) error {
 	xlog.Warn(ctx, "otp verification rejected",
 		xfield.String("reason", reason),
@@ -150,63 +190,8 @@ func (i *Implementation) otpRejected(
 
 	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 
-	return c.JSON(http.StatusUnauthorized,
-		httperrors.NewErrorResponse(httperrors.ErrUnauthorized, "authentication failed"))
+	return c.JSON(http.StatusUnauthorized, httperrors.NewErrorResponse(code, message))
 }
-
-// otpSessionMismatch answers the one failure that is deliberately distinguishable.
-//
-// Provoking it requires already holding a live code, so it discloses nothing
-// about whether an account exists. What it buys is a user who closed the tab
-// while the mail was in flight being told to ask for a new code, rather than
-// retyping a correct code against a nonce that no longer exists. The message
-// says what to do and nothing else — not whose nonce, not what was expected, not
-// that a code exists for the address.
-func (i *Implementation) otpSessionMismatch(
-	ctx context.Context,
-	c *echo.Context,
-	start time.Time,
-	err error,
-) error {
-	xlog.Warn(ctx, "otp verification rejected",
-		xfield.String("reason", "session nonce mismatch"),
-		xfield.Error(err),
-	)
-
-	// Floored like every other failure. Reaching this branch already implies a
-	// live code, so it is not itself an existence oracle -- but leaving it
-	// unfloored would make it the one failure with a distinctive latency, which
-	// is a distinction of exactly the kind the rest of this endpoint removes.
-	i.waitOutFloor(start)
-
-	c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
-
-	return c.JSON(http.StatusUnauthorized,
-		httperrors.NewErrorResponse(httperrors.ErrOTPSessionMismatch, "request a new code"))
-}
-
-// canonicalEmail rejects an address that normalization would have changed.
-//
-// The command already carries the normalized value, so this fires only when the
-// caller sent something that needed normalizing -- and the interesting case is
-// not a stray space but an invisible one. is.EmailFormat accepts a trailing
-// U+200B, U+FEFF or U+2060, and each variant is a different string: audited as
-// written, and (before the shared normalizer) a different limiter bucket. An
-// address carrying an invisible character is not a typo a user makes, so it is
-// refused rather than quietly repaired -- repairing it would still let a caller
-// write unbounded distinct values into the indexed audit columns.
-func canonicalEmail(value any) error {
-	email, ok := value.(string)
-	if !ok || xemail.IsCanonical(email) {
-		return nil
-	}
-
-	return errNonCanonicalEmail
-}
-
-// errNonCanonicalEmail is answered like every other validation failure: the
-// caller gets the same 401 as a wrong code.
-var errNonCanonicalEmail = errors.New("email is not canonical")
 
 // validateVerifyOTPCmd bounds every attacker-supplied field before it reaches
 // the service.
@@ -218,8 +203,7 @@ var errNonCanonicalEmail = errors.New("email is not canonical")
 // size alone is informative.
 func validateVerifyOTPCmd(ctx context.Context, cmd *entity.VerifyOTPCmd) error {
 	return validation.ValidateStructWithContext(ctx, cmd,
-		validation.Field(&cmd.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat,
-			validation.By(canonicalEmail)),
+		validation.Field(&cmd.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat),
 		validation.Field(&cmd.Code, validation.Required, validation.Length(otpCodeLen, otpCodeLen), is.Digit),
 		validation.Field(&cmd.SessionNonce, validation.Required, validation.Length(0, maxSessionNonceLen)),
 		validation.Field(&cmd.ClientIP, validation.Required),

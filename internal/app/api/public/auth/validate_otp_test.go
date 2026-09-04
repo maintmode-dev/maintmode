@@ -24,6 +24,10 @@ import (
 // endpoint any unauthenticated caller can reach. The code length keeps a
 // constant-time comparison from being handed a value whose size alone is
 // informative.
+//
+// Invisible characters are not among the cases: both handlers normalize before
+// validating, so a zero-width suffix is stripped before any rule sees it. The
+// normalizer owns that, and internal/utils/xemail tests it.
 func TestValidateVerifyOTPCmd(t *testing.T) {
 	t.Parallel()
 
@@ -40,17 +44,16 @@ func TestValidateVerifyOTPCmd(t *testing.T) {
 		"an ordinary request must pass, or the endpoint is unusable")
 
 	for name, mutate := range map[string]func(*entity.VerifyOTPCmd){
-		"absent email":        func(c *entity.VerifyOTPCmd) { c.Email = "" },
-		"malformed email":     func(c *entity.VerifyOTPCmd) { c.Email = "not-an-address" },
-		"oversized email":     func(c *entity.VerifyOTPCmd) { c.Email = strings.Repeat("a", 300) + "@example.com" },
-		"non-canonical email": func(c *entity.VerifyOTPCmd) { c.Email = "user@example.com\u200b" },
-		"absent code":         func(c *entity.VerifyOTPCmd) { c.Code = "" },
-		"short code":          func(c *entity.VerifyOTPCmd) { c.Code = "12345" },
-		"long code":           func(c *entity.VerifyOTPCmd) { c.Code = "1234567" },
-		"non-digit code":      func(c *entity.VerifyOTPCmd) { c.Code = "12345a" },
-		"absent nonce":        func(c *entity.VerifyOTPCmd) { c.SessionNonce = "" },
-		"oversized nonce":     func(c *entity.VerifyOTPCmd) { c.SessionNonce = strings.Repeat("n", maxSessionNonceLen+1) },
-		"absent client ip":    func(c *entity.VerifyOTPCmd) { c.ClientIP = "" },
+		"absent email":     func(c *entity.VerifyOTPCmd) { c.Email = "" },
+		"malformed email":  func(c *entity.VerifyOTPCmd) { c.Email = "not-an-address" },
+		"oversized email":  func(c *entity.VerifyOTPCmd) { c.Email = strings.Repeat("a", 300) + "@example.com" },
+		"absent code":      func(c *entity.VerifyOTPCmd) { c.Code = "" },
+		"short code":       func(c *entity.VerifyOTPCmd) { c.Code = "12345" },
+		"long code":        func(c *entity.VerifyOTPCmd) { c.Code = "1234567" },
+		"non-digit code":   func(c *entity.VerifyOTPCmd) { c.Code = "12345a" },
+		"absent nonce":     func(c *entity.VerifyOTPCmd) { c.SessionNonce = "" },
+		"oversized nonce":  func(c *entity.VerifyOTPCmd) { c.SessionNonce = strings.Repeat("n", maxSessionNonceLen+1) },
+		"absent client ip": func(c *entity.VerifyOTPCmd) { c.ClientIP = "" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -74,10 +77,9 @@ func TestValidateRequestOTP(t *testing.T) {
 		&apiauthmodels.RequestOTPRequest{Email: "user@example.com"}))
 
 	for name, email := range map[string]string{
-		"absent":        "",
-		"malformed":     "not-an-address",
-		"oversized":     strings.Repeat("a", 300) + "@example.com",
-		"non-canonical": "user@example.com\u200b",
+		"absent":    "",
+		"malformed": "not-an-address",
+		"oversized": strings.Repeat("a", 300) + "@example.com",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
