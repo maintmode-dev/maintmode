@@ -20,6 +20,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 
+	mock_auth "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/auth"
 	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 
 	"github.com/ruko1202/maintmode/internal/services/user"
@@ -62,7 +63,8 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	authMethod *mock_authmethod.MockAuthMethod
+	authMethod  *mock_authmethod.MockAuthMethod
+	otpVerifier *mock_auth.MockOTPVerifier
 }
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
@@ -78,7 +80,8 @@ func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
-		authMethod: mock_authmethod.NewMockAuthMethod(ctrl),
+		authMethod:  mock_authmethod.NewMockAuthMethod(ctrl),
+		otpVerifier: mock_auth.NewMockOTPVerifier(ctrl),
 	}
 	mocks.authMethod.EXPECT().
 		MethodID().
@@ -121,6 +124,7 @@ func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		tokenSrv,
 		newTestAuditPublisher(t),
+		mocks.otpVerifier,
 	), mocks
 }
 

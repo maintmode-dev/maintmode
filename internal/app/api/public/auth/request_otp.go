@@ -14,6 +14,7 @@ import (
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/utils/xcripto"
+	"github.com/ruko1202/maintmode/internal/utils/xemail"
 )
 
 const (
@@ -54,7 +55,11 @@ func (i *Implementation) RequestOTP(c *echo.Context) error {
 		return i.rejected(ctx, c, start, "invalid request", err)
 	}
 
-	nonce, err := i.otpSrv.Request(ctx, body.Email)
+	// Normalized through the same function the limiter keys on, for the reason
+	// spelled out on the verify endpoint: these two routes share one per-address
+	// tier, so normalizing on only one of them leaves the other able to split a
+	// victim's budget.
+	nonce, err := i.otpSrv.Request(ctx, xemail.Normalize(body.Email))
 	if err != nil {
 		return i.rejected(ctx, c, start, "issue failed", err)
 	}
@@ -155,6 +160,7 @@ func (i *Implementation) waitOutFloor(start time.Time) {
 // rejected request.
 func validateRequestOTP(ctx context.Context, body *apiauthmodels.RequestOTPRequest) error {
 	return validation.ValidateStructWithContext(ctx, body,
-		validation.Field(&body.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat),
+		validation.Field(&body.Email, validation.Required, validation.Length(0, maxEmailLen), is.EmailFormat,
+			validation.By(canonicalEmail)),
 	)
 }

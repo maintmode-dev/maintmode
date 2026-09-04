@@ -204,15 +204,8 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	loginPasswordGr.Add(http.MethodPost, "", s.handlers.Auth.LoginWithPassword)
 
-	// A fourth instance over that same per-IP bucket. The endpoint sends mail to
-	// an address the caller names, so it must not be the one public route without
-	// a limiter — but the shared budget is all it gets here: a per-address limit
-	// and an instance-wide one, which are what actually stop a distributed sweep,
-	// belong with the verify endpoint.
-	loginOTPGr := gr.Group("/login/otp",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
-	)
-	loginOTPGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestOTP)
+	s.otpRoutes(gr, meta)
+	s.providersRoute(gr, meta)
 
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
@@ -221,6 +214,45 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
+}
+
+// otpRoutes registers the one-time-code endpoints behind all three limiter
+// tiers.
+//
+// The three tiers do different jobs and none subsumes another. Per-IP is the
+// existing shared bucket: it stops one address hammering the endpoint, and it is
+// shared with login/oauth, login/password and users/invitations because
+// NewRateLimiter sets no IdentifierExtractor. Per-address stops someone grinding
+// one victim's code from many IPs. Instance-wide is the only one that sees a
+// sweep spread across both addresses and IPs, which is the shape an invite-only
+// deployment is otherwise defenseless against.
+//
+// Cheapest key first: the per-IP decision needs no body, the per-address one
+// reads and restores it, and the global one is a constant.
+func (s *APIServer) otpRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
+	loginOTPGr := gr.Group("/login/otp",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter),
+		NewOTPGlobalRateLimiter(meta.AppName, s.valkey, s.cfg.OTPGlobalRateLimiter),
+	)
+	loginOTPGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestOTP)
+	loginOTPGr.Add(http.MethodPost, "/verify", s.handlers.Auth.VerifyOTP)
+}
+
+// providersRoute registers the public sign-in method list.
+//
+// It shares the per-IP bucket with the login routes rather than taking the OTP
+// tiers: there is no address in the request for the per-address tier to key on,
+// and the instance-wide tier is sized for the guessing surface rather than for a
+// list the login page fetches on every visit. The shared budget does mean a user
+// who reloads the login page several times spends from the same bucket their
+// sign-in attempt needs — a known consequence of NewRateLimiter carrying no
+// route component, not something this route introduces.
+func (s *APIServer) providersRoute(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
+	providersGr := gr.Group("/auth/providers",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+	)
+	providersGr.Add(http.MethodGet, "", s.handlers.Auth.ListAuthMethods)
 }
 
 // apiV1Group registers the core (maintenance/resource/notify/userpicker) routes.
