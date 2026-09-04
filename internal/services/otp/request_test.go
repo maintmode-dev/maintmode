@@ -294,3 +294,181 @@ func TestRequest_RollbackRestoresThePreviousCode(t *testing.T) {
 	require.Equal(t, original.ID, survivor.ID)
 	require.Nil(t, survivor.ConsumedAt)
 }
+
+// TestRequest_BurntCodeKeepsTheSlot is the test the whole attempt ceiling rests
+// on, and almost all of it asserts things the caller cannot see.
+//
+// Without the barrier the ceiling buys nothing: burn five guesses, ask again,
+// and reissue consumes the spent code and hands back a fresh one with a fresh
+// counter -- "five attempts per code, unlimited codes". The response is
+// deliberately identical either way, so `202 with a nonce` is true whether or
+// not the guard exists. What distinguishes them is the absence of work: no new
+// row, the burnt row still unconsumed, and nothing queued for delivery.
+func TestRequest_BurntCodeKeepsTheSlot(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, sched := newService(t)
+	user := makeUser(ctx, t)
+
+	nonce, err := svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+	require.NotEmpty(t, nonce)
+
+	burnt, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	for range svc.MaxAttempts() {
+		claimed, err := credStore.ClaimOTPAttempt(ctx, burnt.ID, svc.MaxAttempts())
+		require.NoError(t, err)
+		require.True(t, claimed)
+	}
+
+	before := len(sched.recorded())
+
+	// Indistinguishable from the outside: same shape, same absence of an error.
+	secondNonce, err := svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+	require.NotEmpty(t, secondNonce)
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, burnt.ID, live.ID, "the burnt code must still hold the slot")
+	require.Nil(t, live.ConsumedAt, "the burnt code must not have been retired")
+	require.Equal(t, svc.MaxAttempts(), live.Attempts)
+
+	require.Len(t, sched.recorded(), before, "a barred request must queue no email")
+}
+
+// TestRequest_ExpiredBurntCodeIsReplaced bounds the barrier by the code's own
+// lifetime. A permanent lock on an unauthenticated endpoint would be a denial of
+// service against any address an attacker knows, so once the burnt code dies the
+// next request issues normally.
+func TestRequest_ExpiredBurntCodeIsReplaced(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, sched := newService(t)
+	user := makeUser(ctx, t)
+
+	expired := makeExpiredOTP(ctx, t, user.ID)
+	for range svc.MaxAttempts() {
+		claimed, err := credStore.ClaimOTPAttempt(ctx, expired.ID, svc.MaxAttempts())
+		require.NoError(t, err)
+		require.True(t, claimed)
+	}
+
+	nonce, err := svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+	require.NotEmpty(t, nonce)
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, expired.ID, live.ID, "an expired burnt code must not bar reissue")
+	require.Equal(t, nonce, *live.SessionNonce)
+	require.Len(t, sched.recorded(), 1)
+}
+
+// TestRequest_PartiallyBurntCodeIsReplaced pins the boundary from the other
+// side: below the ceiling the ordinary reissue path still applies, so a user who
+// mistyped twice and asked for a new code gets one.
+func TestRequest_PartiallyBurntCodeIsReplaced(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, _ := newService(t)
+	user := makeUser(ctx, t)
+
+	_, err := svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+
+	first, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	claimed, err := credStore.ClaimOTPAttempt(ctx, first.ID, svc.MaxAttempts())
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	_, err = svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotEqual(t, first.ID, live.ID, "a code below the ceiling must still be replaceable")
+	require.Zero(t, live.Attempts, "the replacement starts with a fresh counter")
+}
+
+// TestRequest_BlocksOnAConcurrentlyLockedCode pins the lock the barrier's read
+// takes, by holding that lock from outside and observing that reissue waits.
+//
+// The scenario it stands in for: a verify claiming the FINAL attempt runs
+// concurrently with a reissue. Unlocked, the reissue can read a count one short
+// of the ceiling, conclude the code is still usable, consume it, and issue a
+// replacement with a fresh counter -- turning "five guesses, then wait" into
+// "five guesses, then five more" for an attacker who times the two together.
+//
+// Provoking that interleaving by simply racing two goroutines does not work:
+// the window is a few hundred microseconds wide and the test passes with the
+// lock removed, which makes it a test of nothing. So the contention is forced
+// instead. A separate transaction takes the row lock and spends the final
+// attempt while holding it; the reissue must then block rather than read stale
+// state, and can only proceed once that transaction commits -- by which time the
+// code is burnt and the slot is barred.
+//
+// Deleting FOR UPDATE from the store's read makes this fail: the reissue no
+// longer waits, reads attempts one short of the ceiling, and retires the code.
+func TestRequest_BlocksOnAConcurrentlyLockedCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, _ := newService(t)
+	user := makeUser(ctx, t)
+
+	_, err := svc.Request(ctx, user.Email)
+	require.NoError(t, err)
+
+	cred, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	// Spend every attempt but the last, so the claim below is the one that
+	// reaches the ceiling.
+	for range svc.MaxAttempts() - 1 {
+		claimed, err := credStore.ClaimOTPAttempt(ctx, cred.ID, svc.MaxAttempts())
+		require.NoError(t, err)
+		require.True(t, claimed)
+	}
+
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+
+	// Take the row lock and spend the final attempt, holding both until commit.
+	var locked int16
+	require.NoError(t, tx.QueryRowContext(ctx,
+		"SELECT attempts FROM auth_credentials WHERE id = $1 FOR UPDATE", cred.ID).Scan(&locked))
+	require.Equal(t, svc.MaxAttempts()-1, locked)
+
+	_, err = tx.ExecContext(ctx,
+		"UPDATE auth_credentials SET attempts = attempts + 1 WHERE id = $1", cred.ID)
+	require.NoError(t, err)
+
+	reissued := make(chan error, 1)
+	go func() { _, e := svc.Request(ctx, user.Email); reissued <- e }()
+
+	// The reissue must still be blocked on the lock. A read that does not wait
+	// would already have retired the code by now.
+	select {
+	case err := <-reissued:
+		require.FailNow(t, "reissue did not wait for the row lock", "returned early: %v", err)
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	require.NoError(t, tx.Commit())
+	require.NoError(t, <-reissued)
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, cred.ID, live.ID, "the burnt code must still hold the slot")
+	require.Nil(t, live.ConsumedAt)
+	require.Equal(t, svc.MaxAttempts(), live.Attempts)
+}
