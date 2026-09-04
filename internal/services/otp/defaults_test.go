@@ -34,3 +34,36 @@ func TestTTL(t *testing.T) {
 		})
 	}
 }
+
+// TestMaxAttempts pins both guards and, more importantly, the ORDER they are
+// applied in.
+//
+// The clamp runs in int space, before the int16 conversion, and the "wraps
+// without the clamp" case is why. attempts is a SMALLINT, so a configured 40000
+// converted first becomes -25536; the ceiling predicate `attempts < max` is then
+// false for every row and the endpoint refuses every guess -- fail-closed, in
+// machinery whose other guard exists to avoid exactly that. Clamping first makes
+// the conversion unreachable for any value that could wrap.
+func TestMaxAttempts(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		configured int
+		want       int16
+	}{
+		"configured":            {3, 3},
+		"zero":                  {0, 5},
+		"negative":              {-1, 5},
+		"at the clamp":          {10, 10},
+		"above the clamp":       {11, 10},
+		"wraps without a clamp": {40000, 10},
+		"int16 overflow":        {70000, 10},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, otp.MaxAttempts(config.Auth{OTPMaxAttempts: tc.configured}))
+		})
+	}
+}
