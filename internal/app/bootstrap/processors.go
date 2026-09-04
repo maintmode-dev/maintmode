@@ -14,7 +14,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/goque_processors/invitationpruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/invitationrotateprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/licenseheartbeatprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/otpemailprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
+	"github.com/ruko1202/maintmode/internal/pkg/secrets"
+	"github.com/ruko1202/maintmode/internal/services/otp"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -30,6 +33,7 @@ import (
 func NewTaskProcessors(
 	cfg config.TaskProcessorConfig,
 	licenseCfg config.LicenseConfig,
+	authCfg config.Auth,
 	stores *Stores,
 	services *Services,
 ) (*goque.Goque, error) {
@@ -88,6 +92,21 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
+		messagingProcessorOpts(cfg.Messaging, 0)...,
+	)
+
+	// otp.email: one-time sign-in codes. Its own type and its own processor,
+	// because the payload carries the code sealed rather than a rendered body --
+	// the generic sender could not decode it, and rendering happens here, at
+	// delivery, so the plaintext never sits in the queue.
+	reg.RegisterProcessor(
+		entity.ProcessorTaskOTPEmailSend,
+		otpemailprocessor.NewTaskProcessor(
+			services.Keyring,
+			secrets.NewAESCipher(),
+			services.MessageSender,
+			otp.TTL(authCfg),
+		),
 		messagingProcessorOpts(cfg.Messaging, 0)...,
 	)
 

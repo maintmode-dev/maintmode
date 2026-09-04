@@ -143,6 +143,12 @@ The async task queue is goque. Tasks are registered by type in
 - Add regression tests for bug fixes.
 - Prefer `require` for setup failures and direct invariants.
 - Use `make tloc` for the default internal package test suite.
+- Do not write tests that assert a route is registered. A missing route is
+  caught the moment anything exercises the endpoint -- the API suite, the
+  generated client, a manual call -- and a test that reads the routing table
+  only restates `api_server.go` in a second syntax. It also cannot see what
+  matters about a route (its middleware chain), so it reads as coverage while
+  proving almost nothing.
 
 ## Generated Code
 

@@ -373,6 +373,8 @@ linters:
             - "**/internal/services/auth/**/*.go"
             - "**/internal/services/state_codec/*.go"
             - "**/internal/services/state_codec/**/*.go"
+            - "**/internal/services/otp/*.go"
+            - "**/internal/services/otp/**/*.go"
             - "**/internal/storages/users/*.go"
             - "**/internal/storages/users/**/*.go"
             - "**/internal/storages/useridentities/*.go"

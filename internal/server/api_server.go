@@ -204,6 +204,16 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	loginPasswordGr.Add(http.MethodPost, "", s.handlers.Auth.LoginWithPassword)
 
+	// A fourth instance over that same per-IP bucket. The endpoint sends mail to
+	// an address the caller names, so it must not be the one public route without
+	// a limiter — but the shared budget is all it gets here: a per-address limit
+	// and an instance-wide one, which are what actually stop a distributed sweep,
+	// belong with the verify endpoint.
+	loginOTPGr := gr.Group("/login/otp",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+	)
+	loginOTPGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestOTP)
+
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
 	invitesGr := gr.Group("/users/invitations",

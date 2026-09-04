@@ -25,6 +25,7 @@ var allDeclaredTaskTypes = []string{
 	ProcessorTaskInvitationRotateCron,
 	ProcessorTaskInvitationPrune,
 	ProcessorTaskInvitationPruneCron,
+	ProcessorTaskOTPEmailSend,
 }
 
 // disabledTaskTypes is every declared type whose processor is intentionally not

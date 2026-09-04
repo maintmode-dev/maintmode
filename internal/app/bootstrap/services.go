@@ -35,6 +35,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
 	messagesender "github.com/ruko1202/maintmode/internal/services/messaging/sender"
 	"github.com/ruko1202/maintmode/internal/services/notifytargets"
+	"github.com/ruko1202/maintmode/internal/services/otp"
 	resourcesSrv "github.com/ruko1202/maintmode/internal/services/resources"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/transportresolver"
@@ -82,6 +83,15 @@ type Services struct {
 	TokenChecker  middlewares.ActiveTokenChecker
 	MessageSender *messagesender.Service
 
+	// Keyring wraps/unwraps data-encryption keys. Built once at startup (a
+	// missing or weak KEK aborts the boot) and shared: the integration service
+	// seals its secrets with it, and the OTP path seals a per-task ephemeral DEK.
+	// Exposed here rather than kept inside one service because a second keyring
+	// would re-run the startup re-wrap or, worse, diverge on config.
+	Keyring *secrets.Keyring
+	// OTP issues one-time sign-in codes.
+	OTP *otp.Service
+
 	// License is the enforcement surface (block-gate source, cache reload).
 	// Never nil: the real license service in SaaS mode, Noop on self-hosted —
 	// consumers never branch on "is the license configured".
@@ -91,6 +101,15 @@ type Services struct {
 	licenseHeartbeat *licensesvc.Service
 }
 
+// NewServices builds every service the process runs on, in dependency order.
+//
+// helpers to satisfy the length limit trades one readable sequence for several
+// functions that each wrap a single constructor and hide which values are
+// shared -- which is exactly the shape this file grew and then shed. The
+// groupings that remain (newCoreServices, newTokenAndUserServices) exist
+// because they own a decision, not because of a line count.
+//
+//nolint:funlen // A dependency graph read top to bottom. Splitting it into
 func NewServices(ctx context.Context,
 	cfg *config.AppConfig,
 	stores *Stores,
@@ -125,6 +144,27 @@ func NewServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to init oauth providers: %w", err)
 	}
 
+	// Auditor is both read-side (api/public/audit reads logs through it) and
+	// write-side (the audit-write goque processor writes the log after commit).
+	auditorSrv := auditor.NewAuditor(stores.Audit)
+
+	// One keyring and one scheduler for the process. A second keyring would
+	// repeat the startup DEK re-wrap newIntegrationService performs; a second
+	// scheduler would split the queue plumbing that owns tx-joined enqueue.
+	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
+	if err != nil {
+		return nil, fmt.Errorf("init keyring: %w", err)
+	}
+
+	integrationSrv, err := newIntegrationService(ctx, stores, auditPublisher, keyring)
+	if err != nil {
+		return nil, err
+	}
+
+	transportResolver := initTransportResolver(cfg, integrationSrv)
+	queueScheduler := scheduler.NewService(queue)
+	messageSender := messagesender.NewService(transportResolver, queueScheduler)
+
 	authSrv := auth.NewService(
 		&cfg.JWT,
 		stores.TxManager,
@@ -136,18 +176,15 @@ func NewServices(ctx context.Context,
 		auditPublisher,
 	)
 
-	// Auditor is both read-side (api/public/audit reads logs through it) and
-	// write-side (the audit-write goque processor writes the log after commit).
-	auditorSrv := auditor.NewAuditor(stores.Audit)
-
-	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher)
-	if err != nil {
-		return nil, err
-	}
-
-	transportResolver := initTransportResolver(cfg, integrationSrv)
-
-	messageSender := messagesender.NewService(transportResolver, scheduler.NewService(queue))
+	otpSrv := otp.NewService(
+		cfg,
+		stores.TxManager,
+		stores.AuthCredentials,
+		userSrv,
+		keyring,
+		secrets.NewAESCipher(),
+		queueScheduler,
+	)
 
 	invitationSrv := invitation.NewService(
 		cfg,
@@ -229,6 +266,8 @@ func NewServices(ctx context.Context,
 		AuditPublisher:   auditPublisher,
 		TokenChecker:     authSrv,
 		MessageSender:    messageSender,
+		Keyring:          keyring,
+		OTP:              otpSrv,
 		License:          enforcement,
 		licenseHeartbeat: heartbeatSrv,
 	}, nil
@@ -392,17 +431,10 @@ func initAuthMethods(ctx context.Context, cfg *config.AppConfig) (*authmethod.Me
 // delivery-side resolver over it is wired separately (initTransportResolver).
 func newIntegrationService(
 	ctx context.Context,
-	cfg *config.AppConfig,
 	stores *Stores,
 	auditPublisher *auditpublisher.Publisher,
+	keyring *secrets.Keyring,
 ) (*integration.Service, error) {
-	// Build the keyring once (fail-fast — a missing/weak KEK aborts startup) and
-	// reuse it for both the startup re-wrap and the service.
-	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
-	if err != nil {
-		return nil, fmt.Errorf("init integration keyring: %w", err)
-	}
-
 	// Re-wrap stored DEKs onto the active KEK before anything reads them, so a KEK
 	// rotation applied via redeploy takes effect with zero manual steps.
 	if err := rotateDataKeys(ctx, stores, keyring); err != nil {
