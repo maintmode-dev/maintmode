@@ -257,7 +257,8 @@ type App struct {
 	InvitationTTL time.Duration `mapstructure:"invitation_ttl"`
 }
 
-// Auth holds the authentication signup policy.
+// Auth holds authentication policy: who may sign up, and how the built-in
+// one-time-code sign-in behaves.
 type Auth struct {
 	// AllowOpenSignup lets an unknown, uninvited user self-register as guest on
 	// OAuth login. Default false: once the first admin exists, login of an
@@ -268,6 +269,20 @@ type Auth struct {
 	// on the operational model that the operator logs in before any other
 	// traffic reaches the instance (see GetOrCreateByAuthInfo).
 	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
+	// OTPTTL is how long an emailed one-time code stays valid. Zero falls back to
+	// a 5-minute default at wiring time. Short on purpose: a code delivered by
+	// email is guessable in principle, and its lifetime is the main control on
+	// that until the per-code attempt ceiling exists.
+	OTPTTL time.Duration `mapstructure:"otp_ttl"`
+	// OTPResponseFloor is the minimum time the one-time-code request endpoint
+	// takes to answer, whatever it did. Zero falls back to 300ms at wiring time.
+	//
+	// It exists to close a timing oracle, not to throttle: issuing a code costs a
+	// transaction while an unknown address costs one SELECT, so without a floor
+	// the identical 202 responses still reveal whether an account exists. It
+	// bounds the fast branch from below and cannot bound the slow one from above,
+	// so the default must stay above the issuance transaction's real cost.
+	OTPResponseFloor time.Duration `mapstructure:"otp_response_floor"`
 }
 
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
