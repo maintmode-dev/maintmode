@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -74,6 +75,14 @@ func TestCreateRejectsUnknownKind(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.NotErrorIs(t, err, apperr.ErrAuthCredentialConflict)
+
+	// Pin the rejection to the CHECK rather than to "some error": a future
+	// foreign key or NOT NULL failure would satisfy a bare require.Error and
+	// leave the constraint itself unproven.
+	var pqErr *pq.Error
+	require.ErrorAs(t, err, &pqErr)
+	require.EqualValues(t, "23514", pqErr.Code, "expected a check_violation")
+	require.Equal(t, "auth_credentials_kind_check", pqErr.Constraint)
 }
 
 // TestCreateRoundTrip asserts field by field rather than comparing whole
