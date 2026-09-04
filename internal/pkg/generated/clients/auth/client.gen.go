@@ -373,6 +373,16 @@ type ApiauthmodelsMeResponse struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// ApiauthmodelsRequestOTPRequest defines model for apiauthmodels.RequestOTPRequest.
+type ApiauthmodelsRequestOTPRequest struct {
+	Email string `json:"email"`
+}
+
+// ApiauthmodelsRequestOTPResponse defines model for apiauthmodels.RequestOTPResponse.
+type ApiauthmodelsRequestOTPResponse struct {
+	SessionNonce *string `json:"session_nonce,omitempty"`
+}
+
 // ApiauthmodelsTokenPairResponse defines model for apiauthmodels.TokenPairResponse.
 type ApiauthmodelsTokenPairResponse struct {
 	AccessToken  *string `json:"access_token,omitempty"`
@@ -632,6 +642,9 @@ type GetApiV1UsersListParams struct {
 // PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
 type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
 
+// PostApiV1LoginOtpRequestJSONRequestBody defines body for PostApiV1LoginOtpRequest for application/json ContentType.
+type PostApiV1LoginOtpRequestJSONRequestBody = ApiauthmodelsRequestOTPRequest
+
 // PostApiV1LoginPasswordJSONRequestBody defines body for PostApiV1LoginPassword for application/json ContentType.
 type PostApiV1LoginPasswordJSONRequestBody = ApiauthmodelsLoginWithPasswordRequest
 
@@ -748,6 +761,11 @@ type ClientInterface interface {
 	PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1LoginOtpRequestWithBody request with any body
+	PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1LoginOtpRequest(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginPasswordWithBody request with any body
 	PostApiV1LoginPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -886,6 +904,30 @@ func (c *Client) PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, 
 
 func (c *Client) PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOauthExchangeGoogleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOtpRequestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginOtpRequest(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOtpRequestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1469,6 +1511,46 @@ func NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server string, contentT
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/login/oauth/exchange/google")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1LoginOtpRequestRequest calls the generic PostApiV1LoginOtpRequest builder with application/json body
+func NewPostApiV1LoginOtpRequestRequest(server string, body PostApiV1LoginOtpRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1LoginOtpRequestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1LoginOtpRequestRequestWithBody generates requests for PostApiV1LoginOtpRequest with any type of body
+func NewPostApiV1LoginOtpRequestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/otp/request")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2478,6 +2560,11 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
 
+	// PostApiV1LoginOtpRequestWithBodyWithResponse request with any body
+	PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
+
+	PostApiV1LoginOtpRequestWithResponse(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
+
 	// PostApiV1LoginPasswordWithBodyWithResponse request with any body
 	PostApiV1LoginPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error)
 
@@ -2690,6 +2777,37 @@ func (r PostApiV1LoginOauthExchangeGoogleResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginOauthExchangeGoogleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1LoginOtpRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *ApiauthmodelsRequestOTPResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1LoginOtpRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1LoginOtpRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1LoginOtpRequestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3469,6 +3587,23 @@ func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithResponse(ctx 
 	return ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp)
 }
 
+// PostApiV1LoginOtpRequestWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOtpRequestResponse
+func (c *ClientWithResponses) PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error) {
+	rsp, err := c.PostApiV1LoginOtpRequestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOtpRequestResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1LoginOtpRequestWithResponse(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error) {
+	rsp, err := c.PostApiV1LoginOtpRequest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOtpRequestResponse(rsp)
+}
+
 // PostApiV1LoginPasswordWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginPasswordResponse
 func (c *ClientWithResponses) PostApiV1LoginPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error) {
 	rsp, err := c.PostApiV1LoginPasswordWithBody(ctx, contentType, body, reqEditors...)
@@ -3922,6 +4057,39 @@ func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostAp
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1LoginOtpRequestResponse parses an HTTP response from a PostApiV1LoginOtpRequestWithResponse call
+func ParsePostApiV1LoginOtpRequestResponse(rsp *http.Response) (*PostApiV1LoginOtpRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1LoginOtpRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ApiauthmodelsRequestOTPResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 

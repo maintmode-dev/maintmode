@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5/echotest"
@@ -43,17 +44,27 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
+	return newImpl(t, cfg.Auth)
+}
+
+// initImplWithOTPFloor builds the handler with an explicit response floor, so a
+// test can assert the floor is applied without waiting out the production one.
+func initImplWithOTPFloor(t *testing.T, floor time.Duration) *Implementation {
+	t.Helper()
+
+	return newImpl(t, config.Auth{OTPResponseFloor: floor})
+}
+
+func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
+	t.Helper()
+
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
 
 	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)
 
-	return New(
-		services.Auth,
-		services.Token,
-		services.User,
-	)
+	return New(authCfg, services.Auth, services.Token, services.User, services.OTP)
 }
 
 func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *entity.TokenPair {

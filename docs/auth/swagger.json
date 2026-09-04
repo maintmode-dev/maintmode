@@ -256,6 +256,25 @@
                 },
                 "type": "object"
             },
+            "apiauthmodels.RequestOTPRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
+                ],
+                "type": "object"
+            },
+            "apiauthmodels.RequestOTPResponse": {
+                "properties": {
+                    "session_nonce": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "apiauthmodels.TokenPairResponse": {
                 "properties": {
                     "access_token": {
@@ -1006,6 +1025,48 @@
                     }
                 },
                 "summary": "Exchange a Google ID token for a backend token pair",
+                "tags": [
+                    "Auth"
+                ]
+            }
+        },
+        "/api/v1/login/otp/request": {
+            "post": {
+                "description": "Emails a one-time code to the address, if it belongs to an account. Answers 202 in every case — unknown address, blocked account, malformed body — so the response never reveals whether an account exists. The returned session_nonce binds the code to the client that asked for it and must be presented when the code is verified; it is never emailed.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apiauthmodels.RequestOTPRequest"
+                            }
+                        }
+                    },
+                    "description": "Address to send the code to",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apiauthmodels.RequestOTPResponse"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Rate limit exceeded"
+                    }
+                },
+                "summary": "Request a one-time sign-in code",
                 "tags": [
                     "Auth"
                 ]
