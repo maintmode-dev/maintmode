@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
+	"github.com/ruko1202/maintmode/internal/storages/authcredentials"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
@@ -57,6 +58,9 @@ type Stores struct {
 	Users           *users.Store
 	UserIdentities  *useridentities.Store
 	UserInvitations *userinvitations.Store
+	// AuthCredentials holds the secrets for the built-in sign-in methods: the
+	// hash of a one-time code, and (once password sign-in lands) a password hash.
+	AuthCredentials *authcredentials.Store
 	RefreshToken    *refreshtoken.Store
 	TokenBlackList  *blacklisttoken.Store
 	Locker          *distributedlock.Store
@@ -96,6 +100,7 @@ func NewStores(
 		Users:           users.NewStore(db),
 		UserIdentities:  useridentities.NewStore(db),
 		UserInvitations: userinvitations.NewStore(db),
+		AuthCredentials: authcredentials.NewStore(db),
 		RefreshToken:    refreshtoken.NewStore(db),
 		TokenBlackList:  blacklisttoken.NewStore(valkeyDB),
 		Locker:          distributedlock.NewStore(valkeyDB),

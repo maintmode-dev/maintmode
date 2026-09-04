@@ -95,7 +95,7 @@ func main() {
 
 	// start async task processor
 	{
-		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, cfg.License, stores, services)
+		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, cfg.License, cfg.Auth, stores, services)
 		if err != nil {
 			xlog.Panic(ctx, "failed to init task processors", xfield.Error(err))
 		}
@@ -141,9 +141,11 @@ func startAPIServer(
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
 			Auth: apiauth.New(
+				cfg.Auth,
 				services.Auth,
 				services.Token,
 				services.User,
+				services.OTP,
 			),
 			Roles:       apiroles.New(services.User),
 			Users:       apiusers.New(services.User, services.License),
