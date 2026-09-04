@@ -40,6 +40,27 @@ func (e ApiauthmodelsAuditLogMetadataLogoutKind) Valid() bool {
 	}
 }
 
+// Defines values for ApiauthmodelsAuthMethodType.
+const (
+	AuthMethodTypeCode     ApiauthmodelsAuthMethodType = "code"
+	AuthMethodTypePassword ApiauthmodelsAuthMethodType = "password"
+	AuthMethodTypeRedirect ApiauthmodelsAuthMethodType = "redirect"
+)
+
+// Valid indicates whether the value is a known member of the ApiauthmodelsAuthMethodType enum.
+func (e ApiauthmodelsAuthMethodType) Valid() bool {
+	switch e {
+	case AuthMethodTypeCode:
+		return true
+	case AuthMethodTypePassword:
+		return true
+	case AuthMethodTypeRedirect:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApimodelsRole.
 const (
 	RoleAdmin    ApimodelsRole = "admin"
@@ -318,6 +339,21 @@ type ApiauthmodelsAuditLogResponse struct {
 	Total  *int                      `json:"total,omitempty"`
 }
 
+// ApiauthmodelsAuthMethod defines model for apiauthmodels.AuthMethod.
+type ApiauthmodelsAuthMethod struct {
+	DisplayName *string                      `json:"display_name,omitempty"`
+	Id          *string                      `json:"id,omitempty"`
+	Type        *ApiauthmodelsAuthMethodType `json:"type,omitempty"`
+}
+
+// ApiauthmodelsAuthMethodType defines model for apiauthmodels.AuthMethodType.
+type ApiauthmodelsAuthMethodType string
+
+// ApiauthmodelsAuthMethodsResponse defines model for apiauthmodels.AuthMethodsResponse.
+type ApiauthmodelsAuthMethodsResponse struct {
+	Methods *[]ApiauthmodelsAuthMethod `json:"methods,omitempty"`
+}
+
 // ApiauthmodelsConnectProviderRequest defines model for apiauthmodels.ConnectProviderRequest.
 type ApiauthmodelsConnectProviderRequest struct {
 	IdToken *string `json:"id_token,omitempty"`
@@ -375,7 +411,7 @@ type ApiauthmodelsMeResponse struct {
 
 // ApiauthmodelsRequestOTPRequest defines model for apiauthmodels.RequestOTPRequest.
 type ApiauthmodelsRequestOTPRequest struct {
-	Email string `json:"email"`
+	Email *string `json:"email,omitempty"`
 }
 
 // ApiauthmodelsRequestOTPResponse defines model for apiauthmodels.RequestOTPResponse.
@@ -395,6 +431,20 @@ type ApiauthmodelsUpdateMeRequest struct {
 	SlackTag    *string `json:"slack_tag,omitempty"`
 	TelegramTag *string `json:"telegram_tag,omitempty"`
 	Timezone    *string `json:"timezone,omitempty"`
+}
+
+// ApiauthmodelsVerifyOTPRequest defines model for apiauthmodels.VerifyOTPRequest.
+type ApiauthmodelsVerifyOTPRequest struct {
+	Code  *string `json:"code,omitempty"`
+	Email *string `json:"email,omitempty"`
+
+	// RememberMe RememberMe is accepted and currently ignored — session modes are a
+	// separate change. It is in the contract now so adding it later needs no
+	// wire-format change.
+	RememberMe *bool `json:"remember_me,omitempty"`
+
+	// SessionNonce SessionNonce binds the redemption to the client that asked for the code.
+	SessionNonce *string `json:"session_nonce,omitempty"`
 }
 
 // ApimodelsAcceptInvitationRequest defines model for apimodels.AcceptInvitationRequest.
@@ -645,6 +695,9 @@ type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDT
 // PostApiV1LoginOtpRequestJSONRequestBody defines body for PostApiV1LoginOtpRequest for application/json ContentType.
 type PostApiV1LoginOtpRequestJSONRequestBody = ApiauthmodelsRequestOTPRequest
 
+// PostApiV1LoginOtpVerifyJSONRequestBody defines body for PostApiV1LoginOtpVerify for application/json ContentType.
+type PostApiV1LoginOtpVerifyJSONRequestBody = ApiauthmodelsVerifyOTPRequest
+
 // PostApiV1LoginPasswordJSONRequestBody defines body for PostApiV1LoginPassword for application/json ContentType.
 type PostApiV1LoginPasswordJSONRequestBody = ApiauthmodelsLoginWithPasswordRequest
 
@@ -754,6 +807,9 @@ type ClientInterface interface {
 	// GetApiV1AuditLog request
 	GetApiV1AuditLog(ctx context.Context, params *GetApiV1AuditLogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1AuthProviders request
+	GetApiV1AuthProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV1LicenseSeats request
 	GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -766,6 +822,11 @@ type ClientInterface interface {
 	PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginOtpRequest(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1LoginOtpVerifyWithBody request with any body
+	PostApiV1LoginOtpVerifyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1LoginOtpVerify(ctx context.Context, body PostApiV1LoginOtpVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginPasswordWithBody request with any body
 	PostApiV1LoginPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -878,6 +939,18 @@ func (c *Client) GetApiV1AuditLog(ctx context.Context, params *GetApiV1AuditLogP
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetApiV1AuthProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1AuthProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1LicenseSeatsRequest(c.Server)
 	if err != nil {
@@ -928,6 +1001,30 @@ func (c *Client) PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentTy
 
 func (c *Client) PostApiV1LoginOtpRequest(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOtpRequestRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginOtpVerifyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOtpVerifyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginOtpVerify(ctx context.Context, body PostApiV1LoginOtpVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOtpVerifyRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1463,6 +1560,33 @@ func NewGetApiV1AuditLogRequest(server string, params *GetApiV1AuditLogParams) (
 	return req, nil
 }
 
+// NewGetApiV1AuthProvidersRequest generates requests for GetApiV1AuthProviders
+func NewGetApiV1AuthProvidersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/auth/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetApiV1LicenseSeatsRequest generates requests for GetApiV1LicenseSeats
 func NewGetApiV1LicenseSeatsRequest(server string) (*http.Request, error) {
 	var err error
@@ -1551,6 +1675,46 @@ func NewPostApiV1LoginOtpRequestRequestWithBody(server string, contentType strin
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/login/otp/request")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1LoginOtpVerifyRequest calls the generic PostApiV1LoginOtpVerify builder with application/json body
+func NewPostApiV1LoginOtpVerifyRequest(server string, body PostApiV1LoginOtpVerifyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1LoginOtpVerifyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1LoginOtpVerifyRequestWithBody generates requests for PostApiV1LoginOtpVerify with any type of body
+func NewPostApiV1LoginOtpVerifyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/otp/verify")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2552,6 +2716,9 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1AuditLogWithResponse request
 	GetApiV1AuditLogWithResponse(ctx context.Context, params *GetApiV1AuditLogParams, reqEditors ...RequestEditorFn) (*GetApiV1AuditLogResponse, error)
 
+	// GetApiV1AuthProvidersWithResponse request
+	GetApiV1AuthProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AuthProvidersResponse, error)
+
 	// GetApiV1LicenseSeatsWithResponse request
 	GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error)
 
@@ -2564,6 +2731,11 @@ type ClientWithResponsesInterface interface {
 	PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
 
 	PostApiV1LoginOtpRequestWithResponse(ctx context.Context, body PostApiV1LoginOtpRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
+
+	// PostApiV1LoginOtpVerifyWithBodyWithResponse request with any body
+	PostApiV1LoginOtpVerifyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpVerifyResponse, error)
+
+	PostApiV1LoginOtpVerifyWithResponse(ctx context.Context, body PostApiV1LoginOtpVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpVerifyResponse, error)
 
 	// PostApiV1LoginPasswordWithBodyWithResponse request with any body
 	PostApiV1LoginPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginPasswordResponse, error)
@@ -2716,6 +2888,37 @@ func (r GetApiV1AuditLogResponse) ContentType() string {
 	return ""
 }
 
+type GetApiV1AuthProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsAuthMethodsResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1AuthProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1AuthProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1AuthProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiV1LicenseSeatsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2808,6 +3011,38 @@ func (r PostApiV1LoginOtpRequestResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginOtpRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1LoginOtpVerifyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsTokenPairResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1LoginOtpVerifyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1LoginOtpVerifyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1LoginOtpVerifyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3561,6 +3796,15 @@ func (c *ClientWithResponses) GetApiV1AuditLogWithResponse(ctx context.Context, 
 	return ParseGetApiV1AuditLogResponse(rsp)
 }
 
+// GetApiV1AuthProvidersWithResponse request returning *GetApiV1AuthProvidersResponse
+func (c *ClientWithResponses) GetApiV1AuthProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AuthProvidersResponse, error) {
+	rsp, err := c.GetApiV1AuthProviders(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1AuthProvidersResponse(rsp)
+}
+
 // GetApiV1LicenseSeatsWithResponse request returning *GetApiV1LicenseSeatsResponse
 func (c *ClientWithResponses) GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error) {
 	rsp, err := c.GetApiV1LicenseSeats(ctx, reqEditors...)
@@ -3602,6 +3846,23 @@ func (c *ClientWithResponses) PostApiV1LoginOtpRequestWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParsePostApiV1LoginOtpRequestResponse(rsp)
+}
+
+// PostApiV1LoginOtpVerifyWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOtpVerifyResponse
+func (c *ClientWithResponses) PostApiV1LoginOtpVerifyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpVerifyResponse, error) {
+	rsp, err := c.PostApiV1LoginOtpVerifyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOtpVerifyResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1LoginOtpVerifyWithResponse(ctx context.Context, body PostApiV1LoginOtpVerifyJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpVerifyResponse, error) {
+	rsp, err := c.PostApiV1LoginOtpVerify(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOtpVerifyResponse(rsp)
 }
 
 // PostApiV1LoginPasswordWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginPasswordResponse
@@ -3962,6 +4223,39 @@ func ParseGetApiV1AuditLogResponse(rsp *http.Response) (*GetApiV1AuditLogRespons
 	return response, nil
 }
 
+// ParseGetApiV1AuthProvidersResponse parses an HTTP response from a GetApiV1AuthProvidersWithResponse call
+func ParseGetApiV1AuthProvidersResponse(rsp *http.Response) (*GetApiV1AuthProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1AuthProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsAuthMethodsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetApiV1LicenseSeatsResponse parses an HTTP response from a GetApiV1LicenseSeatsWithResponse call
 func ParseGetApiV1LicenseSeatsResponse(rsp *http.Response) (*GetApiV1LicenseSeatsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4083,6 +4377,46 @@ func ParsePostApiV1LoginOtpRequestResponse(rsp *http.Response) (*PostApiV1LoginO
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1LoginOtpVerifyResponse parses an HTTP response from a PostApiV1LoginOtpVerifyWithResponse call
+func ParsePostApiV1LoginOtpVerifyResponse(rsp *http.Response) (*PostApiV1LoginOtpVerifyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1LoginOtpVerifyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsTokenPairResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest HttperrorsErrorResponse
