@@ -75,6 +75,12 @@ const (
 	// batch limit (from config).
 	ProcessorTaskInvitationPrune     = "invitation.prune"
 	ProcessorTaskInvitationPruneCron = "invitation.prune.cron"
+	// ProcessorTaskOTPEmailSend is the goque task type for one-time-code emails.
+	// Like invitation.email it is its own type rather than a generic send, and
+	// for a stronger reason: its payload is not the shared notify shape, so the
+	// generic sender processor could not decode it. The body does not exist at
+	// enqueue time -- it is rendered by this type's own processor.
+	ProcessorTaskOTPEmailSend = "otp.email"
 )
 
 // ActiveProcessorTaskTypes is the set of goque task types the process must
@@ -101,6 +107,7 @@ var ActiveProcessorTaskTypes = map[string]struct{}{
 	ProcessorTaskInvitationRotateCron: {},
 	ProcessorTaskInvitationPrune:      {},
 	ProcessorTaskInvitationPruneCron:  {},
+	ProcessorTaskOTPEmailSend:         {},
 }
 
 // ExpectedProcessorTaskTypes returns the exact task-type set the process must
@@ -128,6 +135,39 @@ type ProcessorTaskPayloadEventNotify struct {
 	// decides: nil sends top-level. Omitted from the JSON when unset, so tasks
 	// enqueued before this field existed decode as nil.
 	ReplyTo *MessageRef `json:"reply_to,omitempty"`
+}
+
+// ProcessorTaskPayloadOTPEmail is the payload of a one-time-code email task.
+//
+// It carries content, not just an id, which is a deliberate exception to the
+// project's "payload = id, not content" rule -- the same exception
+// ProcessorTaskPayloadAuditWrite takes, for a different reason. Here the reason
+// is that the plaintext exists nowhere else: auth_credentials stores only a
+// sha256 of the code, so a processor holding just CredentialID could not
+// reconstruct what to email.
+//
+// The code therefore travels sealed. Putting it in the queue as plaintext was
+// considered and rejected: goque_task rows are never pruned, so a dump, a
+// replica or a backup would keep a readable authentication code long after it
+// expired -- beside a table that deliberately keeps only its hash. Code is a
+// Tink AEAD envelope under DEK, and DEK is that key sealed under the active KEK.
+// Both are useless without the KEK.
+//
+// KEKURI is not decoration: UnwrapDEK takes the KEK by URI, so without it the
+// payload cannot be opened at all, and a KEK rotation between enqueue and drain
+// would strand every task in flight. It is named for what it holds -- WrapDEK
+// returns the value as "kekID", but it is a URI.
+//
+// ExpiresAt lets the processor stop rather than deliver a code that is already
+// dead. Retries would otherwise outlive the code: nothing overrides goque's
+// 10-minute retry period, which is longer than the code's own lifetime.
+type ProcessorTaskPayloadOTPEmail struct {
+	CredentialID uuid.UUID `json:"credential_id"`
+	Target       string    `json:"target"`
+	Code         []byte    `json:"code"`
+	DEK          []byte    `json:"dek"`
+	KEKURI       string    `json:"kek_uri"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }
 
 // ProcessorTaskPayloadMaintReminder is the payload of a deferred-reminder task.
