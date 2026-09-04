@@ -60,12 +60,13 @@ type layoutData struct {
 // SECURITY INVARIANT: innerBody is injected raw (template.HTML), so it MUST be
 // trusted markup — html/template output rendered by the sending service, never a
 // string built from user input. This holds because wrapHTML runs only on the
-// HTMLMessageMIME path (see Send), and the sole producer of an HTML NotifyMessage
-// today is the invitation email, whose template interpolates only server-authored
-// fields (an accept link and a derived expiry phrase — no recipient/inviter
-// data). The untrusted-content path (maintenance notifications, which carry a
-// user-supplied title) renders via text/template as TextMessageMIME and bypasses
-// this function entirely. Any future HTML producer must likewise render through
+// HTMLMessageMIME path (see Send), and the producers of an HTML NotifyMessage
+// today are the invitation email and the one-time sign-in code email. Both
+// interpolate only server-authored fields — an accept link and a derived expiry
+// phrase for the invitation, a generated six-digit code and an expiry phrase for
+// the code — and no recipient/inviter data. The untrusted-content path
+// (maintenance notifications, which carry a user-supplied title) renders via
+// text/template as TextMessageMIME and bypasses this function entirely. Any future HTML producer must likewise render through
 // html/template before its body reaches here, or this becomes an HTML-injection
 // sink. The footer, by contrast, is a plain string and html/template auto-escapes
 // it, so it is safe even if a caller ever derives it from untrusted data.
