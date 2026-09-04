@@ -220,3 +220,42 @@ func TestAESCipher_ConcurrentEncryptDecryptIsSafe(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// An OTP envelope must not open under a different credential id: the payload
+// carries both, so an attacker editing the id would otherwise get a code that
+// decrypts in the wrong row's context.
+func TestOTPCodeAAD_BindsToCredential(t *testing.T) {
+	t.Parallel()
+
+	cipher := NewAESCipher()
+	dek := testDEK(t)
+	code := []byte("481920")
+
+	envelope, err := cipher.Encrypt(dek, code, OTPCodeAAD("cred-a"))
+	require.NoError(t, err)
+
+	got, err := cipher.Decrypt(dek, envelope, OTPCodeAAD("cred-a"))
+	require.NoError(t, err)
+	require.Equal(t, code, got)
+
+	_, err = cipher.Decrypt(dek, envelope, OTPCodeAAD("cred-b"))
+	require.Error(t, err, "an envelope must not open under another credential id")
+}
+
+// Domain separation: the same id under a different AAD constructor must not
+// open an OTP envelope, so a code can never be mistaken for a stored secret.
+func TestOTPCodeAAD_IsDomainSeparated(t *testing.T) {
+	t.Parallel()
+
+	cipher := NewAESCipher()
+	dek := testDEK(t)
+
+	envelope, err := cipher.Encrypt(dek, []byte("481920"), OTPCodeAAD("shared-id"))
+	require.NoError(t, err)
+
+	_, err = cipher.Decrypt(dek, envelope, DEKWrapAAD("shared-id"))
+	require.Error(t, err)
+
+	_, err = cipher.Decrypt(dek, envelope, SecretAAD("shared-id", "shared-id"))
+	require.Error(t, err)
+}

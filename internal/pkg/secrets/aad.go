@@ -19,6 +19,10 @@ const (
 	// its envelopes are never persisted, the domain only keeps them from ever
 	// opening as a real secret or DEK wrap.
 	aadDomainDEKVerify = "maintmode/dek-verify/v2"
+	// aadDomainOTPCode binds a one-time code sealed for delivery in a queue task.
+	// Its own domain keeps such an envelope from ever opening as an integration
+	// secret or a wrapped DEK, and vice versa.
+	aadDomainOTPCode = "maintmode/otp-code/v2"
 )
 
 // SecretAAD binds a secret envelope to its logical slot: the integration kind
@@ -45,6 +49,21 @@ func SecretAAD(kind, secretKey string) []byte {
 // app-side id generation and split the datakey.Create contract for no real gain.
 func DEKWrapAAD(kekID string) []byte {
 	return encodeAAD(aadDomainDEKWrap, kekID)
+}
+
+// OTPCodeAAD binds a sealed one-time code to the credential row it was issued
+// for. The code travels in a queue task while only its hash is in the database,
+// so the envelope must not be openable in the context of a different credential:
+// a payload edited to carry another row's id fails the GCM tag check instead of
+// decrypting.
+//
+// The DEK sealing an OTP is ephemeral and lives in the same task, so an envelope
+// lifted into another task would already fail for want of its key. The AAD is
+// not load-bearing against that; what it buys is domain separation from the
+// secret and DEK-wrap envelopes, and a binding that still holds if the sealing
+// ever stops being per-task.
+func OTPCodeAAD(credentialID string) []byte {
+	return encodeAAD(aadDomainOTPCode, credentialID)
 }
 
 // encodeAAD length-prefixes each field so distinct field splits can never collide
