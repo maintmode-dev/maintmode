@@ -85,3 +85,24 @@ func TestCredentialsCascadeOnUserDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, count)
 }
+
+// TestGetUnconsumedOTPByUserIDForUpdate checks the locking read returns the
+// same row as its unlocked twin. The lock itself is not observable from a single
+// session -- what it buys is pinned by the issuance barrier's race test, where
+// two transactions actually contend.
+func TestGetUnconsumedOTPByUserIDForUpdate(t *testing.T) {
+	ctx := context.Background()
+	user := makeUser(ctx, t)
+	otp := makeOTP(ctx, t, user.ID)
+
+	got, err := store.GetUnconsumedOTPByUserIDForUpdate(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, otp.ID, got.ID)
+
+	claimed, err := store.ConsumeOTP(ctx, otp.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	_, err = store.GetUnconsumedOTPByUserIDForUpdate(ctx, user.ID)
+	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
+}
