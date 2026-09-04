@@ -65,7 +65,7 @@ func TestConsumeOTPConcurrent(t *testing.T) {
 // different machines whenever the database runs in a container, and the
 // container clock has been observed running ahead of the host by tens of
 // milliseconds. An ordering assertion across those two sources tests clock
-// alignment rather than store behaviour. What the store actually promises is
+// alignment rather than store behavior. What the store actually promises is
 // that consuming stamps the row, and that both columns get the same instant.
 func TestConsumeOTPStampsConsumption(t *testing.T) {
 	ctx := context.Background()

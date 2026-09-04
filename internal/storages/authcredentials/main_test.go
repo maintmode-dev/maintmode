@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 // makeUser inserts a user to own the credentials under test. The suite runs
-// with -count 2 against a shared database, so the email is randomised rather
+// with -count 2 against a shared database, so the email is randomized rather
 // than derived from the test name: a reused address would collide on the second
 // pass and surface as a conflict failure that looks exactly like a genuine
 // conflict-detection bug.

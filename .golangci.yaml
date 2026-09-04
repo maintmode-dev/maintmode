@@ -331,6 +331,8 @@ linters:
               desc: "core must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
               desc: "core must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/authcredentials
+              desc: "core must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
               desc: "core must not import auth storages directly — use a consumer interface"
             # notificator storages
@@ -381,6 +383,8 @@ linters:
             - "**/internal/storages/blacklisttoken/**/*.go"
             - "**/internal/storages/userinvitations/*.go"
             - "**/internal/storages/userinvitations/**/*.go"
+            - "**/internal/storages/authcredentials/*.go"
+            - "**/internal/storages/authcredentials/**/*.go"
             - "**/internal/storages/distributedlock/*.go"
             - "**/internal/storages/distributedlock/**/*.go"
             - "!**/*_test.go"
@@ -458,6 +462,8 @@ linters:
               desc: "notificator must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
               desc: "notificator must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/authcredentials
+              desc: "notificator must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
               desc: "notificator must not import auth storages directly — use a consumer interface"
             # audit storage
@@ -502,6 +508,8 @@ linters:
             - pkg: github.com/ruko1202/maintmode/internal/storages/blacklisttoken
               desc: "audit must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
+              desc: "audit must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/authcredentials
               desc: "audit must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
               desc: "audit must not import auth storages directly — use a consumer interface"
@@ -560,6 +568,8 @@ linters:
               desc: "integration must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
               desc: "integration must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/authcredentials
+              desc: "integration must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
               desc: "integration must not import auth storages directly — use a consumer interface"
             # notificator storages
@@ -611,6 +621,8 @@ linters:
             - pkg: github.com/ruko1202/maintmode/internal/storages/blacklisttoken
               desc: "license must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/userinvitations
+              desc: "license must not import auth storages directly — use a consumer interface"
+            - pkg: github.com/ruko1202/maintmode/internal/storages/authcredentials
               desc: "license must not import auth storages directly — use a consumer interface"
             - pkg: github.com/ruko1202/maintmode/internal/storages/distributedlock
               desc: "license must not import auth storages directly — use a consumer interface"
