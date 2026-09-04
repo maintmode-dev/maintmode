@@ -98,6 +98,14 @@ var (
 	// ErrAuthCredentialNotFound is returned when no credential row matches the
 	// lookup: the user has no password, or no unconsumed one-time code.
 	ErrAuthCredentialNotFound = errors.New("auth credential not found")
+	// ErrOTPSessionMismatch marks a one-time code presented with the wrong
+	// session nonce, or none. It is the ONE failure of the verify endpoint that
+	// does not collapse into the generic answer, and the exception is deliberate:
+	// provoking it requires already holding a live code, so it discloses nothing
+	// about whether an account exists. What it buys is a user who closed the tab
+	// while the mail was in flight being told to ask for a new code, instead of
+	// retyping a correct code against a nonce that no longer exists forever.
+	ErrOTPSessionMismatch = errors.New("otp session nonce mismatch")
 	// ErrAuthCredentialConflict is a unique violation on one of the partial
 	// indexes: the user already has a password, or already has a live one-time
 	// code. Which one it is follows from the kind the caller was writing.
