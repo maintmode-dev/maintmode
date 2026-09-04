@@ -91,6 +91,10 @@ var (
 	// ErrEmailMismatch is the accept-time guard: the OAuth email does not match
 	// the invitation email. Surfaced as status "email_mismatch" with no detail.
 	ErrEmailMismatch = fmt.Errorf("%w: email mismatch", ErrValidation)
+)
+
+// Auth credential errors, for the two built-in sign-in methods.
+var (
 	// ErrAuthCredentialNotFound is returned when no credential row matches the
 	// lookup: the user has no password, or no unconsumed one-time code.
 	ErrAuthCredentialNotFound = errors.New("auth credential not found")
