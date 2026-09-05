@@ -73,6 +73,60 @@ func makeOTP(ctx context.Context, t *testing.T, userID uuid.UUID) *entity.AuthCr
 	return cred
 }
 
+// makeOTPExpiringAt inserts a one-time code with a caller-chosen expiry, so a
+// test can place a row on either side of a prune cutoff. Create inserts
+// expires_at straight from the entity, so no back-dating UPDATE is needed here —
+// unlike user_invitations, whose created_at is stamped server-side.
+func makeOTPExpiringAt(
+	ctx context.Context,
+	t *testing.T,
+	userID uuid.UUID,
+	expiresAt time.Time,
+) *entity.AuthCredential {
+	t.Helper()
+
+	nonce := uuid.NewString()
+
+	cred, err := store.Create(ctx, &entity.AuthCredential{
+		UserID:       userID,
+		Kind:         entity.AuthCredentialKindOTP,
+		SecretHash:   uuid.NewString(),
+		ExpiresAt:    &expiresAt,
+		SessionNonce: &nonce,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cred)
+
+	return cred
+}
+
+// makePasswordExpiringAt inserts a password credential that carries an expiry.
+//
+// Nothing in the schema forbids one — no CHECK ties kind='password' to a NULL
+// expires_at — and that is exactly why this fixture exists: it is the only row
+// shape that proves the prune's kind guard does real work. A password row with a
+// NULL expiry cannot prove it, because NULL < cutoff is never true and such a row
+// survives whether or not the guard is there.
+func makePasswordExpiringAt(
+	ctx context.Context,
+	t *testing.T,
+	userID uuid.UUID,
+	expiresAt time.Time,
+) *entity.AuthCredential {
+	t.Helper()
+
+	cred, err := store.Create(ctx, &entity.AuthCredential{
+		UserID:     userID,
+		Kind:       entity.AuthCredentialKindPassword,
+		SecretHash: "$argon2id$v=19$m=65536,t=3,p=4$" + uuid.NewString(),
+		ExpiresAt:  &expiresAt,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cred)
+
+	return cred
+}
+
 // makePassword inserts a password credential for the user.
 func makePassword(ctx context.Context, t *testing.T, userID uuid.UUID) *entity.AuthCredential {
 	t.Helper()

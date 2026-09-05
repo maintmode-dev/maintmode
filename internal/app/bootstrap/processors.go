@@ -15,6 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/goque_processors/invitationrotateprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/licenseheartbeatprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/otpemailprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/otppruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
 	"github.com/ruko1202/maintmode/internal/services/otp"
@@ -25,8 +26,10 @@ import (
 
 // NewTaskProcessors builds the single goque worker for the maintmode process and
 // registers every task type the merged process owns: maint.reminder,
-// maint.auto.cancel (+ cron), invitation.email, audit.write and audit.prune
-// (+ cron), plus license.heartbeat (+ cron) when SaaS license mode is enabled.
+// maint.auto.cancel (+ cron), invitation.email, otp.email, audit.write,
+// audit.prune (+ cron), the invitation rotate/prune pair (+ crons) and
+// otp.prune (+ cron), plus license.heartbeat (+ cron) when SaaS license mode is
+// enabled.
 // Everything is registered on one registrar, and verify() runs once at the end to
 // assert the registered set matches entity.ExpectedProcessorTaskTypes for this
 // process's toggles.
@@ -184,11 +187,51 @@ func NewTaskProcessors(
 		reg.RegisterPeriodicJob(heartbeatJob)
 	}
 
+	if err := registerOTPPrune(reg, cfg, services); err != nil {
+		return nil, err
+	}
+
 	if err := reg.verify(entity.ExpectedProcessorTaskTypes(licenseEnabled)); err != nil {
 		return nil, err
 	}
 
 	return goq, nil
+}
+
+// registerOTPPrune registers the one-time-code retention sweep: a daily cron job
+// enqueues one task carrying the retention window and batch limit from config,
+// and the processor deletes auth_credentials rows with kind='otp' whose
+// expires_at is older than that window, in bounded batches. Consumed codes age
+// out through the same predicate; password rows are never eligible.
+//
+// One worker, because the sweep is a single drained DELETE loop that must not run
+// concurrently with itself, and a day-bucketed external id, so multi-replica
+// ticks collapse to one enqueue per day — the same shape as the other sweeps.
+//
+// The cron spec comes straight from config with no code-side default: a missing
+// or malformed value fails here and aborts startup, exactly as it does for
+// audit.prune and invitation.prune. All four deployment stands set it.
+func registerOTPPrune(reg *processorRegistrar, cfg config.TaskProcessorConfig, services *Services) error {
+	pruneCfg := cfg.OTPPrune
+
+	reg.RegisterProcessor(
+		entity.ProcessorTaskOTPPrune,
+		otppruneprocessor.NewTaskProcessor(services.OTP),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
+	)
+
+	pruneJob, err := goque.NewCronJob(
+		entity.ProcessorTaskOTPPruneCron,
+		pruneCfg.CronSpec,
+		time.UTC,
+		otppruneprocessor.NewTaskFactory(pruneCfg.Retention, pruneCfg.BatchLimit),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build otp-prune cron job: %w", err)
+	}
+	reg.RegisterPeriodicJob(pruneJob)
+
+	return nil
 }
 
 // registerInvitationRotation registers the invitation lifecycle's daily

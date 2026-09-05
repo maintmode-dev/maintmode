@@ -280,6 +280,7 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/invitationrotateprocessor/processor.go -source ./internal/goque_processors/invitationrotateprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/invitationpruneprocessor/processor.go -source ./internal/goque_processors/invitationpruneprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/licenseheartbeatprocessor/processor.go -source ./internal/goque_processors/licenseheartbeatprocessor/processor.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/goque_processors/otppruneprocessor/processor.go -source ./internal/goque_processors/otppruneprocessor/processor.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/usersummary/service.go -source ./internal/services/usersummary/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/license/service.go -source ./internal/services/license/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/server/middlewares/auth.go -source ./internal/server/middlewares/auth.go

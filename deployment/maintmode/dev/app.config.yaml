@@ -193,6 +193,21 @@ task_processor:
     # 365 days by created_at. Terminal rows older than this are deleted in batches.
     retention: 8760h
     batch_limit: 1000
+  # otp_prune deletes spent one-time codes: rows with kind='otp' whose expires_at
+  # is older than retention. Consumed and merely-expired codes leave through the
+  # same threshold; password rows are never touched.
+  #
+  # Retention is short (unlike the year the other sweeps keep) because the row
+  # holds a code digest and a session nonce while the code itself lives minutes.
+  # Worst-case residency is retention plus one cron period, so ~48h here, not 24h.
+  #
+  # cron_spec must be set here: like audit_prune and invitation_prune, an empty
+  # or malformed value fails NewTaskProcessors and aborts startup. The 03:15
+  # offset keeps this sweep out of the minute the three other daily jobs share.
+  otp_prune:
+    cron_spec: "15 3 * * *"
+    retention: 24h
+    batch_limit: 1000
 
 # crypto addresses the master key (KEK) that wraps the data-encryption keys
 # protecting integration secrets at rest. A KEK is addressed by URI:

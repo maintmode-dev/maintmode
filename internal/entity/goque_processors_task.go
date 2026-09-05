@@ -81,6 +81,18 @@ const (
 	// generic sender processor could not decode it. The body does not exist at
 	// enqueue time -- it is rendered by this type's own processor.
 	ProcessorTaskOTPEmailSend = "otp.email"
+	// ProcessorTaskOTPPrune is the goque task type produced by the OTP-retention
+	// periodic job. Its processor deletes auth_credentials rows with kind='otp'
+	// whose expires_at is older than the retention window, in bounded batches.
+	//
+	// Age is measured on expires_at, not created_at, because
+	// auth_credentials_otp_expiry_idx is the only index on the table and
+	// migrations were out of scope. A consumed code carries an expiry too and
+	// ages out through the same sweep, so consumed_at never enters the predicate.
+	// password rows are never eligible. The payload carries the retention window
+	// and batch limit (from config).
+	ProcessorTaskOTPPrune     = "otp.prune"
+	ProcessorTaskOTPPruneCron = "otp.prune.cron"
 )
 
 // ActiveProcessorTaskTypes is the set of goque task types the process must
@@ -108,6 +120,8 @@ var ActiveProcessorTaskTypes = map[string]struct{}{
 	ProcessorTaskInvitationPrune:      {},
 	ProcessorTaskInvitationPruneCron:  {},
 	ProcessorTaskOTPEmailSend:         {},
+	ProcessorTaskOTPPrune:             {},
+	ProcessorTaskOTPPruneCron:         {},
 }
 
 // ExpectedProcessorTaskTypes returns the exact task-type set the process must
@@ -210,6 +224,16 @@ type ProcessorTaskPayloadInvitationRotate struct {
 // stays config-free: Retention is the age (by created_at) past which a terminal
 // invitation is deleted, BatchLimit bounds how many rows one DELETE removes.
 type ProcessorTaskPayloadInvitationPrune struct {
+	Retention  time.Duration `json:"retention"`
+	BatchLimit int64         `json:"batch_limit"`
+}
+
+// ProcessorTaskPayloadOTPPrune is the payload of an OTP-retention sweep task.
+// Same shape and same reason as the invitation one: the cron job stamps the
+// tunables from config so the processor stays config-free. Retention is the age
+// past expires_at at which a one-time code is deleted, BatchLimit bounds how
+// many rows one DELETE removes.
+type ProcessorTaskPayloadOTPPrune struct {
 	Retention  time.Duration `json:"retention"`
 	BatchLimit int64         `json:"batch_limit"`
 }
