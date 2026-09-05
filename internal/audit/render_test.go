@@ -189,3 +189,56 @@ func TestRender_TruncatesUserAgent(t *testing.T) {
 type unknownAction struct{}
 
 func (unknownAction) auditAction() entity.AuditAction { return "unknown" }
+
+// TestRender_UnidentifiedLoginFailureCarriesTheEmail pins the fallback for a
+// login that failed before any user was resolved.
+//
+// Those events carry a synthetic user holding only the claimed email, so
+// user.ID is the zero UUID and entity_id lands as "00000000-0000-...". Every
+// such row therefore groups under one meaningless key. The email is the only
+// identifying thing the attempt produced, so it is what the row is filed under.
+//
+// entity_id is documented as a string that is deliberately not a foreign key and
+// may carry different id kinds, so this stays inside the column's contract --
+// but it does retire the assumption that entity_type "user" implies a UUID.
+func TestRender_UnidentifiedLoginFailureCarriesTheEmail(t *testing.T) {
+	r := fixedRenderer(uuid.New(), time.Now())
+
+	const claimed = "attacker@example.com"
+
+	payload, err := r.Render(LoginFailed{
+		User: &entity.User{Email: claimed},
+		Meta: &entity.AuditMetadata{
+			IP:            "203.0.113.7",
+			UserAgent:     "curl/8.4.0",
+			FailureReason: entity.AuditFailureInvalidCode,
+		},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, entity.AuditActionLoginFailed, payload.Action)
+	require.Equal(t, claimed, payload.Actor)
+	require.Equal(t, claimed, payload.EntityID, "an unidentified failure is filed under the claimed address")
+	require.Equal(t, entity.AuditEntityTypeUser, payload.EntityType)
+	require.Equal(t, entity.AuditFailureInvalidCode, payload.Metadata.FailureReason)
+	require.Equal(t, "203.0.113.7", payload.Metadata.IP)
+}
+
+// TestRender_IdentifiedLoginFailureKeepsTheUserID is the other half: once a user
+// IS resolved, the row is filed under their id exactly as before. Without this
+// the fallback could be written to fire unconditionally and nothing would catch
+// it.
+func TestRender_IdentifiedLoginFailureKeepsTheUserID(t *testing.T) {
+	r := fixedRenderer(uuid.New(), time.Now())
+
+	user := &entity.User{ID: uuid.New(), Email: "real@example.com", Name: "Real"}
+
+	payload, err := r.Render(LoginFailed{
+		User: user,
+		Meta: &entity.AuditMetadata{FailureReason: entity.AuditFailureAttemptsExhausted},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, user.ID.String(), payload.EntityID)
+	require.Equal(t, user.Email, payload.Actor)
+}

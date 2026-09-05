@@ -35,6 +35,23 @@ type HTTPServer struct {
 	// enough to be lethal to a screen group, whose routes are called in batches
 	// on every page load. Same shape, different meaning.
 	UIRateLimiter RateLimiterConfig `mapstructure:"ui_rate_limiter"`
+	// OTPEmailRateLimiter caps one-time-code traffic per email address, and
+	// OTPGlobalRateLimiter caps it across the whole instance. They live here
+	// with the other route-group limiters rather than under `auth` because that
+	// is what they are: thresholds for a group of routes, applied by the router.
+	//
+	// They are separate blocks, and not a reuse of RateLimiter, because they
+	// answer a question it cannot. RateLimiter keys on the client IP, which a
+	// distributed attacker changes for free; these key on the address being
+	// attacked and on nothing at all, which is what actually bounds grinding one
+	// victim's code and sweeping an invite-only instance.
+	//
+	// Only RequestsPerMinute and Timeout degrade safely on a zero — the limiter
+	// options ignore a non-positive value. Burst and ExpiresIn go straight to
+	// the in-memory fallback store with no guard, so a deployed config should
+	// carry all four rather than leaning on defaults it does not have.
+	OTPEmailRateLimiter  RateLimiterConfig `mapstructure:"otp_email_rate_limiter"`
+	OTPGlobalRateLimiter RateLimiterConfig `mapstructure:"otp_global_rate_limiter"`
 	// Timeouts are the socket-level deadlines stamped onto the http.Server.
 	// They are connection hygiene, not request budgets: the cheapest defense
 	// against slowloris and against connections held open for free.
@@ -283,6 +300,11 @@ type Auth struct {
 	// bounds the fast branch from below and cannot bound the slow one from above,
 	// so the default must stay above the issuance transaction's real cost.
 	OTPResponseFloor time.Duration `mapstructure:"otp_response_floor"`
+	// OTPMaxAttempts is how many guesses one code accepts before it is spent.
+	// Non-positive falls back to 5, and any value is clamped to 10 at wiring
+	// time — see otp.MaxAttempts, which also explains why the clamp has to run
+	// before the int16 conversion.
+	OTPMaxAttempts int `mapstructure:"otp_max_attempts"`
 }
 
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport

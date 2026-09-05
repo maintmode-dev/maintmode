@@ -248,6 +248,28 @@ type ExchangeIDTokenCmd struct {
 	TestRoles []Role
 }
 
+// VerifyOTPCmd redeems an emailed one-time code. Its SessionNonce arrives in the
+// request BODY rather than a cookie, which is a deliberate departure from how
+// browser-bound secrets usually travel: the web client calls this backend
+// server-side, so a Set-Cookie would land in that server rather than in the
+// user's browser and bind nothing at all. The binding property survives
+// regardless -- the nonce is a second secret, it is never emailed, and both
+// halves must match.
+type VerifyOTPCmd struct {
+	Email string
+	Code  string
+	// SessionNonce is the value handed back when the code was requested. It
+	// proves the redemption comes from the client that started the attempt, so
+	// someone who talks a victim into reading out the emailed code still cannot
+	// use it.
+	SessionNonce string
+	// RememberMe is accepted and currently ignored — session modes are a
+	// separate change, exactly as on LoginWithPasswordCmd.
+	RememberMe bool
+	ClientIP   string
+	UserAgent  string
+}
+
 // LoginWithPasswordCmd is a sign-in with a password rather than an upstream
 // token. Today the only method behind it is the break-glass bootstrap admin;
 // email_password joins it later on the same endpoint.

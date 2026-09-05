@@ -9,6 +9,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
@@ -24,6 +25,16 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
+// OTPVerifier redeems a one-time code and reports the user it belonged to.
+//
+// Consumer-side, and narrow on purpose: this service needs the redemption and
+// nothing else about one-time codes. The audit reason comes back beside the
+// error because the endpoint answers every failure identically, so the reason
+// has nowhere else to go.
+type OTPVerifier interface {
+	Verify(ctx context.Context, cmd *entity.VerifyOTPCmd) (*entity.User, entity.AuditFailureReason, error)
+}
+
 type Service struct {
 	cfg            *config.JWT
 	txManager      *dbtx.TxManager
@@ -33,6 +44,7 @@ type Service struct {
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
 	auditPublisher AuditPublisher
+	otpVerifier    OTPVerifier
 }
 
 func NewService(
@@ -44,6 +56,7 @@ func NewService(
 	authMethods *authmethod.Methods,
 	tokenSvc *token.Service,
 	auditPublisher AuditPublisher,
+	otpVerifier OTPVerifier,
 ) *Service {
 	return &Service{
 		cfg:            cfg,
@@ -54,6 +67,7 @@ func NewService(
 		authMethods:    authMethods,
 		tokenSrv:       tokenSvc,
 		auditPublisher: auditPublisher,
+		otpVerifier:    otpVerifier,
 	}
 }
 

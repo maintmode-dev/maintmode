@@ -115,6 +115,39 @@ var auditWriteErrors = mustInt64Counter(
 	"Audit log write failures in the audit-write processor (task will be retried).",
 )
 
+// otpAttemptClaimErrors counts failures to claim a one-time-code attempt.
+//
+// The claim IS the brute-force ceiling — it gates and increments in one
+// statement — so a persistent failure means the ceiling has stopped existing
+// while the endpoint keeps answering. Verification fails closed when this
+// happens, so users see errors rather than a silent hole, but nothing else would
+// say why. Alert on rate>0.
+var otpAttemptClaimErrors = mustInt64Counter(
+	"otp_attempt_claim_errors_total",
+	"Failures to claim a one-time-code attempt (the per-code guess ceiling could not be enforced).",
+)
+
+// OTPAttemptClaimError records one failed one-time-code attempt claim.
+func OTPAttemptClaimError(ctx context.Context) {
+	otpAttemptClaimErrors.Add(ctx, 1)
+}
+
+// otpRetireExpiredErrors counts failures to retire an expired one-time code.
+//
+// Retiring is what frees the single active-code slot. A persistent failure on a
+// code that is also out of guesses leaves that slot occupied indefinitely, so
+// the user can never be issued another — the "barred for at most the code's
+// lifetime" guarantee quietly becomes permanent. Alert on rate>0.
+var otpRetireExpiredErrors = mustInt64Counter(
+	"otp_retire_expired_errors_total",
+	"Failures to retire an expired one-time code (its active-code slot may stay occupied).",
+)
+
+// OTPRetireExpiredError records one failed retirement of an expired code.
+func OTPRetireExpiredError(ctx context.Context) {
+	otpRetireExpiredErrors.Add(ctx, 1)
+}
+
 // AuditWriteError records one failed audit_log write.
 func AuditWriteError(ctx context.Context) {
 	auditWriteErrors.Add(ctx, 1)

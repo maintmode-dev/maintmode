@@ -11,6 +11,26 @@ auth:
   # local/dev so teammates can log in via the browser once the first admin has
   # bootstrapped; keep OFF in prod (invite-only).
   allow_open_signup: true
+  # How long an emailed code stays valid. Short on purpose: a code delivered by
+  # email is guessable in principle, and this window plus the attempt ceiling
+  # below are what bound that.
+  otp_ttl: 5m
+  # The minimum time BOTH one-time-code endpoints take to answer, whatever they
+  # did. This is a security knob, not a throttle, and its VALUE is the property:
+  # an address with no account is refused after a single indexed SELECT, while a
+  # real one costs a second SELECT, an attempt claim, a hash and a comparison.
+  # Without a floor those two are separable by a stopwatch, and enumeration needs
+  # only one request per candidate address -- which no rate limit can stop.
+  #
+  # It bounds the fast branch from below and cannot bound the slow one from
+  # above, so it must stay ABOVE what verification actually costs on this
+  # deployment. Raise it if the slow path ever grows past it.
+  otp_response_floor: 300ms
+  # How many guesses one emailed code accepts before it is spent. Burning them
+  # does NOT free the active-code slot: no new code is issued until the spent
+  # one expires, or "five attempts" would mean "five per code, unlimited codes".
+  # Non-positive falls back to 5; anything above 10 is clamped.
+  otp_max_attempts: 5
 
 jwtverifier:
   jwt_issuer: oauth-service
@@ -58,6 +78,32 @@ api_server:
   ui_rate_limiter:
     requests_per_minute: 300
     burst: 300
+    expires_in: 3m
+    timeout: 200ms
+  # One-time-code limiters. Both key on something the per-IP limiter above
+  # cannot: a distributed attacker changes address for free, so the per-IP cap
+  # alone leaves both "grind one victim's code from many IPs" and "one request
+  # per address from each of a thousand IPs" unbounded.
+  #
+  # The per-address budget covers a whole attempt cycle -- one request plus up
+  # to otp_max_attempts guesses -- with room for a confused user retrying, and
+  # is not what bounds guessing: the per-code ceiling does that far more
+  # tightly.
+  otp_email_rate_limiter:
+    requests_per_minute: 20
+    burst: 20
+    expires_in: 3m
+    timeout: 200ms
+  # The instance-wide budget, and the only tier that sees a sweep spread across
+  # both addresses and IPs. At the per-address cap above it binds at roughly
+  # thirty distinct addresses a minute, which is the number to tune against.
+  #
+  # On a Valkey outage this tier stops applying rather than falling back to a
+  # per-replica bucket: its key is a constant, so one shared in-memory bucket
+  # would let a single attacker hold the whole sign-in surface at 429.
+  otp_global_rate_limiter:
+    requests_per_minute: 600
+    burst: 600
     expires_in: 3m
     timeout: 200ms
 

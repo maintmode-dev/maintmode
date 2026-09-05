@@ -1,9 +1,11 @@
-// Package otp issues one-time sign-in codes and hands them to the queue for
-// delivery by email.
+// Package otp issues one-time sign-in codes, hands them to the queue for
+// delivery by email, and redeems them.
 //
-// It owns issuance only. Verifying a code, counting attempts against a ceiling
-// and comparing the session nonce belong to the verify path, which is a separate
-// piece of work; nothing here can be redeemed yet.
+// It owns the credential: issuance, the per-code attempt ceiling, expiry and the
+// session-nonce comparison. It deliberately does NOT issue tokens -- Verify
+// reports the user it resolved and the auth service runs it through the same
+// IssueTokenPair funnel as every other sign-in method, so blocking, audit and IP
+// binding apply here without being restated.
 package otp
 
 import (
@@ -22,8 +24,14 @@ import (
 // store, and so tests can substitute a fake.
 type Store interface {
 	Create(ctx context.Context, cred *entity.AuthCredential) (*entity.AuthCredential, error)
-	GetUnconsumedOTPByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error)
+	// GetUnconsumedOTPByUserIDForUpdate, not the unlocked twin: this read decides
+	// whether to retire what it finds, so it must not race a concurrent claim.
+	GetUnconsumedOTPByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error)
 	ConsumeOTP(ctx context.Context, id uuid.UUID) (bool, error)
+	// The unlocked read is the verify path's: it takes no transaction, so there
+	// is no lock to hold and nothing for it to protect against.
+	GetUnconsumedOTPByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error)
+	ClaimOTPAttempt(ctx context.Context, id uuid.UUID, maxAttempts int16) (bool, error)
 }
 
 // UserService resolves the address to a user. Only the lookup is needed.
@@ -65,6 +73,10 @@ type Service struct {
 	cipher    Cipher
 	scheduler TaskScheduler
 	ttl       time.Duration
+	// maxAttempts is shared with the verify path, which reads it through
+	// MaxAttempts() rather than resolving its own copy from config. The two
+	// enforce complementary halves of one rule and must not disagree.
+	maxAttempts int16
 }
 
 func NewService(
@@ -77,15 +89,22 @@ func NewService(
 	sched TaskScheduler,
 ) *Service {
 	return &Service{
-		txManager: txManager,
-		store:     store,
-		userSrv:   userSrv,
-		keyring:   keyring,
-		cipher:    cipher,
-		scheduler: sched,
-		ttl:       TTL(cfg.Auth),
+		txManager:   txManager,
+		store:       store,
+		userSrv:     userSrv,
+		keyring:     keyring,
+		cipher:      cipher,
+		scheduler:   sched,
+		ttl:         TTL(cfg.Auth),
+		maxAttempts: MaxAttempts(cfg.Auth),
 	}
 }
 
 // TTL exposes the configured code lifetime.
 func (s *Service) TTL() time.Duration { return s.ttl }
+
+// MaxAttempts exposes the configured guess ceiling, mirroring TTL. It is an
+// accessor rather than a package-level call at each site so that the verify
+// service can depend on the resolved number without re-resolving config — the
+// divergence MaxAttempts documents.
+func (s *Service) MaxAttempts() int16 { return s.maxAttempts }

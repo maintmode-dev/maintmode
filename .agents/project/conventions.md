@@ -143,12 +143,27 @@ The async task queue is goque. Tasks are registered by type in
 - Add regression tests for bug fixes.
 - Prefer `require` for setup failures and direct invariants.
 - Use `make tloc` for the default internal package test suite.
-- Do not write tests that assert a route is registered. A missing route is
-  caught the moment anything exercises the endpoint -- the API suite, the
-  generated client, a manual call -- and a test that reads the routing table
-  only restates `api_server.go` in a second syntax. It also cannot see what
-  matters about a route (its middleware chain), so it reads as coverage while
-  proving almost nothing.
+- Do not write tests about route wiring. This covers three shapes, and the
+  second and third are the ones that get written after the first is refused:
+  - asserting a route is **registered** -- reads the routing table back and
+    restates `api_server.go` in a second syntax;
+  - asserting **which middleware** a route group carries, by mounting the real
+    registration and observing a 401/429/403 from one of them;
+  - asserting the **order** of that chain.
+
+  A missing or misordered route is caught the moment anything exercises the
+  endpoint: the API suite, the generated client, a manual call. Test what a
+  middleware *does* -- its key, its bounds, its fallback -- in its own package,
+  where the assertion is about behavior rather than about assembly.
+
+  The tell is a test that needs production code reshaped to be reachable:
+  handlers passed as parameters so a test can inject its own, a registration
+  method split out so a test can call it. When the seam exists only for the
+  test, delete both. `license_gate_wiring_test.go` and
+  `ui_ratelimit_wiring_test.go` are not counterexamples -- they pin behavior
+  that spans layers (a gate that must NOT cover the auth module; a limiter that
+  must key by user and therefore must sit after the token gate), which is not
+  observable in either layer alone.
 
 ## Generated Code
 

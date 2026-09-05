@@ -165,6 +165,20 @@ func NewServices(ctx context.Context,
 	queueScheduler := scheduler.NewService(queue)
 	messageSender := messagesender.NewService(transportResolver, queueScheduler)
 
+	// Built before the auth service, which redeems codes through it. The
+	// dependency runs one way: issuing a token pair for a redeemed code belongs
+	// to the auth service's funnel, so that every sign-in method inherits the
+	// same blocking, audit and IP-binding rules.
+	otpSrv := otp.NewService(
+		cfg,
+		stores.TxManager,
+		stores.AuthCredentials,
+		userSrv,
+		keyring,
+		secrets.NewAESCipher(),
+		queueScheduler,
+	)
+
 	authSrv := auth.NewService(
 		&cfg.JWT,
 		stores.TxManager,
@@ -174,16 +188,7 @@ func NewServices(ctx context.Context,
 		authMethods,
 		tokenSrv,
 		auditPublisher,
-	)
-
-	otpSrv := otp.NewService(
-		cfg,
-		stores.TxManager,
-		stores.AuthCredentials,
-		userSrv,
-		keyring,
-		secrets.NewAESCipher(),
-		queueScheduler,
+		otpSrv,
 	)
 
 	invitationSrv := invitation.NewService(

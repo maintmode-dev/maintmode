@@ -14,6 +14,7 @@ import (
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/utils/xcripto"
+	"github.com/ruko1202/maintmode/internal/utils/xemail"
 )
 
 const (
@@ -49,6 +50,13 @@ func (i *Implementation) RequestOTP(c *echo.Context) error {
 		// to reason about.
 		return i.rejected(ctx, c, start, "malformed request body", err)
 	}
+
+	// Normalized BEFORE validation, through the same function the limiter keys
+	// on. Both halves of that sentence matter: sharing the normalizer keeps the
+	// limiter's bucket and the identity lookup from drifting apart, and doing it
+	// first means every rule below judges the string the service will actually
+	// use, not the one the caller happened to type.
+	body.Email = xemail.Normalize(body.Email)
 
 	if err := validateRequestOTP(ctx, body); err != nil {
 		return i.rejected(ctx, c, start, "invalid request", err)

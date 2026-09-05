@@ -118,6 +118,32 @@ const (
 	// tellable from a refused or blocked account.
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureInvalidCredentials AuditFailureReason = "invalid credentials"
+
+	// The one-time-code reasons below are all PRE-identification in the same
+	// sense as AuditFailureInvalidCredentials: the verify endpoint answers every
+	// failure identically, so the audit trail is the only place they stay
+	// tellable apart. They are four values rather than one because an operator
+	// reading a burst of them needs to know which: a run of wrong codes is a
+	// brute-force attempt, a run of expiries is usually mail being slow, and a
+	// run of nonce mismatches is neither.
+
+	// AuditFailureInvalidCode marks a submitted code that did not match, and
+	// also the cases indistinguishable from it to the caller: no live code, and
+	// losing the race to consume one.
+	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
+	AuditFailureInvalidCode AuditFailureReason = "invalid code"
+	// AuditFailureAttemptsExhausted marks a guess refused because the code had
+	// already spent its ceiling. The code itself is never compared.
+	AuditFailureAttemptsExhausted AuditFailureReason = "attempts exhausted"
+	// AuditFailureSessionMismatch marks a correct-shaped attempt whose session
+	// nonce did not match the one bound to the code. It is a risk signal rather
+	// than a routine error: the ordinary cause is a user who closed the tab
+	// while the mail was in flight, but the same event is what a code relayed to
+	// a third party looks like.
+	AuditFailureSessionMismatch AuditFailureReason = "session nonce mismatch"
+	// AuditFailureCodeExpired marks a code presented after its expiry.
+	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
+	AuditFailureCodeExpired AuditFailureReason = "code expired"
 )
 
 type AuditLogoutKind string

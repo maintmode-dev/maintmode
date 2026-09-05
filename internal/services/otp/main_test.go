@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -161,4 +162,70 @@ func (s *recordingScheduler) only(t *testing.T) entity.ProcessorTaskPayloadOTPEm
 	require.True(t, ok, "unexpected payload type %T", tasks[0].payload)
 
 	return payload
+}
+
+// makeExpiredOTP inserts a live-but-dead one-time code: unconsumed, so it still
+// occupies the single active-OTP slot, but past its expiry. It is what the
+// reissue barrier must decline to treat as a bar.
+func makeExpiredOTP(ctx context.Context, t *testing.T, userID uuid.UUID) *entity.AuthCredential {
+	t.Helper()
+
+	expiresAt := time.Now().UTC().Add(-time.Minute)
+	nonce := uuid.NewString()
+
+	cred, err := credStore.Create(ctx, &entity.AuthCredential{
+		UserID:       userID,
+		Kind:         entity.AuthCredentialKindOTP,
+		SecretHash:   uuid.NewString(),
+		ExpiresAt:    &expiresAt,
+		SessionNonce: &nonce,
+	})
+	require.NoError(t, err)
+
+	return cred
+}
+
+// otpService pairs a service with the scheduler recording what it queued, so a
+// verify test can redeem the code that would actually have been emailed rather
+// than one it made up. Going through the real seal/unseal keeps the two halves
+// honest: if issuance ever sealed something the verify path could not match,
+// a test built on a hand-written code would not notice.
+type otpService struct {
+	svc   *otp.Service
+	sched *recordingScheduler
+}
+
+func newVerifyService(t *testing.T) *otpService {
+	t.Helper()
+
+	svc, sched := newService(t)
+
+	return &otpService{svc: svc, sched: sched}
+}
+
+// decodeCode unseals the most recently queued code.
+func (s *otpService) decodeCode(t *testing.T) string {
+	t.Helper()
+
+	payload := s.sched.only(t)
+
+	dek, err := testKeyring(t).UnwrapDEK(payload.DEK, payload.KEKURI)
+	require.NoError(t, err)
+
+	code, err := secrets.NewAESCipher().Decrypt(
+		dek, payload.Code, secrets.OTPCodeAAD(payload.CredentialID.String()),
+	)
+	require.NoError(t, err)
+
+	return string(code)
+}
+
+// newServiceWithStore wires the service over a substitute store, so a test can
+// drive a branch a real database will not produce on demand -- a failing claim,
+// for instance, which is the branch that decides whether the attempt ceiling
+// fails open or closed.
+func newServiceWithStore(t *testing.T, store otp.Store) *otp.Service {
+	t.Helper()
+
+	return otp.NewService(cfg, txManager, store, usersStore, testKeyring(t), secrets.NewAESCipher(), &recordingScheduler{})
 }

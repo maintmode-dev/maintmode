@@ -43,6 +43,40 @@ func (s *Store) GetUnconsumedOTPByUserID(ctx context.Context, userID uuid.UUID) 
 	return s.get(ctx, stmt)
 }
 
+// GetUnconsumedOTPByUserIDForUpdate is GetUnconsumedOTPByUserID holding a row
+// lock, for the caller that decides whether to retire the code it reads.
+//
+// The lock is what makes the "burnt codes keep the slot" rule hold. Reissue
+// reads the live code, decides it is not yet burnt, and consumes it; a verify
+// racing that read can be claiming the final attempt at the same moment. Without
+// the lock the reader sees attempts one short of the ceiling, judges the code
+// still usable, and frees the slot -- handing back a fresh code with a fresh
+// counter, which is exactly the bypass the ceiling exists to prevent.
+//
+// ConsumeOTP deliberately takes no lock because its caller has no transaction
+// and needs none; this one is always called inside the issuance transaction, so
+// the lock costs it nothing beyond the hold it already has.
+func (s *Store) GetUnconsumedOTPByUserIDForUpdate(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*entity.AuthCredential, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.AuthCredentials.GetUnconsumedOTPByUserIDForUpdate")
+	defer span.End()
+
+	stmt := table.AuthCredentials.
+		SELECT(table.AuthCredentials.AllColumns).
+		WHERE(
+			table.AuthCredentials.UserID.EQ(postgres.UUID(userID)).
+				AND(table.AuthCredentials.Kind.EQ(
+					postgres.String(string(entity.AuthCredentialKindOTP)),
+				)).
+				AND(table.AuthCredentials.ConsumedAt.IS_NULL()),
+		).
+		FOR(postgres.UPDATE())
+
+	return s.get(ctx, stmt)
+}
+
 // GetPasswordByUserID returns the user's password credential, if any. The
 // password partial unique index guarantees there is at most one.
 func (s *Store) GetPasswordByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error) {

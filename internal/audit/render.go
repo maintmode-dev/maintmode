@@ -79,7 +79,7 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LoginFailed:
 		setActor(payload, a.User)
-		payload.EntityID = a.User.ID.String()
+		payload.EntityID = failedLoginEntityID(a.User)
 		payload.Details = fmt.Sprintf("login failed for %s", a.User.Email)
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LogoutSuccess:
@@ -227,6 +227,30 @@ func fillMaintStepAction(
 	payload.Metadata = &entity.AuditMetadata{
 		MaintTitle: maint.Title,
 	}
+}
+
+// failedLoginEntityID files a failed login under something findable.
+//
+// A login that failed before the user was resolved carries a synthetic actor
+// holding only the claimed email, so its ID is the zero UUID -- and every such
+// row would otherwise group under "00000000-0000-...", which identifies nothing.
+// The claimed address is the only identifying thing the attempt produced, so
+// that is what the row is filed under.
+//
+// Only this arm falls back. LoginSuccess and LogoutSuccess cannot be reached
+// without an identified user, so a fallback there would be unreachable code.
+//
+// EntityID is documented as a string that is explicitly not a foreign key and
+// may carry different id kinds, so this stays within the column's contract. It
+// does retire one assumption worth stating: entity_type "user" no longer implies
+// entity_id parses as a UUID, and a reader joining it to users.id must filter
+// those rows out rather than assume.
+func failedLoginEntityID(actor *entity.User) string {
+	if actor.ID == uuid.Nil {
+		return actor.Email
+	}
+
+	return actor.ID.String()
 }
 
 // setActor fills the actor identity fields from the user who performed the

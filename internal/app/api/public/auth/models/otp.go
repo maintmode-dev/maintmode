@@ -26,3 +26,25 @@ type RequestOTPRequest struct {
 type RequestOTPResponse struct {
 	SessionNonce string `json:"session_nonce"`
 }
+
+// VerifyOTPRequest redeems an emailed one-time code.
+//
+// SessionNonce is the value returned by the request endpoint, and it is a body
+// field rather than a cookie for the reason RequestOTPResponse explains: the
+// browser never calls this API directly, so a cookie set here would be held by
+// the BFF and bind nothing.
+//
+// All three of Email, Code and SessionNonce are REQUIRED. As with the request
+// endpoint, saying so here matters more than usual — every failure answers with
+// the same 401, so a client that gets a field wrong receives no runtime signal
+// distinguishing that from a wrong code.
+type VerifyOTPRequest struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
+	// SessionNonce binds the redemption to the client that asked for the code.
+	SessionNonce string `json:"session_nonce"`
+	// RememberMe is accepted and currently ignored — session modes are a
+	// separate change. It is in the contract now so adding it later needs no
+	// wire-format change.
+	RememberMe bool `json:"remember_me"`
+}

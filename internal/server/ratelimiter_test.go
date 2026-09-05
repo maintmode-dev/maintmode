@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/config"
@@ -74,10 +73,7 @@ func TestUIRateLimitKey(t *testing.T) {
 func TestNewUIRateLimiterFallsBackWithoutValkey(t *testing.T) {
 	t.Parallel()
 
-	// Port 1 on the loopback refuses instantly, so every Valkey call errors and
-	// the hybrid limiter defers to the in-memory bucket.
-	rdb := valkeylib.NewClient(&valkeylib.Options{Addr: "127.0.0.1:1"})
-	t.Cleanup(func() { require.NoError(t, rdb.Close()) })
+	rdb := unreachableValkey(t)
 
 	// A deliberately tiny window: burst follows the rate, so 2/min is the whole
 	// depth of the bucket and the third call has nothing left to draw on. The
