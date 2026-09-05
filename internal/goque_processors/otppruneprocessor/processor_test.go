@@ -61,17 +61,23 @@ func TestProcessTask_PropagatesError(t *testing.T) {
 	require.ErrorIs(t, err, wantErr)
 }
 
-// TestNewTaskFactory_StampsTunablesAndDayBucket asserts the factory produces a
-// well-typed task whose payload survives the JSON round-trip and whose external
-// id is day-bucketed.
+// TestNewTaskFactory_StampsTunablesAndDayBucket asserts the tunables the factory
+// stamps survive the JSON round-trip and reach the pruner unchanged.
+//
+// The task type is asserted because the factory chooses which constant to stamp,
+// and stamping the wrong one -- the .cron producer type, say -- would enqueue
+// tasks that no registered processor drains, losing the work silently. That is
+// verified by mutation, not assumed.
+//
+// Nothing else about the task struct is asserted: NotNil after a nil error, or a
+// non-empty external id, is goque echoing its own arguments back. The external
+// id's actual value is pinned by TestOTPPruneExternalID_DayBucketed.
 func TestNewTaskFactory_StampsTunablesAndDayBucket(t *testing.T) {
 	t.Parallel()
 
 	task, err := NewTaskFactory(48*time.Hour, 500)(context.Background())
 	require.NoError(t, err)
-	require.NotNil(t, task)
 	require.Equal(t, entity.ProcessorTaskOTPPrune, task.Type)
-	require.NotEmpty(t, task.ExternalID)
 
 	ctrl := gomock.NewController(t)
 	pruner := mock_otppruneprocessor.NewMockPruner(ctrl)
