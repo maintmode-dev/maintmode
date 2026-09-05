@@ -67,19 +67,6 @@ func (s *Service) Prune(ctx context.Context, retention time.Duration, batchLimit
 
 	cutoff := xtime.UTCNow().Add(-retention)
 
-	// Unreachable given the coercion above, and kept deliberately: it is a guard
-	// against a future edit narrowing that fallback or reordering these steps,
-	// not against any input reachable today. Do not "fix" the fallback to make
-	// this branch testable -- refusing a zero retention instead of defaulting it
-	// would break the documented "unset means default" contract.
-	if !cutoff.Before(xtime.UTCNow()) {
-		xlog.Error(ctx, "refusing to prune one-time codes with a cutoff that is not in the past",
-			xfield.Time("cutoff", cutoff),
-			xfield.Duration("retention", retention),
-		)
-		return nil
-	}
-
 	var total int64
 	for range maxPruneBatches {
 		deleted, err := s.store.PruneOTPExpiredBefore(ctx, cutoff, batchLimit)
