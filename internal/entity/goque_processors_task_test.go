@@ -111,3 +111,30 @@ func TestProcessorTaskPayloadAuditWrite_ToAuditEntry(t *testing.T) {
 	require.Equal(t, payload.Details, entry.Details)
 	require.Equal(t, payload.Metadata, entry.Metadata)
 }
+
+func TestOTPPruneTaskTypes_RegisteredInGuard(t *testing.T) {
+	// Same contract as the invitation pair above: both the task and its .cron
+	// producer must sit in the active set, or NewTaskProcessors registers a
+	// processor the guard does not expect and startup fails.
+	for _, taskType := range []string{
+		ProcessorTaskOTPPrune,
+		ProcessorTaskOTPPruneCron,
+	} {
+		_, ok := ActiveProcessorTaskTypes[taskType]
+		require.Truef(t, ok, "task type %q must be in ActiveProcessorTaskTypes", taskType)
+	}
+}
+
+func TestProcessorTaskPayloadOTPPrune_JSONRoundTrip(t *testing.T) {
+	want := ProcessorTaskPayloadOTPPrune{
+		Retention:  24 * time.Hour,
+		BatchLimit: 1000,
+	}
+
+	raw, err := json.Marshal(want)
+	require.NoError(t, err)
+
+	var got ProcessorTaskPayloadOTPPrune
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, want, got)
+}

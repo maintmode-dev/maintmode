@@ -322,6 +322,7 @@ type TaskProcessorConfig struct {
 	AuditPrune       TaskProcessorAuditPruneConfig       `mapstructure:"audit_prune"`
 	InvitationRotate TaskProcessorInvitationRotateConfig `mapstructure:"invitation_rotate"`
 	InvitationPrune  TaskProcessorInvitationPruneConfig  `mapstructure:"invitation_prune"`
+	OTPPrune         TaskProcessorOTPPruneConfig         `mapstructure:"otp_prune"`
 }
 
 // CryptoConfig addresses the master keys (KEKs) that wrap the data-encryption
@@ -457,6 +458,24 @@ type TaskProcessorInvitationPruneConfig struct {
 	CronSpec string `mapstructure:"cron_spec"`
 	// Retention is the age threshold: terminal invitations whose created_at is
 	// older than now-Retention are deleted (e.g. 8760h = 365 days).
+	Retention time.Duration `mapstructure:"retention"`
+	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
+	// batches until the table is drained for the cutoff.
+	BatchLimit int64 `mapstructure:"batch_limit"`
+}
+
+// TaskProcessorOTPPruneConfig tunes the one-time-code retention sweep that
+// deletes spent OTP credentials (see services/otp.Service.Prune).
+type TaskProcessorOTPPruneConfig struct {
+	// CronSpec is the 5-field schedule for the producer job. Unlike the sibling
+	// sweeps this one has a code-side fallback, so leaving it empty degrades to
+	// the default schedule rather than aborting startup. The task is
+	// day-bucketed, so firing more often than daily still yields one prune a day.
+	CronSpec string `mapstructure:"cron_spec"`
+	// Retention is the age threshold: an OTP whose expires_at is older than
+	// now-Retention is deleted. Short by design (24h), because the row holds a
+	// code digest and a session nonce and the code itself lives only minutes.
+	// Worst-case residency is Retention plus one cron period.
 	Retention time.Duration `mapstructure:"retention"`
 	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
 	// batches until the table is drained for the cutoff.
@@ -630,6 +649,10 @@ func initConfig(appName string) *AppConfig {
 	}
 
 	if err := cfg.validateInvitationRetention(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
+	if err := cfg.validateOTPRetention(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -846,6 +869,27 @@ func (c *AppConfig) validateInvitationRetention() error {
 		return fmt.Errorf(
 			"task_processor.invitation_prune.retention must not be negative, got %s",
 			c.TaskProcessor.InvitationPrune.Retention,
+		)
+	}
+	return nil
+}
+
+// validateOTPRetention rejects a negative otp-prune retention at startup, for
+// the same reason as its invitation twin: a negative value would push the prune
+// cutoff into the future, and it is always an operator typo rather than an
+// intent. The service clamps it defensively too — that clamp, not this check, is
+// what actually keeps a live code from being deleted — but a bad value in config
+// should still be loud. Zero is allowed and means "unset".
+//
+// Deliberately no comparison against the OTP TTL. A code is only eligible once
+// its expires_at is already past, so every positive retention is safe however
+// small, and reaching otp.TTL from here would be an import cycle anyway
+// (services/otp imports this package).
+func (c *AppConfig) validateOTPRetention() error {
+	if c.TaskProcessor.OTPPrune.Retention < 0 {
+		return fmt.Errorf(
+			"task_processor.otp_prune.retention must not be negative, got %s",
+			c.TaskProcessor.OTPPrune.Retention,
 		)
 	}
 	return nil
