@@ -24,11 +24,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// defaultOTPPruneCronSpec is the schedule used when config omits one. It is
-// offset from the 03:00 the three other daily sweeps share so four drain loops
-// do not start in the same minute.
-const defaultOTPPruneCronSpec = "15 3 * * *"
-
 // NewTaskProcessors builds the single goque worker for the maintmode process and
 // registers every task type the merged process owns: maint.reminder,
 // maint.auto.cancel (+ cron), invitation.email, otp.email, audit.write,
@@ -213,10 +208,9 @@ func NewTaskProcessors(
 // concurrently with itself, and a day-bucketed external id, so multi-replica
 // ticks collapse to one enqueue per day — the same shape as the other sweeps.
 //
-// Unlike them, the cron spec has a code-side default. audit.prune and
-// invitation.prune abort startup when their spec is missing, which for a merged
-// process means sign-in goes down over an absent config line; falling back the
-// way license.heartbeat does keeps a missing value to a degraded schedule.
+// The cron spec comes straight from config with no code-side default: a missing
+// or malformed value fails here and aborts startup, exactly as it does for
+// audit.prune and invitation.prune. All four deployment stands set it.
 func registerOTPPrune(reg *processorRegistrar, cfg config.TaskProcessorConfig, services *Services) error {
 	pruneCfg := cfg.OTPPrune
 
@@ -228,7 +222,7 @@ func registerOTPPrune(reg *processorRegistrar, cfg config.TaskProcessorConfig, s
 
 	pruneJob, err := goque.NewCronJob(
 		entity.ProcessorTaskOTPPruneCron,
-		cmp.Or(pruneCfg.CronSpec, defaultOTPPruneCronSpec),
+		pruneCfg.CronSpec,
 		time.UTC,
 		otppruneprocessor.NewTaskFactory(pruneCfg.Retention, pruneCfg.BatchLimit),
 	)
