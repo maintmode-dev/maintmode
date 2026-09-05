@@ -20,7 +20,7 @@ import (
 )
 
 // Store is the credential persistence this service needs. Defined consumer-side
-// so the service depends on the three operations it performs, not on the whole
+// so the service depends only on the operations it performs, not on the whole
 // store, and so tests can substitute a fake.
 type Store interface {
 	Create(ctx context.Context, cred *entity.AuthCredential) (*entity.AuthCredential, error)
@@ -32,6 +32,10 @@ type Store interface {
 	// is no lock to hold and nothing for it to protect against.
 	GetUnconsumedOTPByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error)
 	ClaimOTPAttempt(ctx context.Context, id uuid.UUID, maxAttempts int16) (bool, error)
+	// PruneOTPExpiredBefore backs the retention sweep -- the one operation here
+	// that is not part of a sign-in, since it deletes spent codes rather than
+	// reading or retiring one.
+	PruneOTPExpiredBefore(ctx context.Context, cutoff time.Time, limit int64) (int64, error)
 }
 
 // UserService resolves the address to a user. Only the lookup is needed.
