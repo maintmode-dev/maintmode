@@ -203,3 +203,24 @@ func TestChangePasswordRollsBackOnRevocationFailure(t *testing.T) {
 	require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
 		"the password that failed to commit must not authenticate")
 }
+
+// A password that breaks the length policy must answer 400, not 500. The
+// endpoint is authenticated and the caller owns the account, so the reason is
+// safe to state -- and a client cannot render a useful message from an internal
+// error.
+func TestChangePasswordPolicyFailureIsAValidationError(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	srv, _ := initServiceWithUnrelatedBootstrap(t)
+	user := makePasswordUser(ctx, t, nil, "")
+
+	err := srv.ChangePassword(ctx, &entity.ChangePasswordCmd{
+		UserID:      user.ID,
+		NewPassword: strings.Repeat("a", 11),
+		ClientIP:    "10.0.0.1",
+	})
+	require.ErrorIs(t, err, apperr.ErrValidation,
+		"the mapper turns ErrValidation into 400; without it this is a 500")
+	require.ErrorIs(t, err, xcripto.ErrPasswordPolicy)
+}

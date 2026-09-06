@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+
 	"errors"
 	"fmt"
+
+	"github.com/google/uuid"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -29,7 +32,12 @@ func (s *Service) ChangePassword(ctx context.Context, cmd *entity.ChangePassword
 	defer span.End()
 
 	if err := xcripto.ValidatePasswordPolicy(cmd.NewPassword); err != nil {
-		return err
+		// Wrapped into ErrValidation so the mapper answers 400 rather than
+		// falling through to its default 500. This endpoint is authenticated and
+		// the caller owns the account, so unlike the reset path there is nothing
+		// to hide by being vague -- a client should be told the password was too
+		// short.
+		return fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}
 
 	// Resolved rather than synthesized: the audit renderer prints the actor's
@@ -121,4 +129,23 @@ func (s *Service) revokeOtherSessions(ctx context.Context, cmd *entity.ChangePas
 	}
 
 	return nil
+}
+
+// HasPassword reports whether the user holds a password of their own.
+//
+// The client needs this to decide which form to draw -- setting a first
+// password or replacing an existing one -- and it cannot work it out on its
+// own: nothing else in the profile implies it, and a value inferred at sign-in
+// would not survive a reload.
+func (s *Service) HasPassword(ctx context.Context, userID uuid.UUID) (bool, error) {
+	_, err := s.passwords.GetPasswordByUserID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, apperr.ErrAuthCredentialNotFound) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("read password credential: %w", err)
+	}
+
+	return true, nil
 }

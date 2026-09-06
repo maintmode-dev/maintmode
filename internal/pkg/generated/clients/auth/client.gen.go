@@ -410,8 +410,20 @@ type ApiauthmodelsMeResponse struct {
 	Email              *string   `json:"email,omitempty"`
 	Id                 *string   `json:"id,omitempty"`
 	OauthProvider      *string   `json:"oauth_provider,omitempty"`
-	Roles              *[]string `json:"roles,omitempty"`
-	SlackTag           *string   `json:"slack_tag,omitempty"`
+
+	// PasswordSet PasswordSet reports whether the user has a password of their own, as
+	// opposed to reaching the account only through an OAuth provider or the
+	// break-glass credential.
+	//
+	// It exists because the client cannot derive it: nothing else in this
+	// response implies it, and a value inferred at sign-in would not survive a
+	// page reload. It decides which form to draw -- "set a password" or "change
+	// it", the latter needing the current one -- and mirrors what
+	// POST /me/password enforces, where sending current_password in the wrong
+	// case is a 400 either way.
+	PasswordSet *bool     `json:"password_set,omitempty"`
+	Roles       *[]string `json:"roles,omitempty"`
+	SlackTag    *string   `json:"slack_tag,omitempty"`
 
 	// TelegramTag TelegramTag and SlackTag are the user's messenger handles, returned exactly
 	// as entered (a leading "@" only if the user typed one), or null when not set.

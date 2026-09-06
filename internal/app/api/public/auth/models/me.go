@@ -25,9 +25,20 @@ type MeResponse struct {
 	// as entered (a leading "@" only if the user typed one), or null when not set.
 	TelegramTag *string `json:"telegram_tag"`
 	SlackTag    *string `json:"slack_tag"`
+	// PasswordSet reports whether the user has a password of their own, as
+	// opposed to reaching the account only through an OAuth provider or the
+	// break-glass credential.
+	//
+	// It exists because the client cannot derive it: nothing else in this
+	// response implies it, and a value inferred at sign-in would not survive a
+	// page reload. It decides which form to draw -- "set a password" or "change
+	// it", the latter needing the current one -- and mirrors what
+	// POST /me/password enforces, where sending current_password in the wrong
+	// case is a 400 either way.
+	PasswordSet bool `json:"password_set"`
 }
 
-func ToAPIMeResponse(u *entity.User, providers []entity.AuthMethod) *MeResponse {
+func ToAPIMeResponse(u *entity.User, providers []entity.AuthMethod, passwordSet bool) *MeResponse {
 	connected := lo.Map(providers, func(p entity.AuthMethod, _ int) string {
 		return string(p)
 	})
@@ -44,5 +55,6 @@ func ToAPIMeResponse(u *entity.User, providers []entity.AuthMethod) *MeResponse 
 		Timezone:           u.Timezone,
 		TelegramTag:        u.TelegramTag,
 		SlackTag:           u.SlackTag,
+		PasswordSet:        passwordSet,
 	}
 }

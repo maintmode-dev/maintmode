@@ -291,6 +291,10 @@
                     "oauth_provider": {
                         "type": "string"
                     },
+                    "password_set": {
+                        "description": "PasswordSet reports whether the user has a password of their own, as\nopposed to reaching the account only through an OAuth provider or the\nbreak-glass credential.\n\nIt exists because the client cannot derive it: nothing else in this\nresponse implies it, and a value inferred at sign-in would not survive a\npage reload. It decides which form to draw -- \"set a password\" or \"change\nit\", the latter needing the current one -- and mirrors what\nPOST /me/password enforces, where sending current_password in the wrong\ncase is a 400 either way.",
+                        "type": "boolean"
+                    },
                     "roles": {
                         "items": {
                             "type": "string"
