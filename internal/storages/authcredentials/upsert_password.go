@@ -59,9 +59,25 @@ func (s *Store) UpsertPassword(ctx context.Context, userID uuid.UUID, phc string
 			table.AuthCredentials.SecretHash.SET(postgres.String(phc)),
 			table.AuthCredentials.UpdatedAt.SET(postgres.NOW()),
 			table.AuthCredentials.Attempts.SET(postgres.Int(0)),
-			table.AuthCredentials.ExpiresAt.SET(postgres.TimestampzExp(postgres.NULL)),
-			table.AuthCredentials.ConsumedAt.SET(postgres.TimestampzExp(postgres.NULL)),
-			table.AuthCredentials.SessionNonce.SET(postgres.StringExp(postgres.NULL)),
+			// Nulled through CAST rather than TimestampzExp(postgres.NULL).
+			//
+			// SET is typed -- a Timestampz column takes a TimestampzExpression --
+			// while postgres.NULL is a plain Expression, so it needs converting
+			// either way. Doing that with the bare wrapper is what races: the
+			// wrapper calls setRoot on the expression it is handed, and
+			// postgres.NULL is ONE package-level value shared by the whole
+			// process. Two concurrent password writes then mutate the same
+			// object -- `go test -race` reports it, and it is real in
+			// production, where two people changing their passwords at the same
+			// moment take this path.
+			//
+			// CAST wraps NULL in a fresh expression first, so the mutation lands
+			// on something this statement owns. The generated SQL carries an
+			// explicit ::timestamp with time zone, which is what a bare NULL
+			// would have been inferred as anyway.
+			table.AuthCredentials.ExpiresAt.SET(postgres.CAST(postgres.NULL).AS_TIMESTAMPZ()),
+			table.AuthCredentials.ConsumedAt.SET(postgres.CAST(postgres.NULL).AS_TIMESTAMPZ()),
+			table.AuthCredentials.SessionNonce.SET(postgres.CAST(postgres.NULL).AS_TEXT()),
 		))
 
 	if _, err := stmt.ExecContext(ctx, s.db.Executor(ctx)); err != nil {
