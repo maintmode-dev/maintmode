@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	uuid "github.com/google/uuid"
 	audit "github.com/ruko1202/maintmode/internal/audit"
 	entity "github.com/ruko1202/maintmode/internal/entity"
 	gomock "go.uber.org/mock/gomock"
@@ -80,6 +81,69 @@ func (c *MockAuditPublisherPublishCall) DoAndReturn(f func(context.Context, audi
 	return c
 }
 
+// MockOTPRequester is a mock of OTPRequester interface.
+type MockOTPRequester struct {
+	ctrl     *gomock.Controller
+	recorder *MockOTPRequesterMockRecorder
+	isgomock struct{}
+}
+
+// MockOTPRequesterMockRecorder is the mock recorder for MockOTPRequester.
+type MockOTPRequesterMockRecorder struct {
+	mock *MockOTPRequester
+}
+
+// NewMockOTPRequester creates a new mock instance.
+func NewMockOTPRequester(ctrl *gomock.Controller) *MockOTPRequester {
+	mock := &MockOTPRequester{ctrl: ctrl}
+	mock.recorder = &MockOTPRequesterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOTPRequester) EXPECT() *MockOTPRequesterMockRecorder {
+	return m.recorder
+}
+
+// Request mocks base method.
+func (m *MockOTPRequester) Request(ctx context.Context, email string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Request", ctx, email)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Request indicates an expected call of Request.
+func (mr *MockOTPRequesterMockRecorder) Request(ctx, email any) *MockOTPRequesterRequestCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockOTPRequester)(nil).Request), ctx, email)
+	return &MockOTPRequesterRequestCall{Call: call}
+}
+
+// MockOTPRequesterRequestCall wrap *gomock.Call
+type MockOTPRequesterRequestCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOTPRequesterRequestCall) Return(arg0 string, arg1 error) *MockOTPRequesterRequestCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOTPRequesterRequestCall) Do(f func(context.Context, string) (string, error)) *MockOTPRequesterRequestCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOTPRequesterRequestCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockOTPRequesterRequestCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockOTPVerifier is a mock of OTPVerifier interface.
 type MockOTPVerifier struct {
 	ctrl     *gomock.Controller
@@ -140,6 +204,247 @@ func (c *MockOTPVerifierVerifyCall) Do(f func(context.Context, *entity.VerifyOTP
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockOTPVerifierVerifyCall) DoAndReturn(f func(context.Context, *entity.VerifyOTPCmd) (*entity.User, entity.AuditFailureReason, error)) *MockOTPVerifierVerifyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockPasswordCredentials is a mock of PasswordCredentials interface.
+type MockPasswordCredentials struct {
+	ctrl     *gomock.Controller
+	recorder *MockPasswordCredentialsMockRecorder
+	isgomock struct{}
+}
+
+// MockPasswordCredentialsMockRecorder is the mock recorder for MockPasswordCredentials.
+type MockPasswordCredentialsMockRecorder struct {
+	mock *MockPasswordCredentials
+}
+
+// NewMockPasswordCredentials creates a new mock instance.
+func NewMockPasswordCredentials(ctrl *gomock.Controller) *MockPasswordCredentials {
+	mock := &MockPasswordCredentials{ctrl: ctrl}
+	mock.recorder = &MockPasswordCredentialsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPasswordCredentials) EXPECT() *MockPasswordCredentialsMockRecorder {
+	return m.recorder
+}
+
+// GetPasswordByUserID mocks base method.
+func (m *MockPasswordCredentials) GetPasswordByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPasswordByUserID", ctx, userID)
+	ret0, _ := ret[0].(*entity.AuthCredential)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPasswordByUserID indicates an expected call of GetPasswordByUserID.
+func (mr *MockPasswordCredentialsMockRecorder) GetPasswordByUserID(ctx, userID any) *MockPasswordCredentialsGetPasswordByUserIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPasswordByUserID", reflect.TypeOf((*MockPasswordCredentials)(nil).GetPasswordByUserID), ctx, userID)
+	return &MockPasswordCredentialsGetPasswordByUserIDCall{Call: call}
+}
+
+// MockPasswordCredentialsGetPasswordByUserIDCall wrap *gomock.Call
+type MockPasswordCredentialsGetPasswordByUserIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPasswordCredentialsGetPasswordByUserIDCall) Return(arg0 *entity.AuthCredential, arg1 error) *MockPasswordCredentialsGetPasswordByUserIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPasswordCredentialsGetPasswordByUserIDCall) Do(f func(context.Context, uuid.UUID) (*entity.AuthCredential, error)) *MockPasswordCredentialsGetPasswordByUserIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPasswordCredentialsGetPasswordByUserIDCall) DoAndReturn(f func(context.Context, uuid.UUID) (*entity.AuthCredential, error)) *MockPasswordCredentialsGetPasswordByUserIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpsertPassword mocks base method.
+func (m *MockPasswordCredentials) UpsertPassword(ctx context.Context, userID uuid.UUID, phc string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertPassword", ctx, userID, phc)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertPassword indicates an expected call of UpsertPassword.
+func (mr *MockPasswordCredentialsMockRecorder) UpsertPassword(ctx, userID, phc any) *MockPasswordCredentialsUpsertPasswordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPassword", reflect.TypeOf((*MockPasswordCredentials)(nil).UpsertPassword), ctx, userID, phc)
+	return &MockPasswordCredentialsUpsertPasswordCall{Call: call}
+}
+
+// MockPasswordCredentialsUpsertPasswordCall wrap *gomock.Call
+type MockPasswordCredentialsUpsertPasswordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPasswordCredentialsUpsertPasswordCall) Return(arg0 error) *MockPasswordCredentialsUpsertPasswordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPasswordCredentialsUpsertPasswordCall) Do(f func(context.Context, uuid.UUID, string) error) *MockPasswordCredentialsUpsertPasswordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPasswordCredentialsUpsertPasswordCall) DoAndReturn(f func(context.Context, uuid.UUID, string) error) *MockPasswordCredentialsUpsertPasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockSeedRegistry is a mock of SeedRegistry interface.
+type MockSeedRegistry struct {
+	ctrl     *gomock.Controller
+	recorder *MockSeedRegistryMockRecorder
+	isgomock struct{}
+}
+
+// MockSeedRegistryMockRecorder is the mock recorder for MockSeedRegistry.
+type MockSeedRegistryMockRecorder struct {
+	mock *MockSeedRegistry
+}
+
+// NewMockSeedRegistry creates a new mock instance.
+func NewMockSeedRegistry(ctrl *gomock.Controller) *MockSeedRegistry {
+	mock := &MockSeedRegistry{ctrl: ctrl}
+	mock.recorder = &MockSeedRegistryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSeedRegistry) EXPECT() *MockSeedRegistryMockRecorder {
+	return m.recorder
+}
+
+// IsSpent mocks base method.
+func (m *MockSeedRegistry) IsSpent(ctx context.Context, password string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSpent", ctx, password)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSpent indicates an expected call of IsSpent.
+func (mr *MockSeedRegistryMockRecorder) IsSpent(ctx, password any) *MockSeedRegistryIsSpentCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSpent", reflect.TypeOf((*MockSeedRegistry)(nil).IsSpent), ctx, password)
+	return &MockSeedRegistryIsSpentCall{Call: call}
+}
+
+// MockSeedRegistryIsSpentCall wrap *gomock.Call
+type MockSeedRegistryIsSpentCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSeedRegistryIsSpentCall) Return(arg0 bool, arg1 error) *MockSeedRegistryIsSpentCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSeedRegistryIsSpentCall) Do(f func(context.Context, string) (bool, error)) *MockSeedRegistryIsSpentCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSeedRegistryIsSpentCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockSeedRegistryIsSpentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Record mocks base method.
+func (m *MockSeedRegistry) Record(ctx context.Context, userID uuid.UUID, password string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Record", ctx, userID, password)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Record indicates an expected call of Record.
+func (mr *MockSeedRegistryMockRecorder) Record(ctx, userID, password any) *MockSeedRegistryRecordCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockSeedRegistry)(nil).Record), ctx, userID, password)
+	return &MockSeedRegistryRecordCall{Call: call}
+}
+
+// MockSeedRegistryRecordCall wrap *gomock.Call
+type MockSeedRegistryRecordCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSeedRegistryRecordCall) Return(arg0 error) *MockSeedRegistryRecordCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSeedRegistryRecordCall) Do(f func(context.Context, uuid.UUID, string) error) *MockSeedRegistryRecordCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSeedRegistryRecordCall) DoAndReturn(f func(context.Context, uuid.UUID, string) error) *MockSeedRegistryRecordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Retire mocks base method.
+func (m *MockSeedRegistry) Retire(ctx context.Context, userID uuid.UUID) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Retire", ctx, userID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Retire indicates an expected call of Retire.
+func (mr *MockSeedRegistryMockRecorder) Retire(ctx, userID any) *MockSeedRegistryRetireCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retire", reflect.TypeOf((*MockSeedRegistry)(nil).Retire), ctx, userID)
+	return &MockSeedRegistryRetireCall{Call: call}
+}
+
+// MockSeedRegistryRetireCall wrap *gomock.Call
+type MockSeedRegistryRetireCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSeedRegistryRetireCall) Return(arg0 int64, arg1 error) *MockSeedRegistryRetireCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSeedRegistryRetireCall) Do(f func(context.Context, uuid.UUID) (int64, error)) *MockSeedRegistryRetireCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSeedRegistryRetireCall) DoAndReturn(f func(context.Context, uuid.UUID) (int64, error)) *MockSeedRegistryRetireCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

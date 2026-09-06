@@ -14,6 +14,14 @@ const (
 	AuditActionLoginFailed   AuditAction = "login.failed"
 	AuditActionLogoutSuccess AuditAction = "logout.success"
 
+	// AuditActionPasswordChanged records a user setting or replacing their own
+	// password. A security event in its own right: it evicts every other session.
+	AuditActionPasswordChanged AuditAction = "password.changed"
+
+	// AuditActionPasswordReset records a password set through a one-time code
+	// rather than by proving the old one. It evicts every session.
+	AuditActionPasswordReset AuditAction = "password.reset"
+
 	AuditActionRolesChanged AuditAction = "roles.changed"
 
 	AuditActionUserBlocked   AuditAction = "user.blocked"
@@ -141,6 +149,10 @@ const (
 	// while the mail was in flight, but the same event is what a code relayed to
 	// a third party looks like.
 	AuditFailureSessionMismatch AuditFailureReason = "session nonce mismatch"
+	// AuditFailurePasswordPolicy is a new password refused for its length.
+	//nolint:gosec // G101 false positive: this is an audit reason, not a credential.
+	AuditFailurePasswordPolicy AuditFailureReason = "password policy violation"
+
 	// AuditFailureCodeExpired marks a code presented after its expiry.
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureCodeExpired AuditFailureReason = "code expired"
@@ -218,6 +230,11 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionLoginFailed:   AuditCategoryAuth,
 	AuditActionLogoutSuccess: AuditCategoryAuth,
 
+	// Password events are auth, not "block": they are sign-in credential
+	// changes, and they belong on the same FE chip as the logins they affect.
+	AuditActionPasswordChanged: AuditCategoryAuth,
+	AuditActionPasswordReset:   AuditCategoryAuth,
+
 	// user.tags_changed rides the roles category on purpose. Categories are the
 	// FE filter chips (see AuditCategory) and are fanned out by a switch in
 	// services/auditor/get_logs.go; a new category would need both that switch
@@ -256,6 +273,8 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		AuditActionLoginSuccess,
 		AuditActionLoginFailed,
 		AuditActionLogoutSuccess,
+		AuditActionPasswordChanged,
+		AuditActionPasswordReset,
 	},
 	AuditCategoryRoles: {
 		AuditActionRolesChanged,

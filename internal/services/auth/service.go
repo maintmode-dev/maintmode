@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -25,6 +27,12 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
+// OTPRequester issues a one-time code. The reset flow reuses the sign-in code
+// mechanism unchanged rather than growing a second one.
+type OTPRequester interface {
+	Request(ctx context.Context, email string) (string, error)
+}
+
 // OTPVerifier redeems a one-time code and reports the user it belonged to.
 //
 // Consumer-side, and narrow on purpose: this service needs the redemption and
@@ -33,6 +41,14 @@ type AuditPublisher interface {
 // has nowhere else to go.
 type OTPVerifier interface {
 	Verify(ctx context.Context, cmd *entity.VerifyOTPCmd) (*entity.User, entity.AuditFailureReason, error)
+}
+
+// PasswordCredentials reads and writes the stored password hash. Consumer-side
+// and narrow: this service verifies one and replaces one, and needs nothing
+// else about the credentials table.
+type PasswordCredentials interface {
+	GetPasswordByUserID(ctx context.Context, userID uuid.UUID) (*entity.AuthCredential, error)
+	UpsertPassword(ctx context.Context, userID uuid.UUID, phc string) error
 }
 
 type Service struct {
@@ -45,6 +61,8 @@ type Service struct {
 	blacklistStore *blacklisttoken.Store
 	auditPublisher AuditPublisher
 	otpVerifier    OTPVerifier
+	otpRequester   OTPRequester
+	passwords      PasswordCredentials
 }
 
 func NewService(
@@ -57,6 +75,8 @@ func NewService(
 	tokenSvc *token.Service,
 	auditPublisher AuditPublisher,
 	otpVerifier OTPVerifier,
+	otpRequester OTPRequester,
+	passwords PasswordCredentials,
 ) *Service {
 	return &Service{
 		cfg:            cfg,
@@ -68,6 +88,8 @@ func NewService(
 		tokenSrv:       tokenSvc,
 		auditPublisher: auditPublisher,
 		otpVerifier:    otpVerifier,
+		otpRequester:   otpRequester,
+		passwords:      passwords,
 	}
 }
 

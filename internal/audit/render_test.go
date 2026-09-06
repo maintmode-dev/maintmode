@@ -87,6 +87,30 @@ func TestRender_MapsEveryAction(t *testing.T) {
 			},
 		},
 		{
+			name:             "password changed",
+			action:           PasswordChanged{User: actor, Meta: &entity.AuditMetadata{IP: "1.2.3.4"}},
+			wantAction:       entity.AuditActionPasswordChanged,
+			wantActor:        actor.Email,
+			wantEntityID:     actor.ID.String(),
+			wantDetailsParts: []string{"password changed", actor.Email},
+			checkMetadata: func(t *testing.T, m *entity.AuditMetadata) {
+				t.Helper()
+				require.Equal(t, "1.2.3.4", m.IP)
+			},
+		},
+		{
+			name:             "password reset",
+			action:           PasswordReset{User: actor, Meta: &entity.AuditMetadata{IP: "1.2.3.4"}},
+			wantAction:       entity.AuditActionPasswordReset,
+			wantActor:        actor.Email,
+			wantEntityID:     actor.ID.String(),
+			wantDetailsParts: []string{"password reset", actor.Email},
+			checkMetadata: func(t *testing.T, m *entity.AuditMetadata) {
+				t.Helper()
+				require.Equal(t, "1.2.3.4", m.IP)
+			},
+		},
+		{
 			name: "roles changed",
 			action: RolesChanged{
 				Actor: actor, Target: target, Kind: RolesAssigned,

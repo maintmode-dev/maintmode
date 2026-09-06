@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xemail"
 )
 
 // maxEmailLen bounds the body's email. RFC 5321 caps a real address at 254
@@ -46,7 +47,11 @@ func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 	}
 
 	cmd := &entity.LoginWithPasswordCmd{
-		Email:      body.Email,
+		// Normalized like every other auth entry point. Without it a trailing
+		// zero-width character survives into the EqualFold against the
+		// configured bootstrap address, diverting that login into the
+		// not-the-break-glass-address branch.
+		Email:      xemail.Normalize(body.Email),
 		Password:   body.Password,
 		RememberMe: body.RememberMe,
 		ClientIP:   c.RealIP(),

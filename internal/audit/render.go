@@ -90,6 +90,16 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 			SessionID:  a.SessionID,
 			LogoutKind: entity.AuditLogoutKindManual,
 		}
+	case PasswordChanged:
+		setActor(payload, a.User)
+		payload.EntityID = a.User.ID.String()
+		payload.Details = fmt.Sprintf("password changed for %s", a.User.Email)
+		payload.Metadata = sanitizeMetadata(a.Meta)
+	case PasswordReset:
+		setActor(payload, a.User)
+		payload.EntityID = a.User.ID.String()
+		payload.Details = fmt.Sprintf("password reset for %s", a.User.Email)
+		payload.Metadata = sanitizeMetadata(a.Meta)
 	default:
 		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
 	}

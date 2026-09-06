@@ -76,3 +76,32 @@ func TestAuditActionUserTagsChanged_ValidAndInRolesCategory(t *testing.T) {
 
 	require.Contains(t, AuditCategoryAction(AuditCategoryRoles), AuditActionUserTagsChanged)
 }
+
+// The two direction maps are maintained by hand and are consumed by different
+// callers: auditActionCategories answers "which chip does this event belong
+// to", auditCategoriesAction answers "which events does this chip select".
+// Adding an action to one and forgetting the other is silent -- the event is
+// written and categorized correctly, and then simply never appears when a user
+// filters by its own category.
+//
+// This is not hypothetical: the RUK-289 password events were added to the
+// forward map and missed in the reverse one.
+func TestAuditCategoryMapsAgree(t *testing.T) {
+	t.Parallel()
+
+	for action, category := range auditActionCategories {
+		require.Contains(t, AuditCategoryAction(category), action,
+			"action %q is categorized as %q but that category does not list it, "+
+				"so filtering by it will not return this event", action, category)
+	}
+
+	for category, actions := range auditCategoriesAction {
+		for _, action := range actions {
+			got, ok := AuditActionCategory(action)
+			require.True(t, ok, "category %q lists an action with no category of its own: %q",
+				category, action)
+			require.Equal(t, category, got,
+				"action %q is listed under %q but categorized as %q", action, category, got)
+		}
+	}
+}

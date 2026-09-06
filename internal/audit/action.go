@@ -45,6 +45,25 @@ type LogoutSuccess struct {
 
 func (LogoutSuccess) auditAction() entity.AuditAction { return entity.AuditActionLogoutSuccess }
 
+// PasswordChanged records a user setting or replacing their own password,
+// having proved possession of the old one where there was one.
+type PasswordChanged struct {
+	User *entity.User
+	Meta *entity.AuditMetadata
+}
+
+func (PasswordChanged) auditAction() entity.AuditAction { return entity.AuditActionPasswordChanged }
+
+// PasswordReset records a password set through a one-time code. Distinct from
+// PasswordChanged because the proof was different -- possession of the mailbox
+// rather than of the old password -- and because it evicts every session.
+type PasswordReset struct {
+	User *entity.User
+	Meta *entity.AuditMetadata
+}
+
+func (PasswordReset) auditAction() entity.AuditAction { return entity.AuditActionPasswordReset }
+
 // RolesChangeKind distinguishes the sub-kind of a roles change: assigned /
 // revoked / replaced. It is a classification of the action, not a domain entity.
 type RolesChangeKind string
