@@ -149,6 +149,16 @@ const (
 	// while the mail was in flight, but the same event is what a code relayed to
 	// a third party looks like.
 	AuditFailureSessionMismatch AuditFailureReason = "session nonce mismatch"
+	// AuditFailureUnknown covers a rejection whose cause the failing layer could
+	// not name -- in practice an infrastructural error, where the request failed
+	// before any decision about the credential was made.
+	//
+	// It exists so that "the trail is silent" never means "nothing happened".
+	// An attempt that was refused is worth recording even when the reason is
+	// only "something below broke", because the alternative is a gap in the one
+	// record an operator reads after an incident.
+	AuditFailureUnknown AuditFailureReason = "unknown failure reason"
+
 	// AuditFailurePasswordPolicy is a new password refused for its length.
 	//nolint:gosec // G101 false positive: this is an audit reason, not a credential.
 	AuditFailurePasswordPolicy AuditFailureReason = "password policy violation"
