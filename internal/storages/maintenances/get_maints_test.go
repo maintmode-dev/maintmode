@@ -142,3 +142,34 @@ func equalMaintsWithoutResources(t *testing.T, actual, expected []*entity.Mainte
 		require.Equal(t, exp, act)
 	}
 }
+
+// A filter carrying only PeriodFrom must not build an inverted range.
+//
+// The upper bound defaults from the lower one rather than from today. When it
+// defaulted to the end of the CURRENT day, asking about tomorrow produced a
+// range whose lower bound sat above its upper, and Postgres rejected the whole
+// query (22000) -- a 500 where the honest answer is a list.
+//
+// This is pinned with an explicit far-future PeriodFrom rather than a relative
+// one, so it fails at any hour. TestList/no_overlap covers the same defect but
+// only reproduces it in the last two hours of a UTC day, which is why it read
+// as flaky in CI rather than as the bug it was.
+func TestGetMaints_OpenEndedPeriodFrom(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	store := NewStore(db)
+
+	start := xtime.UTCNow().AddDate(0, 0, 3)
+	planned := makeMaint(ctx, t, store, entity.NewPeriod(start, start.Add(time.Hour)))
+
+	maints, truncated, err := store.GetMaints(ctx, &calendardto.GetMaintsFilter{
+		PeriodFrom: start,
+	}, 100_000)
+	require.NoError(t, err, "an open-ended period must not build an inverted range")
+	require.False(t, truncated)
+
+	ids := lo.Map(maints, func(m *entity.Maintenance, _ int) uuid.UUID { return m.ID })
+	require.Contains(t, ids, planned.ID,
+		"a maintenance starting exactly at PeriodFrom must be returned")
+}
