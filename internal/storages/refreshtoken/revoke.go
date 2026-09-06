@@ -20,6 +20,22 @@ func (s *Store) RevokeByUserID(ctx context.Context, userID uuid.UUID) error {
 	return s.revoke(ctx, whereExpr)
 }
 
+// RevokeByUserIDExceptFamily revokes every session of a user except one.
+//
+// It backs a password change made from a live browser: every other session is
+// evicted -- the point of changing a password after it leaked -- while the one
+// doing the changing survives, because logging someone out of the tab they are
+// working in is a surprise, not a security gain.
+func (s *Store) RevokeByUserIDExceptFamily(ctx context.Context, userID, keep uuid.UUID) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.RefreshToken.RevokeByUserIDExceptFamily")
+	defer span.End()
+
+	whereExpr := table.RefreshTokens.UserID.EQ(postgres.UUID(userID)).
+		AND(table.RefreshTokens.Family.NOT_EQ(postgres.UUID(keep)))
+
+	return s.revoke(ctx, whereExpr)
+}
+
 func (s *Store) RevokeFamily(ctx context.Context, family uuid.UUID) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.RefreshToken.RevokeFamily")
 	defer span.End()
