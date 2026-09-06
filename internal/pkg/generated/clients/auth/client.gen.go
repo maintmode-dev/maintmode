@@ -101,6 +101,8 @@ const (
 	AuditActionMaintStepCompleted EntityAuditAction = "maintenance_step.completed"
 	AuditActionMaintStepStarted   EntityAuditAction = "maintenance_step.started"
 	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
+	AuditActionPasswordChanged    EntityAuditAction = "password.changed"
+	AuditActionPasswordReset      EntityAuditAction = "password.reset"
 	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
 	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
 	AuditActionUserTagsChanged    EntityAuditAction = "user.tags_changed"
@@ -137,6 +139,10 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionMaintStepStarted:
 		return true
 	case AuditActionMaintUpdated:
+		return true
+	case AuditActionPasswordChanged:
+		return true
+	case AuditActionPasswordReset:
 		return true
 	case AuditActionRolesChanged:
 		return true
@@ -354,6 +360,13 @@ type ApiauthmodelsAuthMethodsResponse struct {
 	Methods *[]ApiauthmodelsAuthMethod `json:"methods,omitempty"`
 }
 
+// ApiauthmodelsChangePasswordRequest defines model for apiauthmodels.ChangePasswordRequest.
+type ApiauthmodelsChangePasswordRequest struct {
+	CurrentPassword *string `json:"current_password,omitempty"`
+	NewPassword     string  `json:"new_password"`
+	RefreshToken    *string `json:"refresh_token,omitempty"`
+}
+
 // ApiauthmodelsConnectProviderRequest defines model for apiauthmodels.ConnectProviderRequest.
 type ApiauthmodelsConnectProviderRequest struct {
 	IdToken *string `json:"id_token,omitempty"`
@@ -417,6 +430,14 @@ type ApiauthmodelsRequestOTPRequest struct {
 // ApiauthmodelsRequestOTPResponse defines model for apiauthmodels.RequestOTPResponse.
 type ApiauthmodelsRequestOTPResponse struct {
 	SessionNonce *string `json:"session_nonce,omitempty"`
+}
+
+// ApiauthmodelsResetPasswordRequest defines model for apiauthmodels.ResetPasswordRequest.
+type ApiauthmodelsResetPasswordRequest struct {
+	Code         string `json:"code"`
+	Email        string `json:"email"`
+	NewPassword  string `json:"new_password"`
+	SessionNonce string `json:"session_nonce"`
 }
 
 // ApiauthmodelsTokenPairResponse defines model for apiauthmodels.TokenPairResponse.
@@ -653,6 +674,12 @@ type PostApiV1LogoutAllParams struct {
 	Authorization string `json:"Authorization"`
 }
 
+// PostApiV1MePasswordParams defines parameters for PostApiV1MePassword.
+type PostApiV1MePasswordParams struct {
+	// Authorization Bearer access token
+	Authorization string `json:"Authorization"`
+}
+
 // PostApiV1MeProvidersProviderConnectParamsProvider defines parameters for PostApiV1MeProvidersProviderConnect.
 type PostApiV1MeProvidersProviderConnectParamsProvider string
 
@@ -707,8 +734,17 @@ type PostApiV1LogoutJSONRequestBody = AuthRefreshTokenJSONRequest
 // PatchApiV1MeJSONRequestBody defines body for PatchApiV1Me for application/json ContentType.
 type PatchApiV1MeJSONRequestBody = ApiauthmodelsUpdateMeRequest
 
+// PostApiV1MePasswordJSONRequestBody defines body for PostApiV1MePassword for application/json ContentType.
+type PostApiV1MePasswordJSONRequestBody = ApiauthmodelsChangePasswordRequest
+
 // PostApiV1MeProvidersProviderConnectJSONRequestBody defines body for PostApiV1MeProvidersProviderConnect for application/json ContentType.
 type PostApiV1MeProvidersProviderConnectJSONRequestBody = ApiauthmodelsConnectProviderRequest
+
+// PostApiV1PasswordResetConfirmJSONRequestBody defines body for PostApiV1PasswordResetConfirm for application/json ContentType.
+type PostApiV1PasswordResetConfirmJSONRequestBody = ApiauthmodelsResetPasswordRequest
+
+// PostApiV1PasswordResetRequestJSONRequestBody defines body for PostApiV1PasswordResetRequest for application/json ContentType.
+type PostApiV1PasswordResetRequestJSONRequestBody = ApiauthmodelsRequestOTPRequest
 
 // PostApiV1RefreshJSONRequestBody defines body for PostApiV1Refresh for application/json ContentType.
 type PostApiV1RefreshJSONRequestBody = AuthRefreshTokenJSONRequest
@@ -849,6 +885,11 @@ type ClientInterface interface {
 
 	PatchApiV1Me(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostApiV1MePasswordWithBody request with any body
+	PostApiV1MePasswordWithBody(ctx context.Context, params *PostApiV1MePasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1MePassword(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostApiV1MeProvidersProviderConnectWithBody request with any body
 	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -856,6 +897,16 @@ type ClientInterface interface {
 
 	// DeleteApiV1MeProvidersProviderDisconnect request
 	DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1PasswordResetConfirmWithBody request with any body
+	PostApiV1PasswordResetConfirmWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1PasswordResetConfirm(ctx context.Context, body PostApiV1PasswordResetConfirmJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1PasswordResetRequestWithBody request with any body
+	PostApiV1PasswordResetRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1PasswordResetRequest(ctx context.Context, body PostApiV1PasswordResetRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1RefreshWithBody request with any body
 	PostApiV1RefreshWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1131,6 +1182,30 @@ func (c *Client) PatchApiV1Me(ctx context.Context, body PatchApiV1MeJSONRequestB
 	return c.Client.Do(req)
 }
 
+func (c *Client) PostApiV1MePasswordWithBody(ctx context.Context, params *PostApiV1MePasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MePasswordRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1MePassword(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MePasswordRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1MeProvidersProviderConnectRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
@@ -1157,6 +1232,54 @@ func (c *Client) PostApiV1MeProvidersProviderConnect(ctx context.Context, provid
 
 func (c *Client) DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteApiV1MeProvidersProviderDisconnectRequest(c.Server, provider)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1PasswordResetConfirmWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1PasswordResetConfirmRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1PasswordResetConfirm(ctx context.Context, body PostApiV1PasswordResetConfirmJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1PasswordResetConfirmRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1PasswordResetRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1PasswordResetRequestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1PasswordResetRequest(ctx context.Context, body PostApiV1PasswordResetRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1PasswordResetRequestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1936,6 +2059,59 @@ func NewPatchApiV1MeRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewPostApiV1MePasswordRequest calls the generic PostApiV1MePassword builder with application/json body
+func NewPostApiV1MePasswordRequest(server string, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1MePasswordRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostApiV1MePasswordRequestWithBody generates requests for PostApiV1MePassword with any type of body
+func NewPostApiV1MePasswordRequestWithBody(server string, params *PostApiV1MePasswordParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/password")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Authorization", params.Authorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewPostApiV1MeProvidersProviderConnectRequest calls the generic PostApiV1MeProvidersProviderConnect builder with application/json body
 func NewPostApiV1MeProvidersProviderConnectRequest(server string, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2013,6 +2189,86 @@ func NewDeleteApiV1MeProvidersProviderDisconnectRequest(server string, provider 
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPostApiV1PasswordResetConfirmRequest calls the generic PostApiV1PasswordResetConfirm builder with application/json body
+func NewPostApiV1PasswordResetConfirmRequest(server string, body PostApiV1PasswordResetConfirmJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1PasswordResetConfirmRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1PasswordResetConfirmRequestWithBody generates requests for PostApiV1PasswordResetConfirm with any type of body
+func NewPostApiV1PasswordResetConfirmRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/password/reset/confirm")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1PasswordResetRequestRequest calls the generic PostApiV1PasswordResetRequest builder with application/json body
+func NewPostApiV1PasswordResetRequestRequest(server string, body PostApiV1PasswordResetRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1PasswordResetRequestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1PasswordResetRequestRequestWithBody generates requests for PostApiV1PasswordResetRequest with any type of body
+func NewPostApiV1PasswordResetRequestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/password/reset/request")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2758,6 +3014,11 @@ type ClientWithResponsesInterface interface {
 
 	PatchApiV1MeWithResponse(ctx context.Context, body PatchApiV1MeJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1MeResponse, error)
 
+	// PostApiV1MePasswordWithBodyWithResponse request with any body
+	PostApiV1MePasswordWithBodyWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error)
+
+	PostApiV1MePasswordWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error)
+
 	// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with any body
 	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
 
@@ -2765,6 +3026,16 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteApiV1MeProvidersProviderDisconnectWithResponse request
 	DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error)
+
+	// PostApiV1PasswordResetConfirmWithBodyWithResponse request with any body
+	PostApiV1PasswordResetConfirmWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetConfirmResponse, error)
+
+	PostApiV1PasswordResetConfirmWithResponse(ctx context.Context, body PostApiV1PasswordResetConfirmJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetConfirmResponse, error)
+
+	// PostApiV1PasswordResetRequestWithBodyWithResponse request with any body
+	PostApiV1PasswordResetRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetRequestResponse, error)
+
+	PostApiV1PasswordResetRequestWithResponse(ctx context.Context, body PostApiV1PasswordResetRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetRequestResponse, error)
 
 	// PostApiV1RefreshWithBodyWithResponse request with any body
 	PostApiV1RefreshWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1RefreshResponse, error)
@@ -3210,6 +3481,38 @@ func (r PatchApiV1MeResponse) ContentType() string {
 	return ""
 }
 
+type PostApiV1MePasswordResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1MePasswordResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1MePasswordResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1MePasswordResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiV1MeProvidersProviderConnectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3269,6 +3572,68 @@ func (r DeleteApiV1MeProvidersProviderDisconnectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DeleteApiV1MeProvidersProviderDisconnectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1PasswordResetConfirmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1PasswordResetConfirmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1PasswordResetConfirmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1PasswordResetConfirmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1PasswordResetRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *ApiauthmodelsRequestOTPResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1PasswordResetRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1PasswordResetRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1PasswordResetRequestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3934,6 +4299,23 @@ func (c *ClientWithResponses) PatchApiV1MeWithResponse(ctx context.Context, body
 	return ParsePatchApiV1MeResponse(rsp)
 }
 
+// PostApiV1MePasswordWithBodyWithResponse request with arbitrary body returning *PostApiV1MePasswordResponse
+func (c *ClientWithResponses) PostApiV1MePasswordWithBodyWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error) {
+	rsp, err := c.PostApiV1MePasswordWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MePasswordResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1MePasswordWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error) {
+	rsp, err := c.PostApiV1MePassword(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MePasswordResponse(rsp)
+}
+
 // PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersProviderConnectResponse
 func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
 	rsp, err := c.PostApiV1MeProvidersProviderConnectWithBody(ctx, provider, contentType, body, reqEditors...)
@@ -3958,6 +4340,40 @@ func (c *ClientWithResponses) DeleteApiV1MeProvidersProviderDisconnectWithRespon
 		return nil, err
 	}
 	return ParseDeleteApiV1MeProvidersProviderDisconnectResponse(rsp)
+}
+
+// PostApiV1PasswordResetConfirmWithBodyWithResponse request with arbitrary body returning *PostApiV1PasswordResetConfirmResponse
+func (c *ClientWithResponses) PostApiV1PasswordResetConfirmWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetConfirmResponse, error) {
+	rsp, err := c.PostApiV1PasswordResetConfirmWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1PasswordResetConfirmResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1PasswordResetConfirmWithResponse(ctx context.Context, body PostApiV1PasswordResetConfirmJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetConfirmResponse, error) {
+	rsp, err := c.PostApiV1PasswordResetConfirm(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1PasswordResetConfirmResponse(rsp)
+}
+
+// PostApiV1PasswordResetRequestWithBodyWithResponse request with arbitrary body returning *PostApiV1PasswordResetRequestResponse
+func (c *ClientWithResponses) PostApiV1PasswordResetRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetRequestResponse, error) {
+	rsp, err := c.PostApiV1PasswordResetRequestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1PasswordResetRequestResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1PasswordResetRequestWithResponse(ctx context.Context, body PostApiV1PasswordResetRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetRequestResponse, error) {
+	rsp, err := c.PostApiV1PasswordResetRequest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1PasswordResetRequestResponse(rsp)
 }
 
 // PostApiV1RefreshWithBodyWithResponse request with arbitrary body returning *PostApiV1RefreshResponse
@@ -4637,6 +5053,46 @@ func ParsePatchApiV1MeResponse(rsp *http.Response) (*PatchApiV1MeResponse, error
 	return response, nil
 }
 
+// ParsePostApiV1MePasswordResponse parses an HTTP response from a PostApiV1MePasswordWithResponse call
+func ParsePostApiV1MePasswordResponse(rsp *http.Response) (*PostApiV1MePasswordResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1MePasswordResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostApiV1MeProvidersProviderConnectResponse parses an HTTP response from a PostApiV1MeProvidersProviderConnectWithResponse call
 func ParsePostApiV1MeProvidersProviderConnectResponse(rsp *http.Response) (*PostApiV1MeProvidersProviderConnectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4718,6 +5174,72 @@ func ParseDeleteApiV1MeProvidersProviderDisconnectResponse(rsp *http.Response) (
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1PasswordResetConfirmResponse parses an HTTP response from a PostApiV1PasswordResetConfirmWithResponse call
+func ParsePostApiV1PasswordResetConfirmResponse(rsp *http.Response) (*PostApiV1PasswordResetConfirmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1PasswordResetConfirmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1PasswordResetRequestResponse parses an HTTP response from a PostApiV1PasswordResetRequestWithResponse call
+func ParsePostApiV1PasswordResetRequestResponse(rsp *http.Response) (*PostApiV1PasswordResetRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1PasswordResetRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ApiauthmodelsRequestOTPResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 

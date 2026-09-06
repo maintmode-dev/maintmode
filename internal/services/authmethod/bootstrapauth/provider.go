@@ -37,6 +37,12 @@ func NewService(cfg config.BootstrapConfig, password string) *Service {
 	}
 }
 
+// Email is the address the break-glass admin signs in as. The login path needs
+// it to decide whether an incoming address is even a candidate for this method.
+func (s *Service) Email() string {
+	return s.email
+}
+
 func (s *Service) MethodID() entity.AuthMethod {
 	return entity.AuthMethodBootstrap
 }
