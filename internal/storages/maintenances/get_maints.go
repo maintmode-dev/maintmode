@@ -46,7 +46,19 @@ func (s *Store) GetMaints(ctx context.Context, filter *calendardto.GetMaintsFilt
 
 func filterToWhereExpr(f *calendardto.GetMaintsFilter) postgres.BoolExpression {
 	periodFrom := lo.Ternary(f.PeriodFrom.IsZero(), xtime.StartOfTheCurrentDay(), f.PeriodFrom)
-	periodTo := lo.Ternary(f.PeriodTo.IsZero(), xtime.EndOfTheCurrentDay(), f.PeriodTo)
+
+	// The upper default is anchored to periodFrom, not to today. Anchoring it to
+	// today made the two defaults independent, and a caller who supplied only
+	// period_from -- tomorrow, say -- got a range whose lower bound was above
+	// its upper. Postgres rejects that outright (22000, "range lower bound must
+	// be less than or equal to range upper bound"), so the request failed with a
+	// 500 where the honest answer is "the rest of that day".
+	//
+	// It also made the query time-dependent in a way nothing declared: the same
+	// call answered differently before and after midnight UTC. TestList/no_overlap
+	// asks about a maintenance starting two hours out and was red for the last
+	// two hours of every UTC day for exactly this reason.
+	periodTo := lo.Ternary(f.PeriodTo.IsZero(), xtime.EndOfTheDay(periodFrom), f.PeriodTo)
 
 	expr := postgres.AND(
 		table.Maintenances.PlannedPeriod.OVERLAP(

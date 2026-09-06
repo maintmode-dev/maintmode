@@ -206,6 +206,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 
 	s.otpRoutes(gr, meta)
 	s.providersRoute(gr, meta)
+	s.passwordResetRoutes(gr, meta)
 
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
@@ -237,6 +238,22 @@ func (s *APIServer) otpRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 	)
 	loginOTPGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestOTP)
 	loginOTPGr.Add(http.MethodPost, "/verify", s.handlers.Auth.VerifyOTP)
+}
+
+// passwordResetRoutes registers the self-service password reset.
+//
+// It takes the SAME three limiter tiers as the sign-in codes, because it issues
+// the same codes through the same mailer: leaving reset on the per-IP bucket
+// alone would hand an attacker a second, cheaper door to the mail sender and to
+// one victim's code attempts.
+func (s *APIServer) passwordResetRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
+	resetGr := gr.Group("/password/reset",
+		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter),
+		NewOTPGlobalRateLimiter(meta.AppName, s.valkey, s.cfg.OTPGlobalRateLimiter),
+	)
+	resetGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestPasswordReset)
+	resetGr.Add(http.MethodPost, "/confirm", s.handlers.Auth.ResetPassword)
 }
 
 // providersRoute registers the public sign-in method list.
@@ -393,6 +410,7 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	withAuthorize.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.handlers.Auth.LogoutAll)
 	withAuthorize.Add(http.MethodGet, "/me", s.handlers.Auth.Me)
+	withAuthorize.Add(http.MethodPost, "/me/password", s.handlers.Auth.ChangePassword)
 	withAuthorize.Add(http.MethodPatch, "/me", s.handlers.Auth.UpdateMe)
 	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.handlers.Auth.ConnectProvider)
 	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.handlers.Auth.DisconnectProvider)

@@ -47,5 +47,16 @@ func (i *Implementation) Me(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(user, providers))
+	// A read failure here degrades to "no password" rather than failing the
+	// whole profile: the field steers which form a client draws, and drawing
+	// the set-a-password one when a password exists costs the user a retry,
+	// while a 500 costs them the page.
+	passwordSet, err := i.authSrv.HasPassword(ctx, ctxUser.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to check password presence", xfield.Error(err))
+
+		passwordSet = false
+	}
+
+	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(user, providers, passwordSet))
 }

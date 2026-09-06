@@ -270,13 +270,41 @@ type VerifyOTPCmd struct {
 	UserAgent  string
 }
 
+// ResetPasswordCmd sets a password by redeeming a one-time code rather than by
+// proving the old one. It carries no session to spare: a reset evicts every
+// session, since the person resetting may be recovering the account.
+type ResetPasswordCmd struct {
+	Email        string
+	Code         string
+	SessionNonce string
+	NewPassword  string
+	ClientIP     string
+	UserAgent    string
+}
+
+// ChangePasswordCmd is the request to set a user's own password.
+//
+// CurrentPassword is required when one is already set and must be absent when
+// none is -- the state right after a break-glass login. RefreshToken names the
+// session to spare and is optional; without it every session is evicted,
+// including the caller's, which is the only way an admin who has lost their
+// refresh token can still set a password.
+type ChangePasswordCmd struct {
+	UserID          uuid.UUID
+	CurrentPassword string
+	NewPassword     string
+	RefreshToken    string
+	ClientIP        string
+	UserAgent       string
+}
+
 // LoginWithPasswordCmd is a sign-in with a password rather than an upstream
-// token. Today the only method behind it is the break-glass bootstrap admin;
-// email_password joins it later on the same endpoint.
+// token: either the user's own stored password, or the break-glass one.
 type LoginWithPasswordCmd struct {
-	// Email is carried for the later email_password method and is IGNORED by
-	// bootstrap, whose identity comes from configuration: whoever controls the
-	// deployment decides who the admin is, not whoever guessed the password.
+	// Email selects which credential answers: a user's own stored password, or
+	// the break-glass one when it matches the configured bootstrap address.
+	// It is no longer ignored -- a break-glass password submitted against some
+	// other address signs nobody in.
 	Email    string
 	Password string
 	// RememberMe is accepted and currently ignored — session modes are a

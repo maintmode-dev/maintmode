@@ -189,6 +189,8 @@ func NewServices(ctx context.Context,
 		tokenSrv,
 		auditPublisher,
 		otpSrv,
+		otpSrv,
+		stores.AuthCredentials,
 	)
 
 	invitationSrv := invitation.NewService(

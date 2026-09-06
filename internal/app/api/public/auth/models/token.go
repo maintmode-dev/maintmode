@@ -43,3 +43,19 @@ type LoginWithPasswordRequest struct {
 	// change. Present now so adding them later needs no wire-format change.
 	RememberMe bool `json:"remember_me"`
 }
+
+// ChangePasswordRequest sets the caller's own password.
+//
+// CurrentPassword is required when the account already has one and must be
+// omitted when it does not -- the state right after a break-glass sign-in.
+// Sending it in the wrong case is a 400 rather than a silently ignored field,
+// so a client learns which state it is in.
+//
+// RefreshToken names the session to keep alive. It is optional: omitting it
+// revokes every session, including the caller's, which is how an admin who has
+// lost their refresh token can still set a password.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password" binding:"required"`
+	RefreshToken    string `json:"refresh_token"`
+}

@@ -48,3 +48,13 @@ type VerifyOTPRequest struct {
 	// wire-format change.
 	RememberMe bool `json:"remember_me"`
 }
+
+// ResetPasswordRequest redeems a one-time code and installs a new password.
+// Shaped like VerifyOTPRequest -- it redeems the same kind of code -- plus the
+// password to set.
+type ResetPasswordRequest struct {
+	Email        string `json:"email" binding:"required"`
+	Code         string `json:"code" binding:"required"`
+	SessionNonce string `json:"session_nonce" binding:"required"`
+	NewPassword  string `json:"new_password" binding:"required"`
+}

@@ -26,8 +26,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/user"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
 	"github.com/ruko1202/maintmode/internal/services/license"
 	"github.com/ruko1202/maintmode/internal/services/token"
+	"github.com/ruko1202/maintmode/internal/storages/authcredentials"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
@@ -63,8 +65,9 @@ func TestMain(m *testing.M) {
 }
 
 type serviceMocks struct {
-	authMethod  *mock_authmethod.MockAuthMethod
-	otpVerifier *mock_auth.MockOTPVerifier
+	authMethod   *mock_authmethod.MockAuthMethod
+	otpVerifier  *mock_auth.MockOTPVerifier
+	otpRequester *mock_auth.MockOTPRequester
 }
 
 func initService(t *testing.T) (*Service, *serviceMocks) {
@@ -78,15 +81,56 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 // AuthMethodBootstrap or Get would not find it.
 func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *serviceMocks) {
 	t.Helper()
+
+	return initServiceWithMethods(t, methodID, nil)
+}
+
+// initServiceWithBootstrap builds the service around a REAL break-glass
+// provider answering for the given address and password.
+//
+// The mock AuthMethod cannot stand in here: the seed path needs the provider to
+// report which address it serves and whether its password is durable, and a
+// bare AuthMethod says neither. Substituting a mock would make every seed test
+// silently take the "not the bootstrap address" branch.
+func initServiceWithBootstrap(t *testing.T, email, password string) (*Service, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWithMethods(t, entity.AuthMethodBootstrap,
+		bootstrapauth.NewService(config.BootstrapConfig{Email: email}, password))
+}
+
+// initServiceWithUnrelatedBootstrap builds the service for a test that exercises
+// something other than the break-glass path -- an ordinary password login, a
+// change, a reset. A real bootstrap provider still has to be registered, since
+// the fallback branch consults it on every login, so it answers for an address
+// and a password no test in this package submits.
+func initServiceWithUnrelatedBootstrap(t *testing.T) (*Service, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+}
+
+func initServiceWithMethods(
+	t *testing.T,
+	methodID entity.AuthMethod,
+	concrete authmethod.AuthMethod,
+) (*Service, *serviceMocks) {
+	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
-		authMethod:  mock_authmethod.NewMockAuthMethod(ctrl),
-		otpVerifier: mock_auth.NewMockOTPVerifier(ctrl),
+		authMethod:   mock_authmethod.NewMockAuthMethod(ctrl),
+		otpVerifier:  mock_auth.NewMockOTPVerifier(ctrl),
+		otpRequester: mock_auth.NewMockOTPRequester(ctrl),
 	}
 	mocks.authMethod.EXPECT().
 		MethodID().
 		Return(methodID).
 		AnyTimes()
+
+	method := authmethod.AuthMethod(mocks.authMethod)
+	if concrete != nil {
+		method = concrete
+	}
 
 	txManager := dbtx.NewTxManager(db)
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -121,10 +165,12 @@ func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *
 		),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),
-		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
+		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{method}),
 		tokenSrv,
 		newTestAuditPublisher(t),
 		mocks.otpVerifier,
+		mocks.otpRequester,
+		authcredentials.NewStore(db),
 	), mocks
 }
 

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -31,13 +32,14 @@ func (s *Service) LoginWithOTP(ctx context.Context, cmd *entity.VerifyOTPCmd) (*
 
 	user, reason, err := s.otpVerifier.Verify(ctx, cmd)
 	if err != nil {
-		// A reason is only absent when the failure was infrastructural — a
-		// database error, not a rejected attempt. Those are not sign-in failures
-		// and do not belong in the audit trail as though a credential had been
-		// judged.
-		if reason != "" {
-			s.publishOTPLoginFailure(ctx, cmd, user, reason)
-		}
+		// Audited unconditionally. Verify leaves the reason empty for an
+		// infrastructural failure -- a database error rather than a judged
+		// credential -- and those used to be dropped on the grounds that they
+		// are not really sign-in failures. But an attempt was made and refused,
+		// and a trail that omits it reads as though nothing happened. The
+		// distinction survives: it is recorded AS unknown rather than dressed up
+		// as an invalid code.
+		s.publishOTPLoginFailure(ctx, cmd, user, cmp.Or(reason, entity.AuditFailureUnknown))
 
 		xlog.Warn(ctx, "otp login failed",
 			xfield.String("client_ip", cmd.ClientIP),

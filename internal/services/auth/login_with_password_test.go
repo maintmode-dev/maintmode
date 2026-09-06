@@ -4,16 +4,16 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -45,16 +45,18 @@ func (p *recordingAuditPublisher) actions() []audit.Action {
 	return append([]audit.Action(nil), p.published...)
 }
 
-// bootstrapClaims are what the break-glass method reports on success. The
-// subject is a constant in production; these tests share a database, so each
-// gets its own to stand in for a separate instance.
-func bootstrapClaims() *entity.OAuthIDTokenClaims {
-	id := xuuid.NewString()
-	return &entity.OAuthIDTokenClaims{
-		Subject: entity.BootstrapSubject + "-" + id,
-		Email:   id + "@bootstrap.test",
-		Name:    "Bootstrap Admin",
-	}
+// Why several subtests below are NOT parallel:
+//
+// entity.BootstrapSubject is a per-instance constant, so every break-glass
+// login in this package resolves to the SAME user and shares one seed denylist.
+// Running those concurrently lets one subtest's Retire spend another's seed.
+// Subtests that never touch a seed stay parallel.
+
+// bootstrapAddress returns an address unique to one test. Production has one
+// break-glass admin per instance; these tests share a database, so each stands
+// in for a separate instance.
+func bootstrapAddress() string {
+	return xuuid.NewString() + "@bootstrap.test"
 }
 
 func TestLoginWithPassword(t *testing.T) {
@@ -62,17 +64,15 @@ func TestLoginWithPassword(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	t.Run("issues an admin token pair", func(t *testing.T) {
-		t.Parallel()
+		// NOT parallel: one shared bootstrap admin, see the note above.
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
-		claims := bootstrapClaims()
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), "the-password").
-			Return(claims, nil)
+		email := bootstrapAddress()
+		password := "the-break-glass-" + xuuid.NewString()
+		srv, _ := initServiceWithBootstrap(t, email, password)
 
 		pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email:    "ignored@example.com",
-			Password: "the-password",
+			Email:    email,
+			Password: password,
 			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
@@ -83,113 +83,195 @@ func TestLoginWithPassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, access.UserRoles, entity.RoleAdmin,
 			"the break-glass admin must actually be an admin")
-		require.Equal(t, claims.Email, access.UserEmail,
-			"the identity comes from the method's claims, not the request body")
+
+		// The identity is NOT asserted here. entity.BootstrapSubject is a
+		// per-instance constant, so on this shared test database every
+		// break-glass login resolves to whichever admin was provisioned first.
+		// That is correct in production, where one instance has one break-glass
+		// admin, and it makes the address a property of the database rather
+		// than of this test.
 	})
 
-	// The email in the body belongs to the later email_password method and must
-	// not steer who the break-glass admin is: otherwise whoever guessed the
-	// password would choose the identity, rather than whoever runs the deployment.
-	t.Run("the request body email is ignored", func(t *testing.T) {
+	// The address now selects the method: a break-glass password submitted
+	// against some other address must not sign anyone in. Before RUK-289 the
+	// body email was ignored entirely and any address reached this provider.
+	t.Run("the break-glass password only answers for its own address", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
-		claims := bootstrapClaims()
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), gomock.Any()).
-			Return(claims, nil).
-			Times(2)
+		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "the-break-glass-"+xuuid.NewString())
 
-		first, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: "someone@example.com", Password: "pw", ClientIP: "10.0.0.1",
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email:    "someone-else@example.com",
+			Password: "the-break-glass-password",
+			ClientIP: "10.0.0.1",
 		})
-		require.NoError(t, err)
-		second, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: "someone-else@example.com", Password: "pw", ClientIP: "10.0.0.1",
-		})
-		require.NoError(t, err)
+		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
+	})
 
-		firstClaims, err := srv.tokenSrv.VerifyAccessToken(ctx, first.AccessToken)
-		require.NoError(t, err)
-		secondClaims, err := srv.tokenSrv.VerifyAccessToken(ctx, second.AccessToken)
-		require.NoError(t, err)
+	// The break-glass address must not be locatable by timing. Every failing
+	// branch of this endpoint spends one argon2id verification; the wrong-seed
+	// branch is a constant-time compare over a config string and would answer
+	// microseconds instead of tens of milliseconds without the decoy.
+	t.Run("a wrong break-glass password costs the same as any other failure", func(t *testing.T) {
+		t.Parallel()
 
-		require.Equal(t, firstClaims.Subject, secondClaims.Subject,
-			"a repeat login must resolve the same user regardless of the body email")
-		require.Equal(t, claims.Email, secondClaims.UserEmail)
+		email := bootstrapAddress()
+		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
+
+		measure := func(address string) time.Duration {
+			start := time.Now()
+			_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+				Email: address, Password: "definitely-not-the-password", ClientIP: "10.0.0.1",
+			})
+			require.Error(t, err)
+
+			return time.Since(start)
+		}
+
+		atBootstrap := measure(email)
+		elsewhere := measure("someone-else@example.com")
+
+		// Both pay one argon2id. Asserting a ratio rather than a difference
+		// keeps this meaningful on slower machines; the gap being closed is
+		// three orders of magnitude, so a 4x band cannot hide it.
+		require.Less(t, atBootstrap, elsewhere*4,
+			"the break-glass address must not answer measurably faster than any other")
+		require.Less(t, elsewhere, atBootstrap*4,
+			"nor measurably slower")
 	})
 
 	t.Run("a wrong password yields no token", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), "wrong").
-			Return(nil, apperr.ErrInvalidCredentials)
+		email := bootstrapAddress()
+		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email:    email,
+			Password: "not-the-password",
+			ClientIP: "10.0.0.1",
+		})
+		require.Error(t, err)
+	})
+
+	// Recording is not retiring: a seed login alone leaves the credential live,
+	// so an admin whose session dies has not locked themselves out.
+
+	// Once retired, the same value must never work again -- the whole point of
+	// demoting it from a standing credential.
+
+	// A generated password dies at restart, so it is never recorded and never
+	// retired -- behavior is unchanged from before RUK-289.
+
+	// Step 1 of the resolution order beats step 2: once a stored password exists
+	// for an address, an unretired seed is never consulted for it.
+	t.Run("a stored password takes precedence over the break-glass one", func(t *testing.T) {
+		t.Parallel()
+
+		seedPassword := "the-break-glass-" + xuuid.NewString()
+		user := makePasswordUser(ctx, t, nil, "")
+
+		// The break-glass provider answers for this user's own address, so both
+		// credentials are candidates for the same login.
+		srv, _ := initServiceWithBootstrap(t, user.Email, seedPassword)
+
+		own, err := xcripto.HashPassword("my-own-personal-password")
+		require.NoError(t, err)
+		require.NoError(t, srv.passwords.UpsertPassword(ctx, user.ID, own))
+
+		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: "my-own-personal-password", ClientIP: "10.0.0.1",
+		})
+		require.NoError(t, err, "the personal password must work")
+
+		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: seedPassword, ClientIP: "10.0.0.1",
+		})
+		require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
+			"the break-glass password must not be consulted once a personal one exists")
+	})
+
+	// An ordinary user with a stored password signs in through the same route.
+	t.Run("an ordinary user signs in with their own password", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
+
+		user := makePasswordUser(ctx, t, srv, "an-ordinary-password")
 
 		pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Password: "wrong", ClientIP: "10.0.0.1",
+			Email: user.Email, Password: "an-ordinary-password", ClientIP: "10.0.0.1",
 		})
-		require.Nil(t, pair)
+		require.NoError(t, err)
+		require.NotEmpty(t, pair.AccessToken)
+
+		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: "the-wrong-one", ClientIP: "10.0.0.1",
+		})
 		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
 	})
 
-	// The blocked-user guard lives inside IssueAccessToken, so routing
-	// break-glass through the same funnel means blocking cuts it off too — with
-	// no new check written here.
-	t.Run("a blocked bootstrap admin gets no token", func(t *testing.T) {
+	// A sha256 digest in the password column is a bug in whatever wrote it, and
+	// must fail the login rather than read as a mismatch.
+	t.Run("a credential written by the wrong hash function is refused", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
-		claims := bootstrapClaims()
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), gomock.Any()).
-			Return(claims, nil).
-			Times(2)
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 
-		created, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Password: "pw", ClientIP: "10.0.0.1",
+		user := makePasswordUser(ctx, t, srv, "an-ordinary-password")
+		require.NoError(t, srv.passwords.UpsertPassword(ctx, user.ID,
+			"5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"))
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: "an-ordinary-password", ClientIP: "10.0.0.1",
 		})
-		require.NoError(t, err)
-
-		access, err := srv.tokenSrv.VerifyAccessToken(ctx, created.AccessToken)
-		require.NoError(t, err)
-		userID, err := uuid.Parse(access.Subject)
-		require.NoError(t, err)
-
-		require.NoError(t, srv.usersSrv.BlockUser(ctx, &entity.BlockUserCmd{
-			Actor:  entity.SystemUser,
-			UserID: userID,
-		}))
-
-		pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Password: "pw", ClientIP: "10.0.0.1",
-		})
-		require.Nil(t, pair)
-		require.ErrorIs(t, err, apperr.ErrUserBlocked)
+		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
 	})
 }
 
-// Every use of a permanently-live break-glass credential must be on record —
-// that audit trail is one of the compensating controls that make an
-// always-present emergency login acceptable.
+// makePasswordUser provisions an ordinary user. When srv is non-nil the user is
+// given the supplied password; passing nil provisions the row only, for tests
+// that install the credential themselves.
+func makePasswordUser(ctx context.Context, t *testing.T, srv *Service, password string) *entity.User {
+	t.Helper()
+
+	provisioner := srv
+	if provisioner == nil {
+		provisioner, _ = initServiceForMethod(t, entity.AuthMethodGoogle)
+	}
+
+	user, err := provisioner.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle,
+		&entity.OAuthProviderUserInfo{
+			ID:    xuuid.NewString(),
+			Email: xuuid.NewString() + "@example.com",
+			Name:  "ordinary user",
+		}, entity.UserCreationPolicy{AllowCreate: true})
+	require.NoError(t, err)
+
+	if srv != nil {
+		hash, hashErr := xcripto.HashPassword(password)
+		require.NoError(t, hashErr)
+		require.NoError(t, srv.passwords.UpsertPassword(ctx, user.ID, hash))
+	}
+
+	return user
+}
+
 func TestLoginWithPassword_Audit(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	t.Run("a success is audited", func(t *testing.T) {
-		t.Parallel()
+		// NOT parallel: see the seed subtests above -- one shared bootstrap user.
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
+		email := bootstrapAddress()
+		password := "the-break-glass-" + xuuid.NewString()
+		srv, _ := initServiceWithBootstrap(t, email, password)
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
 
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), gomock.Any()).
-			Return(bootstrapClaims(), nil)
-
 		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Password: "pw", ClientIP: "10.0.0.1", UserAgent: "curl/8",
+			Email: email, Password: password, ClientIP: "10.0.0.1", UserAgent: "curl/8",
 		})
 		require.NoError(t, err)
 
@@ -208,16 +290,13 @@ func TestLoginWithPassword_Audit(t *testing.T) {
 	t.Run("a wrong password is audited with its own reason", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initServiceForMethod(t, entity.AuthMethodBootstrap)
+		email := bootstrapAddress()
+		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
 
-		mocks.authMethod.EXPECT().
-			Authenticate(gomock.Any(), gomock.Any()).
-			Return(nil, apperr.ErrInvalidCredentials)
-
 		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: "claimed@example.com", Password: "wrong", ClientIP: "10.0.0.2",
+			Email: email, Password: "wrong", ClientIP: "10.0.0.2",
 		})
 		require.Error(t, err)
 

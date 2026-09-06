@@ -105,7 +105,16 @@ func TestLoginWithOTP_AuditsEachReasonDistinctly(t *testing.T) {
 // TestLoginWithOTP_DoesNotAuditInfrastructuralFailures pins the other side. A
 // database error is not a judged credential, and recording it as a failed
 // sign-in would put noise into the trail an operator reads to spot attacks.
-func TestLoginWithOTP_DoesNotAuditInfrastructuralFailures(t *testing.T) {
+// An infrastructural failure inside Verify leaves the reason empty, and it is
+// audited anyway.
+//
+// This reverses the earlier rule, which dropped such failures on the grounds
+// that a database error is not a judged credential. True, but an attempt was
+// made and refused, and a trail that omits it reads as though nothing happened
+// -- which is the wrong answer to give an operator reading it after an
+// incident. The distinction survives in the reason: recorded AS unknown rather
+// than dressed up as an invalid code.
+func TestLoginWithOTP_AuditsAnUnnamedFailure(t *testing.T) {
 	t.Parallel()
 
 	srv, mocks := initService(t)
@@ -121,7 +130,13 @@ func TestLoginWithOTP_DoesNotAuditInfrastructuralFailures(t *testing.T) {
 	_, err := srv.LoginWithOTP(t.Context(), cmd)
 	require.Error(t, err)
 
-	require.Empty(t, publisher.actions(), "an infrastructure error is not a sign-in failure")
+	actions := publisher.actions()
+	require.Len(t, actions, 1, "a refused attempt must be audited even with no reason to give")
+
+	failed, ok := actions[0].(audit.LoginFailed)
+	require.True(t, ok, "expected a login failure, got %T", actions[0])
+	require.Equal(t, entity.AuditFailureUnknown, failed.Meta.FailureReason,
+		"an unnamed cause must be recorded as unknown, not as a judged credential")
 }
 
 // TestLoginWithOTP_AuditsSuccess pins the half a failure-only trail cannot

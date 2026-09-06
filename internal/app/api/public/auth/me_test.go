@@ -7,12 +7,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5/echotest"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/storages/authcredentials"
+	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
@@ -57,4 +60,40 @@ func TestMe(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
+}
+
+// password_set is what a client uses to decide which form to draw -- setting a
+// first password or replacing an existing one -- so it must reflect stored
+// state rather than anything the client could infer at sign-in and then lose on
+// a reload.
+func TestMeReportsWhetherAPasswordIsSet(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	impl := initImpl(t)
+
+	user, err := impl.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
+		ID:    "oauth-" + uuid.NewString(),
+		Email: uuid.NewString() + "@test.local",
+		Name:  "Password State User",
+	}, entity.UserCreationPolicy{AllowCreate: true})
+	require.NoError(t, err)
+
+	me := func() *apiauthmodels.MeResponse {
+		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+		xecho.UserToEchoCtx(c, user)
+		require.NoError(t, impl.Me(c))
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		return lo.ToPtr(testjsonudils.JSONToAny[apiauthmodels.MeResponse](t, rec.Body))
+	}
+
+	require.False(t, me().PasswordSet,
+		"a user who signed in through a provider has no password of their own")
+
+	hash, err := xcripto.HashPassword("a-perfectly-long-password")
+	require.NoError(t, err)
+	require.NoError(t, authcredentials.NewStore(db).UpsertPassword(ctx, user.ID, hash))
+
+	require.True(t, me().PasswordSet)
 }

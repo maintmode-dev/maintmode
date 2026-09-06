@@ -149,6 +149,17 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apiauthmodels.ChangePasswordRequest:
+            properties:
+                current_password:
+                    type: string
+                new_password:
+                    type: string
+                refresh_token:
+                    type: string
+            required:
+                - new_password
+            type: object
         apiauthmodels.ConnectProviderRequest:
             properties:
                 id_token:
@@ -209,6 +220,19 @@ components:
                     type: string
                 oauth_provider:
                     type: string
+                password_set:
+                    description: |-
+                        PasswordSet reports whether the user has a password of their own, as
+                        opposed to reaching the account only through an OAuth provider or the
+                        break-glass credential.
+
+                        It exists because the client cannot derive it: nothing else in this
+                        response implies it, and a value inferred at sign-in would not survive a
+                        page reload. It decides which form to draw -- "set a password" or "change
+                        it", the latter needing the current one -- and mirrors what
+                        POST /me/password enforces, where sending current_password in the wrong
+                        case is a 400 either way.
+                    type: boolean
                 roles:
                     items:
                         type: string
@@ -236,6 +260,22 @@ components:
             properties:
                 session_nonce:
                     type: string
+            type: object
+        apiauthmodels.ResetPasswordRequest:
+            properties:
+                code:
+                    type: string
+                email:
+                    type: string
+                new_password:
+                    type: string
+                session_nonce:
+                    type: string
+            required:
+                - code
+                - email
+                - new_password
+                - session_nonce
             type: object
         apiauthmodels.TokenPairResponse:
             properties:
@@ -505,6 +545,8 @@ components:
                 - login.success
                 - login.failed
                 - logout.success
+                - password.changed
+                - password.reset
                 - roles.changed
                 - user.blocked
                 - user.unblocked
@@ -525,6 +567,8 @@ components:
                 - AuditActionLoginSuccess
                 - AuditActionLoginFailed
                 - AuditActionLogoutSuccess
+                - AuditActionPasswordChanged
+                - AuditActionPasswordReset
                 - AuditActionRolesChanged
                 - AuditActionUserBlocked
                 - AuditActionUserUnblocked
@@ -1051,6 +1095,47 @@ paths:
             summary: Update current authenticated user's preferences
             tags:
                 - Auth
+    /api/v1/me/password:
+        post:
+            description: Writes the caller's password, retires any pending break-glass seed, and revokes their other sessions. Supplying refresh_token keeps that session alive; omitting it revokes every session including the caller's.
+            parameters:
+                - description: Bearer access token
+                  in: header
+                  name: Authorization
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.ChangePasswordRequest'
+                description: Password change
+                required: true
+            responses:
+                "204":
+                    description: Password changed
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Validation failed
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unauthorized
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Set or change your own password
+            tags:
+                - Auth
     /api/v1/me/providers/{provider}/connect:
         post:
             description: |-
@@ -1145,6 +1230,60 @@ paths:
             security:
                 - BearerAuth: []
             summary: Disconnect an OAuth provider from the current user
+            tags:
+                - Auth
+    /api/v1/password/reset/confirm:
+        post:
+            description: 'Redeems a code emailed by /password/reset/request and installs a new password. Revokes EVERY session, including any the caller holds. Answers 204 with no token pair: the caller signs in again with the new password.'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.ResetPasswordRequest'
+                description: Code, session nonce and new password
+                required: true
+            responses:
+                "204":
+                    description: Password reset
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Authentication failed, or otp_session_mismatch
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Set a new password with a one-time code
+            tags:
+                - Auth
+    /api/v1/password/reset/request:
+        post:
+            description: Emails a one-time code, reusing the sign-in code mechanism. Always answers 202 with a session nonce -- for a known address, an unknown one, or a blocked user alike -- so the response cannot be used to discover which accounts exist.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.RequestOTPRequest'
+                description: Email
+                required: true
+            responses:
+                "202":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.RequestOTPResponse'
+                    description: Accepted
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Request a password reset code
             tags:
                 - Auth
     /api/v1/refresh:

@@ -57,7 +57,8 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
 		errors.Is(err, apperr.ErrUserAlreadyExists),
-		errors.Is(err, apperr.ErrActivePendingExists):
+		errors.Is(err, apperr.ErrActivePendingExists),
+		errors.Is(err, apperr.ErrInvalidCredentials):
 		statusCode, errResp = mapAuthError(err)
 
 	// Invitation accept failures: surface only the status code, never the
@@ -170,7 +171,15 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
 		errors.Is(err, apperr.ErrUserBlocked),
-		errors.Is(err, apperr.ErrSuspiciousActivity):
+		errors.Is(err, apperr.ErrSuspiciousActivity),
+		// A rejected credential is a 401. Without this arm it fell through to
+		// the default and answered 500 -- POST /me/password with the wrong
+		// current password returned an internal error, which a client cannot
+		// classify and which reads as a server fault rather than a refusal.
+		//
+		// The login routes never noticed: they answer failures themselves and
+		// deliberately bypass this mapper to keep every rejection identical.
+		errors.Is(err, apperr.ErrInvalidCredentials):
 		return http.StatusUnauthorized, NewErrorResponse(ErrUnauthorized, err.Error())
 	case errors.Is(err, apperr.ErrLockBusy):
 		return http.StatusTooManyRequests, NewErrorResponse(ErrLockBusy, err.Error())

@@ -73,5 +73,14 @@ func (i *Implementation) UpdateMe(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(updated, providers))
+	// Same degradation as GET /me: the field steers a form, so a read failure
+	// costs a retry rather than the response.
+	passwordSet, err := i.authSrv.HasPassword(ctx, ctxUser.ID)
+	if err != nil {
+		xlog.Error(ctx, "failed to check password presence", xfield.Error(err))
+
+		passwordSet = false
+	}
+
+	return c.JSON(http.StatusOK, apiauthmodels.ToAPIMeResponse(updated, providers, passwordSet))
 }
