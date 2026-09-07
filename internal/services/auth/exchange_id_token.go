@@ -7,8 +7,6 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
-	"github.com/ruko1202/maintmode/internal/audit"
-
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -20,23 +18,16 @@ func (s *Service) ExchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.ExchangeIDToken")
 	defer span.End()
 
-	pair, user, err := s.exchangeIDToken(ctx, cmd)
+	// Both the success and the failure records are published inside
+	// SignInWithVerifiedClaims, which this path reaches through exchangeIDToken.
+	// Cases that fail before identification (an invalid token) cannot be tied to
+	// a user and are logged rather than audited.
+	pair, _, err := s.exchangeIDToken(ctx, cmd)
 	if err != nil {
-		// Login-failed audit is recorded inside exchangeIDToken once we
-		// have a user identity; cases that fail before identification
-		// (e.g. invalid token) cannot be tied to a user.
 		xlog.Error(ctx, "exchange id token failed", xfield.Error(err))
 		return nil, err
 	}
 
-	s.publishAudit(ctx, audit.LoginSuccess{
-		User: user,
-		Meta: &entity.AuditMetadata{
-			IP:        cmd.ClientIP,
-			UserAgent: cmd.UserAgent,
-			SessionID: pair.SessionID.String(),
-		},
-	})
 	return pair, nil
 }
 
@@ -53,44 +44,14 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 
 	// TestRoles are filled only by the dev component of the API layer; in prod
 	// the field is always empty, so creation falls back to bootstrap/open-signup.
-	user, err := s.usersSrv.GetOrCreateByAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
-		ID:    claims.Subject,
-		Email: claims.Email,
-		Name:  claims.Name,
-	}, entity.UserCreationPolicy{
+	// The policy is derived HERE rather than inside SignInWithVerifiedClaims,
+	// because the other caller of that method — the backend OAuth dance — has no
+	// X-Test-Roles header to derive it from and must pass the zero value.
+	return s.SignInWithVerifiedClaims(ctx, cmd.Provider, claims, entity.UserCreationPolicy{
 		AllowCreate: len(cmd.TestRoles) > 0,
 		GrantRoles:  cmd.TestRoles,
+	}, &entity.AuditMetadata{
+		IP:        cmd.ClientIP,
+		UserAgent: cmd.UserAgent,
 	})
-	if err != nil {
-		// login_failed is a security-relevant record. It is published to the
-		// durable audit outbox: the write survives a crash, at the cost of being
-		// eventually-consistent rather than persisted before we return.
-		s.publishAudit(ctx, audit.LoginFailed{
-			User: &entity.User{
-				Email: claims.Email,
-				Name:  claims.Name,
-			},
-			Meta: &entity.AuditMetadata{
-				IP:            cmd.ClientIP,
-				UserAgent:     cmd.UserAgent,
-				FailureReason: provisioningFailureReason(err),
-			},
-		})
-		return nil, nil, fmt.Errorf("get or create user: %w", err)
-	}
-
-	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
-	if err != nil {
-		s.publishAudit(ctx, audit.LoginFailed{
-			User: user,
-			Meta: &entity.AuditMetadata{
-				IP:            cmd.ClientIP,
-				UserAgent:     cmd.UserAgent,
-				FailureReason: entity.AuditFailureTokenIssuance,
-			},
-		})
-		return nil, nil, fmt.Errorf("issue token pair: %w", err)
-	}
-
-	return pair, user, nil
 }

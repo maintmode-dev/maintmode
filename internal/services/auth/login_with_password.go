@@ -143,14 +143,9 @@ func (s *Service) loginWithStoredPassword(
 
 	issued, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
-		s.publishAudit(ctx, audit.LoginFailed{
-			User: user,
-			Meta: &entity.AuditMetadata{
-				IP:            cmd.ClientIP,
-				UserAgent:     cmd.UserAgent,
-				FailureReason: entity.AuditFailureTokenIssuance,
-			},
-		})
+		s.publishLoginFailure(ctx, user,
+			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
+			entity.AuditFailureTokenIssuance)
 
 		return nil, nil, true, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -226,14 +221,9 @@ func (s *Service) loginWithSeed(
 	if err != nil {
 		// A blocked bootstrap admin lands here: the guard inside IssueAccessToken
 		// refuses the token, so blocking cuts off break-glass too.
-		s.publishAudit(ctx, audit.LoginFailed{
-			User: user,
-			Meta: &entity.AuditMetadata{
-				IP:            cmd.ClientIP,
-				UserAgent:     cmd.UserAgent,
-				FailureReason: entity.AuditFailureTokenIssuance,
-			},
-		})
+		s.publishLoginFailure(ctx, user,
+			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
+			entity.AuditFailureTokenIssuance)
 
 		return nil, nil, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -258,21 +248,13 @@ func (s *Service) burnDecoyHash(ctx context.Context, password string) {
 }
 
 // publishPasswordLoginFailure records a failure that happened before a user was
-// resolved. The audit renderer dereferences the actor unconditionally, so the
-// event carries a synthetic user rather than nil; its zero ID is the documented
-// representation of "a login that failed before the user was known".
+// resolved. The claimed address is the only attribution such an attempt has.
 func (s *Service) publishPasswordLoginFailure(
 	ctx context.Context,
 	cmd *entity.LoginWithPasswordCmd,
 	email string,
 	reason entity.AuditFailureReason,
 ) {
-	s.publishAudit(ctx, audit.LoginFailed{
-		User: &entity.User{Email: email},
-		Meta: &entity.AuditMetadata{
-			IP:            cmd.ClientIP,
-			UserAgent:     cmd.UserAgent,
-			FailureReason: reason,
-		},
-	})
+	s.publishLoginFailure(ctx, &entity.User{Email: email},
+		&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent}, reason)
 }

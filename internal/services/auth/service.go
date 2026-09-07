@@ -93,6 +93,35 @@ func NewService(
 	}
 }
 
+// publishLoginFailure records a login that failed, with whatever attribution the
+// attempt had.
+//
+// actor must never be nil: the audit renderer dereferences its fields without a
+// guard, so a nil one panics the audit processor — asynchronously, long after
+// the request that caused it returned cleanly. Pass the resolved user when there
+// is one, &entity.User{Email: claimed} when an address was offered but matched
+// nothing, and a bare &entity.User{} when the attempt carried no identity at
+// all. The zero ID is the documented representation of "failed before the user
+// was known", and such rows are found by their metadata instead: IP, user agent,
+// failure reason.
+func (s *Service) publishLoginFailure(
+	ctx context.Context,
+	actor *entity.User,
+	meta *entity.AuditMetadata,
+	reason entity.AuditFailureReason,
+) {
+	// Copied rather than written in place: callers reuse one metadata value
+	// across several branches, and mutating it would leak one branch's reason
+	// into another's record.
+	failed := entity.AuditMetadata{FailureReason: reason}
+	if meta != nil {
+		failed = *meta
+		failed.FailureReason = reason
+	}
+
+	s.publishAudit(ctx, audit.LoginFailed{User: actor, Meta: &failed})
+}
+
 // publishAudit publishes an audited action to the durable outbox. A failed
 // enqueue is logged, not propagated: the user's auth action must not fail
 // because the audit publish hiccuped. The durability guarantee is "once
