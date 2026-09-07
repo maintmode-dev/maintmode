@@ -32,7 +32,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 		echootel.NewMiddleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 		TraceMiddleware(),
-		xhttpserver.RequestLoggingMiddleware(),
+		xhttpserver.RequestLoggingMiddlewareWithSanitizer(NewRequestSanitizer()),
 		middleware.ContextTimeout(60*time.Second),
 		middleware.GzipWithConfig(middleware.GzipConfig{}),
 	)
@@ -47,7 +47,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 		)
 		if !env.IsPerformanceTest() {
 			mw = append(mw,
-				xhttpserver.BodyDumpLoggingMiddleware(),
+				xhttpserver.BodyDumpLoggingMiddlewareWithSanitizer(NewRequestSanitizer()),
 			)
 		}
 	}
