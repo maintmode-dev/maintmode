@@ -80,7 +80,7 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 	case LoginFailed:
 		setActor(payload, a.User)
 		payload.EntityID = failedLoginEntityID(a.User)
-		payload.Details = fmt.Sprintf("login failed for %s", a.User.Email)
+		payload.Details = failedLoginDetails(a.User)
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LogoutSuccess:
 		setActor(payload, a.User)
@@ -255,6 +255,21 @@ func fillMaintStepAction(
 // does retire one assumption worth stating: entity_type "user" no longer implies
 // entity_id parses as a UUID, and a reader joining it to users.id must filter
 // those rows out rather than assume.
+// failedLoginDetails renders the human-readable half of a failed login.
+//
+// An attempt that failed before any identity was established has no address to
+// name — the OAuth dance's refusals are all like this — and "login failed for "
+// with a dangling preposition reads like a truncated record rather than a
+// complete one. The metadata carries what such a row is actually found by: IP,
+// user agent, failure reason.
+func failedLoginDetails(actor *entity.User) string {
+	if actor.Email == "" {
+		return "login failed for an unidentified caller"
+	}
+
+	return fmt.Sprintf("login failed for %s", actor.Email)
+}
+
 func failedLoginEntityID(actor *entity.User) string {
 	if actor.ID == uuid.Nil {
 		return actor.Email

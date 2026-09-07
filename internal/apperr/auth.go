@@ -16,7 +16,27 @@ var (
 	ErrSuspiciousActivity   = errors.New("suspicious activity detected")
 	ErrLogoutAlready        = errors.New("logout already")
 	ErrUnsupportedProvider  = errors.New("unsupported provider")
-	ErrAuthUnavailable      = errors.New("auth unavailable")
+	// ErrOAuthExchangeFailed marks the provider failing to hand us something we
+	// can use: a spent or forged code, a PKCE verifier that does not match the
+	// challenge, a redirect_uri the provider does not recognize, a provider-side
+	// fault, or an id_token that will not verify. The distinction between those
+	// is deliberately not carried in the error type — the browser is mid-redirect
+	// and gets one fixed code, and the detail lives in our logs instead.
+	ErrOAuthExchangeFailed = errors.New("oauth code exchange failed")
+	// ErrOAuthProviderDenied marks the provider ending the dance in the redirect
+	// itself — the user declined consent, or the provider reported an error of
+	// its own. Distinct from ErrOAuthExchangeFailed, which is the back-channel
+	// call failing after the browser already came back.
+	ErrOAuthProviderDenied = errors.New("oauth provider denied")
+	// ErrOAuthDanceStateInvalid marks a callback that cannot be shown to belong
+	// to a dance this backend began: no state cookie, a signature that does not
+	// verify, one that has expired, or a missing PKCE verifier or code.
+	//
+	// The causes are deliberately not distinguished. With the state in a cookie
+	// an abandoned tab and a replayed URL arrive identically, and telling a
+	// caller which half of its attempt was wrong would confirm half a guess.
+	ErrOAuthDanceStateInvalid = errors.New("oauth dance state invalid")
+	ErrAuthUnavailable        = errors.New("auth unavailable")
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next

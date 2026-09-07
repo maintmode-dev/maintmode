@@ -115,6 +115,19 @@ const (
 	AuditFailureUserProvisioning AuditFailureReason = "user provisioning failed"
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureTokenIssuance AuditFailureReason = "token issuance failed"
+	// AuditFailureUserBlocked marks a blocked account that got as far as token
+	// issuance: the identity verified and the user row resolved, and only then
+	// did IssueTokenPair refuse.
+	//
+	// It is deliberately NOT filed under AuditFailureTokenIssuance, which it
+	// would otherwise share a branch with. That reason means "this deployment
+	// could not mint a token" — an incident an operator is expected to act on.
+	// This one means "the system did exactly what it was configured to do", and
+	// collapsing the two would make a run of ordinary blocked-user sign-ins
+	// indistinguishable from a failing token service. Same distinction
+	// AuditFailureSignupDisabled draws one step earlier, and the same one
+	// apperr's ErrInvalidCredentials doc insists on for refused accounts.
+	AuditFailureUserBlocked AuditFailureReason = "user blocked"
 	// AuditFailureSignupDisabled marks an OAuth login of an unknown user rejected
 	// because neither an invitation nor open signup authorized creating the account.
 	AuditFailureSignupDisabled AuditFailureReason = "signup disabled"
@@ -143,11 +156,29 @@ const (
 	// AuditFailureAttemptsExhausted marks a guess refused because the code had
 	// already spent its ceiling. The code itself is never compared.
 	AuditFailureAttemptsExhausted AuditFailureReason = "attempts exhausted"
-	// AuditFailureSessionMismatch marks a correct-shaped attempt whose session
-	// nonce did not match the one bound to the code. It is a risk signal rather
-	// than a routine error: the ordinary cause is a user who closed the tab
-	// while the mail was in flight, but the same event is what a code relayed to
-	// a third party looks like.
+	// AuditFailureSessionMismatch marks a correct-shaped attempt that could not
+	// prove it came from the browser the flow began in. It is a risk signal
+	// rather than a routine error: the ordinary cause is a user who closed the
+	// tab mid-flow, but the same event is what a secret relayed to a third party
+	// looks like.
+	//
+	// It serves two flows, and they establish that proof differently.
+	//
+	// For one-time codes a nonce travels in the request body and is compared
+	// against the one bound to the attempt — a per-attempt value, spent once.
+	// The web client calls this backend server-side, so a cookie would bind that
+	// server rather than the user's browser.
+	//
+	// For the OAuth dance there is no stored value to compare against: /start
+	// hands the browser an HMAC signature over the state it sent the provider,
+	// and this reason records that the signature did not verify — absent,
+	// forged, expired, or for a different state or provider. Note what that does
+	// NOT mean here: a signature is deterministic, so unlike the nonce it is not
+	// a one-shot value, and a mismatch says the pair failed to authenticate
+	// rather than that something was spent twice.
+	//
+	// Different mechanisms, one meaning — the request could not prove its
+	// origin — which is why this is one reason and not two.
 	AuditFailureSessionMismatch AuditFailureReason = "session nonce mismatch"
 	// AuditFailureUnknown covers a rejection whose cause the failing layer could
 	// not name -- in practice an infrastructural error, where the request failed
@@ -166,6 +197,53 @@ const (
 	// AuditFailureCodeExpired marks a code presented after its expiry.
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureCodeExpired AuditFailureReason = "code expired"
+
+	// A dance that dies at the state check is pre-identification in the
+	// strongest sense in this file: it carries no identity at all, not even a
+	// claimed address. Those rows are identified by their metadata — IP and user
+	// agent — and their actor fields are zero.
+	//
+	// There is deliberately no "code reused" value for the dance's one-time
+	// code: AuditFailureInvalidCode above already covers an unknown code and
+	// losing the race to consume one, which is exactly that case. A second
+	// symbol would split one documented meaning across two names.
+	//
+	// There were once two more reasons here, "oauth state expired" and "oauth
+	// state reused", which told an abandoned tab from a replay by consulting a
+	// tombstone the store wrote when it consumed a state. The dance no longer
+	// stores anything: the state rides in a signed cookie, so a lapsed dance and
+	// a replayed URL both arrive as a signature that does not verify, and no
+	// mechanism can separate them. Both now record as
+	// AuditFailureSessionMismatch. Do not reintroduce the distinction without
+	// reintroducing something that can actually observe it.
+
+	// AuditFailureProviderUnavailable marks the provider refusing or failing the
+	// back-channel exchange: the token endpoint rejected the code or the
+	// client_secret, timed out, or returned an id_token that would not verify.
+	//
+	// It is its own reason rather than a reuse of AuditFailureInvalidCredentials,
+	// which is documented as a password that did not match. The two would be
+	// indistinguishable in the trail while meaning opposite things: a run of
+	// "invalid credentials" reads as someone guessing passwords, while a run of
+	// this one reads as a rotated client_secret or an unreachable Google — a
+	// different incident with a different runbook. §10 makes the audit trail the
+	// only signal until RUK-292 adds counters, which is exactly why it must not
+	// be blurred.
+	//
+	// It differs from AuditFailureProviderDenied in who ended the dance: that one
+	// is the provider telling us up front, in the redirect, that it will not
+	// proceed; this one is the back-channel call failing after the browser has
+	// already come back to us.
+	AuditFailureProviderUnavailable AuditFailureReason = "oauth provider unavailable"
+	// AuditFailureProviderDenied marks the provider ending the dance: the user
+	// declined consent, or the provider returned an OAuth error of its own.
+	//
+	// It does not belong to the group above and is not filed under its framing:
+	// in the common case nothing failed and nobody is being attacked — a person
+	// clicked "cancel". It is recorded because a sudden run of denials usually
+	// means a broken consent screen or a misconfigured client, which is
+	// invisible otherwise.
+	AuditFailureProviderDenied AuditFailureReason = "oauth provider denied"
 )
 
 type AuditLogoutKind string

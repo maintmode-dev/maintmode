@@ -17,3 +17,19 @@ func provisioningFailureReason(err error) entity.AuditFailureReason {
 	}
 	return entity.AuditFailureUserProvisioning
 }
+
+// issuanceFailureReason is the same distinction one step later.
+//
+// A blocked user does not fail provisioning — the account resolves fine — it
+// fails at IssueTokenPair, which is where ErrUserBlocked is raised. Filing that
+// under AuditFailureTokenIssuance would put two unrelated events under one
+// reason: "this deployment cannot mint tokens", which is an incident, and "this
+// person is blocked", which is the system working as configured. An operator
+// reading the trail has to be able to tell those apart, and apperr's own
+// doctrine for ErrInvalidCredentials says exactly that about refused accounts.
+func issuanceFailureReason(err error) entity.AuditFailureReason {
+	if errors.Is(err, apperr.ErrUserBlocked) {
+		return entity.AuditFailureUserBlocked
+	}
+	return entity.AuditFailureTokenIssuance
+}
