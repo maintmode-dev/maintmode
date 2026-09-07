@@ -5,6 +5,33 @@ app:
   # Moved in from the auth config — the merged process serves the auth
   # routes, so it needs this or those redirects target an empty URL.
   frontend_url: http://localhost:9000
+  # The frontend route the OAuth dance sends the browser back to, appended to
+  # frontend_url. It belongs to the frontend rather than to this service, so a
+  # rename there needs no backend release.
+  #
+  # Required whenever the dance is armed, with no in-code default: a value from
+  # config and another from the binary would mean two places to look when a
+  # redirect lands somewhere unexpected. Leaving it empty leaves the dance
+  # unregistered rather than redirecting to the frontend's bare origin.
+  oauth_callback_path: /auth/oauth/callback
+
+  # The Path attribute of the two dance cookies, and it must be the EXTERNAL
+  # prefix the browser sees. Caddy serves this backend under
+  # `handle_path /auth/*` and STRIPS the prefix, so the app sees
+  # /api/v1/login/oauth/... while the browser's URL space is
+  # /auth/api/v1/login/oauth/... A cookie scoped to what the app sees is never
+  # sent back on the callback, and the dance then dies as a 302 that reads as
+  # success in every access log.
+  #
+  # Keep it the narrowest prefix covering both /start and /callback. Widening to
+  # "/" also works and only means two httpOnly, minutes-long cookies travel more
+  # than they need; narrowing past the shared prefix breaks every sign-in.
+  #
+  # Required whenever the dance is armed, with no in-code default: leaving it
+  # empty is not inert — the attribute is then omitted and the browser scopes
+  # the cookie to the internal request path, which is exactly the value that
+  # never comes back. So an empty value leaves the dance unregistered instead.
+  oauth_cookie_path: /auth/api/v1/login/oauth
 
 auth:
   # Open self-registration: an unknown, uninvited user signs in as guest. ON in
@@ -15,6 +42,12 @@ auth:
   # email is guessable in principle, and this window plus the attempt ceiling
   # below are what bound that.
   otp_ttl: 5m
+  # How long a signed OAuth-dance state stays valid: the span from pressing
+  # "sign in" to finishing a consent screen, password prompt and second factor
+  # included. Enforced by the signature rather than by the cookie's MaxAge, so
+  # lengthening it widens a real window — a captured (state, cookie) pair is
+  # replayable for exactly this long.
+  oauth_dance_state_ttl: 10m
   # The minimum time BOTH one-time-code endpoints take to answer, whatever they
   # did. This is a security knob, not a throttle, and its VALUE is the property:
   # an address with no account is refused after a single indexed SELECT, while a
@@ -133,6 +166,31 @@ oauth_providers:
   use_stub: false
   google:
     client_id: <secret:oauth/google/client_id>
+    # Backend-driven OAuth dance (RUK-291) — OFF by default.
+    #
+    # Uncommenting ALL FOUR keys registers /login/oauth/{provider}/start,
+    # /callback and /code/exchange. Leaving them commented keeps this instance
+    # exactly as it was: the BFF path at /login/oauth/exchange/google stays the
+    # only way in. Setting some but not all logs a warning and registers
+    # nothing — a dance that cannot reach the provider is worse than no dance.
+    #
+    # Before uncommenting client_secret, make sure the key exists in the secret
+    # store this stand reads: the resolver hard-fails on a missing key, so the
+    # reference alone stops the instance booting.
+    #
+    # redirect_uri must be the EXTERNAL url — Caddy serves this backend under
+    # `handle_path /auth/*` and strips the prefix, so the app sees /api/v1/...
+    # while Google must be told /auth/api/v1/... Registering the internal form
+    # yields a redirect_uri_mismatch that never reaches our logs.
+    # client_secret: <secret:oauth/google/client_secret>
+    # redirect_uri: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+    # auth_url and token_url are the provider's endpoints. They carry no
+    # in-code default on purpose: an endpoint baked into the binary is one an
+    # operator cannot see when they need to know where their sign-ins are
+    # going. The values below are Google's own; a stand pointing at a local
+    # fake overrides them here.
+    # auth_url: https://accounts.google.com/o/oauth2/v2/auth
+    # token_url: https://oauth2.googleapis.com/token
     jwtverifier:
       jwks_url: https://www.googleapis.com/oauth2/v3/certs
       jwt_issuers:

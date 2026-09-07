@@ -185,18 +185,57 @@ type Valkey struct {
 	DB       int    `mapstructure:"db"`
 }
 
-// GoogleOauthProvider configures ID-token verification only.
+// GoogleOauthProvider configures Google sign-in.
 //
-// There is deliberately no client_secret, redirect_url or scopes: the BFF
-// (maintmode-ui, NextAuth) owns the authorization-code exchange with Google
-// and posts us the id_token. Those three configure a token-endpoint round
-// trip this service never makes. We verify the token offline against Google's
-// JWKS, and the only thing we need from the OAuth client is ClientID, as the
-// expected audience. Do not reintroduce a secret here — it would be an unused
-// copy of a credential that only the BFF needs.
+// HISTORY, because the previous comment here forbade exactly what now follows:
+// until RUK-291 this block held a client_id and nothing else, because the BFF
+// (maintmode-ui, NextAuth) owned the authorization-code exchange and merely
+// posted us the resulting id_token. A client_secret would have been an unused
+// copy of a credential only the BFF needed.
+//
+// RUK-291 made the backend a confidential OAuth client: it now runs the dance
+// itself (/login/oauth/{provider}/start + /callback), so ClientSecret,
+// RedirectURI and the two endpoints are load-bearing. The BFF path
+// (/login/oauth/exchange/google) is still live and still needs nothing but
+// ClientID, which is why both sets of fields coexist here rather than one
+// replacing the other.
 type GoogleOauthProvider struct {
 	ClientID  string            `mapstructure:"client_id"`
 	JWTVerify JWTVerifierConfig `mapstructure:"jwtverifier"`
+
+	// ClientSecret is the confidential-client credential used at the token
+	// endpoint. Resolved from the secret store via a <secret:...> reference in
+	// app.config.yaml — never written literally into a config file.
+	ClientSecret string `mapstructure:"client_secret"`
+	// RedirectURI is this instance's EXTERNAL callback URL, and it must be the
+	// external form. Caddy serves the backend under `handle_path /auth/*`, which
+	// strips the prefix, so the app sees /api/v1/... while the browser and
+	// Google see /auth/api/v1/... Registering the internal form with Google
+	// yields a redirect_uri_mismatch that never reaches our logs.
+	RedirectURI string `mapstructure:"redirect_uri"`
+	// AuthURL and TokenURL override the provider's endpoints, so a stand can
+	// point the dance at a local fake. Empty means Google's own; the defaults
+	// live with the gateway that dials them, not here.
+	AuthURL  string `mapstructure:"auth_url"`
+	TokenURL string `mapstructure:"token_url"`
+}
+
+// danceConfigured reports whether every value the dance needs to reach the
+// provider is present. All or nothing: a dance that cannot reach the token
+// endpoint is worse than no dance.
+//
+// AuthURL and TokenURL are in here because there is no in-code default for
+// them. Without this check a config naming a client_secret and a redirect_uri
+// but no endpoints would register the routes and then send the browser to a
+// URL with no host — a failure that arrives as a 302 and reads as success in
+// every access log.
+//
+// RedirectURI is checked for presence only. It must be the EXTERNAL form — a
+// proxy that strips a path prefix makes what the provider is told differ from
+// the route the app sees — but getting that right is the operator's job, not
+// something this predicate second-guesses.
+func (g GoogleOauthProvider) danceConfigured() bool {
+	return g.ClientSecret != "" && g.RedirectURI != "" && g.AuthURL != "" && g.TokenURL != ""
 }
 
 // OauthProviders has no `stub` section: the stub short-circuits verification in
@@ -269,6 +308,28 @@ type LoggerConfig struct {
 
 type App struct {
 	FrontendURL string `mapstructure:"frontend_url"`
+	// OAuthCallbackPath is the frontend route the dance sends the browser back
+	// to, appended to FrontendURL. Required when the dance is armed — see
+	// OAuthDanceEnabled.
+	//
+	// It is configurable rather than a literal because the route belongs to the
+	// frontend, not to this service: RUK-292 owns that page, and a rename there
+	// should not need a backend release.
+	OAuthCallbackPath string `mapstructure:"oauth_callback_path"`
+	// OAuthCookiePath is the Path attribute of the two dance cookies, and it
+	// must be the EXTERNAL prefix the browser sees, not the route this service
+	// mounts. Caddy serves the backend under `handle_path /auth/*`, which strips
+	// the prefix: a cookie scoped to the internal route is never sent back on
+	// the callback, and the dance then dies as a 302 that reads as success.
+	//
+	// Stated outright rather than derived from redirect_uri because this is the
+	// value an operator reaches for when a sign-in silently fails, and reading
+	// it should not mean re-deriving it in your head.
+	//
+	// Required when the dance is armed — see OAuthDanceEnabled. Scope it to the
+	// narrowest prefix covering both /start and /callback; "/" works and only
+	// means the two httpOnly, minutes-long cookies travel more than they need.
+	OAuthCookiePath string `mapstructure:"oauth_cookie_path"`
 	// InvitationTTL is how long a user invitation link stays valid. Zero falls
 	// back to a 7-day default at wiring time.
 	InvitationTTL time.Duration `mapstructure:"invitation_ttl"`
@@ -291,6 +352,15 @@ type Auth struct {
 	// email is guessable in principle, and its lifetime is the main control on
 	// that until the per-code attempt ceiling exists.
 	OTPTTL time.Duration `mapstructure:"otp_ttl"`
+	// OAuthDanceStateTTL is how long a signed OAuth-dance state stays valid:
+	// the span from pressing "sign in" to finishing a consent screen, password
+	// prompt and second factor included. Zero falls back to 10 minutes at wiring
+	// time.
+	//
+	// It is enforced by the signature rather than by the cookie's MaxAge, so
+	// lengthening it widens a real window: a captured (state, cookie) pair
+	// verifies for exactly this long.
+	OAuthDanceStateTTL time.Duration `mapstructure:"oauth_dance_state_ttl"`
 	// OTPResponseFloor is the minimum time the one-time-code request endpoint
 	// takes to answer, whatever it did. Zero falls back to 300ms at wiring time.
 	//
@@ -542,6 +612,34 @@ type AppConfig struct {
 	Crypto          CryptoConfig          `mapstructure:"crypto"`
 	License         LicenseConfig         `mapstructure:"license"`
 	Bootstrap       BootstrapConfig       `mapstructure:"bootstrap"`
+}
+
+// OAuthDanceEnabled reports whether the backend-driven OAuth routes should be
+// registered. It follows LicenseConfig.Enabled's both-or-neither shape: a
+// partially configured block leaves the feature entirely off rather than
+// half-armed.
+//
+// FrontendURL and OAuthCallbackPath are both part of the gate because every
+// redirect out of /callback — success and failure alike — is built from the
+// two together, so a dance missing either has nowhere to send the browser.
+// There is deliberately no default for either path: one value from config and
+// another from the binary would mean two places to look when a redirect lands
+// somewhere unexpected.
+//
+// OAuthCookiePath is in the gate for a sharper reason than the other two. An
+// empty Path is not inert — net/http omits the attribute and the browser then
+// scopes the cookie to the request's own directory, which is the INTERNAL route
+// behind the proxy. That is precisely the value that never comes back, so a
+// missing key would arm a dance where every sign-in fails as a 302 reading as
+// success. Refusing to register the routes surfaces the mistake at startup
+// instead.
+//
+// It NEVER aborts startup: an instance that configures no OAuth dance boots
+// exactly as it did before, whatever its frontend_url holds.
+func (c AppConfig) OAuthDanceEnabled() bool {
+	return c.OauthProviders.Google.danceConfigured() &&
+		c.App.FrontendURL != "" && c.App.OAuthCallbackPath != "" &&
+		c.App.OAuthCookiePath != ""
 }
 
 // BootstrapConfig configures the break-glass admin sign-in — the emergency
