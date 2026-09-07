@@ -45,7 +45,42 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	googleoauthgw "github.com/ruko1202/maintmode/internal/gateways/googleoauth"
+	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 )
+
+// newAuthHandlers builds the auth API component, attaching the backend OAuth
+// dance only when it is configured.
+//
+// The gate is checked here as well as at route registration, and the redundancy
+// is deliberate: registration decides whether the endpoints exist, this decides
+// whether a token-exchange client holding a client secret is constructed at all.
+// An unconfigured instance ends up with neither.
+func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkeyClient *valkeylib.Client) *apiauth.Implementation {
+	impl := apiauth.New(
+		cfg.Auth,
+		services.Auth,
+		services.Token,
+		services.User,
+		services.OTP,
+	)
+
+	if !cfg.OAuthDanceEnabled() {
+		return impl
+	}
+
+	// Two halves of arming the dance, and they sit in different layers on
+	// purpose: the service owns the state signature (it already holds the JWT
+	// issuer key the signature is seeded from), the handler owns the transport.
+	services.Auth.WithDance(
+		cfg.Auth,
+		cfg.OauthProviders.Google.ClientSecret,
+		oauthdance.NewStore(valkeyClient),
+		googleoauthgw.NewClient(cfg.OauthProviders.Google),
+	)
+
+	return impl.WithOAuthDance(cfg.OauthProviders.Google, cfg.App)
+}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(),
@@ -140,13 +175,12 @@ func startAPIServer(
 			Integrations:  integrationapi.New(services.Integration, services.UserSummary),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
-			Auth: apiauth.New(
-				cfg.Auth,
-				services.Auth,
-				services.Token,
-				services.User,
-				services.OTP,
-			),
+			// The dance dependencies attach only when the feature is
+			// configured. On an unconfigured instance the routes are never
+			// registered either, so nothing here is ever read — but wiring a
+			// gateway holding an empty client secret would be a live object
+			// waiting for a routing mistake.
+			Auth:        newAuthHandlers(cfg, services, valkeyClient),
 			Roles:       apiroles.New(services.User),
 			Users:       apiusers.New(services.User, services.License),
 			Invitations: apiinvitations.New(services.Invitation),
@@ -159,6 +193,7 @@ func startAPIServer(
 			License:       services.License,
 		},
 		valkeyClient,
+		cfg.OAuthDanceEnabled(),
 		xhttpserver.WithLogger(xecho.NewSlogAdapter(logger)),
 	)
 	s.BindRouters(cfg.Environment, meta)

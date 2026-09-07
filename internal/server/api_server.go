@@ -80,6 +80,13 @@ type APIServer struct {
 	// user). Each limiter degrades to a per-replica in-memory bucket when valkey
 	// is unreachable.
 	valkey *valkeylib.Client
+	// oauthDanceEnabled decides whether the backend-driven dance routes are
+	// registered at all. It arrives already computed (config.OAuthDanceEnabled)
+	// rather than as the config block itself: the router needs the decision, not
+	// the credentials behind it, and passing the whole AppConfig here to answer
+	// one boolean would hand the routing layer the client secret it must never
+	// touch.
+	oauthDanceEnabled bool
 }
 
 func NewAPIServer(
@@ -87,6 +94,7 @@ func NewAPIServer(
 	handlers APIServerHandlers,
 	security APIServerSecurity,
 	rdb *valkeylib.Client,
+	oauthDanceEnabled bool,
 	opts ...xhttpserver.Option,
 ) *APIServer {
 	timeouts := cfg.Timeouts.TimeoutsOrDefault()
@@ -104,10 +112,11 @@ func NewAPIServer(
 			WriteTimeout:      timeouts.Write,
 			IdleTimeout:       timeouts.Idle,
 		}, opts...),
-		cfg:      cfg,
-		handlers: handlers,
-		security: security,
-		valkey:   rdb,
+		cfg:               cfg,
+		handlers:          handlers,
+		security:          security,
+		valkey:            rdb,
+		oauthDanceEnabled: oauthDanceEnabled,
 	}
 }
 
@@ -115,7 +124,8 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	rootGr := s.Echo().Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 
-	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler, xhttpserver.RequestLoggingMiddleware())
+	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler,
+		xhttpserver.RequestLoggingMiddlewareWithSanitizer(middlewares.NewRequestSanitizer()))
 
 	// The /api/v1 base group carries NO blanket access-token gate: the auth module
 	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)
@@ -187,6 +197,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
 	)
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
+	s.oauthDanceRoutes(loginOAuthGr)
 
 	// The break-glass password sign-in. Registered in every environment: it is
 	// what breaks the "to configure a provider you must sign in" loop on a fresh
@@ -215,6 +226,34 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
+}
+
+// oauthDanceRoutes registers the backend-driven OAuth dance, and only when it is
+// configured.
+//
+// The gate is what makes this ticket safe to deploy: an instance that sets no
+// client_secret keeps exactly the routing it had before, and the BFF path at
+// /exchange/google — registered above, unconditionally — stays the only way in.
+// A half-configured block leaves these unregistered too, because a dance that
+// cannot reach the token endpoint is worse than no dance.
+//
+// The routes share the group's per-IP limiter with /exchange/google. That is
+// deliberate: they are the same surface for the same anonymous caller, and
+// NewRateLimiter keys on the client IP with no route component anyway.
+//
+// STATIC BEFORE PARAM. /code/exchange is a literal segment in the same position
+// as {provider}, and echo prefers static segments, but the ordering is written
+// this way so the dependency is visible rather than accidental. The handler's
+// own allow-list is the real guard: it rejects anything that is not a known
+// provider before minting a secret.
+func (s *APIServer) oauthDanceRoutes(loginOAuthGr *echo.Group) {
+	if !s.oauthDanceEnabled {
+		return
+	}
+
+	loginOAuthGr.Add(http.MethodPost, "/code/exchange", s.handlers.Auth.ExchangeOAuthDanceCode)
+	loginOAuthGr.Add(http.MethodGet, "/:provider/start", s.handlers.Auth.StartOAuthDance)
+	loginOAuthGr.Add(http.MethodGet, "/:provider/callback", s.handlers.Auth.OAuthDanceCallback)
 }
 
 // otpRoutes registers the one-time-code endpoints behind all three limiter
