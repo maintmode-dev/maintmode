@@ -54,14 +54,9 @@ func (s *Service) LoginWithOTP(ctx context.Context, cmd *entity.VerifyOTPCmd) (*
 	if err != nil {
 		// A blocked user lands here: the guard inside IssueAccessToken refuses
 		// the token even though the code was correct.
-		s.publishAudit(ctx, audit.LoginFailed{
-			User: user,
-			Meta: &entity.AuditMetadata{
-				IP:            cmd.ClientIP,
-				UserAgent:     cmd.UserAgent,
-				FailureReason: entity.AuditFailureTokenIssuance,
-			},
-		})
+		s.publishLoginFailure(ctx, user,
+			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
+			entity.AuditFailureTokenIssuance)
 
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -94,12 +89,6 @@ func (s *Service) publishOTPLoginFailure(
 		user = &entity.User{Email: cmd.Email}
 	}
 
-	s.publishAudit(ctx, audit.LoginFailed{
-		User: user,
-		Meta: &entity.AuditMetadata{
-			IP:            cmd.ClientIP,
-			UserAgent:     cmd.UserAgent,
-			FailureReason: reason,
-		},
-	})
+	s.publishLoginFailure(ctx, user,
+		&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent}, reason)
 }

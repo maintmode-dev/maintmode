@@ -14,11 +14,17 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
-// Service verifies Google-issued ID tokens. The authorization-code exchange
-// lives in the BFF (maintmode-ui), so this provider never talks to Google's
-// token endpoint: no client secret, no redirect URL, no HTTP client for the
-// token or userinfo endpoints. The one thing it needs from the OAuth client is
-// the client_id, which every ID token must carry as its audience.
+// Service verifies Google-issued ID tokens, and only that. It never talks to
+// Google's token endpoint: no client secret, no HTTP client for the token or
+// userinfo endpoints. The one thing it needs from the OAuth client is the
+// client_id, which every ID token must carry as its audience.
+//
+// It used to be true that nothing in this service talked to that endpoint,
+// because the BFF owned the authorization-code exchange. RUK-291 changed that:
+// gateways/googleoauth is now the confidential-client half and holds the
+// secret. The split is deliberate — verification is offline and stateless,
+// exchange is a network call with a credential — and this half stays reachable
+// for BOTH login paths, so the audience and issuer checks have one home.
 //
 // The verifier state is held flat, mirroring jwtverifier.Service: cfg plus the
 // keyfunc it feeds, plus the timestamp its refresh-failure callback writes.

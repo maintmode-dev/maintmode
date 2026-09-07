@@ -165,6 +165,30 @@ The async task queue is goque. Tasks are registered by type in
   must key by user and therefore must sit after the token gate), which is not
   observable in either layer alone.
 
+- Do not write tests about configuration plumbing. Same principle as route
+  wiring, one layer down: a test that builds an `AppConfig` literal and asserts
+  a predicate over it restates the predicate in a second syntax. That includes
+  tables enumerating which combinations of keys switch a feature on, and tests
+  that a defaulted value defaults.
+
+  A misconfigured instance announces itself the moment it runs: the feature is
+  off, the endpoint 404s, the process refuses to boot. Test the *derivation*
+  that has somewhere to be wrong -- a URL rewritten into a cookie scope, a path
+  prefix stripped by a proxy -- as a pure function on its inputs, in the package
+  that owns it. `absoluteURL(FrontendURL)` is worth pinning; `Enabled() == true
+  when both keys are set` is not.
+
+- Do not add logging to describe configuration back to the operator. A startup
+  line that prints a value the operator just typed into a file they are looking
+  at tells them nothing they cannot read faster from the file, and it goes stale
+  silently when the key is renamed. Log what the process *did* -- a connection
+  established, a processor registered, a credential resolved from the store --
+  not what it was told to do.
+
+  The exception is a value the process *derived* and the operator cannot
+  predict: a resolved hostname, a computed path, a generated password. If the
+  operator can grep it out of a config file, it does not need a log line.
+
 ## Generated Code
 
 - Do not manually edit generated files unless the generator output itself is

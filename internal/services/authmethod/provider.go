@@ -20,6 +20,9 @@ import (
 // owns the OAuth dance with Google and posts us the resulting id_token. The
 // backend only verifies that token offline against the provider's JWKS, which
 // is why it needs a client_id (the expected audience) but no client_secret.
+// (RUK-291 gave the backend a client_secret for the authorization-code dance,
+// but that lives in gateways/googleoauth; verification through this interface
+// stays offline and credential-free).
 //
 // The credential is typed as a plain string because a password and an emailed
 // code will sit behind this same interface. The return type is

@@ -266,3 +266,34 @@ func TestRender_IdentifiedLoginFailureKeepsTheUserID(t *testing.T) {
 	require.Equal(t, user.ID.String(), payload.EntityID)
 	require.Equal(t, user.Email, payload.Actor)
 }
+
+// TestRenderLoginFailedAttributesAnAnonymousAttempt pins what a pre-identity
+// failure looks like once rendered.
+//
+// The publishers in services/auth pass a synthetic &entity.User{} rather than
+// nil, because setActor dereferences the actor unconditionally — and it does so
+// HERE, in the processor, asynchronously, long after the request that caused it
+// returned a tidy 302. A handler test cannot see that: those assert on the
+// queued row, which is written before anything renders it.
+//
+// Asserting the panic on nil was tried and rejected: it holds only while the
+// renderer stays nil-hostile, so adding a guard there would make the assertion
+// pass while saying nothing. This pins the outcome instead — the zero UUID is
+// the documented representation of "failed before the user was known", and a
+// test asserting an empty string would be asserting the wrong thing.
+func TestRenderLoginFailedAttributesAnAnonymousAttempt(t *testing.T) {
+	t.Parallel()
+
+	r := fixedRenderer(uuid.New(), time.Now())
+
+	payload, err := r.Render(LoginFailed{
+		User: &entity.User{},
+		Meta: &entity.AuditMetadata{IP: "203.0.113.1", FailureReason: entity.AuditFailureSessionMismatch},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, uuid.Nil.String(), payload.ActorID)
+	require.Empty(t, payload.Actor, "an anonymous attempt has no address to attribute")
+	require.Equal(t, entity.AuditFailureSessionMismatch, payload.Metadata.FailureReason,
+		"the reason is what makes such a row findable at all")
+}
