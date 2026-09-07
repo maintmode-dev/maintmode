@@ -235,6 +235,36 @@ func (e GetApiV1AuditLogParamsAction) Valid() bool {
 	}
 }
 
+// Defines values for GetApiV1LoginOauthProviderCallbackParamsProvider.
+const (
+	GetApiV1LoginOauthProviderCallbackParamsProviderGoogle GetApiV1LoginOauthProviderCallbackParamsProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the GetApiV1LoginOauthProviderCallbackParamsProvider enum.
+func (e GetApiV1LoginOauthProviderCallbackParamsProvider) Valid() bool {
+	switch e {
+	case GetApiV1LoginOauthProviderCallbackParamsProviderGoogle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetApiV1LoginOauthProviderStartParamsProvider.
+const (
+	GetApiV1LoginOauthProviderStartParamsProviderGoogle GetApiV1LoginOauthProviderStartParamsProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the GetApiV1LoginOauthProviderStartParamsProvider enum.
+func (e GetApiV1LoginOauthProviderStartParamsProvider) Valid() bool {
+	switch e {
+	case GetApiV1LoginOauthProviderStartParamsProviderGoogle:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostApiV1MeProvidersProviderConnectParamsProvider.
 const (
 	PostApiV1MeProvidersProviderConnectParamsProviderGithub PostApiV1MeProvidersProviderConnectParamsProvider = "github"
@@ -376,6 +406,11 @@ type ApiauthmodelsConnectProviderRequest struct {
 type ApiauthmodelsExchangeIDTokenRequest struct {
 	// IdToken IDToken is the upstream provider's signed JWT.
 	IdToken *string `json:"id_token,omitempty"`
+}
+
+// ApiauthmodelsExchangeOAuthCodeRequest defines model for apiauthmodels.ExchangeOAuthCodeRequest.
+type ApiauthmodelsExchangeOAuthCodeRequest struct {
+	Code *string `json:"code,omitempty"`
 }
 
 // ApiauthmodelsJWKSResponse defines model for apiauthmodels.JWKSResponse.
@@ -674,6 +709,24 @@ type GetApiV1AuditLogParams struct {
 // GetApiV1AuditLogParamsAction defines parameters for GetApiV1AuditLog.
 type GetApiV1AuditLogParamsAction string
 
+// GetApiV1LoginOauthProviderCallbackParams defines parameters for GetApiV1LoginOauthProviderCallback.
+type GetApiV1LoginOauthProviderCallbackParams struct {
+	// Code Authorization code from the provider
+	Code *string `form:"code,omitempty" json:"code,omitempty"`
+
+	// State The state issued by /start
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Error Error reported by the provider
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// GetApiV1LoginOauthProviderCallbackParamsProvider defines parameters for GetApiV1LoginOauthProviderCallback.
+type GetApiV1LoginOauthProviderCallbackParamsProvider string
+
+// GetApiV1LoginOauthProviderStartParamsProvider defines parameters for GetApiV1LoginOauthProviderStart.
+type GetApiV1LoginOauthProviderStartParamsProvider string
+
 // PostApiV1LogoutParams defines parameters for PostApiV1Logout.
 type PostApiV1LogoutParams struct {
 	// Authorization Bearer access token
@@ -727,6 +780,9 @@ type GetApiV1UsersListParams struct {
 	// Active When true, hide blocked users
 	Active *bool `form:"active,omitempty" json:"active,omitempty"`
 }
+
+// PostApiV1LoginOauthCodeExchangeJSONRequestBody defines body for PostApiV1LoginOauthCodeExchange for application/json ContentType.
+type PostApiV1LoginOauthCodeExchangeJSONRequestBody = ApiauthmodelsExchangeOAuthCodeRequest
 
 // PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
 type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
@@ -861,10 +917,21 @@ type ClientInterface interface {
 	// GetApiV1LicenseSeats request
 	GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostApiV1LoginOauthCodeExchangeWithBody request with any body
+	PostApiV1LoginOauthCodeExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1LoginOauthCodeExchange(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostApiV1LoginOauthExchangeGoogleWithBody request with any body
 	PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1LoginOauthProviderCallback request
+	GetApiV1LoginOauthProviderCallback(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1LoginOauthProviderStart request
+	GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginOtpRequestWithBody request with any body
 	PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1026,6 +1093,30 @@ func (c *Client) GetApiV1LicenseSeats(ctx context.Context, reqEditors ...Request
 	return c.Client.Do(req)
 }
 
+func (c *Client) PostApiV1LoginOauthCodeExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOauthCodeExchangeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginOauthCodeExchange(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginOauthCodeExchangeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1040,6 +1131,30 @@ func (c *Client) PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, 
 
 func (c *Client) PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOauthExchangeGoogleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1LoginOauthProviderCallback(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1LoginOauthProviderCallbackRequest(c.Server, provider, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1LoginOauthProviderStartRequest(c.Server, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -1749,6 +1864,46 @@ func NewGetApiV1LicenseSeatsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostApiV1LoginOauthCodeExchangeRequest calls the generic PostApiV1LoginOauthCodeExchange builder with application/json body
+func NewPostApiV1LoginOauthCodeExchangeRequest(server string, body PostApiV1LoginOauthCodeExchangeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1LoginOauthCodeExchangeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1LoginOauthCodeExchangeRequestWithBody generates requests for PostApiV1LoginOauthCodeExchange with any type of body
+func NewPostApiV1LoginOauthCodeExchangeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/oauth/code/exchange")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostApiV1LoginOauthExchangeGoogleRequest calls the generic PostApiV1LoginOauthExchangeGoogle builder with application/json body
 func NewPostApiV1LoginOauthExchangeGoogleRequest(server string, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1785,6 +1940,125 @@ func NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server string, contentT
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApiV1LoginOauthProviderCallbackRequest generates requests for GetApiV1LoginOauthProviderCallback
+func NewGetApiV1LoginOauthProviderCallbackRequest(server string, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/oauth/%s/callback", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Error != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiV1LoginOauthProviderStartRequest generates requests for GetApiV1LoginOauthProviderStart
+func NewGetApiV1LoginOauthProviderStartRequest(server string, provider GetApiV1LoginOauthProviderStartParamsProvider) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/oauth/%s/start", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -2990,10 +3264,21 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1LicenseSeatsWithResponse request
 	GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error)
 
+	// PostApiV1LoginOauthCodeExchangeWithBodyWithResponse request with any body
+	PostApiV1LoginOauthCodeExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error)
+
+	PostApiV1LoginOauthCodeExchangeWithResponse(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error)
+
 	// PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with any body
 	PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
 
 	PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
+
+	// GetApiV1LoginOauthProviderCallbackWithResponse request
+	GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error)
+
+	// GetApiV1LoginOauthProviderStartWithResponse request
+	GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error)
 
 	// PostApiV1LoginOtpRequestWithBodyWithResponse request with any body
 	PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
@@ -3235,6 +3520,38 @@ func (r GetApiV1LicenseSeatsResponse) ContentType() string {
 	return ""
 }
 
+type PostApiV1LoginOauthCodeExchangeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsTokenPairResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1LoginOauthCodeExchangeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1LoginOauthCodeExchangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1LoginOauthCodeExchangeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostApiV1LoginOauthExchangeGoogleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3263,6 +3580,68 @@ func (r PostApiV1LoginOauthExchangeGoogleResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginOauthExchangeGoogleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1LoginOauthProviderCallbackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON429      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1LoginOauthProviderCallbackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1LoginOauthProviderCallbackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1LoginOauthProviderCallbackResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1LoginOauthProviderStartResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1LoginOauthProviderStartResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1LoginOauthProviderStartResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1LoginOauthProviderStartResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4191,6 +4570,23 @@ func (c *ClientWithResponses) GetApiV1LicenseSeatsWithResponse(ctx context.Conte
 	return ParseGetApiV1LicenseSeatsResponse(rsp)
 }
 
+// PostApiV1LoginOauthCodeExchangeWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOauthCodeExchangeResponse
+func (c *ClientWithResponses) PostApiV1LoginOauthCodeExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error) {
+	rsp, err := c.PostApiV1LoginOauthCodeExchangeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOauthCodeExchangeResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1LoginOauthCodeExchangeWithResponse(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error) {
+	rsp, err := c.PostApiV1LoginOauthCodeExchange(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginOauthCodeExchangeResponse(rsp)
+}
+
 // PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOauthExchangeGoogleResponse
 func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
 	rsp, err := c.PostApiV1LoginOauthExchangeGoogleWithBody(ctx, contentType, body, reqEditors...)
@@ -4206,6 +4602,24 @@ func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithResponse(ctx 
 		return nil, err
 	}
 	return ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp)
+}
+
+// GetApiV1LoginOauthProviderCallbackWithResponse request returning *GetApiV1LoginOauthProviderCallbackResponse
+func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error) {
+	rsp, err := c.GetApiV1LoginOauthProviderCallback(ctx, provider, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1LoginOauthProviderCallbackResponse(rsp)
+}
+
+// GetApiV1LoginOauthProviderStartWithResponse request returning *GetApiV1LoginOauthProviderStartResponse
+func (c *ClientWithResponses) GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error) {
+	rsp, err := c.GetApiV1LoginOauthProviderStart(ctx, provider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1LoginOauthProviderStartResponse(rsp)
 }
 
 // PostApiV1LoginOtpRequestWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOtpRequestResponse
@@ -4731,6 +5145,46 @@ func ParseGetApiV1LicenseSeatsResponse(rsp *http.Response) (*GetApiV1LicenseSeat
 	return response, nil
 }
 
+// ParsePostApiV1LoginOauthCodeExchangeResponse parses an HTTP response from a PostApiV1LoginOauthCodeExchangeWithResponse call
+func ParsePostApiV1LoginOauthCodeExchangeResponse(rsp *http.Response) (*PostApiV1LoginOauthCodeExchangeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1LoginOauthCodeExchangeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsTokenPairResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostApiV1LoginOauthExchangeGoogleResponse parses an HTTP response from a PostApiV1LoginOauthExchangeGoogleWithResponse call
 func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4765,6 +5219,72 @@ func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostAp
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1LoginOauthProviderCallbackResponse parses an HTTP response from a GetApiV1LoginOauthProviderCallbackWithResponse call
+func ParseGetApiV1LoginOauthProviderCallbackResponse(rsp *http.Response) (*GetApiV1LoginOauthProviderCallbackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1LoginOauthProviderCallbackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1LoginOauthProviderStartResponse parses an HTTP response from a GetApiV1LoginOauthProviderStartWithResponse call
+func ParseGetApiV1LoginOauthProviderStartResponse(rsp *http.Response) (*GetApiV1LoginOauthProviderStartResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1LoginOauthProviderStartResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest HttperrorsErrorResponse

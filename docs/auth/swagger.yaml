@@ -171,6 +171,11 @@ components:
                     description: IDToken is the upstream provider's signed JWT.
                     type: string
             type: object
+        apiauthmodels.ExchangeOAuthCodeRequest:
+            properties:
+                code:
+                    type: string
+            type: object
         apiauthmodels.JWKSResponse:
             properties:
                 keys:
@@ -822,6 +827,113 @@ paths:
             summary: Get licensed seat usage
             tags:
                 - Users
+    /api/v1/login/oauth/{provider}/callback:
+        get:
+            description: 'Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. Both cookies are cleared on every exit. Always answers 302, success or failure: the user''s browser is sitting on this URL, so a JSON error body would be a dead end.'
+            parameters:
+                - description: Provider id
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                    type: string
+                - description: Authorization code from the provider
+                  in: query
+                  name: code
+                  schema:
+                    type: string
+                - description: The state issued by /start
+                  in: query
+                  name: state
+                  schema:
+                    type: string
+                - description: Error reported by the provider
+                  in: query
+                  name: error
+                  schema:
+                    type: string
+            responses:
+                "302":
+                    description: Redirect to the frontend carrying a one-time code
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Complete the backend-driven OAuth dance
+            tags:
+                - Auth
+    /api/v1/login/oauth/{provider}/start:
+        get:
+            description: Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as two httpOnly cookies, and redirects to the provider. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.
+            parameters:
+                - description: Provider id
+                  in: path
+                  name: provider
+                  required: true
+                  schema:
+                    enum:
+                        - google
+                    type: string
+            responses:
+                "302":
+                    description: Redirect to the provider's authorization endpoint
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Unsupported provider
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            summary: Begin the backend-driven OAuth dance
+            tags:
+                - Auth
+    /api/v1/login/oauth/code/exchange:
+        post:
+            description: 'Trades the short-lived opaque code the callback put in the redirect for the token pair it stands for. Single-use: the second attempt with the same code fails like any other. Every failure — unknown, expired, already redeemed, malformed — answers the same 401, so a caller cannot learn which of its guesses was closer.'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.ExchangeOAuthCodeRequest'
+                description: The one-time code
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: The code is not redeemable
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Redeem the one-time code from an OAuth dance
+            tags:
+                - Auth
     /api/v1/login/oauth/exchange/google:
         post:
             requestBody:
