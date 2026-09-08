@@ -532,6 +532,21 @@ type ApimodelsSearchResourcesResponse struct {
 	Resources *[]ApimodelsResource `json:"resources,omitempty"`
 }
 
+// ApimodelsTestIntegrationRequest defines model for apimodels.TestIntegrationRequest.
+type ApimodelsTestIntegrationRequest struct {
+	// Config Config is the kind's non-secret settings, same shape as on create/update.
+	Config *map[string]interface{} `json:"config,omitempty"`
+
+	// Secrets Secrets are plaintext secret values keyed by the kind's secret keys. A key
+	// the kind does not declare is an error rather than being ignored: silently
+	// dropping it would test an anonymous relay and report success.
+	Secrets *map[string]string `json:"secrets,omitempty"`
+
+	// To To is the address the test message is sent to. Required -- the server does
+	// not infer a recipient from the caller's token.
+	To *string `json:"to,omitempty"`
+}
+
 // ApimodelsToggleIntegrationRequest defines model for apimodels.ToggleIntegrationRequest.
 type ApimodelsToggleIntegrationRequest struct {
 	Enabled *bool `json:"enabled,omitempty"`
@@ -940,6 +955,9 @@ type GetUiV1CalendarParamsStatuses string
 // PostApiV1IntegrationsJSONRequestBody defines body for PostApiV1Integrations for application/json ContentType.
 type PostApiV1IntegrationsJSONRequestBody = ApimodelsCreateIntegrationRequest
 
+// PostApiV1IntegrationsEmailTestJSONRequestBody defines body for PostApiV1IntegrationsEmailTest for application/json ContentType.
+type PostApiV1IntegrationsEmailTestJSONRequestBody = ApimodelsTestIntegrationRequest
+
 // PatchApiV1IntegrationsKindJSONRequestBody defines body for PatchApiV1IntegrationsKind for application/json ContentType.
 type PatchApiV1IntegrationsKindJSONRequestBody = ApimodelsUpdateIntegrationRequest
 
@@ -1050,6 +1068,11 @@ type ClientInterface interface {
 	PostApiV1IntegrationsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1Integrations(ctx context.Context, body PostApiV1IntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1IntegrationsEmailTestWithBody request with any body
+	PostApiV1IntegrationsEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1IntegrationsEmailTest(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1IntegrationsKind request
 	GetApiV1IntegrationsKind(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1194,6 +1217,30 @@ func (c *Client) PostApiV1IntegrationsWithBody(ctx context.Context, contentType 
 
 func (c *Client) PostApiV1Integrations(ctx context.Context, body PostApiV1IntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1IntegrationsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1IntegrationsEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsEmailTestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1IntegrationsEmailTest(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsEmailTestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1756,6 +1803,46 @@ func NewPostApiV1IntegrationsRequestWithBody(server string, contentType string, 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/integrations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1IntegrationsEmailTestRequest calls the generic PostApiV1IntegrationsEmailTest builder with application/json body
+func NewPostApiV1IntegrationsEmailTestRequest(server string, body PostApiV1IntegrationsEmailTestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1IntegrationsEmailTestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1IntegrationsEmailTestRequestWithBody generates requests for PostApiV1IntegrationsEmailTest with any type of body
+func NewPostApiV1IntegrationsEmailTestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/integrations/email/test")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3306,6 +3393,11 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1IntegrationsWithResponse(ctx context.Context, body PostApiV1IntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsResponse, error)
 
+	// PostApiV1IntegrationsEmailTestWithBodyWithResponse request with any body
+	PostApiV1IntegrationsEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error)
+
+	PostApiV1IntegrationsEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error)
+
 	// GetApiV1IntegrationsKindWithResponse request
 	GetApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindResponse, error)
 
@@ -3481,6 +3573,38 @@ func (r PostApiV1IntegrationsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1IntegrationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1IntegrationsEmailTestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON502      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1IntegrationsEmailTestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1IntegrationsEmailTestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1IntegrationsEmailTestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4624,6 +4748,23 @@ func (c *ClientWithResponses) PostApiV1IntegrationsWithResponse(ctx context.Cont
 	return ParsePostApiV1IntegrationsResponse(rsp)
 }
 
+// PostApiV1IntegrationsEmailTestWithBodyWithResponse request with arbitrary body returning *PostApiV1IntegrationsEmailTestResponse
+func (c *ClientWithResponses) PostApiV1IntegrationsEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsEmailTestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1IntegrationsEmailTestResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1IntegrationsEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsEmailTest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1IntegrationsEmailTestResponse(rsp)
+}
+
 // GetApiV1IntegrationsKindWithResponse request returning *GetApiV1IntegrationsKindResponse
 func (c *ClientWithResponses) GetApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindResponse, error) {
 	rsp, err := c.GetApiV1IntegrationsKind(ctx, kind, reqEditors...)
@@ -5066,6 +5207,46 @@ func ParsePostApiV1IntegrationsResponse(rsp *http.Response) (*PostApiV1Integrati
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1IntegrationsEmailTestResponse parses an HTTP response from a PostApiV1IntegrationsEmailTestWithResponse call
+func ParsePostApiV1IntegrationsEmailTestResponse(rsp *http.Response) (*PostApiV1IntegrationsEmailTestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1IntegrationsEmailTestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	}
 

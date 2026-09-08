@@ -39,9 +39,6 @@ type LoginWithPasswordRequest struct {
 	// tell an integrator the field is mandatory.
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
-	// RememberMe is accepted and currently ignored: session modes are a separate
-	// change. Present now so adding them later needs no wire-format change.
-	RememberMe bool `json:"remember_me"`
 }
 
 // ChangePasswordRequest sets the caller's own password.

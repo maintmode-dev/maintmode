@@ -266,10 +266,6 @@
                     },
                     "password": {
                         "type": "string"
-                    },
-                    "remember_me": {
-                        "description": "RememberMe is accepted and currently ignored: session modes are a separate\nchange. Present now so adding them later needs no wire-format change.",
-                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -398,10 +394,6 @@
                     },
                     "email": {
                         "type": "string"
-                    },
-                    "remember_me": {
-                        "description": "RememberMe is accepted and currently ignored — session modes are a\nseparate change. It is in the contract now so adding it later needs no\nwire-format change.",
-                        "type": "boolean"
                     },
                     "session_nonce": {
                         "description": "SessionNonce binds the redemption to the client that asked for the code.",

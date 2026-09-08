@@ -76,6 +76,13 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 	case errors.Is(err, apperr.ErrOrganizationSuspended):
 		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrOrganizationSuspended, err.Error())
 
+	// A failed integration probe is an upstream failure, not ours: 502, and the
+	// far end's own text passes through. Handled here rather than in mapError
+	// because that helper is only reached from the allow-list above, and an
+	// unlisted sentinel would fall to the default arm and lose the detail.
+	case errors.Is(err, apperr.ErrIntegrationProbeFailed):
+		statusCode, errResp = http.StatusBadGateway, NewErrorResponse(ErrIntegrationProbeFailed, err.Error())
+
 	// signup policy: stable 403 code, checked before the generic ErrForbidden
 	// case. The message is a fixed generic string (not err.Error()) so wrapped
 	// context can never leak whether an invitation exists for the email.

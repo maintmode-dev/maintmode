@@ -432,10 +432,6 @@ type ApiauthmodelsLoginWithPasswordRequest struct {
 	// tell an integrator the field is mandatory.
 	Email    string `json:"email"`
 	Password string `json:"password"`
-
-	// RememberMe RememberMe is accepted and currently ignored: session modes are a separate
-	// change. Present now so adding them later needs no wire-format change.
-	RememberMe *bool `json:"remember_me,omitempty"`
 }
 
 // ApiauthmodelsMeResponse defines model for apiauthmodels.MeResponse.
@@ -505,11 +501,6 @@ type ApiauthmodelsUpdateMeRequest struct {
 type ApiauthmodelsVerifyOTPRequest struct {
 	Code  *string `json:"code,omitempty"`
 	Email *string `json:"email,omitempty"`
-
-	// RememberMe RememberMe is accepted and currently ignored — session modes are a
-	// separate change. It is in the contract now so adding it later needs no
-	// wire-format change.
-	RememberMe *bool `json:"remember_me,omitempty"`
 
 	// SessionNonce SessionNonce binds the redemption to the client that asked for the code.
 	SessionNonce *string `json:"session_nonce,omitempty"`

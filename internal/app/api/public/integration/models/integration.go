@@ -65,6 +65,29 @@ type UpdateIntegrationRequest struct {
 	Secrets json.RawMessage `json:"secrets" swaggertype:"object"`
 }
 
+// TestIntegrationRequest asks the server to try the given settings for real and
+// report what happened. Nothing is saved and nothing about the outcome is
+// recorded: this tests what the admin is looking at, which may never have been
+// stored.
+//
+// Secrets is a plain map here, NOT the three-state json.RawMessage the create
+// and update requests use. There is no stored row to merge with, so an omitted
+// key means "no such secret", never "keep the saved one" -- a server that
+// paired a stored password with a caller-named host would be handing the
+// credential to whatever server the request named. A write-only secret
+// therefore has to be re-entered to be tested.
+type TestIntegrationRequest struct {
+	// Config is the kind's non-secret settings, same shape as on create/update.
+	Config json.RawMessage `json:"config" swaggertype:"object"`
+	// Secrets are plaintext secret values keyed by the kind's secret keys. A key
+	// the kind does not declare is an error rather than being ignored: silently
+	// dropping it would test an anonymous relay and report success.
+	Secrets map[string]string `json:"secrets"`
+	// To is the address the test message is sent to. Required -- the server does
+	// not infer a recipient from the caller's token.
+	To string `json:"to"`
+}
+
 // ToggleIntegrationRequest flips the enabled flag.
 type ToggleIntegrationRequest struct {
 	Enabled *bool `json:"enabled"`

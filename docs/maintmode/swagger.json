@@ -751,6 +751,26 @@
                 },
                 "type": "object"
             },
+            "apimodels.TestIntegrationRequest": {
+                "properties": {
+                    "config": {
+                        "description": "Config is the kind's non-secret settings, same shape as on create/update.",
+                        "type": "object"
+                    },
+                    "secrets": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Secrets are plaintext secret values keyed by the kind's secret keys. A key\nthe kind does not declare is an error rather than being ignored: silently\ndropping it would test an anonymous relay and report success.",
+                        "type": "object"
+                    },
+                    "to": {
+                        "description": "To is the address the test message is sent to. Required -- the server does\nnot infer a recipient from the caller's token.",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "apimodels.ToggleIntegrationRequest": {
                 "properties": {
                     "enabled": {
@@ -1554,6 +1574,66 @@
                     }
                 ],
                 "summary": "Create an integration",
+                "tags": [
+                    "Integrations"
+                ]
+            }
+        },
+        "/api/v1/integrations/email/test": {
+            "post": {
+                "description": "Sends a test message using the settings in the request body, without saving them or recording the result. Answers 204 when the server accepted the message, 502 with the far end's own error when it did not. Secrets must be supplied in the body: a stored password is never substituted. Admin only.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apimodels.TestIntegrationRequest"
+                            }
+                        }
+                    },
+                    "description": "Settings to test",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The SMTP server accepted the message"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "502": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Gateway"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Send a test email with the given SMTP settings",
                 "tags": [
                     "Integrations"
                 ]

@@ -13,14 +13,15 @@ import (
 )
 
 type RefreshTokens struct {
-	TokenHash  string     `sql:"primary_key" db:"refresh_tokens.token_hash"`
-	UserID     uuid.UUID  `db:"refresh_tokens.user_id"`
-	Family     uuid.UUID  `db:"refresh_tokens.family"`
-	ExpiresAt  time.Time  `db:"refresh_tokens.expires_at"`
-	GraceTTL   *time.Time `db:"refresh_tokens.grace_ttl"`
-	Revoked    bool       `db:"refresh_tokens.revoked"`
-	ReplacedBy *string    `db:"refresh_tokens.replaced_by"`
-	BoundIP    string     `db:"refresh_tokens.bound_ip"`
-	CreatedAt  time.Time  `db:"refresh_tokens.created_at"`
-	UpdatedAt  *time.Time `db:"refresh_tokens.updated_at"`
+	TokenHash        string     `sql:"primary_key" db:"refresh_tokens.token_hash"`
+	UserID           uuid.UUID  `db:"refresh_tokens.user_id"`
+	Family           uuid.UUID  `db:"refresh_tokens.family"`
+	ExpiresAt        time.Time  `db:"refresh_tokens.expires_at"`
+	GraceTTL         *time.Time `db:"refresh_tokens.grace_ttl"`
+	Revoked          bool       `db:"refresh_tokens.revoked"`
+	ReplacedBy       *string    `db:"refresh_tokens.replaced_by"`
+	BoundIP          string     `db:"refresh_tokens.bound_ip"`
+	CreatedAt        time.Time  `db:"refresh_tokens.created_at"`
+	UpdatedAt        *time.Time `db:"refresh_tokens.updated_at"`
+	SessionStartedAt time.Time  `db:"refresh_tokens.session_started_at"`
 }

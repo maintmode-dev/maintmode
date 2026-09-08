@@ -247,10 +247,23 @@ type OauthProviders struct {
 }
 
 type JWT struct {
-	PrivateKey                      string        `mapstructure:"issuer_private_key"`
-	Issuer                          string        `mapstructure:"issuer_name"`
-	Kid                             string        `mapstructure:"issuer_kid"`
-	AccessTokenTTL                  time.Duration `mapstructure:"access_token_ttl"`
+	PrivateKey     string        `mapstructure:"issuer_private_key"`
+	Issuer         string        `mapstructure:"issuer_name"`
+	Kid            string        `mapstructure:"issuer_kid"`
+	AccessTokenTTL time.Duration `mapstructure:"access_token_ttl"`
+	// SessionInactiveLifetime and SessionMaxLifetime are the two limits that
+	// decide how long a session lives, and they are INSTANCE POLICY rather than
+	// a per-login choice: an operator sets them once instead of every user
+	// answering "remember me?" at sign-in.
+	//
+	// Inactive bounds idleness and is renewed by activity; Max bounds the time
+	// since sign-in, and no amount of activity extends it. Neither is stored on
+	// the token row, so lowering either one takes effect on sessions that
+	// already exist rather than only on new ones.
+	SessionInactiveLifetime time.Duration `mapstructure:"session_inactive_lifetime"`
+	SessionMaxLifetime      time.Duration `mapstructure:"session_max_lifetime"`
+	// RefreshTokenTTL still fills the row's expires_at so the column keeps a
+	// sane value, but the two limits above are what actually gate a refresh.
 	RefreshTokenTTL                 time.Duration `mapstructure:"refresh_token_ttl"`
 	RefreshTokenGracePeriod         time.Duration `mapstructure:"refresh_token_grace_period"`
 	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
@@ -746,6 +759,10 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateSessionLifetimes(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	if err := cfg.validateInvitationRetention(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
@@ -988,6 +1005,49 @@ func (c *AppConfig) validateOTPRetention() error {
 		return fmt.Errorf(
 			"task_processor.otp_prune.retention must not be negative, got %s",
 			c.TaskProcessor.OTPPrune.Retention,
+		)
+	}
+	return nil
+}
+
+// validateSessionLifetimes rejects a session policy that would break sign-in
+// silently.
+//
+// The JWT block carries no defaults, and the config file is mounted separately
+// from the image -- so a binary deployed against a config predating these keys
+// reads 0s for both. Nothing downstream objects: every refresh would simply
+// find the session already past its inactive limit, and the symptom is "nobody
+// can stay signed in" with no error pointing at the config.
+//
+// The inactive limit must also clear the access TTL, or a session would end
+// before its first refresh is even due -- which reads as random sign-outs
+// rather than as a misconfiguration.
+//
+// Max >= inactive is deliberately not >: setting both to the same value is a
+// legitimate way to say "one hard deadline, activity does not extend it".
+func (c *AppConfig) validateSessionLifetimes() error {
+	if c.JWT.SessionInactiveLifetime <= 0 {
+		return fmt.Errorf(
+			"jwt.session_inactive_lifetime must be positive, got %s",
+			c.JWT.SessionInactiveLifetime,
+		)
+	}
+	if c.JWT.SessionInactiveLifetime <= c.JWT.AccessTokenTTL {
+		return fmt.Errorf(
+			"jwt.session_inactive_lifetime (%s) must be greater than access_token_ttl (%s)",
+			c.JWT.SessionInactiveLifetime, c.JWT.AccessTokenTTL,
+		)
+	}
+	if c.JWT.SessionMaxLifetime <= 0 {
+		return fmt.Errorf(
+			"jwt.session_max_lifetime must be positive, got %s",
+			c.JWT.SessionMaxLifetime,
+		)
+	}
+	if c.JWT.SessionMaxLifetime < c.JWT.SessionInactiveLifetime {
+		return fmt.Errorf(
+			"jwt.session_max_lifetime must be at least session_inactive_lifetime, got %s < %s",
+			c.JWT.SessionMaxLifetime, c.JWT.SessionInactiveLifetime,
 		)
 	}
 	return nil

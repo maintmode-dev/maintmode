@@ -392,6 +392,12 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
 		integrationAPI.Add(http.MethodPost, "/:kind/toggle", s.handlers.Integrations.Toggle,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
+		// Static "email" ahead of the ":kind" parameter: a live probe exists for
+		// SMTP only. Echo resolves the static segment first, so this does not
+		// shadow /:kind/toggle -- TestIntegrationRoutes pins that rather than
+		// leaving it to be assumed.
+		integrationAPI.Add(http.MethodPost, "/email/test", s.handlers.Integrations.TestEmail,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
 	}
 
 	// notifications API group — transports + channel catalog powering the

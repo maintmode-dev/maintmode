@@ -263,11 +263,8 @@ type VerifyOTPCmd struct {
 	// someone who talks a victim into reading out the emailed code still cannot
 	// use it.
 	SessionNonce string
-	// RememberMe is accepted and currently ignored — session modes are a
-	// separate change, exactly as on LoginWithPasswordCmd.
-	RememberMe bool
-	ClientIP   string
-	UserAgent  string
+	ClientIP     string
+	UserAgent    string
 }
 
 // ResetPasswordCmd sets a password by redeeming a one-time code rather than by
@@ -305,14 +302,10 @@ type LoginWithPasswordCmd struct {
 	// the break-glass one when it matches the configured bootstrap address.
 	// It is no longer ignored -- a break-glass password submitted against some
 	// other address signs nobody in.
-	Email    string
-	Password string
-	// RememberMe is accepted and currently ignored — session modes are a
-	// separate change. It is in the contract now so adding it later needs no
-	// wire-format change.
-	RememberMe bool
-	ClientIP   string
-	UserAgent  string
+	Email     string
+	Password  string
+	ClientIP  string
+	UserAgent string
 }
 
 type ConnectProviderCmd struct {

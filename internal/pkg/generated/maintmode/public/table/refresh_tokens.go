@@ -17,16 +17,17 @@ type refreshTokensTable struct {
 	postgres.Table
 
 	// Columns
-	TokenHash  postgres.ColumnString
-	UserID     postgres.ColumnString
-	Family     postgres.ColumnString
-	ExpiresAt  postgres.ColumnTimestampz
-	GraceTTL   postgres.ColumnTimestampz
-	Revoked    postgres.ColumnBool
-	ReplacedBy postgres.ColumnString
-	BoundIP    postgres.ColumnString
-	CreatedAt  postgres.ColumnTimestampz
-	UpdatedAt  postgres.ColumnTimestampz
+	TokenHash        postgres.ColumnString
+	UserID           postgres.ColumnString
+	Family           postgres.ColumnString
+	ExpiresAt        postgres.ColumnTimestampz
+	GraceTTL         postgres.ColumnTimestampz
+	Revoked          postgres.ColumnBool
+	ReplacedBy       postgres.ColumnString
+	BoundIP          postgres.ColumnString
+	CreatedAt        postgres.ColumnTimestampz
+	UpdatedAt        postgres.ColumnTimestampz
+	SessionStartedAt postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -68,35 +69,37 @@ func newRefreshTokensTable(schemaName, tableName, alias string) *RefreshTokensTa
 
 func newRefreshTokensTableImpl(schemaName, tableName, alias string) refreshTokensTable {
 	var (
-		TokenHashColumn  = postgres.StringColumn("token_hash")
-		UserIDColumn     = postgres.StringColumn("user_id")
-		FamilyColumn     = postgres.StringColumn("family")
-		ExpiresAtColumn  = postgres.TimestampzColumn("expires_at")
-		GraceTTLColumn   = postgres.TimestampzColumn("grace_ttl")
-		RevokedColumn    = postgres.BoolColumn("revoked")
-		ReplacedByColumn = postgres.StringColumn("replaced_by")
-		BoundIPColumn    = postgres.StringColumn("bound_ip")
-		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn  = postgres.TimestampzColumn("updated_at")
-		allColumns       = postgres.ColumnList{TokenHashColumn, UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns   = postgres.ColumnList{UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns   = postgres.ColumnList{RevokedColumn, BoundIPColumn, CreatedAtColumn}
+		TokenHashColumn        = postgres.StringColumn("token_hash")
+		UserIDColumn           = postgres.StringColumn("user_id")
+		FamilyColumn           = postgres.StringColumn("family")
+		ExpiresAtColumn        = postgres.TimestampzColumn("expires_at")
+		GraceTTLColumn         = postgres.TimestampzColumn("grace_ttl")
+		RevokedColumn          = postgres.BoolColumn("revoked")
+		ReplacedByColumn       = postgres.StringColumn("replaced_by")
+		BoundIPColumn          = postgres.StringColumn("bound_ip")
+		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
+		UpdatedAtColumn        = postgres.TimestampzColumn("updated_at")
+		SessionStartedAtColumn = postgres.TimestampzColumn("session_started_at")
+		allColumns             = postgres.ColumnList{TokenHashColumn, UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn}
+		mutableColumns         = postgres.ColumnList{UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn}
+		defaultColumns         = postgres.ColumnList{RevokedColumn, BoundIPColumn, CreatedAtColumn, SessionStartedAtColumn}
 	)
 
 	return refreshTokensTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		TokenHash:  TokenHashColumn,
-		UserID:     UserIDColumn,
-		Family:     FamilyColumn,
-		ExpiresAt:  ExpiresAtColumn,
-		GraceTTL:   GraceTTLColumn,
-		Revoked:    RevokedColumn,
-		ReplacedBy: ReplacedByColumn,
-		BoundIP:    BoundIPColumn,
-		CreatedAt:  CreatedAtColumn,
-		UpdatedAt:  UpdatedAtColumn,
+		TokenHash:        TokenHashColumn,
+		UserID:           UserIDColumn,
+		Family:           FamilyColumn,
+		ExpiresAt:        ExpiresAtColumn,
+		GraceTTL:         GraceTTLColumn,
+		Revoked:          RevokedColumn,
+		ReplacedBy:       ReplacedByColumn,
+		BoundIP:          BoundIPColumn,
+		CreatedAt:        CreatedAtColumn,
+		UpdatedAt:        UpdatedAtColumn,
+		SessionStartedAt: SessionStartedAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

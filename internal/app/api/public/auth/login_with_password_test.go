@@ -55,7 +55,10 @@ func TestLoginWithPassword_FailuresAreIndistinguishable(t *testing.T) {
 		"empty password":  doPasswordLogin(t, impl, `{"password":""}`),
 		"absent password": doPasswordLogin(t, impl, `{}`),
 		"body email set":  doPasswordLogin(t, impl, `{"email":"someone@example.com","password":"nope"}`),
-		"remember me":     doPasswordLogin(t, impl, `{"password":"nope","remember_me":true}`),
+		// An unknown field must not change the answer either: session length is
+		// instance policy now, and a client still sending the old remember_me
+		// must get the same opaque failure as everyone else.
+		"unknown field": doPasswordLogin(t, impl, `{"password":"nope","remember_me":true}`),
 		// Bind failures too: a wrong JSON type and a truncated document. These
 		// would otherwise answer 400 through the shared mapper, which is one bit
 		// more than a caller should get from this endpoint.
