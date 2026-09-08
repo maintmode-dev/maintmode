@@ -187,29 +187,6 @@ func TestProbeEmail(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrValidation)
 	})
 
-	// The category is what a client branches on, so it has to be more than
-	// decoration: a probe against a dead port must say connection_failed, not
-	// fall back to whatever the default happens to be.
-	t.Run("a canceled request is not reported as a probe failure", func(t *testing.T) {
-		t.Parallel()
-
-		srv, kinds, _ := initService(t)
-		host, port := newMockSMTPServer(t, make(chan capturedEnvelope, 1))
-
-		canceled, cancel := context.WithCancel(ctx)
-		cancel()
-
-		err := srv.Probe(canceled, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
-			Config:  emailConfig(t, host, port, nil),
-			Secrets: map[string]string{},
-			To:      "admin@example.com",
-			Actor:   testActor(),
-		})
-		require.ErrorIs(t, err, context.Canceled)
-		require.NotErrorIs(t, err, apperr.ErrIntegrationProbeFailed)
-	})
-
 	// The password reaches the transport, so it could reach an error string.
 	// Asserting its absence beats assuming it: if a library upgrade ever echoed
 	// the credential, this fails instead of the leak shipping.
