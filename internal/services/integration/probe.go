@@ -3,7 +3,6 @@ package integration
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -105,6 +104,13 @@ func (s *Service) probeEmail(
 	settings integrationkinds.EmailSettings,
 	cmd *entity.ProbeIntegrationCmd,
 ) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.Probe.probeEmail",
+		xfield.String("actor_id", cmd.Actor.ID.String()),
+		xfield.String("host", settings.Host),
+		xfield.Int("port", settings.Port),
+	)
+	defer span.End()
+
 	timeout, err := probeTimeout(settings.Timeout)
 	if err != nil {
 		return fmt.Errorf("%w: %w", apperr.ErrValidation, err)
@@ -142,22 +148,12 @@ func (s *Service) probeEmail(
 	// Nothing about the settings is logged beyond the destination: the password
 	// travels next to this logger, and the safe fields are the useful ones
 	// anyway.
-	logFields := []xfield.Field{
-		xfield.String("actor_id", cmd.Actor.ID.String()),
-		xfield.String("host", settings.Host),
-		xfield.Int("port", settings.Port),
-	}
 	if err != nil {
-		xlog.Warn(ctx, "smtp probe failed", append(logFields, xfield.Error(err))...)
-		// A canceled request is the admin closing the tab, not a verdict on the
-		// settings: pass it through so it stays out of the 5xx answers.
-		if errors.Is(err, context.Canceled) {
-			return err
-		}
+		xlog.Warn(ctx, "smtp probe failed", xfield.Error(err))
 		return fmt.Errorf("%w: %s", apperr.ErrIntegrationProbeFailed, truncateError(err.Error()))
 	}
 
-	xlog.Info(ctx, "smtp probe delivered", logFields...)
+	xlog.Info(ctx, "smtp probe delivered")
 	return nil
 }
 

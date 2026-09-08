@@ -129,14 +129,14 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	// measures time since the last rotation -- i.e. idleness. SessionStartedAt
 	// is carried unchanged down the chain and measures time since sign-in.
 	if idle := now.Sub(oldRefreshToken.CreatedAt); idle > s.cfg.SessionInactiveLifetime {
-		xlog.Info(ctx, "session idle past its limit",
+		xlog.Error(ctx, "session idle past its limit",
 			xfield.String("idle_for", idle.String()),
 			xfield.String("limit", s.cfg.SessionInactiveLifetime.String()),
 		)
 		return nil, apperr.ErrTokenExpired
 	}
 	if age := now.Sub(oldRefreshToken.SessionStartedAt); age > s.cfg.SessionMaxLifetime {
-		xlog.Info(ctx, "session past its maximum lifetime",
+		xlog.Error(ctx, "session past its maximum lifetime",
 			xfield.String("age", age.String()),
 			xfield.String("limit", s.cfg.SessionMaxLifetime.String()),
 		)
