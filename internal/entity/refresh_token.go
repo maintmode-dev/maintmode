@@ -28,10 +28,21 @@ type RefreshToken struct {
 	// the same Family. On reuse detection, the entire family is revoked.
 	Family uuid.UUID
 
-	// ExpiresAt is the absolute lifetime (30 days from login).
-	// On rotation, the new token inherits this expiry from the old one,
-	// rather than getting its own 30 days.
+	// ExpiresAt is retained for the row's own bookkeeping but is NOT what
+	// decides whether a session is alive: two policy limits do, and they are
+	// evaluated against timestamps rather than against a stored deadline.
+	// Keeping the deadline in the row would freeze the policy at issue time, so
+	// changing it would only affect sessions created afterwards.
 	ExpiresAt time.Time
+
+	// SessionStartedAt is when the SESSION began -- carried unchanged across
+	// every rotation in the chain. CreatedAt cannot serve this purpose: rotation
+	// inserts a new row, so CreatedAt marks the last rotation.
+	//
+	// The two together answer two independent questions: has the session existed
+	// too long (SessionStartedAt vs the maximum lifetime), and has it been idle
+	// too long (CreatedAt vs the inactive lifetime).
+	SessionStartedAt time.Time
 
 	// GraceTTL is the grace window (30 sec) after rotation to handle the
 	// multi-tab problem. While time.Now() < GraceTTL, a revoked token

@@ -208,6 +208,11 @@ jwt:
   issuer_kid: <secret:jwt/issuer_kid>
   access_token_ttl: 15m
   refresh_token_ttl: 720h # 30 days
+  # Session policy, mirroring Grafana\'s two-limit model: idleness is
+  # renewed by activity, the maximum is not. Neither is stored on the token
+  # row, so changing either affects sessions that already exist.
+  session_inactive_lifetime: 168h  # signed out after this long without activity
+  session_max_lifetime: 720h      # hard ceiling from sign-in; activity does not extend it
   refresh_token_grace_period: 30s
   refresh_token_distributed_lock_ttl: 5s
 

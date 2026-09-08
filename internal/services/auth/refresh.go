@@ -120,9 +120,26 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueNewRefreshToken")
 	defer span.End()
 
-	// Expiry check
-	if now.After(oldRefreshToken.ExpiresAt) {
-		xlog.Error(ctx, "refresh token expired", xfield.Time("expires_at", oldRefreshToken.ExpiresAt))
+	// Two independent limits, either of which ends the session. They are
+	// evaluated against timestamps on the row rather than a deadline stored at
+	// issue time, so lowering a limit takes effect on sessions that already
+	// exist instead of only on new ones.
+	//
+	// CreatedAt is the row's own age, and rotation inserts a new row, so it
+	// measures time since the last rotation -- i.e. idleness. SessionStartedAt
+	// is carried unchanged down the chain and measures time since sign-in.
+	if idle := now.Sub(oldRefreshToken.CreatedAt); idle > s.cfg.SessionInactiveLifetime {
+		xlog.Info(ctx, "session idle past its limit",
+			xfield.String("idle_for", idle.String()),
+			xfield.String("limit", s.cfg.SessionInactiveLifetime.String()),
+		)
+		return nil, apperr.ErrTokenExpired
+	}
+	if age := now.Sub(oldRefreshToken.SessionStartedAt); age > s.cfg.SessionMaxLifetime {
+		xlog.Info(ctx, "session past its maximum lifetime",
+			xfield.String("age", age.String()),
+			xfield.String("limit", s.cfg.SessionMaxLifetime.String()),
+		)
 		return nil, apperr.ErrTokenExpired
 	}
 
@@ -154,8 +171,12 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 			Token:     newHash,
 			UserID:    oldRefreshToken.UserID,
 			Family:    oldRefreshToken.Family,
-			ExpiresAt: oldRefreshToken.ExpiresAt, // preserve original expiry
+			ExpiresAt: now.Add(s.cfg.RefreshTokenTTL),
 			BoundIP:   oldRefreshToken.BoundIP,
+			// Carried, never restarted: this is what bounds the session's total
+			// age. Recomputing it here would reset the ceiling on every refresh,
+			// quietly turning the maximum lifetime into no maximum at all.
+			SessionStartedAt: oldRefreshToken.SessionStartedAt,
 		})
 	})
 	if err != nil {
