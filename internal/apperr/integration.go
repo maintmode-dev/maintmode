@@ -21,6 +21,14 @@ var (
 	// finer distinction exists for the read model (transport_status
 	// not_configured vs disabled).
 	ErrIntegrationNotConfigured = fmt.Errorf("%w: not configured", ErrIntegrationDisabled)
+	// ErrIntegrationProbeFailed signals that a live test of an integration's
+	// settings failed to reach the far end -- refused connection, rejected
+	// credentials, TLS trouble, timeout. It exists so the API layer can answer
+	// 502 with the underlying detail intact: httperrors.ToAPIError replaces the
+	// message of any error it does not recognize, and a probe that answers
+	// "internal error" tells the admin nothing about the config they are
+	// debugging.
+	ErrIntegrationProbeFailed = errors.New("integration probe failed")
 	// ErrIntegrationUnreadable signals that an ENABLED integration cannot be
 	// resolved locally: its secrets do not decrypt (rolled-back KEK, corrupt
 	// envelope, missing DEK row) or its stored settings no longer parse. The

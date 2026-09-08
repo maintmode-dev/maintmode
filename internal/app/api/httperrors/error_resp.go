@@ -42,6 +42,12 @@ var (
 	// reveal whether an invitation exists for the email.
 	ErrSignupDisabled ErrorCode = "signup_disabled"
 
+	// Integration probe failure categories. A test send reports WHY it failed in
+	// a machine-readable code so a client can render its own wording, while the
+	// message carries the far end's own text for an admin to read. Splitting the
+	// two means a library rewording its errors cannot break a UI.
+	ErrIntegrationProbeFailed ErrorCode = "probe_failed"
+
 	// ErrOTPSessionMismatch is the ONE failure of the one-time-code verify
 	// endpoint that does not collapse into the generic unauthorized answer.
 	//
