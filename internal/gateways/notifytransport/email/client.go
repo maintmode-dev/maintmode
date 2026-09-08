@@ -18,6 +18,7 @@ import (
 	"github.com/wneessen/go-mail"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
 
 const (
@@ -81,20 +82,15 @@ func (*Client) TransportID() entity.NotifyTransport {
 // TLS policy config strings. Unknown/empty values default to mandatory STARTTLS —
 // the safe production posture. tlsPolicyNone is the plaintext mode used by the
 // in-process SMTP test server.
-const (
-	tlsPolicyNone          = "none"
-	tlsPolicyOpportunistic = "opportunistic"
-	tlsPolicyTLSMandatory  = "mandatory"
-)
 
 // tlsPolicy maps the config string to a go-mail TLSPolicy.
 func tlsPolicy(s string) mail.TLSPolicy {
 	switch s {
-	case tlsPolicyNone:
+	case integrationkinds.TLSPolicyNone:
 		return mail.NoTLS
-	case tlsPolicyOpportunistic:
+	case integrationkinds.TLSPolicyOpportunistic:
 		return mail.TLSOpportunistic
-	case tlsPolicyTLSMandatory:
+	case integrationkinds.TLSPolicyMandatory:
 		return mail.TLSMandatory
 	default:
 		return mail.TLSMandatory

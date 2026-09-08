@@ -15,6 +15,13 @@ const (
 	// kindEmail is derived from the transport constant (see kindSlack).
 	kindEmail              = string(entity.NotifyTransportEmail)
 	emailSecretKeyPassword = "password"
+
+	// The TLS policy vocabulary. It lives here rather than in the transport
+	// because this package owns the shared config vocabulary and must not
+	// import a gateway -- the transport reads these when it builds a client.
+	TLSPolicyNone          = "none"
+	TLSPolicyOpportunistic = "opportunistic"
+	TLSPolicyMandatory     = "mandatory"
 )
 
 // EmailSettings is the parsed configuration for the email/SMTP integration.
@@ -74,6 +81,17 @@ func (email) Validate(settings Settings) error {
 			validation.Required.When(s.Password != "").Error("username and password must be set together")),
 		validation.Field(&s.Password,
 			validation.Required.When(s.Username != "").Error("username and password must be set together")),
+		// Credentials must not be paired with a plaintext channel. Without TLS
+		// go-mail narrows auth to challenge-response, so the password does not
+		// cross the wire in the clear -- but CRAM-MD5 hands the server an
+		// HMAC-MD5 of it, which grinds offline cheaply. An unauthenticated relay
+		// over plaintext stays valid: it exposes nothing, and it is what an
+		// internal relay (and the in-process test server) speaks.
+		validation.Field(&s.TLSPolicy,
+			validation.When(s.Username != "",
+				validation.NotIn(TLSPolicyNone).
+					Error("tls_policy must not be \"none\" when a username is set: "+
+						"credentials would be offered over an unencrypted connection"))),
 		validation.Field(&s.Timeout, validation.When(s.Timeout != "", validation.WithContext(xvalidation.IsDuration))),
 	)
 }

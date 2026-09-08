@@ -62,7 +62,10 @@ func TestService_UpdateClearsSecret(t *testing.T) {
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
 		Kind:    kinds.email,
 		Enabled: lo.ToPtr(true),
-		Config:  json.RawMessage(`{"host":"smtp.test","from":"a@b.c","username":"u","tls_policy":"none"}`),
+		// Encrypted rather than "none": credentials with a plaintext channel are
+		// rejected by the kind. This test is about clearing the secret, so the
+		// policy here is just a valid backdrop.
+		Config:  json.RawMessage(`{"host":"smtp.test","from":"a@b.c","username":"u","tls_policy":"mandatory"}`),
 		Secrets: secretsJSON(t, map[string]string{"password": "pw"}),
 		Actor:   testActor(),
 	})

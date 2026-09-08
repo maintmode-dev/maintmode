@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/wneessen/go-mail"
+
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
 
 // TestTLSPolicy pins the config-string -> TLS-posture mapping. The default
@@ -16,8 +18,8 @@ func TestTLSPolicy(t *testing.T) {
 		in   string
 		want mail.TLSPolicy
 	}{
-		{tlsPolicyNone, mail.NoTLS},
-		{tlsPolicyOpportunistic, mail.TLSOpportunistic},
+		{integrationkinds.TLSPolicyNone, mail.NoTLS},
+		{integrationkinds.TLSPolicyOpportunistic, mail.TLSOpportunistic},
 		{"mandatory", mail.TLSMandatory},
 		{"", mail.TLSMandatory},          // empty defaults to mandatory
 		{"bogus", mail.TLSMandatory},     // unknown defaults to mandatory
