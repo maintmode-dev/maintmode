@@ -68,7 +68,7 @@ func TestVerifyOTP_FailuresAreIndistinguishable(t *testing.T) {
 		"absent nonce":    doVerifyOTP(t, impl, `{"email":"a@example.com","code":"123456"}`),
 		"oversized email": doVerifyOTP(t, impl, `{"email":"`+strings.Repeat("a", 300)+`@example.com","code":"123456","session_nonce":"`+nonce+`"}`),
 		"oversized nonce": doVerifyOTP(t, impl, `{"email":"a@example.com","code":"123456","session_nonce":"`+strings.Repeat("n", 500)+`"}`),
-		"remember me set": doVerifyOTP(t, impl, `{"email":"a@example.com","code":"123456","session_nonce":"`+nonce+`","remember_me":true}`),
+		"unknown field":   doVerifyOTP(t, impl, `{"email":"a@example.com","code":"123456","session_nonce":"`+nonce+`","remember_me":true}`),
 
 		// The three that traverse the service rather than stopping at bind or
 		// validation. They are the ones worth pinning: the cheap rejections all

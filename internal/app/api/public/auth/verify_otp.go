@@ -61,7 +61,6 @@ func (i *Implementation) VerifyOTP(c *echo.Context) error {
 		Email:        xemail.Normalize(body.Email),
 		Code:         body.Code,
 		SessionNonce: body.SessionNonce,
-		RememberMe:   body.RememberMe,
 		ClientIP:     c.RealIP(),
 		UserAgent:    c.Request().UserAgent(),
 	}

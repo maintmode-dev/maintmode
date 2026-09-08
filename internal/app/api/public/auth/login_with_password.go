@@ -51,11 +51,10 @@ func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 		// zero-width character survives into the EqualFold against the
 		// configured bootstrap address, diverting that login into the
 		// not-the-break-glass-address branch.
-		Email:      xemail.Normalize(body.Email),
-		Password:   body.Password,
-		RememberMe: body.RememberMe,
-		ClientIP:   c.RealIP(),
-		UserAgent:  c.Request().UserAgent(),
+		Email:     xemail.Normalize(body.Email),
+		Password:  body.Password,
+		ClientIP:  c.RealIP(),
+		UserAgent: c.Request().UserAgent(),
 	}
 
 	if err := validateLoginWithPasswordCmd(ctx, cmd); err != nil {

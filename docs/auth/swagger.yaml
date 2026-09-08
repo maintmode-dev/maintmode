@@ -201,11 +201,6 @@ components:
                     type: string
                 password:
                     type: string
-                remember_me:
-                    description: |-
-                        RememberMe is accepted and currently ignored: session modes are a separate
-                        change. Present now so adding them later needs no wire-format change.
-                    type: boolean
             required:
                 - email
                 - password
@@ -306,12 +301,6 @@ components:
                     type: string
                 email:
                     type: string
-                remember_me:
-                    description: |-
-                        RememberMe is accepted and currently ignored — session modes are a
-                        separate change. It is in the contract now so adding it later needs no
-                        wire-format change.
-                    type: boolean
                 session_nonce:
                     description: SessionNonce binds the redemption to the client that asked for the code.
                     type: string

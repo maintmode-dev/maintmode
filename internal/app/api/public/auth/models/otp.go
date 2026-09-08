@@ -43,10 +43,6 @@ type VerifyOTPRequest struct {
 	Code  string `json:"code"`
 	// SessionNonce binds the redemption to the client that asked for the code.
 	SessionNonce string `json:"session_nonce"`
-	// RememberMe is accepted and currently ignored — session modes are a
-	// separate change. It is in the contract now so adding it later needs no
-	// wire-format change.
-	RememberMe bool `json:"remember_me"`
 }
 
 // ResetPasswordRequest redeems a one-time code and installs a new password.
