@@ -66,6 +66,26 @@ type UpdateIntegrationCmd struct {
 	Actor   *User
 }
 
+// ProbeIntegrationCmd asks the server to exercise a set of integration settings
+// live -- today only SMTP -- and report whether the far end accepted them.
+//
+// It is deliberately self-contained: Config and Secrets are what the caller
+// typed, never merged with a stored row, and nothing about the outcome is
+// persisted. That is what makes it a probe of a config the admin is still
+// editing rather than a test of whatever happens to be saved. The cost is that
+// a write-only secret must be re-entered to be tested; the alternative -- the
+// server pairing a stored password with a caller-named host -- is how "test
+// connection" buttons leak credentials.
+type ProbeIntegrationCmd struct {
+	Kind    string
+	Config  json.RawMessage
+	Secrets map[string]string
+	// To is the recipient of the test message. Required: sending mail to an
+	// address the caller did not name is a side effect they did not ask for.
+	To    string
+	Actor *User
+}
+
 // ToggleIntegrationCmd flips the enabled flag of an integration at runtime.
 type ToggleIntegrationCmd struct {
 	Kind    string

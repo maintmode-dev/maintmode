@@ -65,6 +65,20 @@ func rejectSecretKeysInConfig(in integrationkinds.Integration, config json.RawMe
 // the credential; this warning is the diagnostic trail. Key NAMES only, never
 // values.
 func warnUnknownSecretKeys[V any](ctx context.Context, in integrationkinds.Integration, incoming map[string]V) {
+	unknown := unknownSecretKeys(in, incoming)
+	if len(unknown) == 0 {
+		return
+	}
+	xlog.Warn(ctx, "ignoring unknown secret keys for integration",
+		xfield.String("kind", in.Kind()),
+		xfield.Strings("secret_keys", unknown),
+	)
+}
+
+// unknownSecretKeys returns, sorted, the incoming secret keys the kind does not
+// declare. Callers differ on what that means — create/update drop them with a
+// warning, the probe refuses outright — so this only names them.
+func unknownSecretKeys[V any](in integrationkinds.Integration, incoming map[string]V) []string {
 	known := make(map[string]struct{}, len(in.SecretKeys()))
 	for _, key := range in.SecretKeys() {
 		known[key] = struct{}{}
@@ -76,14 +90,8 @@ func warnUnknownSecretKeys[V any](ctx context.Context, in integrationkinds.Integ
 			unknown = append(unknown, key)
 		}
 	}
-	if len(unknown) == 0 {
-		return
-	}
 	sort.Strings(unknown)
-	xlog.Warn(ctx, "ignoring unknown secret keys for integration",
-		xfield.String("kind", in.Kind()),
-		xfield.Strings("secret_keys", unknown),
-	)
+	return unknown
 }
 
 // newDEK generates a fresh DEK, wraps it with the active KEK, and stores the
