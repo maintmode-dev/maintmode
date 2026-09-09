@@ -45,7 +45,9 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	googleoauthgw "github.com/ruko1202/maintmode/internal/gateways/googleoauth"
+	"github.com/ruko1202/maintmode/internal/entity"
+	oidcgw "github.com/ruko1202/maintmode/internal/gateways/oidc"
+	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 )
 
@@ -57,16 +59,29 @@ import (
 // whether a token-exchange client holding a client secret is constructed at all.
 // An unconfigured instance ends up with neither.
 func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkeyClient *valkeylib.Client) *apiauth.Implementation {
+	// The provider list is attached before the dance gate: an instance
+	// reachable only through the BFF path still needs its sign-in button.
 	impl := apiauth.New(
 		cfg.Auth,
 		services.Auth,
 		services.Token,
 		services.User,
 		services.OTP,
-	)
+	).WithOIDCProviders(cfg.OauthProviders)
 
 	if !cfg.OAuthDanceEnabled() {
 		return impl
+	}
+
+	// One token-exchange client per configured instance, each sharing the
+	// process-wide discovery cache with the verification half.
+	danceable := cfg.OauthProviders.DanceInstanceNames()
+	gateways := make(map[entity.AuthMethod]auth.DanceGateway, len(danceable))
+	for _, name := range danceable {
+		gateways[entity.AuthMethod(name)] = oidcgw.NewClient(
+			cfg.OauthProviders.OIDC[name],
+			services.OIDCDiscovery,
+		)
 	}
 
 	// Two halves of arming the dance, and they sit in different layers on
@@ -81,9 +96,8 @@ func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkey
 
 	services.Auth.WithDance(
 		cfg.Auth,
-		cfg.OauthProviders.Google.ClientSecret,
 		danceStore,
-		googleoauthgw.NewClient(cfg.OauthProviders.Google),
+		gateways,
 	)
 
 	// The same store, armed on the invitation side: it is what turns the handle
@@ -92,7 +106,7 @@ func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkey
 	// where the dance's config gate has already been passed.
 	services.Invitation.WithDanceHandles(danceStore)
 
-	return impl.WithOAuthDance(cfg.OauthProviders.Google, cfg.App)
+	return impl.WithOAuthDance(cfg.OauthProviders, cfg.App)
 }
 
 func main() {

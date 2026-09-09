@@ -37,6 +37,16 @@ var (
 	// caller which half of its attempt was wrong would confirm half a guess.
 	ErrOAuthDanceStateInvalid = errors.New("oauth dance state invalid")
 	ErrAuthUnavailable        = errors.New("auth unavailable")
+	// ErrEmailNotVerified marks an ID token whose issuer declines to vouch for
+	// the address it carries. The token itself is genuine — the signature
+	// verified — so this is not an invalid-token error: it is the issuer saying
+	// it never checked that this person controls this mailbox.
+	//
+	// It is refused rather than downgraded because Email is an identity key
+	// wherever it matches an invitation or claims a fresh account, and an
+	// issuer that lets a user self-assert any address would otherwise let that
+	// user reach someone else's.
+	ErrEmailNotVerified = errors.New("email not verified")
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next

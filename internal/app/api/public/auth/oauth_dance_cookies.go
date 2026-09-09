@@ -2,7 +2,6 @@ package auth
 
 import (
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -104,19 +103,4 @@ func (i *Implementation) danceCookie(name, value string, maxAge int) *http.Cooki
 		// provider, and Strict withholds cookies on exactly that.
 		SameSite: http.SameSiteLaxMode,
 	}
-}
-
-// danceCookieSecure reports whether the dance cookies must be HTTPS-only,
-// judged by the scheme of the configured external redirect_uri.
-//
-// Defaults to true: an unparseable or scheme-less redirect_uri is a
-// misconfiguration, and the safe direction to fail is a cookie the browser
-// withholds over plain HTTP rather than one it leaks.
-func danceCookieSecure(redirectURI string) bool {
-	u, err := url.Parse(redirectURI)
-	if err != nil {
-		return true
-	}
-
-	return u.Scheme != "http"
 }

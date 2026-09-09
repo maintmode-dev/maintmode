@@ -185,67 +185,6 @@ type Valkey struct {
 	DB       int    `mapstructure:"db"`
 }
 
-// GoogleOauthProvider configures Google sign-in.
-//
-// HISTORY, because the previous comment here forbade exactly what now follows:
-// until RUK-291 this block held a client_id and nothing else, because the BFF
-// (maintmode-ui, NextAuth) owned the authorization-code exchange and merely
-// posted us the resulting id_token. A client_secret would have been an unused
-// copy of a credential only the BFF needed.
-//
-// RUK-291 made the backend a confidential OAuth client: it now runs the dance
-// itself (/login/oauth/{provider}/start + /callback), so ClientSecret,
-// RedirectURI and the two endpoints are load-bearing. The BFF path
-// (/login/oauth/exchange/google) is still live and still needs nothing but
-// ClientID, which is why both sets of fields coexist here rather than one
-// replacing the other.
-type GoogleOauthProvider struct {
-	ClientID  string            `mapstructure:"client_id"`
-	JWTVerify JWTVerifierConfig `mapstructure:"jwtverifier"`
-
-	// ClientSecret is the confidential-client credential used at the token
-	// endpoint. Resolved from the secret store via a <secret:...> reference in
-	// app.config.yaml — never written literally into a config file.
-	ClientSecret string `mapstructure:"client_secret"`
-	// RedirectURI is this instance's EXTERNAL callback URL, and it must be the
-	// external form. Caddy serves the backend under `handle_path /auth/*`, which
-	// strips the prefix, so the app sees /api/v1/... while the browser and
-	// Google see /auth/api/v1/... Registering the internal form with Google
-	// yields a redirect_uri_mismatch that never reaches our logs.
-	RedirectURI string `mapstructure:"redirect_uri"`
-	// AuthURL and TokenURL override the provider's endpoints, so a stand can
-	// point the dance at a local fake. Empty means Google's own; the defaults
-	// live with the gateway that dials them, not here.
-	AuthURL  string `mapstructure:"auth_url"`
-	TokenURL string `mapstructure:"token_url"`
-}
-
-// danceConfigured reports whether every value the dance needs to reach the
-// provider is present. All or nothing: a dance that cannot reach the token
-// endpoint is worse than no dance.
-//
-// AuthURL and TokenURL are in here because there is no in-code default for
-// them. Without this check a config naming a client_secret and a redirect_uri
-// but no endpoints would register the routes and then send the browser to a
-// URL with no host — a failure that arrives as a 302 and reads as success in
-// every access log.
-//
-// RedirectURI is checked for presence only. It must be the EXTERNAL form — a
-// proxy that strips a path prefix makes what the provider is told differ from
-// the route the app sees — but getting that right is the operator's job, not
-// something this predicate second-guesses.
-func (g GoogleOauthProvider) danceConfigured() bool {
-	return g.ClientSecret != "" && g.RedirectURI != "" && g.AuthURL != "" && g.TokenURL != ""
-}
-
-// OauthProviders has no `stub` section: the stub short-circuits verification in
-// dev and reads nothing from config, so there is no StubOauthProvider type.
-// UseStub (gated on IsDev) is the only stub-related knob.
-type OauthProviders struct {
-	UseStub bool                `mapstructure:"use_stub"`
-	Google  GoogleOauthProvider `mapstructure:"google"`
-}
-
 type JWT struct {
 	PrivateKey     string        `mapstructure:"issuer_private_key"`
 	Issuer         string        `mapstructure:"issuer_name"`
@@ -593,27 +532,23 @@ type TaskProcessorOTPPruneConfig struct {
 }
 
 type JWTVerifierConfig struct {
-	// This struct is shared by two verifiers that use DIFFERENT issuer fields.
-	// Set the one your consumer reads; validateIssuerConfig enforces both at
-	// startup so a missing value cannot silently change behavior.
+	// JWTIssuer is read by internal/services/jwtverifier for our OWN access
+	// tokens, via jwt.WithIssuer. Exactly one issuer, and validateIssuerConfig
+	// requires it: an empty value makes that option skip the check entirely.
 	//
-	// JWTIssuer (singular) — read by internal/services/jwtverifier for our OWN
-	// access tokens, via jwt.WithIssuer. Exactly one issuer.
+	// Upstream providers do not read it. Their expected issuer is whatever
+	// their discovery document declares, which is the only authority on the
+	// string a provider actually mints.
 	JWTIssuer string `mapstructure:"jwt_issuer"`
-	// JWTIssuers (plural) — read by the googleoauth provider for Google ID
-	// tokens, via validation.In. A list because Google mints both
-	// "accounts.google.com" and "https://accounts.google.com" and either is
-	// valid, which is why jwt.WithIssuer cannot express it.
-	JWTIssuers []string `mapstructure:"jwt_issuers"`
-	JWKSURL    string   `mapstructure:"jwks_url"`
+	JWKSURL   string `mapstructure:"jwks_url"`
 	// AllowedHostedDomains, when non-empty, restricts ID tokens to those
 	// whose `hd` claim matches one of the listed domains.
-	AllowedHostedDomains      []string      `mapstructure:"allowed_hosted_domains"`
-	JWKSRefreshInterval       time.Duration `mapstructure:"jwks_refresh_interval"`
-	JWKSHTTPTimeout           time.Duration `mapstructure:"jwks_http_timeout"`
-	JWTLeeway                 time.Duration `mapstructure:"jwt_leeway"`
-	JWKSUnknownKIDRefreshRate time.Duration `mapstructure:"jwks_unknown_kid_refresh_rate"`
-	JWKSUnknownKIDWaitMax     time.Duration `mapstructure:"jwks_unknown_kid_wait_max"`
+	//
+	// It is the one provider-facing knob left here: an OIDC instance's key
+	// fetching, caching and rotation belong to the OIDC library, which needs no
+	// configuration from us.
+	AllowedHostedDomains []string      `mapstructure:"allowed_hosted_domains"`
+	JWTLeeway            time.Duration `mapstructure:"jwt_leeway"`
 }
 
 type RbacConfig struct {
@@ -655,9 +590,14 @@ type AppConfig struct {
 }
 
 // OAuthDanceEnabled reports whether the backend-driven OAuth routes should be
-// registered. It follows LicenseConfig.Enabled's both-or-neither shape: a
-// partially configured block leaves the feature entirely off rather than
-// half-armed.
+// registered: at least one OIDC instance, plus the three App values every
+// redirect is built from.
+//
+// "Configured at all" is the whole gate now. Instance completeness is not part
+// of it — validateOIDCProviders aborts startup on a half-filled block, so by
+// the time this runs an instance is either whole or the process is gone. Two
+// gates answering the same question, one fatal and one silently unregistering
+// routes, is the ambiguity this replaces.
 //
 // FrontendURL and OAuthCallbackPath are both part of the gate because every
 // redirect out of /callback — success and failure alike — is built from the
@@ -677,7 +617,7 @@ type AppConfig struct {
 // It NEVER aborts startup: an instance that configures no OAuth dance boots
 // exactly as it did before, whatever its frontend_url holds.
 func (c AppConfig) OAuthDanceEnabled() bool {
-	return c.OauthProviders.Google.danceConfigured() &&
+	return len(c.OauthProviders.DanceInstanceNames()) > 0 &&
 		c.App.FrontendURL != "" && c.App.OAuthCallbackPath != "" &&
 		c.App.OAuthCookiePath != ""
 }
@@ -783,6 +723,10 @@ func initConfig(appName string) *AppConfig {
 	}
 
 	if err := cfg.validateIssuerConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
+	if err := cfg.validateOIDCProviders(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -1090,24 +1034,15 @@ func (c *AppConfig) validateSessionLifetimes() error {
 //   - jwtverifier (our own access tokens) reads the singular JWTIssuer and
 //     passes it to jwt.WithIssuer. The library skips the check entirely on an
 //     empty string, so a missing jwt_issuer FAILS OPEN: any issuer is accepted.
-//   - googleoauth (Google ID tokens) reads the plural JWTIssuers and passes it
-//     to validation.In. An empty list matches nothing, so a missing
-//     jwt_issuers FAILS CLOSED: every token is rejected.
 //
-// One is a silent security hole, the other a total outage. Neither should be
-// reachable by deleting a config line, and this is not hypothetical: the Google
-// verifier previously also called jwt.WithIssuer with the singular field, which
-// no config sets, so that check was dead in every environment until it was
-// removed.
+// An empty issuer here is a silent security hole, which is why it stops the
+// process. The upstream half of this check is gone: provider ID tokens are now
+// validated against the issuer their own discovery document declares, so there
+// is no configured allow-list left to leave empty.
 func (c *AppConfig) validateIssuerConfig() error {
 	if c.JWTVerifier.JWTIssuer == "" {
 		return fmt.Errorf(
 			"jwtverifier.jwt_issuer must be set: an empty expected issuer makes jwt.WithIssuer skip the check, accepting any issuer",
-		)
-	}
-	if len(c.OauthProviders.Google.JWTVerify.JWTIssuers) == 0 {
-		return fmt.Errorf(
-			"oauth_providers.google.jwtverifier.jwt_issuers must list at least one issuer: an empty allowlist rejects every Google ID token",
 		)
 	}
 	return nil

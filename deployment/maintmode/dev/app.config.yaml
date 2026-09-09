@@ -164,44 +164,38 @@ valkey:
 
 oauth_providers:
   use_stub: true
-  google:
-    client_id: <secret:oauth/google/client_id>
-    # Backend-driven OAuth dance (RUK-291) — OFF by default.
-    #
-    # Uncommenting ALL FOUR keys registers /login/oauth/{provider}/start,
-    # /callback and /code/exchange. Leaving them commented keeps this instance
-    # exactly as it was: the BFF path at /login/oauth/exchange/google stays the
-    # only way in. Setting some but not all logs a warning and registers
-    # nothing — a dance that cannot reach the provider is worse than no dance.
-    #
-    # Before uncommenting client_secret, make sure the key exists in the secret
-    # store this stand reads: the resolver hard-fails on a missing key, so the
-    # reference alone stops the instance booting.
-    #
-    # redirect_uri must be the EXTERNAL url — Caddy serves this backend under
-    # `handle_path /auth/*` and strips the prefix, so the app sees /api/v1/...
-    # while Google must be told /auth/api/v1/... Registering the internal form
-    # yields a redirect_uri_mismatch that never reaches our logs.
-    # client_secret: <secret:oauth/google/client_secret>
-    # redirect_uri: http://localhost:9000/auth/api/v1/login/oauth/google/callback
-    # auth_url and token_url are the provider's endpoints. They carry no
-    # in-code default on purpose: an endpoint baked into the binary is one an
-    # operator cannot see when they need to know where their sign-ins are
-    # going. The values below are Google's own; a stand pointing at a local
-    # fake overrides them here.
-    # auth_url: https://accounts.google.com/o/oauth2/v2/auth
-    # token_url: https://oauth2.googleapis.com/token
-    jwtverifier:
-      jwks_url: https://www.googleapis.com/oauth2/v3/certs
-      jwt_issuers:
-        - "accounts.google.com"
-        - "https://accounts.google.com"
-      jwks_refresh_interval: 1h
-      jwks_http_timeout: 10s
-      jwt_leeway: 30s
-      jwks_unknown_kid_refresh_rate: 5m
-      jwks_unknown_kid_wait_max: 10s
-
+  # Providers are keyed by instance name. The KEY IS IDENTITY: it is written
+  # verbatim into user_identities.provider, so renaming one orphans every
+  # account linked through it. Use display_name to relabel a button instead.
+  #
+  # Adding a corporate IdP (Keycloak, Authentik, Okta, Azure AD) is a block like
+  # the one below with its own issuer_url and credentials -- no code, no release.
+  # Endpoints and the JWKS location are not configured: they come from the
+  # provider's discovery document at {issuer_url}/.well-known/openid-configuration.
+  oidc:
+    google:
+      display_name: Google
+      issuer_url: https://accounts.google.com
+      client_id: <secret:oauth/google/client_id>
+      # Backend-driven OAuth dance -- OFF by default.
+      #
+      # Uncommenting BOTH keys registers /login/oauth/{provider}/start,
+      # /callback and /code/exchange. Leaving them commented keeps the BFF path
+      # at /login/oauth/exchange/google as the only way in. A half-filled
+      # instance is a startup error, not a silently skipped one: with several
+      # providers, "quietly missing from the sign-in screen" is a failure only
+      # the user who cannot sign in ever discovers.
+      #
+      # Before uncommenting client_secret, make sure the key exists in the
+      # secret store this stand reads: the resolver hard-fails on a missing key,
+      # so the reference alone stops the instance booting.
+      #
+      # redirect_uri must be the EXTERNAL url -- Caddy serves this backend under
+      # `handle_path /auth/*` and strips the prefix, so the app sees /api/v1/...
+      # while the provider must be told /auth/api/v1/... Registering the
+      # internal form yields a redirect_uri_mismatch that never reaches our logs.
+      # client_secret: <secret:oauth/google/client_secret>
+      # redirect_uri: http://localhost:9000/auth/api/v1/login/oauth/google/callback
 jwt:
   issuer_name: oauth-service
   issuer_private_key: <secret:jwt/issuer_private_key>

@@ -45,12 +45,27 @@ type danceStateSigner struct {
 // flight rather than colliding with them.
 const stateSignatureLabel = "oauth-state-v1"
 
-// stateSignatureSeparator is safe because neither signed field can contain it:
-// the state is base64url and the provider comes from a validated allow-list.
+// stateSignatureSeparator joins the signed fields.
+//
+// The fields are LENGTH-PREFIXED rather than merely separated, so the encoding
+// is unambiguous whatever the fields contain. A plain separator was safe only
+// while the provider came from a hard-coded allow-list: with provider names
+// arriving from configuration, ("a.b", state) and ("a", "b"+sep+state) would
+// otherwise hash the same input, and one instance's signature would verify for
+// another's callback.
+//
+// Nothing constrains what an instance name may contain, so prefixing is the
+// only thing standing between the two. It costs one integer per field.
 const stateSignatureSeparator = "."
 
-// newDanceStateSigner derives the signing key from the two secrets, so rotating
-// EITHER one ends every dance in flight with no store to purge.
+// newDanceStateSigner derives the signing key from the JWT issuer key.
+//
+// It used to mix in the client secret as well, so that rotating EITHER secret
+// ended every dance in flight. With providers configured per instance there is
+// no single client secret to mix, and picking one instance's would make the
+// others' dances depend on a credential unrelated to them. Rotating the JWT key
+// remains the lever that ends dances in flight; rotating a provider's client
+// secret no longer does.
 //
 // jwtPrivateKey must be config.JWT.PrivateKey as the hex STRING, never the
 // parsed key or its D bytes: at exactly 64 characters it sits on HMAC-SHA256's
@@ -59,17 +74,12 @@ const stateSignatureSeparator = "."
 // sign-then-verify test inside one process passes under either — hence the test
 // that pins it.
 //
-// The secrets go through a KDF rather than concatenation: with both operands
-// variable-length, ("ab","cdef") and ("abc","def") derive the same key, so a
-// client-secret rotation that shifts the boundary could reproduce a
-// pre-rotation key.
-//
 // Operational coupling: rotating the JWT key is already the "sign everyone out"
-// lever and now also ends dances in flight, so do not sequence one into the
-// middle of an OAuth rollout.
-func newDanceStateSigner(jwtPrivateKey, clientSecret string) danceStateSigner {
+// lever and also ends dances in flight, so do not sequence one into the middle
+// of an OAuth rollout.
+func newDanceStateSigner(jwtPrivateKey string) danceStateSigner {
 	mac := hmac.New(sha256.New, []byte(jwtPrivateKey))
-	mac.Write([]byte(stateSignatureLabel + clientSecret))
+	mac.Write([]byte(stateSignatureLabel))
 
 	return danceStateSigner{key: mac.Sum(nil)}
 }
@@ -116,7 +126,15 @@ func (s danceStateSigner) Verify(cookieValue, provider, state string, now time.T
 
 func (s danceStateSigner) signature(provider, state, unix string) string {
 	mac := hmac.New(sha256.New, s.key)
-	mac.Write([]byte(provider + stateSignatureSeparator + state + stateSignatureSeparator + unix))
+	for _, field := range []string{provider, state, unix} {
+		// The length prefix is what makes the encoding injective: without it
+		// the boundary between two adjacent fields is guesswork, and two
+		// different field sets can produce identical bytes.
+		//
+		// Written straight into the MAC -- hash.Hash is an io.Writer, and its
+		// Write never errors.
+		_, _ = fmt.Fprintf(mac, "%d%s%s", len(field), stateSignatureSeparator, field)
+	}
 
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }

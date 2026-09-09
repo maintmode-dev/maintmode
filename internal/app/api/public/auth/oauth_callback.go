@@ -15,7 +15,7 @@ import (
 // @Description Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. Both cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.
 // @Tags Auth
 // @Produce json
-// @Param provider path string true "Provider id" Enums(google)
+// @Param provider path string true "Configured provider instance name, e.g. google"
 // @Param code query string false "Authorization code from the provider"
 // @Param state query string false "The state issued by /start"
 // @Param error query string false "Error reported by the provider"

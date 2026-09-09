@@ -29,6 +29,7 @@ var (
 	// precondition failed (privacy), so these are returned with no message.
 	ErrInvitationInvalid ErrorCode = "invalid"
 	ErrEmailMismatch     ErrorCode = "email_mismatch"
+	ErrEmailNotVerified  ErrorCode = "email_not_verified"
 
 	// License enforcement codes. Stable machine-readable contract for
 	// the frontend: organization_suspended drives the full-screen suspended page

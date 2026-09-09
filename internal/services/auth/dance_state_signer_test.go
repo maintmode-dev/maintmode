@@ -11,18 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The two secrets the signature is seeded from. Both are arbitrary here; what
-// matters is that changing either one invalidates a signature made with the
-// other, which is the property the rotation tests below pin.
+// The key the signature is seeded from, and a state value in the base64url
+// alphabet the real one uses.
 const (
 	testJWTKey       = "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20"
-	testStateSecret  = "dance-client-secret"
 	testStateValue   = "Zm9vYmFyLXN0YXRlLXZhbHVl"
 	testStateExpFrom = 10 * time.Minute
 )
 
 func testSigner() danceStateSigner {
-	return newDanceStateSigner(testJWTKey, testStateSecret)
+	return newDanceStateSigner(testJWTKey)
 }
 
 // TestStateSignatureRoundTrips is the happy path: what Sign produced verifies
@@ -132,35 +130,50 @@ func TestStateSignatureCoversItsOwnExpiry(t *testing.T) {
 		"an attacker-rewritten expiry must break the signature, or the lifetime is unenforced")
 }
 
-// TestStateSignatureDiesWithEitherSecret is the property that justifies mixing
-// the client secret into the key at all: rotating EITHER secret invalidates every
-// dance in flight at once, with no store to purge.
+// TestStateSignatureDiesWithTheIssuerKey pins the one remaining rotation lever.
 //
-// Without this test the client secret could be dropped from the key derivation
-// entirely and every other test here would still pass.
-func TestStateSignatureDiesWithEitherSecret(t *testing.T) {
+// It used to be two: the client secret was mixed into the key so that rotating
+// either secret ended every dance in flight. With providers configured per
+// instance there is no single client secret to mix, and picking one instance's
+// would make the other instances' dances depend on a credential unrelated to
+// them. Rotating a provider's client secret therefore no longer invalidates
+// state in flight -- only rotating the issuer key does.
+func TestStateSignatureDiesWithTheIssuerKey(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
 	exp := now.Add(testStateExpFrom)
 	cookie := testSigner().Sign("google", testStateValue, exp)
 
-	t.Run("client secret rotated", func(t *testing.T) {
-		t.Parallel()
+	// Rotating this key is already the "sign everyone out" lever; it also ends
+	// dances in flight.
+	rotated := newDanceStateSigner(
+		"0000000000000000000000000000000000000000000000000000000000000001")
+	assert.False(t, rotated.Verify(cookie, "google", testStateValue, now))
+}
 
-		rotated := newDanceStateSigner(testJWTKey, "a-rotated-client-secret")
-		assert.False(t, rotated.Verify(cookie, "google", testStateValue, now))
-	})
+// TestStateSignatureIsUnambiguousAcrossProviders pins that the MAC encoding is
+// injective — one signature cannot be reinterpreted as a different field set.
+//
+// Joined with a bare separator these two are the SAME byte string:
+//
+//	"a" + "." + "b.<state>"   ==   "a.b" + "." + "<state>"
+//
+// so a dance for provider "a" would produce a cookie that verifies for provider
+// "a.b". Length prefixing is what breaks the tie. config.ValidateInstanceKey
+// happens to forbid a dot in an instance name, which would also make this
+// unreachable — but a charset rule is not where a signature's unforgeability
+// should live, and this test fails if the prefixing is removed in favor of
+// relying on it.
+func TestStateSignatureIsUnambiguousAcrossProviders(t *testing.T) {
+	t.Parallel()
 
-	t.Run("jwt issuer key rotated", func(t *testing.T) {
-		t.Parallel()
+	now := time.Now()
+	exp := now.Add(testStateExpFrom)
 
-		// Rotating this key is already the "sign everyone out" lever; after this
-		// ticket it also invalidates dances in flight.
-		rotated := newDanceStateSigner(
-			"0000000000000000000000000000000000000000000000000000000000000001", testStateSecret)
-		assert.False(t, rotated.Verify(cookie, "google", testStateValue, now))
-	})
+	cookie := testSigner().Sign("a", "b."+testStateValue, exp)
+	assert.False(t, testSigner().Verify(cookie, "a.b", testStateValue, now),
+		"a signature for provider %q must not verify for provider %q", "a", "a.b")
 }
 
 // TestStateSignatureRefusesMalformedCookies covers what arrives from the wire.
@@ -213,13 +226,13 @@ func TestStateSignatureSeedIsTheConfiguredString(t *testing.T) {
 	now := time.Now()
 	exp := now.Add(testStateExpFrom)
 
-	fromString := newDanceStateSigner(testJWTKey, testStateSecret).
+	fromString := newDanceStateSigner(testJWTKey).
 		Sign("google", testStateValue, exp)
 
 	decoded, err := hex.DecodeString(testJWTKey)
 	require.NoError(t, err)
 
-	fromBytes := newDanceStateSigner(string(decoded), testStateSecret).
+	fromBytes := newDanceStateSigner(string(decoded)).
 		Sign("google", testStateValue, exp)
 
 	assert.NotEqual(t, fromString, fromBytes,

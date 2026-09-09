@@ -2,35 +2,6 @@ package entity
 
 import "time"
 
-// supportedDanceProviders is the allow-list the backend-driven OAuth dance
-// accepts, checked before any other work.
-//
-// A set rather than a map to AuthMethod: the value would only ever be the key
-// again. It is narrower than ParseAuthMethod on purpose — that one also accepts
-// github and email, which have no authorization-code flow behind them — and it
-// is a closed list rather than a registry lookup because the dance route's
-// {provider} segment shares a path space with the static
-// /login/oauth/exchange/google, so an unvalidated parameter is how a request for
-// one route ends up served by another.
-var supportedDanceProviders = map[AuthMethod]struct{}{
-	AuthMethodGoogle: {},
-}
-
-// DanceProvider resolves a {provider} path segment to the method that serves it,
-// reporting whether the dance supports it at all.
-func DanceProvider(segment string) (AuthMethod, bool) {
-	method, ok := ParseAuthMethod(segment)
-	if !ok {
-		return "", false
-	}
-
-	if _, supported := supportedDanceProviders[method]; !supported {
-		return "", false
-	}
-
-	return method, true
-}
-
 // DanceStart is what /start hands the browser.
 type DanceStart struct {
 	// State goes to the provider in the redirect, in the clear.

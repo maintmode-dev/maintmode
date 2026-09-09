@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/ruko1202/goque"
 	"github.com/ruko1202/xlog"
@@ -13,6 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	licensegw "github.com/ruko1202/maintmode/internal/gateways/license"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
+	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
 	"github.com/ruko1202/maintmode/internal/server/middlewares"
@@ -21,7 +23,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
-	"github.com/ruko1202/maintmode/internal/services/authmethod/googleoauth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod/oidc"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
@@ -65,6 +67,13 @@ type Services struct {
 	// per send from the integration registry (dev keeps the stub). The async
 	// send processor uses it in place of the static config-built registry.
 	TransportResolver notifytransport.TransportResolver
+
+	// OIDCDiscovery is shared with the token-exchange gateways built in main:
+	// both halves of a sign-in resolve the same issuer, so they share one cache.
+	OIDCDiscovery *oidcdiscovery.Resolver
+	// AuthMethods is the provider registry, exposed because it also carries the
+	// vocabulary a request may name.
+	AuthMethods *authmethod.Methods
 
 	// Auth-module services (formerly AuthServices).
 	Auth       *auth.Service
@@ -139,7 +148,12 @@ func NewServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to init casbin authorizer: %w", err)
 	}
 
-	authMethods, err := initAuthMethods(ctx, cfg)
+	// One resolver for the process: the verification half and the token-exchange
+	// half of a sign-in ask about the same issuer, so they share the cache and
+	// the single-flight rather than each fetching their own copy.
+	discovery := oidcdiscovery.New()
+
+	authMethods, err := initAuthMethods(ctx, cfg, discovery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init oauth providers: %w", err)
 	}
@@ -273,6 +287,8 @@ func NewServices(ctx context.Context,
 		Integration:       integrationSrv,
 		TransportResolver: transportResolver,
 
+		OIDCDiscovery:    discovery,
+		AuthMethods:      authMethods,
 		Auth:             authSrv,
 		Token:            tokenSrv,
 		User:             userSrv,
@@ -414,11 +430,37 @@ func newCoreServices(
 	}, nil
 }
 
-func initAuthMethods(ctx context.Context, cfg *config.AppConfig) (*authmethod.Methods, error) {
-	google, err := googleoauth.NewProvider(ctx, &cfg.OauthProviders.Google)
-	if err != nil {
-		return nil, fmt.Errorf("init google oauth provider: %w", err)
+func initAuthMethods(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	discovery *oidcdiscovery.Resolver,
+) (*authmethod.Methods, error) {
+	methods := make([]authmethod.AuthMethod, 0, len(cfg.OauthProviders.OIDC)+1)
+
+	// Every configured instance is registered, resolved or not. Discovery is
+	// attempted here so the common case is ready before the first sign-in, but
+	// a provider whose IdP is unreachable must not stop the others -- or the
+	// process -- from coming up: it completes itself on first use instead.
+	//
+	// Warmed concurrently so one unreachable IdP costs the boot a single
+	// timeout rather than one per instance. Failures are logged and dropped;
+	// none of them is fatal.
+	var warming sync.WaitGroup
+	for _, name := range cfg.OauthProviders.InstanceNames() {
+		provider := oidc.NewProvider(name, cfg.OauthProviders.OIDC[name], discovery)
+		methods = append(methods, provider)
+
+		warming.Add(1)
+		go func() {
+			defer warming.Done()
+
+			if err := provider.Warm(ctx); err != nil {
+				xlog.Error(ctx, "oidc provider is not resolved yet",
+					xfield.String("provider", name), xfield.Error(err))
+			}
+		}()
 	}
+	warming.Wait()
 
 	// The break-glass method is registered in EVERY environment, production
 	// included. Gating it on "is a password configured" would recreate the loop
@@ -435,10 +477,12 @@ func initAuthMethods(ctx context.Context, cfg *config.AppConfig) (*authmethod.Me
 		return nil, fmt.Errorf("resolve bootstrap password: %w", err)
 	}
 
-	return authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{
-		google,
-		bootstrapauth.NewService(cfg.Bootstrap, bootstrapPassword),
-	}), nil
+	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, bootstrapPassword))
+
+	// The danceable subset is narrower than the registered one: it needs the
+	// confidential-client credentials, which a BFF-only instance does not carry.
+	return authmethod.NewAuthMethods(cfg, methods).
+		WithDanceProviders(cfg.OauthProviders.DanceInstanceNames()), nil
 }
 
 // newIntegrationService builds the DB-backed integration registry service on a

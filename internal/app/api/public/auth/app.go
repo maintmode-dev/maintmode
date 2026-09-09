@@ -12,6 +12,10 @@ import (
 )
 
 type Implementation struct {
+	// oidcProviders is the configured instance set, used to list sign-in
+	// buttons. Empty is legal: an instance may configure no OIDC provider.
+	oidcProviders config.OauthProviders
+
 	authSrv  *auth.Service
 	tokenSrv *token.Service
 	userSrv  *user.Service
@@ -67,21 +71,37 @@ func New(
 	}
 }
 
+// WithOIDCProviders attaches the configured provider instances, which the
+// providers endpoint lists as sign-in buttons.
+//
+// Separate from WithOAuthDance because the two are independent: an instance
+// reachable only through the BFF path still needs its button, and still has no
+// dance.
+func (i *Implementation) WithOIDCProviders(providers config.OauthProviders) *Implementation {
+	i.oidcProviders = providers
+
+	return i
+}
+
 // WithOAuthDance attaches the backend-driven dance dependencies.
 //
 // It is a separate constructor step rather than more parameters on New because
-// the dance is optional: an instance that configures no client_secret never
+// the dance is optional: an instance that configures no provider never
 // registers these routes, and every existing caller of New keeps working
 // unchanged.
 //
 // The state signature is NOT wired here: it belongs to the auth service, which
 // derives it from the JWT issuer key it already holds — see WithDanceSigner.
+//
+// The cookie Secure flag is one value for the handler, aggregated over every
+// configured instance rather than read off one of them — see
+// config.DanceCookieSecure for which way that aggregation leans and why.
 func (i *Implementation) WithOAuthDance(
-	googleCfg config.GoogleOauthProvider,
+	providers config.OauthProviders,
 	appCfg config.App,
 ) *Implementation {
 	i.danceCookiePath = appCfg.OAuthCookiePath
-	i.danceCookieSecure = danceCookieSecure(googleCfg.RedirectURI)
+	i.danceCookieSecure = providers.DanceCookieSecure()
 	i.frontendURL = appCfg.FrontendURL
 	i.frontendCallbackPath = appCfg.OAuthCallbackPath
 
