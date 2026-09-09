@@ -71,10 +71,18 @@ type serviceMocks struct {
 type fakeSeatGuard struct {
 	err    error
 	called int
+	// onCall observes the world as the guard sees it — inside the caller's
+	// transaction. The real guard's seat count reads the invitations table from
+	// there, so a test that needs to know what it would have counted has to look
+	// at the same moment.
+	onCall func(ctx context.Context)
 }
 
-func (f *fakeSeatGuard) EnsureSeatAvailable(context.Context) error {
+func (f *fakeSeatGuard) EnsureSeatAvailable(ctx context.Context) error {
 	f.called++
+	if f.onCall != nil {
+		f.onCall(ctx)
+	}
 	return f.err
 }
 

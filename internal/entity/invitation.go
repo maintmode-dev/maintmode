@@ -140,3 +140,17 @@ type AcceptInvitationCmd struct {
 	IDToken  string
 	ClientIP string
 }
+
+// ResolvedInvitation is what an invited dance learns about the invitation it is
+// completing, once the handle has been redeemed and the email match has passed.
+//
+// It exists as a type rather than a bare []Role because absence and emptiness
+// must stay distinguishable. An invitation may legitimately carry no roles, so a
+// nil-or-empty slice returned as "the roles" would be indistinguishable from
+// "there is no invitation" — and that distinction is what decides whether the
+// dance may create an account at all. On an instance with no admins yet, reading
+// one as the other grants admin to an uninvited caller.
+type ResolvedInvitation struct {
+	ID    uuid.UUID
+	Roles []Role
+}
