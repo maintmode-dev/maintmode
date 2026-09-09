@@ -72,12 +72,25 @@ func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkey
 	// Two halves of arming the dance, and they sit in different layers on
 	// purpose: the service owns the state signature (it already holds the JWT
 	// issuer key the signature is seeded from), the handler owns the transport.
+	// The handle store gets the dance STATE lifetime, not a constant: an
+	// invitation handle has to survive the same consent screen the state does.
+	// config.Auth owns the fallback so both resolve it from one place.
+	danceStateTTL := cfg.Auth.DanceStateTTL()
+
+	danceStore := oauthdance.NewStore(valkeyClient, danceStateTTL)
+
 	services.Auth.WithDance(
 		cfg.Auth,
 		cfg.OauthProviders.Google.ClientSecret,
-		oauthdance.NewStore(valkeyClient),
+		danceStore,
 		googleoauthgw.NewClient(cfg.OauthProviders.Google),
 	)
+
+	// The same store, armed on the invitation side: it is what turns the handle
+	// the browser carries back into the invitation being accepted. Armed here
+	// rather than at construction because this is where Valkey is available and
+	// where the dance's config gate has already been passed.
+	services.Invitation.WithDanceHandles(danceStore)
 
 	return impl.WithOAuthDance(cfg.OauthProviders.Google, cfg.App)
 }

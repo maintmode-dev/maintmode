@@ -41,16 +41,18 @@ func (i *Implementation) OAuthDanceCallback(c *echo.Context) error {
 	// Set-Cookie, and the signature's deadline is what covers them.
 	signature := danceCookieValue(c, oauthStateCookie)
 	verifier := danceCookieValue(c, oauthVerifierCookie)
+	invitationHandle := danceCookieValue(c, oauthInvitationCookie)
 
 	i.expireDanceCookies(c)
 
 	code, err := i.authSrv.CompleteDance(ctx, entity.DanceCallback{
-		Provider:       c.Param("provider"),
-		ProviderError:  c.QueryParam(paramError),
-		State:          c.QueryParam(paramState),
-		Code:           c.QueryParam(paramCode),
-		StateSignature: signature,
-		Verifier:       verifier,
+		Provider:         c.Param("provider"),
+		ProviderError:    c.QueryParam(paramError),
+		State:            c.QueryParam(paramState),
+		Code:             c.QueryParam(paramCode),
+		StateSignature:   signature,
+		Verifier:         verifier,
+		InvitationHandle: invitationHandle,
 	}, meta)
 	if err != nil {
 		xlog.Warn(ctx, "oauth dance did not complete", xfield.Error(err))

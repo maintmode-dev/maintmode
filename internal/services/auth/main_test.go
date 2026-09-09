@@ -75,14 +75,28 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	return initServiceForMethod(t, entity.AuthMethodGoogle)
 }
 
+// initInviteOnlyService builds the service with open signup DISABLED, which is
+// the production shape and the only one where AllowCreate decides anything.
+// The shared local config runs open signup, so a test built on initService
+// cannot tell a correct AllowCreate gate from one hard-coded true.
+func initInviteOnlyService(t *testing.T) (*Service, *serviceMocks) {
+	t.Helper()
+	return initServiceWith(t, entity.AuthMethodGoogle, false)
+}
+
 // initServiceForMethod builds the service with its single mock auth method
 // registered under methodID. The registry keys providers by MethodID(), so a
 // test exercising the password login must register the mock as
 // AuthMethodBootstrap or Get would not find it.
 func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *serviceMocks) {
 	t.Helper()
+	return initServiceWith(t, methodID, true)
+}
 
-	return initServiceWithMethods(t, methodID, nil)
+func initServiceWith(t *testing.T, methodID entity.AuthMethod, allowOpenSignup bool) (*Service, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWithMethodsSignup(t, methodID, nil, allowOpenSignup)
 }
 
 // initServiceWithBootstrap builds the service around a REAL break-glass
@@ -114,6 +128,17 @@ func initServiceWithMethods(
 	t *testing.T,
 	methodID entity.AuthMethod,
 	concrete authmethod.AuthMethod,
+) (*Service, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWithMethodsSignup(t, methodID, concrete, true)
+}
+
+func initServiceWithMethodsSignup(
+	t *testing.T,
+	methodID entity.AuthMethod,
+	concrete authmethod.AuthMethod,
+	allowOpenSignup bool,
 ) (*Service, *serviceMocks) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -159,9 +184,11 @@ func initServiceWithMethods(
 			newTestAuditPublisher(t),
 			tokenSrv,
 			license.NewNoop(), // auth tests do not exercise the seat cap
-			// allowOpenSignup mirrors the local/dev config: a plain exchange of an
-			// unknown user provisions a guest, so login tests need no invitation.
-			true,
+			// allowOpenSignup mirrors the local/dev config by default: a plain
+			// exchange of an unknown user provisions a guest, so login tests need
+			// no invitation. Invited-dance tests pass false to get the production
+			// shape, where AllowCreate is what decides.
+			allowOpenSignup,
 		),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),

@@ -15,10 +15,11 @@ import (
 
 // StartOAuthDance godoc
 // @Summary Begin the backend-driven OAuth dance
-// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as two httpOnly cookies, and redirects to the provider. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.
+// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. An optional invitation token parks the invitation behind a third httpOnly cookie so an invited person is created with the invitation's roles when the dance completes; an unknown token is not reported here, it simply fails to apply at the callback. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.
 // @Tags Auth
 // @Produce json
 // @Param provider path string true "Provider id" Enums(google)
+// @Param invitation query string false "Invitation token, when signing in from an invitation link"
 // @Success 302 "Redirect to the provider's authorization endpoint"
 // @Failure 400 {object} httperrors.ErrorResponse "Unsupported provider"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
@@ -46,7 +47,10 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, c.Param("provider")))
 	}
 
-	dance, err := i.authSrv.StartDance(ctx, provider)
+	// The invitation token, when this dance began from an invitation link. It is
+	// read here and handed straight to the service: it never reaches the
+	// provider, the redirect, or a log line (the request sanitizer masks it).
+	dance, err := i.authSrv.StartDance(ctx, provider, c.QueryParam("invitation"))
 	if err != nil {
 		xlog.Error(ctx, "failed to start the oauth dance", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
@@ -62,6 +66,21 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	// inside the window yields the same value every time.
 	i.setDanceCookie(c, oauthStateCookie, dance.StateSignature, dance.TTL)
 	i.setDanceCookie(c, oauthVerifierCookie, dance.Verifier, dance.TTL)
+
+	// Written on EVERY start, not only an invited one, so an absent handle
+	// actively cancels whatever the browser was holding.
+	//
+	// Writing it only when present would leave a previous dance's handle alive:
+	// the state and verifier are overwritten either way, so an abandoned
+	// invitation would silently attach itself to the next ordinary sign-in —
+	// and with a different account, surface as email_mismatch on a login that
+	// had nothing to do with any invitation. Cookies are not origin-isolated
+	// either, so "only ever set it" also leaves room for a planted handle.
+	if dance.InvitationHandle == "" {
+		i.expireDanceCookie(c, oauthInvitationCookie)
+	} else {
+		i.setDanceCookie(c, oauthInvitationCookie, dance.InvitationHandle, dance.TTL)
+	}
 
 	return c.Redirect(http.StatusFound, dance.AuthorizationURL)
 }

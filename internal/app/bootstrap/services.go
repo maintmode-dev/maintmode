@@ -204,6 +204,14 @@ func NewServices(ctx context.Context,
 		enforcement,
 	)
 
+	// The back edge, closed after both services exist.
+	//
+	// It cannot be a constructor argument in either direction: the invitation
+	// service takes authSrv as its TokenIssuer above, so auth cannot take the
+	// invitation service in turn without a cycle the compiler rejects. The
+	// setter is how the dance reaches the invitation guard.
+	authSrv.WithInvitations(invitationSrv)
+
 	core, err := newCoreServices(ctx, cfg, stores, queue)
 	if err != nil {
 		return nil, err

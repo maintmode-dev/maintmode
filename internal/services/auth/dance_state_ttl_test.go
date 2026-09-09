@@ -16,6 +16,10 @@ import (
 // expired, refusing every callback on a stand nobody thought they had
 // misconfigured. Falling back rather than installing that is the whole point of
 // having a resolver instead of reading the field directly.
+//
+// It exercises config.Auth.DanceStateTTL, which is where the resolver lives:
+// the wiring gives the invitation-handle store the same lifetime, so both
+// resolve the fallback from that one place.
 func TestDanceStateTTL(t *testing.T) {
 	t.Parallel()
 
@@ -24,15 +28,15 @@ func TestDanceStateTTL(t *testing.T) {
 		want       time.Duration
 	}{
 		"configured value wins":   {configured: 3 * time.Minute, want: 3 * time.Minute},
-		"unset falls back":        {configured: 0, want: defaultDanceStateTTL},
-		"negative falls back too": {configured: -time.Minute, want: defaultDanceStateTTL},
+		"unset falls back":        {configured: 0, want: config.DefaultDanceStateTTL},
+		"negative falls back too": {configured: -time.Minute, want: config.DefaultDanceStateTTL},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.want, danceStateTTL(config.Auth{OAuthDanceStateTTL: tt.configured}))
+			require.Equal(t, tt.want, config.Auth{OAuthDanceStateTTL: tt.configured}.DanceStateTTL())
 		})
 	}
 }

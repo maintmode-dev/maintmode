@@ -73,7 +73,9 @@ func danceCookies(t *testing.T, rec *httptest.ResponseRecorder) map[string]*http
 	live := map[string]*http.Cookie{}
 
 	for _, cookie := range rec.Result().Cookies() {
-		if cookie.Name != oauthStateCookie && cookie.Name != oauthVerifierCookie {
+		switch cookie.Name {
+		case oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie:
+		default:
 			continue
 		}
 
@@ -178,10 +180,16 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	provider := danceProviderConfig()
 	provider.RedirectURI = redirectURI
 
+	// The same store on both sides, exactly as main.go arms it: the auth service
+	// parks and redeems the one-time code, the invitation service redeems the
+	// handle. Arming only one leaves invited dances silently unable to resolve.
+	danceStore := oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
+	services.Invitation.WithDanceHandles(danceStore)
+
 	// The signer lives on the service now, so the dance is armed in two places:
 	// the service gets the signing secret, the handler gets the transport.
 	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, provider.ClientSecret, oauthdance.NewStore(valkey), gateway),
+		services.Auth.WithDance(cfg.Auth, provider.ClientSecret, danceStore, gateway),
 		services.Token, services.User, services.OTP)
 
 	return impl.WithOAuthDance(provider, config.App{
