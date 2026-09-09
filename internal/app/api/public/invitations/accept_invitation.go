@@ -10,7 +10,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/invitations/models"
-	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -37,20 +36,17 @@ func (i *Implementation) AcceptInvitation(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ErrParseBody)
 	}
 
-	// An unknown/unsupported provider is just another invalid invitation — the
-	// mapper surfaces it as code "invalid" with no detail.
-	provider, ok := entity.ParseAuthMethod(req.OAuthPayload.Provider)
-	if !ok {
-		return httperrors.ToAPIError(c, op, apperr.ErrInvalidInvitation)
-	}
-
+	// The provider name is validated by the service against its registry: an
+	// unknown one is just another invalid invitation, surfaced as code
+	// "invalid" with no detail.
+	//
 	// Deliberately the deprecated path: this handler IS that path, and it stays
 	// registered because an instance with no OAuth dance configured has no other
 	// way to accept an invitation. See the service method's own note.
 	//nolint:staticcheck // SA1019: serving the deprecated endpoint is this handler's purpose.
 	pair, err := i.invSrv.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    req.InvitationToken,
-		Provider: provider,
+		Provider: req.OAuthPayload.Provider,
 		IDToken:  req.OAuthPayload.IDToken,
 		ClientIP: c.RealIP(),
 	})

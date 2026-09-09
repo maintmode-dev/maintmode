@@ -235,72 +235,6 @@ func (e GetApiV1AuditLogParamsAction) Valid() bool {
 	}
 }
 
-// Defines values for GetApiV1LoginOauthProviderCallbackParamsProvider.
-const (
-	GetApiV1LoginOauthProviderCallbackParamsProviderGoogle GetApiV1LoginOauthProviderCallbackParamsProvider = "google"
-)
-
-// Valid indicates whether the value is a known member of the GetApiV1LoginOauthProviderCallbackParamsProvider enum.
-func (e GetApiV1LoginOauthProviderCallbackParamsProvider) Valid() bool {
-	switch e {
-	case GetApiV1LoginOauthProviderCallbackParamsProviderGoogle:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetApiV1LoginOauthProviderStartParamsProvider.
-const (
-	GetApiV1LoginOauthProviderStartParamsProviderGoogle GetApiV1LoginOauthProviderStartParamsProvider = "google"
-)
-
-// Valid indicates whether the value is a known member of the GetApiV1LoginOauthProviderStartParamsProvider enum.
-func (e GetApiV1LoginOauthProviderStartParamsProvider) Valid() bool {
-	switch e {
-	case GetApiV1LoginOauthProviderStartParamsProviderGoogle:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PostApiV1MeProvidersProviderConnectParamsProvider.
-const (
-	PostApiV1MeProvidersProviderConnectParamsProviderGithub PostApiV1MeProvidersProviderConnectParamsProvider = "github"
-	PostApiV1MeProvidersProviderConnectParamsProviderGoogle PostApiV1MeProvidersProviderConnectParamsProvider = "google"
-)
-
-// Valid indicates whether the value is a known member of the PostApiV1MeProvidersProviderConnectParamsProvider enum.
-func (e PostApiV1MeProvidersProviderConnectParamsProvider) Valid() bool {
-	switch e {
-	case PostApiV1MeProvidersProviderConnectParamsProviderGithub:
-		return true
-	case PostApiV1MeProvidersProviderConnectParamsProviderGoogle:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DeleteApiV1MeProvidersProviderDisconnectParamsProvider.
-const (
-	DeleteApiV1MeProvidersProviderDisconnectParamsProviderGithub DeleteApiV1MeProvidersProviderDisconnectParamsProvider = "github"
-	DeleteApiV1MeProvidersProviderDisconnectParamsProviderGoogle DeleteApiV1MeProvidersProviderDisconnectParamsProvider = "google"
-)
-
-// Valid indicates whether the value is a known member of the DeleteApiV1MeProvidersProviderDisconnectParamsProvider enum.
-func (e DeleteApiV1MeProvidersProviderDisconnectParamsProvider) Valid() bool {
-	switch e {
-	case DeleteApiV1MeProvidersProviderDisconnectParamsProviderGithub:
-		return true
-	case DeleteApiV1MeProvidersProviderDisconnectParamsProviderGoogle:
-		return true
-	default:
-		return false
-	}
-}
-
 // ApiauthmodelsAuditFacets defines model for apiauthmodels.AuditFacets.
 type ApiauthmodelsAuditFacets struct {
 	All         *int `json:"all,omitempty"`
@@ -712,17 +646,11 @@ type GetApiV1LoginOauthProviderCallbackParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
-// GetApiV1LoginOauthProviderCallbackParamsProvider defines parameters for GetApiV1LoginOauthProviderCallback.
-type GetApiV1LoginOauthProviderCallbackParamsProvider string
-
 // GetApiV1LoginOauthProviderStartParams defines parameters for GetApiV1LoginOauthProviderStart.
 type GetApiV1LoginOauthProviderStartParams struct {
 	// Invitation Invitation token, when signing in from an invitation link
 	Invitation *string `form:"invitation,omitempty" json:"invitation,omitempty"`
 }
-
-// GetApiV1LoginOauthProviderStartParamsProvider defines parameters for GetApiV1LoginOauthProviderStart.
-type GetApiV1LoginOauthProviderStartParamsProvider string
 
 // PostApiV1LogoutParams defines parameters for PostApiV1Logout.
 type PostApiV1LogoutParams struct {
@@ -741,12 +669,6 @@ type PostApiV1MePasswordParams struct {
 	// Authorization Bearer access token
 	Authorization string `json:"Authorization"`
 }
-
-// PostApiV1MeProvidersProviderConnectParamsProvider defines parameters for PostApiV1MeProvidersProviderConnect.
-type PostApiV1MeProvidersProviderConnectParamsProvider string
-
-// DeleteApiV1MeProvidersProviderDisconnectParamsProvider defines parameters for DeleteApiV1MeProvidersProviderDisconnect.
-type DeleteApiV1MeProvidersProviderDisconnectParamsProvider string
 
 // GetApiV1UsersInvitationsParams defines parameters for GetApiV1UsersInvitations.
 type GetApiV1UsersInvitationsParams struct {
@@ -925,10 +847,10 @@ type ClientInterface interface {
 	PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1LoginOauthProviderCallback request
-	GetApiV1LoginOauthProviderCallback(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiV1LoginOauthProviderCallback(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1LoginOauthProviderStart request
-	GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiV1LoginOauthProviderStart(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginOtpRequestWithBody request with any body
 	PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -967,12 +889,12 @@ type ClientInterface interface {
 	PostApiV1MePassword(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1MeProvidersProviderConnectWithBody request with any body
-	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostApiV1MeProvidersProviderConnect(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostApiV1MeProvidersProviderConnect(ctx context.Context, provider string, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteApiV1MeProvidersProviderDisconnect request
-	DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1PasswordResetConfirmWithBody request with any body
 	PostApiV1PasswordResetConfirmWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1138,7 +1060,7 @@ func (c *Client) PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body Pos
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1LoginOauthProviderCallback(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetApiV1LoginOauthProviderCallback(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1LoginOauthProviderCallbackRequest(c.Server, provider, params)
 	if err != nil {
 		return nil, err
@@ -1150,7 +1072,7 @@ func (c *Client) GetApiV1LoginOauthProviderCallback(ctx context.Context, provide
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetApiV1LoginOauthProviderStart(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1LoginOauthProviderStartRequest(c.Server, provider, params)
 	if err != nil {
 		return nil, err
@@ -1330,7 +1252,7 @@ func (c *Client) PostApiV1MePassword(ctx context.Context, params *PostApiV1MePas
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1MeProvidersProviderConnectRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
 		return nil, err
@@ -1342,7 +1264,7 @@ func (c *Client) PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1MeProvidersProviderConnect(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostApiV1MeProvidersProviderConnect(ctx context.Context, provider string, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1MeProvidersProviderConnectRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
@@ -1354,7 +1276,7 @@ func (c *Client) PostApiV1MeProvidersProviderConnect(ctx context.Context, provid
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) DeleteApiV1MeProvidersProviderDisconnect(ctx context.Context, provider string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteApiV1MeProvidersProviderDisconnectRequest(c.Server, provider)
 	if err != nil {
 		return nil, err
@@ -1942,7 +1864,7 @@ func NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server string, contentT
 }
 
 // NewGetApiV1LoginOauthProviderCallbackRequest generates requests for GetApiV1LoginOauthProviderCallback
-func NewGetApiV1LoginOauthProviderCallbackRequest(server string, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams) (*http.Request, error) {
+func NewGetApiV1LoginOauthProviderCallbackRequest(server string, provider string, params *GetApiV1LoginOauthProviderCallbackParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2027,7 +1949,7 @@ func NewGetApiV1LoginOauthProviderCallbackRequest(server string, provider GetApi
 }
 
 // NewGetApiV1LoginOauthProviderStartRequest generates requests for GetApiV1LoginOauthProviderStart
-func NewGetApiV1LoginOauthProviderStartRequest(server string, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams) (*http.Request, error) {
+func NewGetApiV1LoginOauthProviderStartRequest(server string, provider string, params *GetApiV1LoginOauthProviderStartParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2423,7 +2345,7 @@ func NewPostApiV1MePasswordRequestWithBody(server string, params *PostApiV1MePas
 }
 
 // NewPostApiV1MeProvidersProviderConnectRequest calls the generic PostApiV1MeProvidersProviderConnect builder with application/json body
-func NewPostApiV1MeProvidersProviderConnectRequest(server string, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody) (*http.Request, error) {
+func NewPostApiV1MeProvidersProviderConnectRequest(server string, provider string, body PostApiV1MeProvidersProviderConnectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -2434,7 +2356,7 @@ func NewPostApiV1MeProvidersProviderConnectRequest(server string, provider PostA
 }
 
 // NewPostApiV1MeProvidersProviderConnectRequestWithBody generates requests for PostApiV1MeProvidersProviderConnect with any type of body
-func NewPostApiV1MeProvidersProviderConnectRequestWithBody(server string, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostApiV1MeProvidersProviderConnectRequestWithBody(server string, provider string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2470,7 +2392,7 @@ func NewPostApiV1MeProvidersProviderConnectRequestWithBody(server string, provid
 }
 
 // NewDeleteApiV1MeProvidersProviderDisconnectRequest generates requests for DeleteApiV1MeProvidersProviderDisconnect
-func NewDeleteApiV1MeProvidersProviderDisconnectRequest(server string, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider) (*http.Request, error) {
+func NewDeleteApiV1MeProvidersProviderDisconnectRequest(server string, provider string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3299,10 +3221,10 @@ type ClientWithResponsesInterface interface {
 	PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
 
 	// GetApiV1LoginOauthProviderCallbackWithResponse request
-	GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error)
+	GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error)
 
 	// GetApiV1LoginOauthProviderStartWithResponse request
-	GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error)
+	GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error)
 
 	// PostApiV1LoginOtpRequestWithBodyWithResponse request with any body
 	PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
@@ -3341,12 +3263,12 @@ type ClientWithResponsesInterface interface {
 	PostApiV1MePasswordWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error)
 
 	// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with any body
-	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
+	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
 
-	PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
+	PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider string, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
 
 	// DeleteApiV1MeProvidersProviderDisconnectWithResponse request
-	DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error)
+	DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider string, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error)
 
 	// PostApiV1PasswordResetConfirmWithBodyWithResponse request with any body
 	PostApiV1PasswordResetConfirmWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1PasswordResetConfirmResponse, error)
@@ -4629,7 +4551,7 @@ func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithResponse(ctx 
 }
 
 // GetApiV1LoginOauthProviderCallbackWithResponse request returning *GetApiV1LoginOauthProviderCallbackResponse
-func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error) {
+func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error) {
 	rsp, err := c.GetApiV1LoginOauthProviderCallback(ctx, provider, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -4638,7 +4560,7 @@ func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx
 }
 
 // GetApiV1LoginOauthProviderStartWithResponse request returning *GetApiV1LoginOauthProviderStartResponse
-func (c *ClientWithResponses) GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error) {
+func (c *ClientWithResponses) GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error) {
 	rsp, err := c.GetApiV1LoginOauthProviderStart(ctx, provider, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -4767,7 +4689,7 @@ func (c *ClientWithResponses) PostApiV1MePasswordWithResponse(ctx context.Contex
 }
 
 // PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersProviderConnectResponse
-func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
+func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
 	rsp, err := c.PostApiV1MeProvidersProviderConnectWithBody(ctx, provider, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -4775,7 +4697,7 @@ func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithBodyWithRes
 	return ParsePostApiV1MeProvidersProviderConnectResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider PostApiV1MeProvidersProviderConnectParamsProvider, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
+func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithResponse(ctx context.Context, provider string, body PostApiV1MeProvidersProviderConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error) {
 	rsp, err := c.PostApiV1MeProvidersProviderConnect(ctx, provider, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -4784,7 +4706,7 @@ func (c *ClientWithResponses) PostApiV1MeProvidersProviderConnectWithResponse(ct
 }
 
 // DeleteApiV1MeProvidersProviderDisconnectWithResponse request returning *DeleteApiV1MeProvidersProviderDisconnectResponse
-func (c *ClientWithResponses) DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider DeleteApiV1MeProvidersProviderDisconnectParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error) {
+func (c *ClientWithResponses) DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx context.Context, provider string, reqEditors ...RequestEditorFn) (*DeleteApiV1MeProvidersProviderDisconnectResponse, error) {
 	rsp, err := c.DeleteApiV1MeProvidersProviderDisconnect(ctx, provider, reqEditors...)
 	if err != nil {
 		return nil, err

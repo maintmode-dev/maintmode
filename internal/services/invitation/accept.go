@@ -71,7 +71,16 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	provider, err := s.authMethods.Get(ctx, cmd.Provider)
+	// Parsed against the registry rather than a compiled-in list, so a provider
+	// added by configuration works here without a code change. An unknown name
+	// collapses into the same opaque refusal as every other failure below.
+	method, ok := s.authMethods.Parse(cmd.Provider)
+	if !ok {
+		xlog.Warn(ctx, "accept: unknown provider named")
+		return nil, apperr.ErrInvalidInvitation
+	}
+
+	provider, err := s.authMethods.Get(ctx, method)
 	if err != nil {
 		xlog.Error(ctx, "accept: get oauth provider failed", xfield.Error(err))
 		return nil, apperr.ErrInvalidInvitation
@@ -97,7 +106,7 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 	// it must own its transaction and cannot be nested in the claim tx below.
 	// The valid invitation itself authorizes the creation; the invitation's
 	// roles are assigned by the claim transaction below, not via the policy.
-	user, err := s.userSrv.GetOrCreateByAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
+	user, err := s.userSrv.GetOrCreateByAuthInfo(ctx, method, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,

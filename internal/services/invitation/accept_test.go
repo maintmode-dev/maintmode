@@ -35,7 +35,7 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    "missing",
-			Provider: entity.AuthMethodGoogle,
+			Provider: string(entity.AuthMethodGoogle),
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -50,7 +50,7 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    raw,
-			Provider: entity.AuthMethodGoogle,
+			Provider: string(entity.AuthMethodGoogle),
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -83,7 +83,7 @@ func TestAcceptGuards(t *testing.T) {
 			// happen at the registry, before any credential is verified.
 			_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 				Token:    raw,
-				Provider: method,
+				Provider: string(method),
 				IDToken:  "tok",
 			})
 			require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -113,7 +113,7 @@ func TestAcceptGuards(t *testing.T) {
 
 		_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 			Token:    raw,
-			Provider: entity.AuthMethodGoogle,
+			Provider: string(entity.AuthMethodGoogle),
 			IDToken:  "tok",
 		})
 		require.ErrorIs(t, err, apperr.ErrEmailMismatch)
@@ -147,7 +147,7 @@ func TestAcceptSuccess(t *testing.T) {
 
 	pair, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.AuthMethodGoogle,
+		Provider: string(entity.AuthMethodGoogle),
 		IDToken:  "tok",
 		ClientIP: "127.0.0.1",
 	})
@@ -159,7 +159,7 @@ func TestAcceptSuccess(t *testing.T) {
 	// The invitation is now accepted, so a second accept fails as invalid.
 	_, err = svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.AuthMethodGoogle,
+		Provider: string(entity.AuthMethodGoogle),
 		IDToken:  "tok",
 	})
 	require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
@@ -197,7 +197,7 @@ func TestAcceptConcurrentSingleUse(t *testing.T) {
 			<-start
 			_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 				Token:    raw,
-				Provider: entity.AuthMethodGoogle,
+				Provider: string(entity.AuthMethodGoogle),
 				IDToken:  "tok",
 			})
 			results <- err
@@ -390,7 +390,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	// identity broke (guard no longer shares MarkAccepted's tx).
 	pair, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    raw,
-		Provider: entity.AuthMethodGoogle,
+		Provider: string(entity.AuthMethodGoogle),
 		IDToken:  "tok",
 		ClientIP: "127.0.0.1",
 	})

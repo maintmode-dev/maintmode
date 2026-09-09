@@ -309,14 +309,18 @@ type LoginWithPasswordCmd struct {
 }
 
 type ConnectProviderCmd struct {
-	UserID   uuid.UUID
-	Provider AuthMethod
+	UserID uuid.UUID
+	// Provider is the raw name from the request; the service validates it
+	// against the registry, which is the only place that knows which providers
+	// are configured.
+	Provider string
 	IDToken  string
 }
 
 type DisconnectProviderCmd struct {
-	UserID   uuid.UUID
-	Provider AuthMethod
+	UserID uuid.UUID
+	// Provider is the raw name from the request -- see ConnectProviderCmd.
+	Provider string
 }
 
 // --- Roles commands ---

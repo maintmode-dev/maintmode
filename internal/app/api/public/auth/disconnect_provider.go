@@ -8,7 +8,6 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
-	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
@@ -22,9 +21,9 @@ import (
 // @Tags Auth
 // @Produce json
 // @Security BearerAuth
-// @Param provider path string true "OAuth provider" Enums(google, github)
+// @Param provider path string true "Configured provider instance name, e.g. google"
 // @Success 204 "Provider disconnected"
-// @Failure 400 {object} httperrors.ErrorResponse "Invalid provider or cannot disconnect the only sign-in method"
+// @Failure 400 {object} httperrors.ErrorResponse "Cannot disconnect the only sign-in method"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/me/providers/{provider}/disconnect [delete]
@@ -39,14 +38,9 @@ func (i *Implementation) DisconnectProvider(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 	}
 
-	provider, err := apiauthmodels.FromAPIConnectableProvider(c.Param("provider"))
-	if err != nil {
-		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
-	}
-
-	err = i.authSrv.DisconnectProvider(ctx, &entity.DisconnectProviderCmd{
+	err := i.authSrv.DisconnectProvider(ctx, &entity.DisconnectProviderCmd{
 		UserID:   ctxUser.ID,
-		Provider: provider,
+		Provider: c.Param("provider"),
 	})
 	if err != nil {
 		xlog.Error(ctx, "disconnect provider failed", xfield.Error(err))

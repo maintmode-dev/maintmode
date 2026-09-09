@@ -9,6 +9,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/config"
 )
 
 func doListAuthMethods(t *testing.T, impl *Implementation) recordedResponse {
@@ -105,4 +107,41 @@ func TestListAuthMethods_IsIdenticalForEveryCaller(t *testing.T) {
 
 	require.Equal(t, anonymous.body, rec.Body.String())
 	require.Equal(t, anonymous.status, rec.Code)
+}
+
+// TestListAuthMethods_ListsConfiguredOIDCInstances covers the buttons an
+// operator brings up by configuration alone.
+func TestListAuthMethods_ListsConfiguredOIDCInstances(t *testing.T) {
+	t.Parallel()
+
+	impl := initImpl(t).WithOIDCProviders(config.OauthProviders{
+		OIDC: map[string]config.OIDCProvider{
+			"acme":   {DisplayName: "Acme SSO"},
+			"google": {DisplayName: "Google"},
+		},
+	})
+
+	resp := doListAuthMethods(t, impl)
+	require.Equal(t, http.StatusOK, resp.status)
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(resp.body), &got))
+
+	// Whole-body match, and the ORDER is part of it: instances sort by key, so
+	// acme precedes google regardless of how the map iterated. An unsorted list
+	// would reshuffle the sign-in buttons between requests and between replicas,
+	// and would break this endpoint's promise that two callers get identical
+	// bytes.
+	//
+	// Note what is absent: no issuer_url, no client_id, no endpoint. This is a
+	// public unauthenticated endpoint, and the whole-body comparison is what
+	// makes a widened struct upstream fail here rather than leak.
+	require.Equal(t, map[string]any{
+		"methods": []any{
+			map[string]any{"id": "email_password", "type": "password", "display_name": "Password"},
+			map[string]any{"id": "email_otp", "type": "code", "display_name": "Email code"},
+			map[string]any{"id": "acme", "type": "redirect", "display_name": "Acme SSO"},
+			map[string]any{"id": "google", "type": "redirect", "display_name": "Google"},
+		},
+	}, got)
 }

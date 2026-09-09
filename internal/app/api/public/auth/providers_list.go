@@ -21,7 +21,7 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 	_, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.ListAuthMethods")
 	defer span.End()
 
-	return c.JSON(http.StatusOK, apiauthmodels.AuthMethodsResponse{Methods: availableAuthMethods()})
+	return c.JSON(http.StatusOK, apiauthmodels.AuthMethodsResponse{Methods: i.availableAuthMethods()})
 }
 
 // availableAuthMethods assembles the list.
@@ -34,7 +34,10 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 // caller and one implementation, and building an extension point now would be
 // guessing at a design that change has not made yet.
 //
-// Both methods are unconditional today, and email_password is the one worth
+// The OIDC entries are the exception to "unconditional": one per configured
+// instance, which is how an operator adds a corporate SSO button without a
+// release. Both built-in methods below are unconditional, and email_password is
+// the one worth
 // explaining. It is NOT gated on a configured bootstrap password, because there
 // is no state in which one is absent: an empty password means "generate one at
 // startup" and validateBootstrapConfig makes the address mandatory, failing boot
@@ -47,17 +50,46 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 // bootstrap is not its own element for the same reason. It and email_password
 // lead to the same form on the same endpoint, so two elements would draw two
 // identical forms.
-func availableAuthMethods() []apiauthmodels.AuthMethod {
-	return []apiauthmodels.AuthMethod{
-		{
+// The ids and labels stay literals rather than constants, and goconst is
+// silenced rather than obeyed: the repeats it counts are in the contract tests,
+// which assert these values as literals on purpose. A test comparing a constant
+// against the same constant would pass through any rename and prove nothing —
+// two independent spellings of the wire format is exactly the point.
+//
+//nolint:goconst
+func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
+	instances := i.oidcProviders.InstanceNames()
+
+	methods := make([]apiauthmodels.AuthMethod, 0, 2+len(instances))
+	methods = append(methods,
+		apiauthmodels.AuthMethod{
 			ID:          "email_password",
 			Type:        apiauthmodels.AuthMethodTypePassword,
 			DisplayName: "Password",
 		},
-		{
+		apiauthmodels.AuthMethod{
 			ID:          "email_otp",
 			Type:        apiauthmodels.AuthMethodTypeCode,
 			DisplayName: "Email code",
 		},
+	)
+
+	// InstanceNames sorts, which matters twice: map iteration is randomized, so
+	// an unsorted list would reshuffle the buttons between requests and between
+	// replicas, and this endpoint's contract is that two callers get identical
+	// bytes.
+	//
+	// Only the name and the label go out. An instance that is configured but
+	// whose discovery has not resolved still appears: this reports what is
+	// configured, not what is reachable, and probing every IdP to render a login
+	// page would be a self-inflicted outage.
+	for _, name := range instances {
+		methods = append(methods, apiauthmodels.AuthMethod{
+			ID:          name,
+			Type:        apiauthmodels.AuthMethodTypeRedirect,
+			DisplayName: i.oidcProviders.OIDC[name].DisplayName,
+		})
 	}
+
+	return methods
 }
