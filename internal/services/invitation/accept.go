@@ -94,6 +94,23 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 
 	// Anti-takeover guard: the account being created must match the invited
 	// email exactly (case-insensitive). No detail is leaked on mismatch.
+	//
+	// The address is the credential on this path, so an address the issuer will
+	// not vouch for is worth no more than one that does not match. An issuer
+	// that lets a user self-assert any address would otherwise let that user
+	// accept someone else's invitation.
+	//
+	// Checked here rather than left to the provider because this path does not
+	// always run through an OIDC one: Methods.Get substitutes the stub for every
+	// method on a use_stub stand, and the stub verifies nothing.
+	//
+	// Both refusals answer identically. A distinguishable "not verified" would
+	// tell a token holder that the invited address MATCHED their own unverified
+	// one, which is exactly what this file's no-detail contract hides.
+	if !claims.EmailVerified {
+		xlog.Warn(ctx, "accept: provider reports the email as unverified")
+		return nil, apperr.ErrEmailMismatch
+	}
 
 	if !emailMatchesIgnoreCase(ctx, claims.Email, inv.Email) {
 		xlog.Warn(ctx, "accept: oauth email does not match invitation")

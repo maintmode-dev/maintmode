@@ -102,11 +102,15 @@ func TestAcceptGuards(t *testing.T) {
 		mustCreate(ctx, t, svc, uniqueEmail(t))
 		raw := rawTokenFromLink(t, mocks.sentEmail.body)
 
-		// OAuth verifies, but resolves to a different email than the invite.
+		// OAuth verifies, and the issuer vouches for the address -- it is simply
+		// a different one than the invite names. Stating EmailVerified keeps
+		// this test about the address rather than passing through the
+		// unverified-email guard for the wrong reason.
 		mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
-			Subject: newUUID().String(),
-			Email:   "someone-else@evil.com",
-			Name:    "Mallory",
+			Subject:       newUUID().String(),
+			Email:         "someone-else@evil.com",
+			Name:          "Mallory",
+			EmailVerified: true,
 		}, nil)
 		// IssueTokenPair must NOT be called — no EXPECT() set, so gomock fails the
 		// test if the flow reaches token issuance.
@@ -130,9 +134,10 @@ func TestAcceptSuccess(t *testing.T) {
 	raw := rawTokenFromLink(t, mocks.sentEmail.body)
 
 	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
-		Subject: newUUID().String(),
-		Email:   emailAddr,
-		Name:    "Invited User",
+		Subject:       newUUID().String(),
+		Email:         emailAddr,
+		Name:          "Invited User",
+		EmailVerified: true,
 	}, nil)
 
 	// Capture the user handed to IssueTokenPair to assert it carries the
@@ -179,9 +184,10 @@ func TestAcceptConcurrentSingleUse(t *testing.T) {
 
 	// Both racers verify OAuth to the invited email; the DB claim decides.
 	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
-		Subject: newUUID().String(),
-		Email:   emailAddr,
-		Name:    "Invited User",
+		Subject:       newUUID().String(),
+		Email:         emailAddr,
+		Name:          "Invited User",
+		EmailVerified: true,
 	}, nil).AnyTimes()
 	// Only the winner reaches token issuance; the loser fails before it.
 	mocks.tokenIssuer.EXPECT().
@@ -366,9 +372,10 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	// Bind the seat store to the user id the accept will create/resolve.
 	subject := newUUID().String()
 	authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
-		Subject: subject,
-		Email:   emailAddr,
-		Name:    "Invited User",
+		Subject:       subject,
+		Email:         emailAddr,
+		Name:          "Invited User",
+		EmailVerified: true,
 	}, nil)
 	tokenIssuer.EXPECT().
 		IssueTokenPair(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -401,4 +408,65 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 	got, err := userSrv.GetByID(ctx, created.ID)
 	require.NoError(t, err)
 	require.Contains(t, got.Roles, entity.RoleReviewer)
+}
+
+// TestAcceptRefusesAnUnverifiedEmail is the anti-takeover guard at its sharpest
+// point.
+//
+// Accepting an invitation matches the provider's email against the invited one,
+// so the address IS the credential here. An issuer that lets a user self-assert
+// an address would otherwise let that user accept someone else's invitation.
+//
+// The refusal has to live here rather than only in the OIDC provider because
+// this path does not always go through one: Methods.Get substitutes the stub for
+// every method on a use_stub stand, and the stub does no verification at all.
+//
+// It collapses into ErrEmailMismatch rather than a distinguishable error. A
+// distinct code would tell a token holder that the invited address MATCHED
+// their own unverified one -- the fact this file's no-detail contract exists to
+// hide.
+func TestAcceptRefusesAnUnverifiedEmail(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, mocks := initService(t)
+	emailAddr := uniqueEmail(t)
+	mustCreate(ctx, t, svc, emailAddr)
+	raw := rawTokenFromLink(t, mocks.sentEmail.body)
+
+	// The address matches the invitation exactly. Only the issuer's refusal to
+	// vouch for it stands between this token and the account.
+	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+		Subject:       newUUID().String(),
+		Email:         emailAddr,
+		Name:          "Invited User",
+		EmailVerified: false,
+	}, nil)
+
+	_, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
+		Token:    raw,
+		Provider: string(entity.AuthMethodGoogle),
+		IDToken:  "tok",
+	})
+	require.ErrorIs(t, err, apperr.ErrEmailMismatch)
+
+	// The invitation is untouched: a refused accept must not burn it, or a
+	// forged attempt would deny the real invitee their link.
+	mocks.authMethod.EXPECT().Authenticate(gomock.Any(), "tok").Return(&entity.OAuthIDTokenClaims{
+		Subject:       newUUID().String(),
+		Email:         emailAddr,
+		Name:          "Invited User",
+		EmailVerified: true,
+	}, nil)
+	mocks.tokenIssuer.EXPECT().
+		IssueTokenPair(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&entity.TokenPair{AccessToken: "access"}, nil)
+
+	pair, err := svc.Accept(ctx, &entity.AcceptInvitationCmd{
+		Token:    raw,
+		Provider: string(entity.AuthMethodGoogle),
+		IDToken:  "tok",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "access", pair.AccessToken)
 }
