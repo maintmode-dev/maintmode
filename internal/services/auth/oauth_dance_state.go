@@ -9,34 +9,18 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
-
-// defaultDanceStateTTL is the signed state's lifetime when
-// auth.oauth_dance_state_ttl is unset: the span from pressing "sign in" to
-// finishing a consent screen, password prompt and second factor included.
-const defaultDanceStateTTL = 10 * time.Minute
-
-// danceStateTTL returns the configured lifetime, or the default when unset.
-//
-// Config blocks carry no viper defaults, so an absent or half-filled auth block
-// arrives as a bare Go zero — and a zero TTL here would sign every state as
-// already expired, refusing every callback. Falling back rather than installing
-// that is the same fail-open choice otp.TTL documents.
-func danceStateTTL(cfg config.Auth) time.Duration {
-	if cfg.OAuthDanceStateTTL <= 0 {
-		return defaultDanceStateTTL
-	}
-
-	return cfg.OAuthDanceStateTTL
-}
 
 // StartDance mints one dance's secrets, signs its state and builds the
 // authorization URL. The handler's job is to put the results in cookies and a
 // redirect.
-func (s *Service) StartDance(ctx context.Context, provider entity.AuthMethod) (*entity.DanceStart, error) {
-	_, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance")
+func (s *Service) StartDance(
+	ctx context.Context,
+	provider entity.AuthMethod,
+	invitationToken string,
+) (*entity.DanceStart, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance")
 	defer span.End()
 
 	state, err := newDanceSecret()
@@ -49,13 +33,54 @@ func (s *Service) StartDance(ctx context.Context, provider entity.AuthMethod) (*
 		return nil, fmt.Errorf("mint pkce verifier: %w", err)
 	}
 
+	invitationHandle, err := s.mintInvitationHandle(ctx, invitationToken)
+	if err != nil {
+		return nil, err
+	}
+
 	return &entity.DanceStart{
 		State:            state,
 		StateSignature:   s.danceSigner.Sign(string(provider), state, time.Now().Add(s.danceStateTTL)),
 		Verifier:         verifier,
 		AuthorizationURL: s.danceGateway.AuthCodeURL(state, verifier),
 		TTL:              s.danceStateTTL,
+		InvitationHandle: invitationHandle,
 	}, nil
+}
+
+// mintInvitationHandle turns a raw invitation token into an opaque handle and
+// parks the invitation behind it, returning "" when no token was presented.
+//
+// It does NOT check whether the token resolves to a live invitation. Doing so
+// would make /start an oracle: a caller could tell live tokens from dead ones
+// before authenticating with anything. A handle is minted and stored for every
+// token presented, and a dead one simply redeems to nothing in phase 0 — after
+// the provider round trip, where the answer teaches nothing an uninvited
+// refusal would not.
+//
+// The token is handed to the invitation side, which owns the token→invitation
+// lookup and the store write. The auth service never learns which invitation a
+// handle names, and never holds the raw token beyond this call.
+func (s *Service) mintInvitationHandle(ctx context.Context, invitationToken string) (string, error) {
+	// No token, or an instance with no invitation side wired: an ordinary dance.
+	if invitationToken == "" || s.invitations == nil {
+		return "", nil
+	}
+
+	handle, err := newDanceSecret()
+	if err != nil {
+		return "", fmt.Errorf("mint invitation handle: %w", err)
+	}
+
+	if err := s.invitations.PrepareHandle(ctx, handle, invitationToken); err != nil {
+		// Fail closed. Returning the handle anyway would leave the browser
+		// carrying one that redeems to nothing, which reads as "your invitation
+		// is invalid" rather than "our store is down" — and refusing here is what
+		// keeps a store outage from ever widening account creation.
+		return "", fmt.Errorf("store invitation handle: %w", err)
+	}
+
+	return handle, nil
 }
 
 // RedeemDanceCode trades a one-time opaque code for the pair parked behind it.
@@ -116,7 +141,7 @@ func (s *Service) CompleteDance(
 		return "", fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
 	}
 
-	return s.issueDanceCode(ctx, provider, idToken, meta)
+	return s.issueDanceCode(ctx, provider, idToken, callback.InvitationHandle, meta)
 }
 
 // verifyDanceOrigin decides whether this callback belongs to a dance this
@@ -216,6 +241,7 @@ func (s *Service) issueDanceCode(
 	ctx context.Context,
 	provider entity.AuthMethod,
 	idToken string,
+	invitationHandle string,
 	meta *entity.AuditMetadata,
 ) (string, error) {
 	// The SAME verifier the BFF path uses: a second one would be a second place
@@ -227,11 +253,38 @@ func (s *Service) issueDanceCode(
 		return "", fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
 	}
 
-	// Empty creation policy: AllowCreate comes from the dev-only X-Test-Roles
-	// header, and a provider redirect carries no header of ours.
-	pair, _, err := s.SignInWithVerifiedClaims(ctx, provider, claims, entity.UserCreationPolicy{}, meta)
+	// PHASE 0, before anything is written: resolve the invitation and enforce
+	// the email match. A refusal here means no account is created and no session
+	// issued, which is the whole reason it precedes sign-in.
+	invitation, err := s.resolveInvitation(ctx, invitationHandle, claims, meta)
+	if err != nil {
+		return "", err
+	}
+
+	// An invitation is what authorizes creating this account. Without one the
+	// policy stays empty and an unknown user on an invite-only instance is
+	// refused, exactly as before.
+	policy := entity.UserCreationPolicy{AllowCreate: invitation != nil}
+
+	// PHASE 1: create (or find) the user and issue the pair, in its own
+	// transaction — GetOrCreateByAuthInfo's unique-violation recovery retries on
+	// a clean connection and cannot be nested.
+	pair, user, err := s.SignInWithVerifiedClaims(ctx, provider, claims, policy, meta)
 	if err != nil {
 		return "", fmt.Errorf("sign in with verified claims: %w", err)
+	}
+
+	// PHASE 2: spend the invitation and grant its roles, atomically.
+	//
+	// It runs after issuance because roles attach to a user id that did not
+	// exist until phase 1. A failure here leaves a live session whose user holds
+	// only the default roles while the invitation stays pending and its link
+	// stays usable — the same direction the id_token accept path chose, and the
+	// safer one: the alternative burns an invitation for a session nobody got.
+	if invitation != nil {
+		if err := s.invitations.ClaimForUser(ctx, invitation, user.ID); err != nil {
+			return "", fmt.Errorf("claim invitation: %w", err)
+		}
 	}
 
 	code, err := newDanceSecret()
@@ -247,4 +300,36 @@ func (s *Service) issueDanceCode(
 	}
 
 	return code, nil
+}
+
+// resolveInvitation runs phase 0 for an invited dance, returning nil for an
+// ordinary one.
+//
+// Refusals are audited here rather than through refuseDance, which hard-codes
+// AuditFailureSessionMismatch: filing "the invitation did not apply" as "the
+// session nonce did not match" would make the trail state something untrue, and
+// the trail is the only record a 302-terminated refusal leaves.
+//
+// The error is returned wrapped so errors.Is survives to danceFailureCode,
+// which is what turns an email mismatch into a redirect the person can act on.
+func (s *Service) resolveInvitation(
+	ctx context.Context,
+	handle string,
+	claims *entity.OAuthIDTokenClaims,
+	meta *entity.AuditMetadata,
+) (*entity.ResolvedInvitation, error) {
+	if handle == "" || s.invitations == nil {
+		return nil, nil //nolint:nilnil // "not an invited dance" is the ordinary case, not an error.
+	}
+
+	invitation, err := s.invitations.ResolveForIdentity(ctx, handle, claims)
+	if err != nil {
+		xlog.Warn(ctx, "invited dance refused", xfield.Error(err))
+		s.publishLoginFailure(ctx, &entity.User{Email: claims.Email, Name: claims.Name},
+			meta, entity.AuditFailureInvitationRefused)
+
+		return nil, fmt.Errorf("resolve invitation: %w", err)
+	}
+
+	return invitation, nil
 }

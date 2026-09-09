@@ -71,14 +71,68 @@ type Service struct {
 	danceCodes    DanceCodeStore
 	danceGateway  DanceGateway
 	danceStateTTL time.Duration
+	// invitations is zero until WithInvitations is called. A nil claimer means
+	// this instance completes no invited dances: every handle is refused, which
+	// is the fail-closed direction — never a panic, and never a dance that
+	// creates an account because the claimer was missing.
+	invitations InvitationClaimer
 }
 
-// DanceCodeStore is the one piece of Valkey the dance still needs: the token
-// pair waiting behind a one-time code. Everything else the dance carries rides
-// in signed cookies.
+// DanceCodeStore is the Valkey the dance needs: the token pair waiting behind a
+// one-time code, and — for an invited dance — the invitation behind an opaque
+// handle. Everything else the dance carries rides in signed cookies.
+//
+// The invitation half is stored rather than signed into the state because the
+// state travels to the provider in the clear, and the invitation token is a
+// bearer credential with a multi-day life. Only the handle reaches the browser;
+// only the id reaches Valkey.
 type DanceCodeStore interface {
 	PutCode(ctx context.Context, code string, pair *entity.TokenPair) error
 	ConsumeCode(ctx context.Context, code string) (*entity.TokenPair, error)
+	PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error
+	// ConsumeInvitationHandle returns nil with no error when there is nothing to
+	// redeem. That is the ordinary path for a dead or forged invitation, not a
+	// fault: /start stores a handle whenever the parameter is present, without
+	// first resolving the token, which is what keeps it from being an oracle.
+	ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error)
+}
+
+// InvitationClaimer is the invitation side of an invited dance.
+//
+// TWO operations, because the guard and the claim sit on opposite sides of user
+// creation: the email match must refuse BEFORE any account exists, while the
+// roles can only be granted AFTER the user has an id. One combined call cannot
+// be in both places.
+//
+// It is an interface here, on the consumer side, rather than a direct
+// dependency on the invitation service, because that dependency cannot exist:
+// invitation.NewService already takes auth.Service as its TokenIssuer, so an
+// import in this direction closes a cycle the compiler enforces. WithInvitations
+// wires the real implementation after both services are constructed.
+type InvitationClaimer interface {
+	// PrepareHandle runs at /start. It parks the invitation the raw token names
+	// behind the opaque handle, so the token itself never travels further.
+	//
+	// It does NOT report whether the token names a live invitation, deliberately:
+	// answering that at /start would make it an oracle for guessing tokens before
+	// authenticating with anything. A token that names nothing yields a handle
+	// that redeems to nothing in phase 0, after the provider round trip.
+	PrepareHandle(ctx context.Context, handle, invitationToken string) error
+	// ResolveForIdentity runs BEFORE sign-in. It redeems the handle, checks the
+	// invitation is live, and enforces the email match against the verified
+	// provider claims. It grants nothing and writes nothing beyond consuming the
+	// handle.
+	//
+	// A nil result with a nil error is not possible: absence is reported as an
+	// error, never as an empty value. An invitation may legitimately carry no
+	// roles, so a nil-or-empty slice must never be readable as "no invitation" —
+	// that overloading is what decides AllowCreate, and on a zero-admin instance
+	// a wrong answer grants admin.
+	ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)
+	// ClaimForUser runs AFTER the user exists. It flips pending→accepted and
+	// assigns the invitation's roles in ONE transaction, so an accepted
+	// invitation never leaves a user without its roles.
+	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) error
 }
 
 // DanceGateway is the provider side of the dance: where /start sends the
@@ -112,7 +166,28 @@ func (s *Service) WithDance(
 	s.danceSigner = newDanceStateSigner(s.cfg.PrivateKey, clientSecret)
 	s.danceCodes = codes
 	s.danceGateway = gateway
-	s.danceStateTTL = danceStateTTL(authCfg)
+	// config.Auth owns the fallback so the wiring, which must give the
+	// invitation-handle store the SAME lifetime, resolves it from one place. Two
+	// copies would drift the instant one was tuned, and the symptom — handles
+	// expiring mid-consent while states stayed valid — reads as a flaky provider
+	// rather than a config bug.
+	s.danceStateTTL = authCfg.DanceStateTTL()
+
+	return s
+}
+
+// WithInvitations enables invited dances.
+//
+// A separate step from WithDance, and from the constructor, for a reason the
+// compiler enforces rather than a stylistic one: invitation.NewService takes
+// this service as its TokenIssuer, so the invitation service cannot exist when
+// this one is built. The wiring calls this once both do.
+//
+// Leaving it unset is safe and is the fail-closed default: CompleteDance
+// refuses every handle it is given, so an instance that forgot this call
+// declines invited sign-ins rather than completing them unguarded.
+func (s *Service) WithInvitations(claimer InvitationClaimer) *Service {
+	s.invitations = claimer
 
 	return s
 }

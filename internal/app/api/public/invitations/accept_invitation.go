@@ -15,8 +15,9 @@ import (
 )
 
 // AcceptInvitation godoc
-// @Summary Accept an invitation (public)
-// @Description Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code ("invalid" / "email_mismatch") with no message, so no invitation detail leaks.
+// @Summary Accept an invitation (public, deprecated)
+// @Deprecated
+// @Description DEPRECATED — prefer GET /api/v1/login/oauth/{provider}/start?invitation=<token>, which completes the invitation as part of the backend OAuth dance and needs no provider id_token from the caller. This endpoint stays live because the dance routes are registered only when the dance is configured: on an instance without it, this is the only way to accept an invitation. Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code ("invalid" / "email_mismatch") with no message, so no invitation detail leaks.
 // @Tags Users
 // @Accept json
 // @Produce json
@@ -43,6 +44,10 @@ func (i *Implementation) AcceptInvitation(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, apperr.ErrInvalidInvitation)
 	}
 
+	// Deliberately the deprecated path: this handler IS that path, and it stays
+	// registered because an instance with no OAuth dance configured has no other
+	// way to accept an invitation. See the service method's own note.
+	//nolint:staticcheck // SA1019: serving the deprecated endpoint is this handler's purpose.
 	pair, err := i.invSrv.Accept(ctx, &entity.AcceptInvitationCmd{
 		Token:    req.InvitationToken,
 		Provider: provider,

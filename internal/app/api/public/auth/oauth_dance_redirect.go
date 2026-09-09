@@ -19,7 +19,9 @@ const (
 )
 
 // Redirect codes the frontend renders: a closed, stable set that RUK-292 maps
-// to messages, so adding one is a cross-ticket contract change.
+// to messages, so adding one is a cross-ticket contract change. email_mismatch
+// was added by agreement with that ticket, which already carried the code and
+// its message from the pre-dance accept flow.
 //
 // Distinct failures collapse onto one code deliberately — the browser learns
 // only that the dance did not complete, and which cause stays in the audit
@@ -27,9 +29,18 @@ const (
 // to present a state this backend signed.
 const (
 	errCodeAccessDenied = "access_denied"
-	errCodeStateInvalid = "state_invalid"
-	errCodeProvider     = "provider_error"
-	errCodeInternal     = "internal_error"
+	// errCodeEmailMismatch says the person signed in with an account that is not
+	// the invited address. It is the ONE dance failure a legitimate person can
+	// fix themselves, which is why it is distinguishable at all: collapsing it
+	// into access_denied would make an innocent mistake read as "you are not
+	// welcome here" on a page carrying no invitation context.
+	//
+	// It leaks no more than the endpoint it replaces: the id_token accept path
+	// already answers a mismatch distinctly, for the same reason.
+	errCodeEmailMismatch = "email_mismatch"
+	errCodeStateInvalid  = "state_invalid"
+	errCodeProvider      = "provider_error"
+	errCodeInternal      = "internal_error"
 )
 
 // danceFailureCode maps a failed dance to the code the browser is sent home
@@ -47,6 +58,16 @@ func danceFailureCode(err error) string {
 	switch {
 	case errors.Is(err, apperr.ErrOAuthProviderDenied):
 		return providerErrorCode(err)
+	case errors.Is(err, apperr.ErrEmailMismatch):
+		// Before the ErrValidation-bearing invitation errors below: both wrap
+		// ErrValidation, so a generic validation arm added above this one would
+		// silently swallow the mismatch and answer internal_error instead.
+		return errCodeEmailMismatch
+	case errors.Is(err, apperr.ErrInvalidInvitation):
+		// Every other invitation failure — unknown, expired, revoked, already
+		// accepted, or a handle that named nothing — is one answer. Telling them
+		// apart would tell a token holder which guess was structurally right.
+		return errCodeAccessDenied
 	case errors.Is(err, apperr.ErrSignupDisabled), errors.Is(err, apperr.ErrUserBlocked):
 		return errCodeAccessDenied
 	case errors.Is(err, apperr.ErrOAuthDanceStateInvalid), errors.Is(err, apperr.ErrUnsupportedProvider):

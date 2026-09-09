@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,9 @@ import (
 func newStore(t *testing.T) *oauthdance.Store {
 	t.Helper()
 
-	return oauthdance.NewStore(valkey)
+	// A generous handle TTL: these tests assert an expiry EXISTS, never its
+	// value, so the number only has to outlive the test itself.
+	return oauthdance.NewStore(valkey, time.Minute)
 }
 
 func randomSecret(t *testing.T) string {
@@ -190,4 +193,100 @@ func TestCodeExpires(t *testing.T) {
 // for the raw code instead of computing anything.
 func codeKeyForTest(code string) string {
 	return "oauth:code:" + xhash.HashSha256([]byte(code))
+}
+
+// TestConsumeInvitationHandleSingleUse is the whole reason the handle read is a
+// GETDEL rather than a GET. A handle that survives its first read stays
+// redeemable for the rest of its window, and it is what unlocks AllowCreate on
+// an invite-only instance -- so a second callback presenting the same handle
+// must find nothing.
+func TestConsumeInvitationHandleSingleUse(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := newStore(t)
+	handle := randomSecret(t)
+	invitationID := uuid.New()
+
+	require.NoError(t, store.PutInvitationHandle(ctx, handle, invitationID))
+
+	got, err := store.ConsumeInvitationHandle(ctx, handle)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, invitationID, *got)
+
+	again, err := store.ConsumeInvitationHandle(ctx, handle)
+	require.NoError(t, err)
+	assert.Nil(t, again, "a handle must not survive its first consume")
+}
+
+// TestConsumeUnknownInvitationHandle pins that an unknown handle is not an
+// error. /start stores a handle whenever the parameter is present, without
+// resolving the token first, so a handle that maps to nothing is the ordinary
+// path for a dead invitation -- not a fault to log and alert on.
+func TestConsumeUnknownInvitationHandle(t *testing.T) {
+	t.Parallel()
+
+	got, err := newStore(t).ConsumeInvitationHandle(context.Background(), randomSecret(t))
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+// TestInvitationHandleKeysAreHashed mirrors TestKeysAreHashed: the handle is a
+// bearer credential for the duration of one dance, so a KEYS scan must not
+// surface it.
+func TestInvitationHandleKeysAreHashed(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	handle := randomSecret(t)
+
+	require.NoError(t, newStore(t).PutInvitationHandle(ctx, handle, uuid.New()))
+
+	found, err := valkey.Keys(ctx, "*"+handle+"*").Result()
+	require.NoError(t, err)
+	assert.Empty(t, found, "the raw handle must not appear in any key")
+}
+
+// TestInvitationHandleUsesItsOwnKeyspace guards against the handle and the
+// one-time code sharing a prefix. They have different lifetimes and different
+// contents; a collision would let one be read as the other.
+func TestInvitationHandleUsesItsOwnKeyspace(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := newStore(t)
+	secret := randomSecret(t)
+
+	require.NoError(t, store.PutInvitationHandle(ctx, secret, uuid.New()))
+
+	// The SAME secret read through the code path must find nothing: the two
+	// keyspaces are disjoint even for an identical secret.
+	pair, err := store.ConsumeCode(ctx, secret)
+	require.NoError(t, err)
+	assert.Nil(t, pair, "a handle must not be redeemable as a one-time code")
+}
+
+// TestInvitationHandleExpires mirrors TestCodeExpires and for the same reason:
+// a handle with no TTL is an immortal grant of AllowCreate. It asserts only
+// that an expiry exists, deliberately -- comparing against the constant the
+// code just wrote would be a tautology that survives stretching the lifetime.
+func TestInvitationHandleExpires(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	handle := randomSecret(t)
+
+	require.NoError(t, newStore(t).PutInvitationHandle(ctx, handle, uuid.New()))
+
+	ttl, err := valkey.TTL(ctx, invitationHandleKeyForTest(handle)).Result()
+	require.NoError(t, err)
+
+	assert.Positive(t, ttl, "a handle with no expiry unlocks account creation forever")
+}
+
+// invitationHandleKeyForTest rebuilds the key independently, for the reason
+// codeKeyForTest documents: a shared helper agrees with itself even when wrong.
+func invitationHandleKeyForTest(handle string) string {
+	return "oauth:invitation:" + xhash.HashSha256([]byte(handle))
 }

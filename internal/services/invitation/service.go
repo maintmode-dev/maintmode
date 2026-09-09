@@ -54,6 +54,17 @@ type TokenIssuer interface {
 	IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error)
 }
 
+// DanceHandles redeems the opaque handle an invited OAuth dance carries.
+//
+// Consumer-side and one method wide: this service needs to turn a handle into
+// an invitation id and nothing else about the dance. Implemented by the
+// oauthdance store. Nil on an instance with no dance configured, which is why
+// ResolveForIdentity guards for it rather than assuming it is set.
+type DanceHandles interface {
+	PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error
+	ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error)
+}
+
 // SeatGuard is the seats-cap guard Create calls inside its tx before inserting a
 // seat-role invite. Defined consumer-side (a subset of license.Enforcement) so
 // the service depends only on the guard and can be tested with a fake;
@@ -84,15 +95,16 @@ type MessageSender interface {
 const defaultInvitationTTL = 7 * 24 * time.Hour
 
 type Service struct {
-	txManager   *dbtx.TxManager
-	store       Store
-	userSrv     UserService
-	tokenIssuer TokenIssuer
-	authMethods *authmethod.Methods
-	sender      MessageSender
-	seatGuard   SeatGuard
-	ttl         time.Duration
-	frontendURL string
+	txManager    *dbtx.TxManager
+	store        Store
+	userSrv      UserService
+	tokenIssuer  TokenIssuer
+	authMethods  *authmethod.Methods
+	sender       MessageSender
+	seatGuard    SeatGuard
+	danceHandles DanceHandles
+	ttl          time.Duration
+	frontendURL  string
 }
 
 func NewService(
@@ -132,4 +144,17 @@ func emailMatchesIgnoreCase(ctx context.Context, email, invited string) bool {
 	defer span.End()
 
 	return strings.EqualFold(strings.ToLower(email), strings.ToLower(invited))
+}
+
+// WithDanceHandles arms the invited-dance path with the store that redeems
+// handles.
+//
+// A setter, like auth.Service.WithDance, and for the same reason: the store is
+// built only where Valkey is available and only when the dance is configured at
+// all. An instance without it keeps every other invitation path working and
+// refuses invited dances, which is the fail-closed direction.
+func (s *Service) WithDanceHandles(handles DanceHandles) *Service {
+	s.danceHandles = handles
+
+	return s
 }

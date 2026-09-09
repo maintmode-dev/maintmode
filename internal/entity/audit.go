@@ -244,6 +244,28 @@ const (
 	// means a broken consent screen or a misconfigured client, which is
 	// invisible otherwise.
 	AuditFailureProviderDenied AuditFailureReason = "oauth provider denied"
+	// AuditFailureInvitationRefused marks an invited dance refused at the
+	// invitation itself: the handle resolved to nothing, the invitation was not
+	// live, or the provider's verified email did not match the invited address.
+	//
+	// One value for all three, matching the no-detail contract those refusals
+	// answer with: the browser learns only that the dance did not complete, and
+	// splitting the reason here would put in the trail the distinction the
+	// redirect exists to hide.
+	//
+	// It IS its own reason rather than a reuse of AuditFailureSessionMismatch,
+	// despite the note above warning against multiplying dance reasons. That
+	// note refuses distinctions nothing can observe — "state expired" versus
+	// "state reused", which arrive identically. This one is observable and
+	// separately actionable: session mismatch means a signature did not verify,
+	// while this means the signature was fine and the invitation was not. A run
+	// of the first reads as replay or a broken cookie path; a run of the second
+	// reads as people clicking stale invitation links, or as an attacker
+	// grinding tokens. Different incidents, different runbooks. Filing an
+	// invitation refusal as a session mismatch would make the trail state
+	// something untrue, and the trail is the only record a 302-terminated
+	// refusal leaves.
+	AuditFailureInvitationRefused AuditFailureReason = "invitation refused"
 )
 
 type AuditLogoutKind string

@@ -15,10 +15,22 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
-// Accept completes an invitation: it validates the token, verifies the OAuth
-// payload, guards that the OAuth email matches the invited email, creates the
-// user with the invitation's pre-assigned roles, marks the invitation accepted,
-// and issues a backend token pair (like a normal login).
+// Accept completes an invitation from a provider id_token the CALLER supplies.
+//
+// Deprecated: use the invited OAuth dance instead — StartDance with an
+// invitation token, resolved by ResolveForIdentity and spent by ClaimForUser.
+// It does not require the caller to hold an id_token at all, which matters
+// because the frontend stopped being an OAuth client and cannot produce one.
+//
+// It stays because the dance routes are registered only when the dance is
+// configured: on an instance without it, the BFF exchange still yields an
+// id_token and this is the only path an invited person has. Do not delete it
+// until the dance is the only supported configuration.
+//
+// It validates the token, verifies the OAuth payload, guards that the OAuth
+// email matches the invited email, creates the user with the invitation's
+// pre-assigned roles, marks the invitation accepted, and issues a backend token
+// pair (like a normal login).
 //
 // Failure modes the caller must surface as a bare status string (no detail):
 //   - apperr.ErrInvalidInvitation — token unknown/expired/accepted/revoked, or
@@ -95,33 +107,11 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, fmt.Errorf("get or create user: %w", err)
 	}
 
-	// Claim the invitation and assign its roles atomically in one transaction.
-	// The status-guarded MarkAccepted is the single-use gate: of two concurrent
-	// accepts of the same token, exactly one flips pending→accepted
-	// (claimed=true); the loser matches zero rows and is rejected as invalid.
-	// Binding the claim and the role grant in a single tx means we never end up
-	// with an accepted invitation whose user is missing roles — if AssignRoles
-	// fails, the claim rolls back and the link stays usable. AssignRoles joins
-	// this tx via the reentrant WithinTx.
-	err = s.txManager.WithinTx(ctx, func(ctx context.Context) error {
-		claimed, err := s.store.MarkAccepted(ctx, inv.ID)
-		if err != nil {
-			return fmt.Errorf("mark accepted: %w", err)
-		}
-		if !claimed {
-			return apperr.ErrInvalidInvitation
-		}
-
-		user, err = s.userSrv.AssignRoles(ctx, &entity.AssignRolesCmd{
-			Actor:  entity.SystemUser,
-			UserID: user.ID,
-			Roles:  inv.Roles,
-		})
-		if err != nil {
-			return fmt.Errorf("assign invitation roles: %w", err)
-		}
-		return nil
-	})
+	// Claim the invitation and assign its roles atomically. Shared with the
+	// invited dance's ClaimForUser: the single-use gate and the load-bearing
+	// MarkAccepted-before-AssignRoles ordering are documented there, in the one
+	// place both paths run them.
+	user, err = s.claimAndAssignRoles(ctx, inv.ID, user.ID, inv.Roles)
 	if err != nil {
 		xlog.Error(ctx, "accept: claim and assign roles failed", xfield.Error(err))
 		return nil, err

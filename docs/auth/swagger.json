@@ -1280,7 +1280,7 @@
         },
         "/api/v1/login/oauth/{provider}/start": {
             "get": {
-                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as two httpOnly cookies, and redirects to the provider. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.",
+                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. An optional invitation token parks the invitation behind a third httpOnly cookie so an invited person is created with the invitation's roles when the dance completes; an unknown token is not reported here, it simply fails to apply at the callback. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.",
                 "parameters": [
                     {
                         "description": "Provider id",
@@ -1291,6 +1291,14 @@
                             "enum": [
                                 "google"
                             ],
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Invitation token, when signing in from an invitation link",
+                        "in": "query",
+                        "name": "invitation",
+                        "schema": {
                             "type": "string"
                         }
                     }
@@ -2419,7 +2427,8 @@
         },
         "/api/v1/users/invitations/accept": {
             "post": {
-                "description": "Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code (\"invalid\" / \"email_mismatch\") with no message, so no invitation detail leaks.",
+                "deprecated": true,
+                "description": "DEPRECATED — prefer GET /api/v1/login/oauth/{provider}/start?invitation=\u003ctoken\u003e, which completes the invitation as part of the backend OAuth dance and needs no provider id_token from the caller. This endpoint stays live because the dance routes are registered only when the dance is configured: on an instance without it, this is the only way to accept an invitation. Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code (\"invalid\" / \"email_mismatch\") with no message, so no invitation detail leaks.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -2463,7 +2472,7 @@
                         "description": "Internal error"
                     }
                 },
-                "summary": "Accept an invitation (public)",
+                "summary": "Accept an invitation (public, deprecated)",
                 "tags": [
                     "Users"
                 ]

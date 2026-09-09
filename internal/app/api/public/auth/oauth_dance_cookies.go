@@ -8,7 +8,8 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// The two cookies that carry a dance; nothing about it is stored server-side.
+// The cookies that carry a dance. The first two are the dance itself and are
+// stored nowhere; the third names an invitation and is the one exception.
 //
 // The split is the binding: the provider gets the plaintext state and the
 // browser only its SIGNATURE, so whoever observes the redirect URL holds one
@@ -17,6 +18,12 @@ import (
 const (
 	oauthStateCookie    = "oauth_state"
 	oauthVerifierCookie = "oauth_code_verifier"
+	// oauthInvitationCookie carries the handle for an invited dance. The
+	// invitation token itself never travels: the state goes to the provider in
+	// the clear, and the token is a bearer credential with a multi-day life, so
+	// only an opaque handle leaves this backend and only in a cookie the
+	// provider never sees.
+	oauthInvitationCookie = "oauth_invitation"
 )
 
 // danceCookieValue reads one dance cookie, treating "absent" and "empty" as the
@@ -38,7 +45,7 @@ func (i *Implementation) setDanceCookie(c *echo.Context, name, value string, ttl
 	http.SetCookie(c.Response(), i.danceCookie(name, value, int(ttl.Seconds())))
 }
 
-// expireDanceCookies queues the removal of both cookies.
+// expireDanceCookies queues the removal of every dance cookie.
 //
 // The callback calls this FIRST, before any check, which is what makes "cleared
 // on every exit" true by construction rather than by remembering it in seven
@@ -50,9 +57,19 @@ func (i *Implementation) setDanceCookie(c *echo.Context, name, value string, ttl
 // Set-Cookie at all, so this bounds nothing for them — the signature's deadline
 // and the provider burning the authorization code are what cover that case.
 func (i *Implementation) expireDanceCookies(c *echo.Context) {
-	for _, name := range []string{oauthStateCookie, oauthVerifierCookie} {
-		http.SetCookie(c.Response(), i.danceCookie(name, "", -1))
+	for _, name := range []string{oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie} {
+		i.expireDanceCookie(c, name)
 	}
+}
+
+// expireDanceCookie cancels one dance cookie.
+//
+// Split out because /start needs it for a single cookie: an uninvited dance
+// must actively clear any invitation handle the browser still holds, since
+// leaving it untouched is what lets an abandoned invitation attach itself to
+// the next ordinary sign-in.
+func (i *Implementation) expireDanceCookie(c *echo.Context, name string) {
+	http.SetCookie(c.Response(), i.danceCookie(name, "", -1))
 }
 
 // danceCookie builds a dance cookie. Expiry reuses it rather than hand-rolling
