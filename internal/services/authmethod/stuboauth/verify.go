@@ -41,16 +41,18 @@ func (p *Service) Authenticate(ctx context.Context, token string) (*entity.OAuth
 		// LastIndex, not Cut: a quoted local part may itself contain '@'.
 		local := addr.Address[:strings.LastIndex(addr.Address, "@")]
 		return &entity.OAuthIDTokenClaims{
-			Subject: xhash.HashSha256([]byte(strings.ToLower(addr.Address))),
-			Email:   addr.Address,
-			Name:    fmt.Sprintf("User Name[%s]", local),
+			Subject:       xhash.HashSha256([]byte(strings.ToLower(addr.Address))),
+			Email:         addr.Address,
+			Name:          fmt.Sprintf("User Name[%s]", local),
+			EmailVerified: true,
 		}, nil
 	}
 
 	id := xuuid.NewString()
 	return &entity.OAuthIDTokenClaims{
-		Subject: xuuid.NewString(),
-		Email:   fmt.Sprintf("%s@mail.com", id),
-		Name:    fmt.Sprintf("User Name[%s]", id),
+		Subject:       xuuid.NewString(),
+		Email:         fmt.Sprintf("%s@mail.com", id),
+		Name:          fmt.Sprintf("User Name[%s]", id),
+		EmailVerified: true,
 	}, nil
 }

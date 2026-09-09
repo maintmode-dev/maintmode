@@ -95,4 +95,14 @@ type OAuthIDTokenClaims struct {
 	Subject string
 	Email   string
 	Name    string
+	// EmailVerified is the issuer's own answer to "have we checked that this
+	// person controls this address". It governs whether Email may be used as an
+	// identity key -- to match an invitation, or to claim a fresh account -- so
+	// it travels with the address rather than being consumed and dropped where
+	// the token is parsed.
+	//
+	// Providers with no upstream (the dev stub, break-glass) set it true: there
+	// is no issuer to have checked, and the zero value would read as an issuer
+	// reporting the address unverified.
+	EmailVerified bool
 }

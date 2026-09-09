@@ -36,8 +36,9 @@ func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.
 	}
 
 	return &entity.OAuthIDTokenClaims{
-		Subject: entity.BootstrapSubject,
-		Email:   s.email,
-		Name:    bootstrapUserName,
+		Subject:       entity.BootstrapSubject,
+		Email:         s.email,
+		Name:          bootstrapUserName,
+		EmailVerified: true,
 	}, nil
 }
