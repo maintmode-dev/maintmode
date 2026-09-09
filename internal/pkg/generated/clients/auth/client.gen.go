@@ -715,6 +715,12 @@ type GetApiV1LoginOauthProviderCallbackParams struct {
 // GetApiV1LoginOauthProviderCallbackParamsProvider defines parameters for GetApiV1LoginOauthProviderCallback.
 type GetApiV1LoginOauthProviderCallbackParamsProvider string
 
+// GetApiV1LoginOauthProviderStartParams defines parameters for GetApiV1LoginOauthProviderStart.
+type GetApiV1LoginOauthProviderStartParams struct {
+	// Invitation Invitation token, when signing in from an invitation link
+	Invitation *string `form:"invitation,omitempty" json:"invitation,omitempty"`
+}
+
 // GetApiV1LoginOauthProviderStartParamsProvider defines parameters for GetApiV1LoginOauthProviderStart.
 type GetApiV1LoginOauthProviderStartParamsProvider string
 
@@ -922,7 +928,7 @@ type ClientInterface interface {
 	GetApiV1LoginOauthProviderCallback(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1LoginOauthProviderStart request
-	GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginOtpRequestWithBody request with any body
 	PostApiV1LoginOtpRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1144,8 +1150,8 @@ func (c *Client) GetApiV1LoginOauthProviderCallback(ctx context.Context, provide
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1LoginOauthProviderStartRequest(c.Server, provider)
+func (c *Client) GetApiV1LoginOauthProviderStart(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1LoginOauthProviderStartRequest(c.Server, provider, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2021,7 +2027,7 @@ func NewGetApiV1LoginOauthProviderCallbackRequest(server string, provider GetApi
 }
 
 // NewGetApiV1LoginOauthProviderStartRequest generates requests for GetApiV1LoginOauthProviderStart
-func NewGetApiV1LoginOauthProviderStartRequest(server string, provider GetApiV1LoginOauthProviderStartParamsProvider) (*http.Request, error) {
+func NewGetApiV1LoginOauthProviderStartRequest(server string, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2044,6 +2050,33 @@ func NewGetApiV1LoginOauthProviderStartRequest(server string, provider GetApiV1L
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Invitation != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "invitation", *params.Invitation, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -3269,7 +3302,7 @@ type ClientWithResponsesInterface interface {
 	GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderCallbackParamsProvider, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error)
 
 	// GetApiV1LoginOauthProviderStartWithResponse request
-	GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error)
+	GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error)
 
 	// PostApiV1LoginOtpRequestWithBodyWithResponse request with any body
 	PostApiV1LoginOtpRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOtpRequestResponse, error)
@@ -4605,8 +4638,8 @@ func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx
 }
 
 // GetApiV1LoginOauthProviderStartWithResponse request returning *GetApiV1LoginOauthProviderStartResponse
-func (c *ClientWithResponses) GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error) {
-	rsp, err := c.GetApiV1LoginOauthProviderStart(ctx, provider, reqEditors...)
+func (c *ClientWithResponses) GetApiV1LoginOauthProviderStartWithResponse(ctx context.Context, provider GetApiV1LoginOauthProviderStartParamsProvider, params *GetApiV1LoginOauthProviderStartParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderStartResponse, error) {
+	rsp, err := c.GetApiV1LoginOauthProviderStart(ctx, provider, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

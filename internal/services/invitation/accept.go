@@ -15,10 +15,22 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
-// Accept completes an invitation: it validates the token, verifies the OAuth
-// payload, guards that the OAuth email matches the invited email, creates the
-// user with the invitation's pre-assigned roles, marks the invitation accepted,
-// and issues a backend token pair (like a normal login).
+// Accept completes an invitation from a provider id_token the CALLER supplies.
+//
+// Deprecated: use the invited OAuth dance instead — StartDance with an
+// invitation token, resolved by ResolveForIdentity and spent by ClaimForUser.
+// It does not require the caller to hold an id_token at all, which matters
+// because the frontend stopped being an OAuth client and cannot produce one.
+//
+// It stays because the dance routes are registered only when the dance is
+// configured: on an instance without it, the BFF exchange still yields an
+// id_token and this is the only path an invited person has. Do not delete it
+// until the dance is the only supported configuration.
+//
+// It validates the token, verifies the OAuth payload, guards that the OAuth
+// email matches the invited email, creates the user with the invitation's
+// pre-assigned roles, marks the invitation accepted, and issues a backend token
+// pair (like a normal login).
 //
 // Failure modes the caller must surface as a bare status string (no detail):
 //   - apperr.ErrInvalidInvitation — token unknown/expired/accepted/revoked, or
