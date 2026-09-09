@@ -390,6 +390,33 @@ type Auth struct {
 	OTPMaxAttempts int `mapstructure:"otp_max_attempts"`
 }
 
+// DanceStateTTL resolves the OAuth-dance state lifetime, falling back to
+// DefaultDanceStateTTL when unset.
+//
+// Config blocks carry no viper defaults, so an absent or half-filled auth block
+// arrives as a bare Go zero — and a zero TTL would sign every state as already
+// expired, refusing every callback.
+//
+// It lives here, rather than as a private helper in the auth service, because
+// two places need the same answer: the service signs states with it, and the
+// wiring gives the invitation-handle store the same lifetime so a handle
+// survives exactly as long as the dance carrying it. Two copies of the fallback
+// would drift the moment one was tuned, and the symptom — handles expiring
+// mid-consent while states stayed valid — reads as a flaky provider rather than
+// a config bug.
+func (a Auth) DanceStateTTL() time.Duration {
+	if a.OAuthDanceStateTTL <= 0 {
+		return DefaultDanceStateTTL
+	}
+
+	return a.OAuthDanceStateTTL
+}
+
+// DefaultDanceStateTTL is the dance-state lifetime when
+// auth.oauth_dance_state_ttl is unset: the span from pressing "sign in" to
+// finishing a consent screen, password prompt and second factor included.
+const DefaultDanceStateTTL = 10 * time.Minute
+
 // NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
 // credentials (Slack/Telegram/SMTP) live in the DB-backed integration registry,
 // not here; the only remaining knob is the dev stub short-circuit.
