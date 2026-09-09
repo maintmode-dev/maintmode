@@ -309,142 +309,421 @@ func (c *MockPasswordCredentialsUpsertPasswordCall) DoAndReturn(f func(context.C
 	return c
 }
 
-// MockSeedRegistry is a mock of SeedRegistry interface.
-type MockSeedRegistry struct {
+// MockDanceCodeStore is a mock of DanceCodeStore interface.
+type MockDanceCodeStore struct {
 	ctrl     *gomock.Controller
-	recorder *MockSeedRegistryMockRecorder
+	recorder *MockDanceCodeStoreMockRecorder
 	isgomock struct{}
 }
 
-// MockSeedRegistryMockRecorder is the mock recorder for MockSeedRegistry.
-type MockSeedRegistryMockRecorder struct {
-	mock *MockSeedRegistry
+// MockDanceCodeStoreMockRecorder is the mock recorder for MockDanceCodeStore.
+type MockDanceCodeStoreMockRecorder struct {
+	mock *MockDanceCodeStore
 }
 
-// NewMockSeedRegistry creates a new mock instance.
-func NewMockSeedRegistry(ctrl *gomock.Controller) *MockSeedRegistry {
-	mock := &MockSeedRegistry{ctrl: ctrl}
-	mock.recorder = &MockSeedRegistryMockRecorder{mock}
+// NewMockDanceCodeStore creates a new mock instance.
+func NewMockDanceCodeStore(ctrl *gomock.Controller) *MockDanceCodeStore {
+	mock := &MockDanceCodeStore{ctrl: ctrl}
+	mock.recorder = &MockDanceCodeStoreMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSeedRegistry) EXPECT() *MockSeedRegistryMockRecorder {
+func (m *MockDanceCodeStore) EXPECT() *MockDanceCodeStoreMockRecorder {
 	return m.recorder
 }
 
-// IsSpent mocks base method.
-func (m *MockSeedRegistry) IsSpent(ctx context.Context, password string) (bool, error) {
+// ConsumeCode mocks base method.
+func (m *MockDanceCodeStore) ConsumeCode(ctx context.Context, code string) (*entity.TokenPair, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsSpent", ctx, password)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "ConsumeCode", ctx, code)
+	ret0, _ := ret[0].(*entity.TokenPair)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsSpent indicates an expected call of IsSpent.
-func (mr *MockSeedRegistryMockRecorder) IsSpent(ctx, password any) *MockSeedRegistryIsSpentCall {
+// ConsumeCode indicates an expected call of ConsumeCode.
+func (mr *MockDanceCodeStoreMockRecorder) ConsumeCode(ctx, code any) *MockDanceCodeStoreConsumeCodeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSpent", reflect.TypeOf((*MockSeedRegistry)(nil).IsSpent), ctx, password)
-	return &MockSeedRegistryIsSpentCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeCode", reflect.TypeOf((*MockDanceCodeStore)(nil).ConsumeCode), ctx, code)
+	return &MockDanceCodeStoreConsumeCodeCall{Call: call}
 }
 
-// MockSeedRegistryIsSpentCall wrap *gomock.Call
-type MockSeedRegistryIsSpentCall struct {
+// MockDanceCodeStoreConsumeCodeCall wrap *gomock.Call
+type MockDanceCodeStoreConsumeCodeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSeedRegistryIsSpentCall) Return(arg0 bool, arg1 error) *MockSeedRegistryIsSpentCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) Return(arg0 *entity.TokenPair, arg1 error) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSeedRegistryIsSpentCall) Do(f func(context.Context, string) (bool, error)) *MockSeedRegistryIsSpentCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) Do(f func(context.Context, string) (*entity.TokenPair, error)) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSeedRegistryIsSpentCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockSeedRegistryIsSpentCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) DoAndReturn(f func(context.Context, string) (*entity.TokenPair, error)) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// Record mocks base method.
-func (m *MockSeedRegistry) Record(ctx context.Context, userID uuid.UUID, password string) error {
+// ConsumeInvitationHandle mocks base method.
+func (m *MockDanceCodeStore) ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Record", ctx, userID, password)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "ConsumeInvitationHandle", ctx, handle)
+	ret0, _ := ret[0].(*uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Record indicates an expected call of Record.
-func (mr *MockSeedRegistryMockRecorder) Record(ctx, userID, password any) *MockSeedRegistryRecordCall {
+// ConsumeInvitationHandle indicates an expected call of ConsumeInvitationHandle.
+func (mr *MockDanceCodeStoreMockRecorder) ConsumeInvitationHandle(ctx, handle any) *MockDanceCodeStoreConsumeInvitationHandleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockSeedRegistry)(nil).Record), ctx, userID, password)
-	return &MockSeedRegistryRecordCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeInvitationHandle", reflect.TypeOf((*MockDanceCodeStore)(nil).ConsumeInvitationHandle), ctx, handle)
+	return &MockDanceCodeStoreConsumeInvitationHandleCall{Call: call}
 }
 
-// MockSeedRegistryRecordCall wrap *gomock.Call
-type MockSeedRegistryRecordCall struct {
+// MockDanceCodeStoreConsumeInvitationHandleCall wrap *gomock.Call
+type MockDanceCodeStoreConsumeInvitationHandleCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSeedRegistryRecordCall) Return(arg0 error) *MockSeedRegistryRecordCall {
+func (c *MockDanceCodeStoreConsumeInvitationHandleCall) Return(arg0 *uuid.UUID, arg1 error) *MockDanceCodeStoreConsumeInvitationHandleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStoreConsumeInvitationHandleCall) Do(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceCodeStoreConsumeInvitationHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStoreConsumeInvitationHandleCall) DoAndReturn(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceCodeStoreConsumeInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PutCode mocks base method.
+func (m *MockDanceCodeStore) PutCode(ctx context.Context, code string, pair *entity.TokenPair) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutCode", ctx, code, pair)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutCode indicates an expected call of PutCode.
+func (mr *MockDanceCodeStoreMockRecorder) PutCode(ctx, code, pair any) *MockDanceCodeStorePutCodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutCode", reflect.TypeOf((*MockDanceCodeStore)(nil).PutCode), ctx, code, pair)
+	return &MockDanceCodeStorePutCodeCall{Call: call}
+}
+
+// MockDanceCodeStorePutCodeCall wrap *gomock.Call
+type MockDanceCodeStorePutCodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStorePutCodeCall) Return(arg0 error) *MockDanceCodeStorePutCodeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSeedRegistryRecordCall) Do(f func(context.Context, uuid.UUID, string) error) *MockSeedRegistryRecordCall {
+func (c *MockDanceCodeStorePutCodeCall) Do(f func(context.Context, string, *entity.TokenPair) error) *MockDanceCodeStorePutCodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSeedRegistryRecordCall) DoAndReturn(f func(context.Context, uuid.UUID, string) error) *MockSeedRegistryRecordCall {
+func (c *MockDanceCodeStorePutCodeCall) DoAndReturn(f func(context.Context, string, *entity.TokenPair) error) *MockDanceCodeStorePutCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// Retire mocks base method.
-func (m *MockSeedRegistry) Retire(ctx context.Context, userID uuid.UUID) (int64, error) {
+// PutInvitationHandle mocks base method.
+func (m *MockDanceCodeStore) PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Retire", ctx, userID)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "PutInvitationHandle", ctx, handle, invitationID)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Retire indicates an expected call of Retire.
-func (mr *MockSeedRegistryMockRecorder) Retire(ctx, userID any) *MockSeedRegistryRetireCall {
+// PutInvitationHandle indicates an expected call of PutInvitationHandle.
+func (mr *MockDanceCodeStoreMockRecorder) PutInvitationHandle(ctx, handle, invitationID any) *MockDanceCodeStorePutInvitationHandleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retire", reflect.TypeOf((*MockSeedRegistry)(nil).Retire), ctx, userID)
-	return &MockSeedRegistryRetireCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutInvitationHandle", reflect.TypeOf((*MockDanceCodeStore)(nil).PutInvitationHandle), ctx, handle, invitationID)
+	return &MockDanceCodeStorePutInvitationHandleCall{Call: call}
 }
 
-// MockSeedRegistryRetireCall wrap *gomock.Call
-type MockSeedRegistryRetireCall struct {
+// MockDanceCodeStorePutInvitationHandleCall wrap *gomock.Call
+type MockDanceCodeStorePutInvitationHandleCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSeedRegistryRetireCall) Return(arg0 int64, arg1 error) *MockSeedRegistryRetireCall {
+func (c *MockDanceCodeStorePutInvitationHandleCall) Return(arg0 error) *MockDanceCodeStorePutInvitationHandleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStorePutInvitationHandleCall) Do(f func(context.Context, string, uuid.UUID) error) *MockDanceCodeStorePutInvitationHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStorePutInvitationHandleCall) DoAndReturn(f func(context.Context, string, uuid.UUID) error) *MockDanceCodeStorePutInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockInvitationClaimer is a mock of InvitationClaimer interface.
+type MockInvitationClaimer struct {
+	ctrl     *gomock.Controller
+	recorder *MockInvitationClaimerMockRecorder
+	isgomock struct{}
+}
+
+// MockInvitationClaimerMockRecorder is the mock recorder for MockInvitationClaimer.
+type MockInvitationClaimerMockRecorder struct {
+	mock *MockInvitationClaimer
+}
+
+// NewMockInvitationClaimer creates a new mock instance.
+func NewMockInvitationClaimer(ctrl *gomock.Controller) *MockInvitationClaimer {
+	mock := &MockInvitationClaimer{ctrl: ctrl}
+	mock.recorder = &MockInvitationClaimerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInvitationClaimer) EXPECT() *MockInvitationClaimerMockRecorder {
+	return m.recorder
+}
+
+// ClaimForUser mocks base method.
+func (m *MockInvitationClaimer) ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimForUser", ctx, inv, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ClaimForUser indicates an expected call of ClaimForUser.
+func (mr *MockInvitationClaimerMockRecorder) ClaimForUser(ctx, inv, userID any) *MockInvitationClaimerClaimForUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimForUser", reflect.TypeOf((*MockInvitationClaimer)(nil).ClaimForUser), ctx, inv, userID)
+	return &MockInvitationClaimerClaimForUserCall{Call: call}
+}
+
+// MockInvitationClaimerClaimForUserCall wrap *gomock.Call
+type MockInvitationClaimerClaimForUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInvitationClaimerClaimForUserCall) Return(arg0 error) *MockInvitationClaimerClaimForUserCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInvitationClaimerClaimForUserCall) Do(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) error) *MockInvitationClaimerClaimForUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInvitationClaimerClaimForUserCall) DoAndReturn(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) error) *MockInvitationClaimerClaimForUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PrepareHandle mocks base method.
+func (m *MockInvitationClaimer) PrepareHandle(ctx context.Context, handle, invitationToken string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareHandle", ctx, handle, invitationToken)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PrepareHandle indicates an expected call of PrepareHandle.
+func (mr *MockInvitationClaimerMockRecorder) PrepareHandle(ctx, handle, invitationToken any) *MockInvitationClaimerPrepareHandleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHandle", reflect.TypeOf((*MockInvitationClaimer)(nil).PrepareHandle), ctx, handle, invitationToken)
+	return &MockInvitationClaimerPrepareHandleCall{Call: call}
+}
+
+// MockInvitationClaimerPrepareHandleCall wrap *gomock.Call
+type MockInvitationClaimerPrepareHandleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInvitationClaimerPrepareHandleCall) Return(arg0 error) *MockInvitationClaimerPrepareHandleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockInvitationClaimerPrepareHandleCall) Do(f func(context.Context, string, string) error) *MockInvitationClaimerPrepareHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockInvitationClaimerPrepareHandleCall) DoAndReturn(f func(context.Context, string, string) error) *MockInvitationClaimerPrepareHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ResolveForIdentity mocks base method.
+func (m *MockInvitationClaimer) ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveForIdentity", ctx, handle, claims)
+	ret0, _ := ret[0].(*entity.ResolvedInvitation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveForIdentity indicates an expected call of ResolveForIdentity.
+func (mr *MockInvitationClaimerMockRecorder) ResolveForIdentity(ctx, handle, claims any) *MockInvitationClaimerResolveForIdentityCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForIdentity", reflect.TypeOf((*MockInvitationClaimer)(nil).ResolveForIdentity), ctx, handle, claims)
+	return &MockInvitationClaimerResolveForIdentityCall{Call: call}
+}
+
+// MockInvitationClaimerResolveForIdentityCall wrap *gomock.Call
+type MockInvitationClaimerResolveForIdentityCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockInvitationClaimerResolveForIdentityCall) Return(arg0 *entity.ResolvedInvitation, arg1 error) *MockInvitationClaimerResolveForIdentityCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSeedRegistryRetireCall) Do(f func(context.Context, uuid.UUID) (int64, error)) *MockSeedRegistryRetireCall {
+func (c *MockInvitationClaimerResolveForIdentityCall) Do(f func(context.Context, string, *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)) *MockInvitationClaimerResolveForIdentityCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSeedRegistryRetireCall) DoAndReturn(f func(context.Context, uuid.UUID) (int64, error)) *MockSeedRegistryRetireCall {
+func (c *MockInvitationClaimerResolveForIdentityCall) DoAndReturn(f func(context.Context, string, *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)) *MockInvitationClaimerResolveForIdentityCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockDanceGateway is a mock of DanceGateway interface.
+type MockDanceGateway struct {
+	ctrl     *gomock.Controller
+	recorder *MockDanceGatewayMockRecorder
+	isgomock struct{}
+}
+
+// MockDanceGatewayMockRecorder is the mock recorder for MockDanceGateway.
+type MockDanceGatewayMockRecorder struct {
+	mock *MockDanceGateway
+}
+
+// NewMockDanceGateway creates a new mock instance.
+func NewMockDanceGateway(ctrl *gomock.Controller) *MockDanceGateway {
+	mock := &MockDanceGateway{ctrl: ctrl}
+	mock.recorder = &MockDanceGatewayMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockDanceGateway) EXPECT() *MockDanceGatewayMockRecorder {
+	return m.recorder
+}
+
+// AuthCodeURL mocks base method.
+func (m *MockDanceGateway) AuthCodeURL(ctx context.Context, state, verifier string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthCodeURL", ctx, state, verifier)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AuthCodeURL indicates an expected call of AuthCodeURL.
+func (mr *MockDanceGatewayMockRecorder) AuthCodeURL(ctx, state, verifier any) *MockDanceGatewayAuthCodeURLCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthCodeURL", reflect.TypeOf((*MockDanceGateway)(nil).AuthCodeURL), ctx, state, verifier)
+	return &MockDanceGatewayAuthCodeURLCall{Call: call}
+}
+
+// MockDanceGatewayAuthCodeURLCall wrap *gomock.Call
+type MockDanceGatewayAuthCodeURLCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceGatewayAuthCodeURLCall) Return(arg0 string, arg1 error) *MockDanceGatewayAuthCodeURLCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceGatewayAuthCodeURLCall) Do(f func(context.Context, string, string) (string, error)) *MockDanceGatewayAuthCodeURLCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceGatewayAuthCodeURLCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockDanceGatewayAuthCodeURLCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Exchange mocks base method.
+func (m *MockDanceGateway) Exchange(ctx context.Context, code, codeVerifier string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Exchange", ctx, code, codeVerifier)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Exchange indicates an expected call of Exchange.
+func (mr *MockDanceGatewayMockRecorder) Exchange(ctx, code, codeVerifier any) *MockDanceGatewayExchangeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exchange", reflect.TypeOf((*MockDanceGateway)(nil).Exchange), ctx, code, codeVerifier)
+	return &MockDanceGatewayExchangeCall{Call: call}
+}
+
+// MockDanceGatewayExchangeCall wrap *gomock.Call
+type MockDanceGatewayExchangeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceGatewayExchangeCall) Return(arg0 string, arg1 error) *MockDanceGatewayExchangeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceGatewayExchangeCall) Do(f func(context.Context, string, string) (string, error)) *MockDanceGatewayExchangeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceGatewayExchangeCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockDanceGatewayExchangeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
