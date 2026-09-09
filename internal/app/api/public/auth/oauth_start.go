@@ -15,7 +15,7 @@ import (
 
 // StartOAuthDance godoc
 // @Summary Begin the backend-driven OAuth dance
-// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. An optional invitation token parks the invitation behind a third httpOnly cookie so an invited person is created with the invitation's roles when the dance completes; an unknown token is not reported here, it simply fails to apply at the callback. Nothing is stored server-side. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.
+// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.
 // @Tags Auth
 // @Produce json
 // @Param provider path string true "Provider id" Enums(google)
@@ -56,8 +56,9 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, err)
 	}
 
-	// Nothing is stored. The browser carries the whole dance: the state's
-	// SIGNATURE and the verifier itself, both httpOnly.
+	// The dance proper is stored nowhere: the browser carries it as the state's
+	// SIGNATURE and the verifier itself, both httpOnly. (An invited dance is the
+	// exception, and only for the invitation — see the handle cookie below.)
 	//
 	// The provider receives the plaintext state, so whoever observes the
 	// redirect URL holds one half of the pair and not the other. That asymmetry
