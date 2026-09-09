@@ -47,6 +47,23 @@ func TestSanitizeURLMasksDanceCredentials(t *testing.T) {
 			in:          "/x?id_token=eyJhbGciOi.payload.sig",
 			mustNotHave: []string{"eyJhbGciOi.payload.sig"},
 		},
+		// The invitation token is a 7-day bearer credential: GetByTokenHash is
+		// the only thing authenticating an accept, so a log line holding it is
+		// a week-long standing grant. It reaches a query string on
+		// /login/oauth/{provider}/start?invitation=<raw>.
+		"invitation token on the dance start": {
+			in:          "/auth/api/v1/login/oauth/google/start?invitation=inv-live-token",
+			mustNotHave: []string{"inv-live-token"},
+			mustHave:    []string{"/auth/api/v1/login/oauth/google/start", "invitation="},
+		},
+		// Same credential, older surface: the public preview takes the raw
+		// token as ?token=. This exposure predates the dance and is fixed here
+		// because masking one twin and leaving the other is indefensible.
+		"invitation token on the public preview": {
+			in:          "/auth/api/v1/users/invitations/preview?token=inv-live-token",
+			mustNotHave: []string{"inv-live-token"},
+			mustHave:    []string{"/auth/api/v1/users/invitations/preview", "token="},
+		},
 		"benign parameters survive untouched": {
 			in:       "/api/v1/users?limit=50&search=alice",
 			mustHave: []string{"limit=50", "search=alice"},

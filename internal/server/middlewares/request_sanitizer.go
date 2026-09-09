@@ -16,11 +16,18 @@ const redacted = "[REDACTED]"
 // sensitiveQueryParams are masked in logged request URIs.
 //
 // This is a blocklist rather than an allow-list because the query namespace of
-// THIS service is bounded and known: these four names are the only ones that
-// ever carry a credential, and masking every parameter would cost the
-// diagnostics that make a 404 on the wrong route distinguishable from a 500 on
-// the right one — the exact trade the shared sanitizer's doc comment records
-// having already been made once.
+// THIS service is bounded and known: these are the only names that ever carry a
+// credential, and masking every parameter would cost the diagnostics that make
+// a 404 on the wrong route distinguishable from a 500 on the right one — the
+// exact trade the shared sanitizer's doc comment records having already been
+// made once.
+//
+// "token" widens that remit, and deliberately: it is generic enough that a
+// future unrelated ?token= would be masked too. That is the right direction to
+// err — a masked non-secret costs one diagnostic, an unmasked secret costs the
+// secret — but it means the "bounded and known namespace" argument above now
+// carries a name this service does not fully own. Weigh a third generic name
+// against an allow-list rather than adding it reflexively.
 var sensitiveQueryParams = map[string]struct{}{
 	// The provider's authorization code. Live until redeemed, and redeemable by
 	// whoever holds it plus our client secret.
@@ -34,6 +41,15 @@ var sensitiveQueryParams = map[string]struct{}{
 	// The PKCE verifier. It should never appear in a URL at all; masking it
 	// costs nothing and covers a debug redirect that puts it there.
 	"code_verifier": {},
+	// The raw invitation token on /login/oauth/{provider}/start. Its sha256 is
+	// the ONLY thing authenticating an accept, and it lives for the invitation's
+	// TTL — seven days by default — so a log line holding it is a week-long
+	// standing grant to whoever reads the log.
+	"invitation": {},
+	// The same credential on the public preview, /users/invitations/preview.
+	// Predates the dance and was logged in the clear until this entry; masking
+	// the start parameter while leaving its twin readable would fix nothing.
+	"token": {},
 }
 
 // sensitiveBodyFields are masked in logged request and response bodies.
