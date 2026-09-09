@@ -34,6 +34,28 @@ func RateLimiterFallback(ctx context.Context) {
 	rateLimiterFallback.Add(ctx, 1)
 }
 
+// invitationHandleStoreFailures counts invited OAuth dances that could not
+// store or redeem their invitation handle because the store was unreachable.
+//
+// It exists because that failure is otherwise invisible. The dance answers
+// every refusal with a 302, which reads as success in every access log, so a
+// store outage silently turns every invited sign-in into "your invitation did
+// not apply" with nothing anywhere reporting why. Each increment is one person
+// who could not accept an invitation for a reason that is not theirs.
+//
+// Alert on rate>0: the baseline is genuinely zero, unlike the dance's ordinary
+// refusals, which fire on every uninvited attempt on an invite-only instance.
+var invitationHandleStoreFailures = mustInt64Counter(
+	"invitation_handle_store_failures_total",
+	"Invited OAuth dances that failed because the invitation handle store was unreachable.",
+)
+
+// InvitationHandleStoreFailure records one unreachable-store failure on the
+// invited-dance path.
+func InvitationHandleStoreFailure(ctx context.Context) {
+	invitationHandleStoreFailures.Add(ctx, 1)
+}
+
 // maintNotifyDispatchErrors counts maintenance-notification dispatch
 // failures. The dispatch path swallows these so a business operation
 // that already committed still reports success; each increment is a

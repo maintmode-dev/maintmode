@@ -283,6 +283,26 @@ groups:
           summary: "Valkey exporter is not being scraped"
           description: "redis_up is absent — the exporter is down or the scrape target is misconfigured. ValkeyDown cannot fire while this is true."
 
+      - alert: InvitationHandleStoreUnreachable
+        # The invited-dance path stores an invitation behind an opaque handle in
+        # Valkey. When that store cannot answer, the dance refuses -- correctly,
+        # fail-closed -- but it refuses with a 302, which reads as success in
+        # every access log. Nobody can accept an invitation and nothing else
+        # says so.
+        #
+        # rate>0, not the rate limiter's >1: its fallback is a designed
+        # degradation tolerant of blips, while this is a person who could not
+        # sign in. The baseline is genuinely zero -- unlike the dance's ordinary
+        # refusals, which fire on every uninvited attempt on an invite-only
+        # instance, which is why this counts store failures and not refusals.
+        expr: sum(rate(invitation_handle_store_failures_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Invitation acceptance is failing on an unreachable handle store"
+          description: "Invited OAuth dances cannot store or redeem their invitation handle, so nobody can accept an invitation. The dance answers 302 either way, so this counter is the only signal. Check Valkey reachability from the auth binary."
+
       - alert: RateLimiterValkeyFallback
         # The rate limiter increments this counter when a Valkey call
         # fails and it falls back to the per-replica in-memory limiter.
