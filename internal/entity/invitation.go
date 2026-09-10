@@ -135,8 +135,12 @@ type ResendInvitationCmd struct {
 // AcceptInvitationCmd is the public request to accept an invitation: the raw
 // token from the email link plus the OAuth payload completed by the frontend.
 type AcceptInvitationCmd struct {
-	Token    string
-	Provider AuthMethod
+	Token string
+	// Provider is the raw name from the request. It stays a string here: the
+	// vocabulary is whatever is registered, which only the service's provider
+	// registry knows, so validating it in the handler would mean teaching the
+	// API layer about auth configuration.
+	Provider string
 	IDToken  string
 	ClientIP string
 }

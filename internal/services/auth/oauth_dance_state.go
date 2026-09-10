@@ -17,11 +17,18 @@ import (
 // redirect.
 func (s *Service) StartDance(
 	ctx context.Context,
-	provider entity.AuthMethod,
+	providerSegment string,
 	invitationToken string,
 ) (*entity.DanceStart, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance")
 	defer span.End()
+
+	// The allow-list runs FIRST, before any secret is minted or stored: an
+	// unknown provider must cost nothing.
+	provider, ok := s.authMethods.DanceProvider(providerSegment)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, providerSegment)
+	}
 
 	state, err := newDanceSecret()
 	if err != nil {
@@ -33,16 +40,29 @@ func (s *Service) StartDance(
 		return nil, fmt.Errorf("mint pkce verifier: %w", err)
 	}
 
+	gateway, err := s.danceGatewayFor(provider)
+	if err != nil {
+		return nil, err
+	}
+
 	invitationHandle, err := s.mintInvitationHandle(ctx, invitationToken)
 	if err != nil {
 		return nil, err
+	}
+
+	// Built before the struct rather than inline: the endpoint comes from the
+	// provider's discovery document, so an instance whose IdP has not answered
+	// yet fails here instead of handing the browser a URL with no host.
+	authorizationURL, err := gateway.AuthCodeURL(ctx, state, verifier)
+	if err != nil {
+		return nil, fmt.Errorf("build authorization url: %w", err)
 	}
 
 	return &entity.DanceStart{
 		State:            state,
 		StateSignature:   s.danceSigner.Sign(string(provider), state, time.Now().Add(s.danceStateTTL)),
 		Verifier:         verifier,
-		AuthorizationURL: s.danceGateway.AuthCodeURL(state, verifier),
+		AuthorizationURL: authorizationURL,
 		TTL:              s.danceStateTTL,
 		InvitationHandle: invitationHandle,
 	}, nil
@@ -133,7 +153,14 @@ func (s *Service) CompleteDance(
 		return "", err
 	}
 
-	idToken, err := s.danceGateway.Exchange(ctx, callback.Code, callback.Verifier)
+	gateway, err := s.danceGatewayFor(provider)
+	if err != nil {
+		xlog.Error(ctx, "no gateway for dance provider", xfield.Error(err))
+
+		return "", err
+	}
+
+	idToken, err := gateway.Exchange(ctx, callback.Code, callback.Verifier)
 	if err != nil {
 		xlog.Error(ctx, "oauth code exchange failed", xfield.Error(err))
 		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderUnavailable)
@@ -159,7 +186,7 @@ func (s *Service) verifyDanceOrigin(
 	// state cookie at all, is a stranger knocking. /callback is unauthenticated
 	// and reachable by anyone, so auditing that would fill the trail with rows
 	// whose only content is an IP — and bury the rows that mean something.
-	provider, ok := entity.DanceProvider(callback.Provider)
+	provider, ok := s.authMethods.DanceProvider(callback.Provider)
 	if !ok {
 		xlog.Warn(ctx, "oauth dance callback for an unsupported provider",
 			xfield.String("provider", callback.Provider))

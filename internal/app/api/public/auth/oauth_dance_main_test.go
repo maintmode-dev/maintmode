@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config"
-	googleoauthgw "github.com/ruko1202/maintmode/internal/gateways/googleoauth"
+	"github.com/ruko1202/maintmode/internal/entity"
+	oidcgw "github.com/ruko1202/maintmode/internal/gateways/oidc"
+	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
@@ -26,6 +29,9 @@ const (
 	// strips. Spelled out here rather than read from the stand's config so the
 	// assertions pin a value this package controls.
 	testCookiePath = "/auth/api/v1/login/oauth"
+	// testSecondProvider is the instance that exists only in configuration --
+	// no constant in entity names it, which is the point.
+	testSecondProvider = "acme"
 )
 
 // fakeDanceGateway stands in for Google's token endpoint. The dance's own
@@ -42,11 +48,11 @@ type fakeDanceGateway struct {
 	// real builds the authorization URL, so the /start tests assert against the
 	// URL production would emit rather than one this fake invented. Only the
 	// network call is faked; the contract with the provider is not.
-	real *googleoauthgw.Client
+	real *oidcgw.Client
 }
 
-func (f *fakeDanceGateway) AuthCodeURL(state, verifier string) string {
-	return f.real.AuthCodeURL(state, verifier)
+func (f *fakeDanceGateway) AuthCodeURL(ctx context.Context, state, verifier string) (string, error) {
+	return f.real.AuthCodeURL(ctx, state, verifier)
 }
 
 func (f *fakeDanceGateway) Exchange(_ context.Context, code, verifier string) (string, error) {
@@ -147,21 +153,54 @@ func newFakeGateway(t *testing.T, idToken string, err error) *fakeDanceGateway {
 	return &fakeDanceGateway{
 		idToken: idToken,
 		err:     err,
-		real:    googleoauthgw.NewClient(danceProviderConfig()),
+		real:    oidcgw.NewClient(danceProviderConfig(t), oidcdiscovery.New()),
 	}
 }
 
+// testIssuerURL is set by newDiscoveryStub to the loopback issuer the dance
+// tests resolve against, so the /start assertions can name the authorization
+// endpoint that discovery hands back.
+var (
+	testIssuerOnce sync.Once
+	testIssuerURL  string
+)
+
+// newDiscoveryStub serves one well-known document for the whole package.
+//
+// Endpoints come from discovery now, so the tests need an issuer that answers.
+// Google's real endpoint values are served from it, which keeps the /start
+// assertions checking the URL production emits rather than one invented here.
+// Package-scoped because httptest servers cannot outlive a single test's
+// cleanup, and these fixtures are shared across many.
+func newDiscoveryStub() string {
+	testIssuerOnce.Do(func() {
+		mux := http.NewServeMux()
+		srv := httptest.NewServer(mux)
+		mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{
+				"issuer": %q,
+				"authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+				"token_endpoint": "https://oauth2.googleapis.com/token",
+				"jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+			}`, srv.URL)
+		})
+		testIssuerURL = srv.URL
+	})
+
+	return testIssuerURL
+}
+
 // danceProviderConfig is the provider block the dance tests run against.
-func danceProviderConfig() config.GoogleOauthProvider {
-	return config.GoogleOauthProvider{
+func danceProviderConfig(t *testing.T) config.OIDCProvider {
+	t.Helper()
+
+	return config.OIDCProvider{
+		DisplayName:  "Google",
+		IssuerURL:    newDiscoveryStub(),
 		ClientID:     testClientID,
 		ClientSecret: "dance-client-secret",
 		RedirectURI:  testRedirectURI,
-		// Spelled out because the gateway has no in-code default: these are the
-		// values a stand's app.config.yaml carries, and the /start assertions
-		// below check the redirect actually points at them.
-		AuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
-		TokenURL: "https://oauth2.googleapis.com/token",
 	}
 }
 
@@ -177,8 +216,17 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)
 
-	provider := danceProviderConfig()
+	provider := danceProviderConfig(t)
 	provider.RedirectURI = redirectURI
+	providers := config.OauthProviders{
+		OIDC: map[string]config.OIDCProvider{string(entity.AuthMethodGoogle): provider},
+	}
+
+	// The stand's config leaves the dance credentials commented out, so the
+	// registry NewServices built lists no danceable provider. These tests are
+	// about a stand that has armed it, so the fixture says so -- the same way it
+	// supplies its own gateway rather than reaching for the stand's.
+	services.AuthMethods.WithDanceProviders([]string{string(entity.AuthMethodGoogle)})
 
 	// The same store on both sides, exactly as main.go arms it: the auth service
 	// parks and redeems the one-time code, the invitation service redeems the
@@ -187,12 +235,89 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	services.Invitation.WithDanceHandles(danceStore)
 
 	// The signer lives on the service now, so the dance is armed in two places:
-	// the service gets the signing secret, the handler gets the transport.
+	// the service gets the signing key, the handler gets the transport.
 	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, provider.ClientSecret, danceStore, gateway),
+		services.Auth.WithDance(cfg.Auth, danceStore,
+			map[entity.AuthMethod]auth.DanceGateway{entity.AuthMethodGoogle: gateway}),
 		services.Token, services.User, services.OTP)
 
-	return impl.WithOAuthDance(provider, config.App{
+	return impl.WithOAuthDance(providers, config.App{
+		FrontendURL:       testFrontendURL,
+		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
+		OAuthCookiePath:   testCookiePath,
+	})
+}
+
+// newDiscoveryStubFor serves a well-known document naming authURL as the
+// authorization endpoint, so two instances can be told apart by where /start
+// sends the browser.
+//
+// Unlike newDiscoveryStub this one is per-call: the multi-instance test needs
+// two distinct issuers, which a package-level singleton cannot provide.
+func newDiscoveryStubFor(t *testing.T, authURL string) string {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{
+			"issuer": %q,
+			"authorization_endpoint": %q,
+			"token_endpoint": "https://oauth2.googleapis.com/token",
+			"jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+		}`, srv.URL, authURL)
+	})
+
+	return srv.URL
+}
+
+// initMultiInstanceDance builds a dance armed with TWO instances, each with its
+// own issuer and its own authorization endpoint.
+func initMultiInstanceDance(t *testing.T) *Implementation {
+	t.Helper()
+
+	instances := map[string]string{
+		string(entity.AuthMethodGoogle): "https://accounts.google.com/o/oauth2/v2/auth",
+		testSecondProvider:              "https://sso.acme.example/authorize",
+	}
+
+	providers := config.OauthProviders{OIDC: map[string]config.OIDCProvider{}}
+	for name, authURL := range instances {
+		providers.OIDC[name] = config.OIDCProvider{
+			DisplayName:  name,
+			IssuerURL:    newDiscoveryStubFor(t, authURL),
+			ClientID:     name + "-client-id",
+			ClientSecret: name + "-client-secret",
+			RedirectURI:  testRedirectURI,
+		}
+	}
+
+	// The instances go through the config NewServices reads, so the registry is
+	// populated the same way production populates it. Arming the danceable set
+	// alone would not be enough: Parse refuses a name nothing registered, and
+	// /start would answer 400 for an instance the config plainly declares.
+	multiCfg := *cfg
+	multiCfg.OauthProviders = providers
+
+	stores, err := bootstrap.NewStores(db, valkey)
+	require.NoError(t, err)
+
+	services, err := bootstrap.NewServices(t.Context(), &multiCfg, stores)
+	require.NoError(t, err)
+
+	gateways := map[entity.AuthMethod]auth.DanceGateway{}
+	for name, provider := range providers.OIDC {
+		gateways[entity.AuthMethod(name)] = oidcgw.NewClient(provider, services.OIDCDiscovery)
+	}
+
+	impl := New(cfg.Auth,
+		services.Auth.WithDance(cfg.Auth, oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()), gateways),
+		services.Token, services.User, services.OTP)
+
+	return impl.WithOIDCProviders(providers).WithOAuthDance(providers, config.App{
 		FrontendURL:       testFrontendURL,
 		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
 		OAuthCookiePath:   testCookiePath,

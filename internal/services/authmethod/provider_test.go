@@ -146,8 +146,8 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("methods with no implementation are not registered", func(t *testing.T) {
 		t.Parallel()
 
-		// AuthMethodBootstrap was dropped from this list once it gained an
-		// implementation (RUK-284); AuthMethodEmail is still vocabulary-only.
+		// AuthMethodBootstrap left this list once it gained an implementation;
+		// AuthMethodEmail is still vocabulary-only.
 		for _, method := range []entity.AuthMethod{entity.AuthMethodEmail} {
 			methods := authmethod.NewAuthMethods(
 				newConfig(config.DevEnvironment, false),
@@ -283,4 +283,154 @@ func TestProvidersGet_BootstrapBypassesTheStub(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, entity.AuthMethodStub, got.MethodID(),
 		"the stub substitution must still apply to other methods")
+}
+
+// TestMethodsParse covers the vocabulary a client may name in a request.
+//
+// It used to be a closed switch in entity; it is the registry now, so an
+// instance added to configuration is accepted without a code change. What
+// survives from the old function is the pair of refusals, and both are here
+// because both are security properties rather than tidiness.
+func TestMethodsParse(t *testing.T) {
+	t.Parallel()
+
+	methods := authmethod.NewAuthMethods(
+		newConfig(config.ProdEnvironment, false),
+		[]authmethod.AuthMethod{
+			&fakeProvider{id: entity.AuthMethodGoogle},
+			// A name that no compiled-in list ever knew about: this is the whole
+			// point of configuring providers instead of compiling them in.
+			&fakeProvider{id: entity.AuthMethod("acme")},
+			&fakeProvider{id: entity.AuthMethodBootstrap},
+		},
+	)
+
+	t.Run("accepts a registered provider", func(t *testing.T) {
+		t.Parallel()
+
+		got, ok := methods.Parse("google")
+		require.True(t, ok)
+		require.Equal(t, entity.AuthMethodGoogle, got)
+	})
+
+	t.Run("accepts a provider that exists only in configuration", func(t *testing.T) {
+		t.Parallel()
+
+		got, ok := methods.Parse("acme")
+		require.True(t, ok)
+		require.Equal(t, entity.AuthMethod("acme"), got)
+	})
+
+	t.Run("refuses a name nothing registered", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := methods.Parse("okta")
+		require.False(t, ok)
+	})
+
+	// Refused even though it IS registered: break-glass resolves an identity by
+	// configured email and grants admin past the seats cap, which is safe only
+	// on the endpoint gating it behind the secret. A client naming it elsewhere
+	// would carry those privileges onto a flow that never intended them.
+	t.Run("refuses bootstrap even though it is registered", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := methods.Parse("bootstrap")
+		require.False(t, ok)
+	})
+
+	// The stub accepts any credential. On a dev stand it IS registered, so the
+	// refusal cannot lean on absence.
+	t.Run("refuses the stub where it is registered", func(t *testing.T) {
+		t.Parallel()
+
+		dev := authmethod.NewAuthMethods(
+			newConfig(config.DevEnvironment, false),
+			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+		)
+
+		_, ok := dev.Parse("stub")
+		require.False(t, ok)
+	})
+
+	// Exact matching: folding would let "STUB" smuggle the stub back past the
+	// gate above.
+	t.Run("does not case-fold", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := methods.Parse("Google")
+		require.False(t, ok)
+	})
+}
+
+// TestMethodsDanceProvider covers the narrower vocabulary of the {provider}
+// path segment on the backend dance.
+//
+// Narrower because a dance needs the confidential-client credentials: an
+// instance configured for the BFF path alone has no gateway to send the browser
+// through. The check runs before /start mints anything, and the segment shares
+// a path space with the static /login/oauth/code/exchange route.
+func TestMethodsDanceProvider(t *testing.T) {
+	t.Parallel()
+
+	methods := authmethod.NewAuthMethods(
+		newConfig(config.ProdEnvironment, false),
+		[]authmethod.AuthMethod{
+			&fakeProvider{id: entity.AuthMethodGoogle},
+			&fakeProvider{id: entity.AuthMethod("acme")},
+		},
+	).WithDanceProviders([]string{"acme"})
+
+	t.Run("accepts a provider with dance credentials", func(t *testing.T) {
+		t.Parallel()
+
+		got, ok := methods.DanceProvider("acme")
+		require.True(t, ok)
+		require.Equal(t, entity.AuthMethod("acme"), got)
+	})
+
+	t.Run("refuses a registered provider that cannot dance", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := methods.DanceProvider("google")
+		require.False(t, ok)
+	})
+
+	t.Run("refuses a name nothing registered", func(t *testing.T) {
+		t.Parallel()
+
+		_, ok := methods.DanceProvider("okta")
+		require.False(t, ok)
+	})
+}
+
+// TestStubSubstitutionYieldsVerifiedClaims covers the regression the
+// email_verified guard would otherwise cause on every use_stub stand.
+//
+// Get substitutes the stub for whatever method was asked for, so on dev and
+// test stands an invitation accept -- which compares the provider's email
+// against the invited one -- runs through the stub rather than through a real
+// OIDC provider. The stub has no upstream to have checked anything, so if its
+// claims left EmailVerified at the zero value, every accept on those stands
+// would collapse into an opaque email-mismatch refusal.
+//
+// Bootstrap is exempt from the substitution and reports the flag by its own
+// path, for the same reason: its address comes from configuration.
+func TestStubSubstitutionYieldsVerifiedClaims(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	methods := authmethod.NewAuthMethods(
+		newConfig(config.DevEnvironment, true),
+		[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+	)
+
+	method, err := methods.Get(ctx, entity.AuthMethodGoogle)
+	require.NoError(t, err)
+	require.Equal(t, entity.AuthMethodStub, method.MethodID(), "use_stub must substitute the stub")
+
+	claims, err := method.Authenticate(ctx, "invited@example.com")
+	require.NoError(t, err)
+	require.True(t, claims.EmailVerified,
+		"the stub has no upstream, so its claims must not read as an issuer refusing to vouch")
 }

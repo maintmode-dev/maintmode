@@ -23,7 +23,7 @@ import (
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param provider path string true "OAuth provider" Enums(google, github)
+// @Param provider path string true "Configured provider instance name, e.g. google"
 // @Param request body apiauthmodels.ConnectProviderRequest true "Provider ID token"
 // @Success 204 "Provider connected"
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid provider or OAuth payload"
@@ -42,11 +42,6 @@ func (i *Implementation) ConnectProvider(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 	}
 
-	provider, err := apiauthmodels.FromAPIConnectableProvider(c.Param("provider"))
-	if err != nil {
-		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(err))
-	}
-
 	body := new(apiauthmodels.ConnectProviderRequest)
 	if err := c.Bind(body); err != nil {
 		xlog.Error(ctx, "failed to bind connect request", xfield.Error(err))
@@ -56,9 +51,9 @@ func (i *Implementation) ConnectProvider(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(errors.New("id_token is required")))
 	}
 
-	err = i.authSrv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
+	err := i.authSrv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
 		UserID:   ctxUser.ID,
-		Provider: provider,
+		Provider: c.Param("provider"),
 		IDToken:  body.IDToken,
 	})
 	if err != nil {

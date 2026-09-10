@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -69,7 +70,7 @@ type Service struct {
 	// route is behind the same config gate, so neither is ever reached unset.
 	danceSigner   danceStateSigner
 	danceCodes    DanceCodeStore
-	danceGateway  DanceGateway
+	danceGateways map[entity.AuthMethod]DanceGateway
 	danceStateTTL time.Duration
 	// invitations is zero until WithInvitations is called. A nil claimer means
 	// this instance completes no invited dances: every handle is refused, which
@@ -143,29 +144,27 @@ type InvitationClaimer interface {
 // endpoint the exchange does, and splitting them would mean assembling that set
 // twice.
 type DanceGateway interface {
-	AuthCodeURL(state, verifier string) string
+	AuthCodeURL(ctx context.Context, state, verifier string) (string, error)
 	Exchange(ctx context.Context, code, codeVerifier string) (string, error)
 }
 
 // WithDance enables the backend-driven OAuth dance.
 //
 // It is a separate step rather than more constructor parameters because the
-// dance is optional: an instance that configures no client_secret never
-// registers its routes, and every existing caller of NewService keeps working
-// unchanged.
+// dance is optional: an instance that configures no provider never registers
+// its routes, and every existing caller of NewService keeps working unchanged.
 //
-// clientSecret is mixed into the signing key so that rotating EITHER it or the
-// JWT issuer key ends every dance in flight — see newDanceStateSigner for why
-// the two are combined through a KDF rather than concatenated.
+// gateways is keyed by instance name. The provider a callback names is looked
+// up here rather than carried in the request, so a callback cannot nominate a
+// gateway of its own choosing.
 func (s *Service) WithDance(
 	authCfg config.Auth,
-	clientSecret string,
 	codes DanceCodeStore,
-	gateway DanceGateway,
+	gateways map[entity.AuthMethod]DanceGateway,
 ) *Service {
-	s.danceSigner = newDanceStateSigner(s.cfg.PrivateKey, clientSecret)
+	s.danceSigner = newDanceStateSigner(s.cfg.PrivateKey)
 	s.danceCodes = codes
-	s.danceGateway = gateway
+	s.danceGateways = gateways
 	// config.Auth owns the fallback so the wiring, which must give the
 	// invitation-handle store the SAME lifetime, resolves it from one place. Two
 	// copies would drift the instant one was tuned, and the symptom — handles
@@ -190,6 +189,16 @@ func (s *Service) WithInvitations(claimer InvitationClaimer) *Service {
 	s.invitations = claimer
 
 	return s
+}
+
+// danceGatewayFor resolves the gateway serving provider.
+func (s *Service) danceGatewayFor(provider entity.AuthMethod) (DanceGateway, error) {
+	gateway, ok := s.danceGateways[provider]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, provider)
+	}
+
+	return gateway, nil
 }
 
 func NewService(

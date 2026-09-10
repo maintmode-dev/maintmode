@@ -71,7 +71,16 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	provider, err := s.authMethods.Get(ctx, cmd.Provider)
+	// Parsed against the registry rather than a compiled-in list, so a provider
+	// added by configuration works here without a code change. An unknown name
+	// collapses into the same opaque refusal as every other failure below.
+	method, ok := s.authMethods.Parse(cmd.Provider)
+	if !ok {
+		xlog.Warn(ctx, "accept: unknown provider named")
+		return nil, apperr.ErrInvalidInvitation
+	}
+
+	provider, err := s.authMethods.Get(ctx, method)
 	if err != nil {
 		xlog.Error(ctx, "accept: get oauth provider failed", xfield.Error(err))
 		return nil, apperr.ErrInvalidInvitation
@@ -85,6 +94,23 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 
 	// Anti-takeover guard: the account being created must match the invited
 	// email exactly (case-insensitive). No detail is leaked on mismatch.
+	//
+	// The address is the credential on this path, so an address the issuer will
+	// not vouch for is worth no more than one that does not match. An issuer
+	// that lets a user self-assert any address would otherwise let that user
+	// accept someone else's invitation.
+	//
+	// Checked here rather than left to the provider because this path does not
+	// always run through an OIDC one: Methods.Get substitutes the stub for every
+	// method on a use_stub stand, and the stub verifies nothing.
+	//
+	// Both refusals answer identically. A distinguishable "not verified" would
+	// tell a token holder that the invited address MATCHED their own unverified
+	// one, which is exactly what this file's no-detail contract hides.
+	if !claims.EmailVerified {
+		xlog.Warn(ctx, "accept: provider reports the email as unverified")
+		return nil, apperr.ErrEmailMismatch
+	}
 
 	if !emailMatchesIgnoreCase(ctx, claims.Email, inv.Email) {
 		xlog.Warn(ctx, "accept: oauth email does not match invitation")
@@ -97,7 +123,7 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 	// it must own its transaction and cannot be nested in the claim tx below.
 	// The valid invitation itself authorizes the creation; the invitation's
 	// roles are assigned by the claim transaction below, not via the policy.
-	user, err := s.userSrv.GetOrCreateByAuthInfo(ctx, cmd.Provider, &entity.OAuthProviderUserInfo{
+	user, err := s.userSrv.GetOrCreateByAuthInfo(ctx, method, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
 		Name:  claims.Name,

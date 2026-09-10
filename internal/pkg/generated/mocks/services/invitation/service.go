@@ -675,6 +675,107 @@ func (c *MockTokenIssuerIssueTokenPairCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// MockDanceHandles is a mock of DanceHandles interface.
+type MockDanceHandles struct {
+	ctrl     *gomock.Controller
+	recorder *MockDanceHandlesMockRecorder
+	isgomock struct{}
+}
+
+// MockDanceHandlesMockRecorder is the mock recorder for MockDanceHandles.
+type MockDanceHandlesMockRecorder struct {
+	mock *MockDanceHandles
+}
+
+// NewMockDanceHandles creates a new mock instance.
+func NewMockDanceHandles(ctrl *gomock.Controller) *MockDanceHandles {
+	mock := &MockDanceHandles{ctrl: ctrl}
+	mock.recorder = &MockDanceHandlesMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockDanceHandles) EXPECT() *MockDanceHandlesMockRecorder {
+	return m.recorder
+}
+
+// ConsumeInvitationHandle mocks base method.
+func (m *MockDanceHandles) ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsumeInvitationHandle", ctx, handle)
+	ret0, _ := ret[0].(*uuid.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConsumeInvitationHandle indicates an expected call of ConsumeInvitationHandle.
+func (mr *MockDanceHandlesMockRecorder) ConsumeInvitationHandle(ctx, handle any) *MockDanceHandlesConsumeInvitationHandleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeInvitationHandle", reflect.TypeOf((*MockDanceHandles)(nil).ConsumeInvitationHandle), ctx, handle)
+	return &MockDanceHandlesConsumeInvitationHandleCall{Call: call}
+}
+
+// MockDanceHandlesConsumeInvitationHandleCall wrap *gomock.Call
+type MockDanceHandlesConsumeInvitationHandleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceHandlesConsumeInvitationHandleCall) Return(arg0 *uuid.UUID, arg1 error) *MockDanceHandlesConsumeInvitationHandleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceHandlesConsumeInvitationHandleCall) Do(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceHandlesConsumeInvitationHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceHandlesConsumeInvitationHandleCall) DoAndReturn(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceHandlesConsumeInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PutInvitationHandle mocks base method.
+func (m *MockDanceHandles) PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutInvitationHandle", ctx, handle, invitationID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutInvitationHandle indicates an expected call of PutInvitationHandle.
+func (mr *MockDanceHandlesMockRecorder) PutInvitationHandle(ctx, handle, invitationID any) *MockDanceHandlesPutInvitationHandleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutInvitationHandle", reflect.TypeOf((*MockDanceHandles)(nil).PutInvitationHandle), ctx, handle, invitationID)
+	return &MockDanceHandlesPutInvitationHandleCall{Call: call}
+}
+
+// MockDanceHandlesPutInvitationHandleCall wrap *gomock.Call
+type MockDanceHandlesPutInvitationHandleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceHandlesPutInvitationHandleCall) Return(arg0 error) *MockDanceHandlesPutInvitationHandleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceHandlesPutInvitationHandleCall) Do(f func(context.Context, string, uuid.UUID) error) *MockDanceHandlesPutInvitationHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceHandlesPutInvitationHandleCall) DoAndReturn(f func(context.Context, string, uuid.UUID) error) *MockDanceHandlesPutInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockSeatGuard is a mock of SeatGuard interface.
 type MockSeatGuard struct {
 	ctrl     *gomock.Controller

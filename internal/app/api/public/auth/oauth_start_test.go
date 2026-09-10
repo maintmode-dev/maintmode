@@ -256,3 +256,42 @@ func TestStartIssuesAFreshStatePerCall(t *testing.T) {
 			"the pkce verifier must not travel in the redirect it protects")
 	}
 }
+
+// TestStartSendsEachInstanceToItsOwnProvider is the multi-instance property the
+// whole change exists for.
+//
+// The defect it guards against is the natural one for a refactor out of a
+// singleton: a resolver that ignores the requested name and always answers with
+// the one gateway it has. With a single configured instance that bug is
+// invisible -- every assertion still passes -- so it takes two instances with
+// two different authorization endpoints to see it.
+//
+// Note that "acme" is named by nothing in the code: it exists purely because a
+// config block does, which is the claim this ticket makes.
+func TestStartSendsEachInstanceToItsOwnProvider(t *testing.T) {
+	impl := initMultiInstanceDance(t)
+
+	googleRec := httptest.NewRecorder()
+	require.NoError(t, impl.StartOAuthDance(
+		danceContext(t, googleRec, string(entity.AuthMethodGoogle))))
+
+	acmeRec := httptest.NewRecorder()
+	require.NoError(t, impl.StartOAuthDance(
+		danceContext(t, acmeRec, testSecondProvider)))
+
+	require.Equal(t, http.StatusFound, googleRec.Code)
+	require.Equal(t, http.StatusFound, acmeRec.Code)
+
+	googleTarget, err := url.Parse(googleRec.Header().Get("Location"))
+	require.NoError(t, err)
+	acmeTarget, err := url.Parse(acmeRec.Header().Get("Location"))
+	require.NoError(t, err)
+
+	require.Equal(t, "accounts.google.com", googleTarget.Host)
+	require.Equal(t, "sso.acme.example", acmeTarget.Host)
+
+	// Each carries its own client id, so the redirect is not merely pointed at
+	// the right host with the wrong identity.
+	require.Equal(t, "google-client-id", googleTarget.Query().Get("client_id"))
+	require.Equal(t, "acme-client-id", acmeTarget.Query().Get("client_id"))
+}

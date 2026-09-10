@@ -125,6 +125,11 @@ func TestServiceAuthenticate(t *testing.T) {
 		require.Equal(t, entity.BootstrapSubject, claims.Subject)
 		require.Equal(t, testEmail, claims.Email)
 		require.NotEmpty(t, claims.Name)
+		// The address comes from configuration, so whoever controls the
+		// deployment has asserted it. Left at the zero value it would read as
+		// an upstream reporting the address unverified, and break-glass has no
+		// upstream to report anything.
+		require.True(t, claims.EmailVerified)
 	})
 
 	t.Run("the subject is constant so a repeat login resolves the same user", func(t *testing.T) {

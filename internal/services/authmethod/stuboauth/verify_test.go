@@ -44,6 +44,27 @@ func TestServiceAuthenticate(t *testing.T) {
 		)
 	})
 
+	// Both branches must report a verified email. The stub has no upstream, so
+	// the zero value would read as "an upstream said this address is
+	// unverified" -- false, and enough to make invitation accept refuse on
+	// every use_stub stand while the refusal stays deliberately opaque.
+	t.Run("reports a verified email for a synthesized identity", func(t *testing.T) {
+		t.Parallel()
+
+		claims, err := stuboauth.NewService().Authenticate(ctx, "anything-at-all")
+		require.NoError(t, err)
+		require.True(t, claims.EmailVerified)
+	})
+
+	t.Run("reports a verified email for a caller-stated address", func(t *testing.T) {
+		t.Parallel()
+
+		claims, err := stuboauth.NewService().Authenticate(ctx, "someone@example.com")
+		require.NoError(t, err)
+		require.Equal(t, "someone@example.com", claims.Email)
+		require.True(t, claims.EmailVerified)
+	})
+
 	t.Run("empty token is still accepted", func(t *testing.T) {
 		t.Parallel()
 

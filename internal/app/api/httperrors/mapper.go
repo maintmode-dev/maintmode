@@ -64,6 +64,15 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 	// Invitation accept failures: surface only the status code, never the
 	// wrapped message — a token-link holder must not learn which precondition
 	// failed. Checked before the generic ErrValidation case below (both wrap it).
+	// 400 rather than 403, matching every neighboring outcome in this family
+	// (ErrInvalidAccessToken, ErrEmailMismatch): the request carried a token
+	// that cannot establish who is asking, which is a problem with what was
+	// sent, not with what the caller may do. The message names the cause so an
+	// operator reading a support ticket can tell it from a generic auth failure.
+	case errors.Is(err, apperr.ErrEmailNotVerified):
+		statusCode, errResp = http.StatusBadRequest,
+			NewErrorResponse(ErrEmailNotVerified, "the identity provider reports this email as unverified")
+
 	case errors.Is(err, apperr.ErrEmailMismatch):
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrEmailMismatch, "")
 	case errors.Is(err, apperr.ErrInvalidInvitation):

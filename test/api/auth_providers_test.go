@@ -23,7 +23,9 @@ func TestAuthAPI_ConnectProvider_Unauthorized(t *testing.T) {
 	apiClient := setupAuthTestClient()
 
 	resp, err := apiClient.PostApiV1MeProvidersProviderConnectWithResponse(ctx,
-		authclient.PostApiV1MeProvidersProviderConnectParamsProviderGoogle,
+		// A plain string now: the provider vocabulary is configuration, so the
+		// generated client no longer carries an enum of compiled-in names.
+		"google",
 		authclient.PostApiV1MeProvidersProviderConnectJSONRequestBody{
 			IdToken: lo.ToPtr("tok"),
 		})
@@ -39,7 +41,7 @@ func TestAuthAPI_DisconnectProvider_Unauthorized(t *testing.T) {
 	apiClient := setupAuthTestClient()
 
 	resp, err := apiClient.DeleteApiV1MeProvidersProviderDisconnectWithResponse(ctx,
-		authclient.DeleteApiV1MeProvidersProviderDisconnectParamsProviderGoogle)
+		"google")
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode(), "unexpected status: %s", resp.Body)
 }

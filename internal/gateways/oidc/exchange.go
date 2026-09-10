@@ -1,24 +1,28 @@
-package googleoauth
+package oidc
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 	"golang.org/x/oauth2"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
-// Exchange trades an authorization code for the id_token Google minted with it.
+// Exchange trades an authorization code for the id_token the provider minted with it.
 //
 // The client secret and the PKCE verifier both travel in the request, which is
 // what makes this a confidential-client exchange: possession of the code alone
-// is not enough to redeem it. Only the id_token is returned — Google's own
-// access token is for calling Google's APIs, which this service never does, so
-// it is deliberately never read out of the response.
+// is not enough to redeem it. Only the id_token is returned — the provider's
+// own access token is for calling the provider's APIs, which this service never
+// does, so it is deliberately never read out of the response.
 func (c *Client) Exchange(ctx context.Context, code, codeVerifier string) (string, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "gateway.GoogleOAuth.Exchange")
+	// The instance is a span field rather than part of the name -- see the
+	// verifier's span for why.
+	ctx, span := xlog.WithOperationSpan(ctx, "gateway.OAuth.Exchange",
+		xfield.String("provider", c.provider.DisplayName))
 	defer span.End()
 
 	// oauth2 reads its HTTP client from the context. Handing it the project's
@@ -27,7 +31,12 @@ func (c *Client) Exchange(ctx context.Context, code, codeVerifier string) (strin
 	// default would be http.DefaultClient, which has neither.
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.httpc)
 
-	token, err := c.cfg.Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
+	cfg, err := c.oauthConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := cfg.Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
 	}

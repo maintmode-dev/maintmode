@@ -59,13 +59,9 @@ func newTestVerifier(ctx context.Context, t *testing.T, jwksURL string, key *ecd
 	t.Helper()
 
 	verifier, err := NewService(ctx, config.JWTVerifierConfig{
-		JWTIssuer:                 testIssuer,
-		JWKSURL:                   jwksURL,
-		JWKSRefreshInterval:       time.Hour,
-		JWKSHTTPTimeout:           10 * time.Second,
-		JWTLeeway:                 30 * time.Second,
-		JWKSUnknownKIDRefreshRate: 5 * time.Minute,
-		JWKSUnknownKIDWaitMax:     10 * time.Second,
+		JWTIssuer: testIssuer,
+		JWKSURL:   jwksURL,
+		JWTLeeway: 30 * time.Second,
 	}, testJWTConfig(key, kid))
 	require.NoError(t, err)
 

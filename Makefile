@@ -271,6 +271,8 @@ mocks:
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/auth/service.go -source ./internal/services/auth/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/notifytransport/service.go -source ./internal/gateways/notifytransport/transports.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/integration/service.go -source ./internal/services/integration/service.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/authmethod/oidc/provider.go -source ./internal/services/authmethod/oidc/provider.go
+	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/gateways/oidc/client.go -source ./internal/gateways/oidc/client.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/dekrotator/service.go -source ./internal/services/dekrotator/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/userpicker/service.go -source ./internal/services/userpicker/service.go
 	$(GOBIN)/mockgen -typed -destination ./internal/pkg/generated/mocks/services/maint/service.go -source ./internal/services/maint/service.go
