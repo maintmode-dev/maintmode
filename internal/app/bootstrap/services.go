@@ -479,8 +479,9 @@ func initAuthMethods(
 
 	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, bootstrapPassword))
 
-	// The danceable subset is narrower than the registered one: it needs the
-	// confidential-client credentials, which a BFF-only instance does not carry.
+	// Narrower than the registered set on purpose: it names the instances whose
+	// dance the backend runs. A BFF instance stays registered and signs users in
+	// -- the frontend runs its dance -- it simply has no dance routes here.
 	return authmethod.NewAuthMethods(cfg, methods).
 		WithDanceProviders(cfg.OauthProviders.DanceInstanceNames()), nil
 }

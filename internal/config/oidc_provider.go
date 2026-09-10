@@ -151,20 +151,22 @@ func (p OIDCProvider) DanceConfigured() bool {
 // Expressed as two mirrored rules rather than one comparison because that is
 // what names the missing half in the error: "redirect_uri: cannot be blank"
 // rather than a sentence about both.
-func (p OIDCProvider) validate(key string) error {
-	err := validation.ValidateStruct(&p,
+func (p OIDCProvider) validate() error {
+	return validation.ValidateStruct(&p,
 		validation.Field(&p.ClientSecret, validation.Required.When(strings.TrimSpace(p.RedirectURI) != "")),
 		validation.Field(&p.RedirectURI, validation.Required.When(strings.TrimSpace(p.ClientSecret) != "")),
 	)
-	if err != nil {
-		return fmt.Errorf("oauth_providers.oidc.%s: %w", key, err)
-	}
-
-	return nil
 }
 
-// DanceInstanceNames returns, in a stable order, the instances that can run the
-// backend dance.
+// DanceInstanceNames returns, in a stable order, the instances whose dance the
+// BACKEND runs -- the ones needing dance routes and a token-exchange gateway.
+//
+// Narrower than InstanceNames, but the instances it leaves out are not
+// under-configured: they are configured for the other mode. A BFF instance has
+// the frontend run the dance and posts the resulting ID token here, so it needs
+// no confidential-client credentials and carries none -- carrying them is what
+// opts an instance into this list. It signs users in either way, so it stays in
+// the registry and on the sign-in screen; use InstanceNames for those.
 func (o OauthProviders) DanceInstanceNames() []string {
 	names := make([]string, 0, len(o.OIDC))
 	for _, name := range o.InstanceNames() {
@@ -198,8 +200,8 @@ func (c *AppConfig) validateOIDCProviders() error {
 			return err
 		}
 
-		if err := c.OauthProviders.OIDC[key].validate(key); err != nil {
-			return err
+		if err := c.OauthProviders.OIDC[key].validate(); err != nil {
+			return fmt.Errorf("oauth_providers.oidc.%s: %w", key, err)
 		}
 	}
 
