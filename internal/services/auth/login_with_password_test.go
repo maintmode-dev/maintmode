@@ -316,3 +316,171 @@ func TestLoginWithPassword_Audit(t *testing.T) {
 		require.Equal(t, entity.AuditActionLoginFailed, payload.Action)
 	})
 }
+
+// TestLoginWithPassword_AuditNamesTheMethod pins which credential answered.
+//
+// The break-glass password is permanently live, and the argument for leaving it
+// that way rather than demoting it to a one-time seed is that every use is on
+// the record. That argument only holds if the record says which credential
+// answered, so these assertions are the argument itself, not decoration.
+func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	t.Run("a break-glass success is labeled bootstrap", func(t *testing.T) {
+		// NOT parallel: one shared bootstrap user.
+
+		email := bootstrapAddress()
+		password := "the-break-glass-" + xuuid.NewString()
+		srv, _ := initServiceWithBootstrap(t, email, password)
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: email, Password: password, ClientIP: "10.0.0.1",
+		})
+		require.NoError(t, err)
+
+		actions := publisher.actions()
+		require.NotEmpty(t, actions)
+		success, ok := actions[len(actions)-1].(audit.LoginSuccess)
+		require.True(t, ok, "expected a login success, got %T", actions[len(actions)-1])
+		require.Equal(t, entity.AuditLoginMethodBootstrap, success.Meta.LoginMethod)
+	})
+
+	// The mutation guard for the case above: a constant wired in one place
+	// satisfies the bootstrap assertion and fails here.
+	t.Run("a stored-password success is labeled password", func(t *testing.T) {
+		t.Parallel()
+
+		password := "her-own-password-" + xuuid.NewString()
+		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		user := makePasswordUser(ctx, t, srv, password)
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: password, ClientIP: "10.0.0.3",
+		})
+		require.NoError(t, err)
+
+		actions := publisher.actions()
+		require.NotEmpty(t, actions)
+		success, ok := actions[len(actions)-1].(audit.LoginSuccess)
+		require.True(t, ok, "expected a login success, got %T", actions[len(actions)-1])
+		require.Equal(t, entity.AuditLoginMethodPassword, success.Meta.LoginMethod)
+	})
+
+	// THE SECURITY ASSERTION.
+	//
+	// A wrong password submitted against the break-glass address must not be
+	// labeled. Labeling it would let anyone who can read the audit log sort
+	// failed sign-ins by method and learn which address the break-glass
+	// credential answers for -- on an instance where it has never been used
+	// successfully, that is the only thing keeping the address out of the trail.
+	// It would disclose by record precisely what the decoy hash on that path
+	// spends an argon2id verification to hide from timing.
+	//
+	// A single method threaded uniformly through the failure publishes satisfies
+	// both success assertions above and fails here.
+	t.Run("a wrong break-glass password is not labeled", func(t *testing.T) {
+		t.Parallel()
+
+		email := bootstrapAddress()
+		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: email, Password: "wrong", ClientIP: "10.0.0.4",
+		})
+		require.Error(t, err)
+
+		actions := publisher.actions()
+		require.Len(t, actions, 1)
+		failed, ok := actions[0].(audit.LoginFailed)
+		require.True(t, ok, "expected a login failure, got %T", actions[0])
+		require.Empty(t, failed.Meta.LoginMethod,
+			"labeling this branch turns the audit log into an oracle for the break-glass address")
+	})
+
+	// The other half of the address gate: a wrong address is equally unlabeled,
+	// so the two cannot be told apart by method either.
+	t.Run("a wrong address is not labeled", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "the-break-glass-"+xuuid.NewString())
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: "nobody-" + xuuid.NewString() + "@example.com", Password: "wrong", ClientIP: "10.0.0.5",
+		})
+		require.Error(t, err)
+
+		actions := publisher.actions()
+		require.Len(t, actions, 1)
+		failed, ok := actions[0].(audit.LoginFailed)
+		require.True(t, ok, "expected a login failure, got %T", actions[0])
+		require.Empty(t, failed.Meta.LoginMethod)
+	})
+
+	// Issuance refused after a correct stored password: the mirror of the
+	// break-glass branch below, and labeled for the same reason.
+	t.Run("issuance refused after a correct stored password is labeled password", func(t *testing.T) {
+		t.Parallel()
+
+		password := "her-own-password-" + xuuid.NewString()
+		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		user := makePasswordUser(ctx, t, srv, password)
+
+		// Blocking the user is what makes IssueTokenPair refuse: the guard lives
+		// inside IssueAccessToken, so this is the same path an ordinary blocked
+		// user takes. The actor is required -- BlockUser has no nil-safe
+		// degradation, by design.
+		actor := makePasswordUser(ctx, t, nil, "")
+		require.NoError(t, srv.usersSrv.BlockUser(ctx, &entity.BlockUserCmd{
+			UserID: user.ID,
+			Actor:  actor,
+		}))
+
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: password, ClientIP: "10.0.0.8",
+		})
+		require.Error(t, err)
+
+		actions := publisher.actions()
+		require.Len(t, actions, 1)
+		failed, ok := actions[0].(audit.LoginFailed)
+		require.True(t, ok, "expected a login failure, got %T", actions[0])
+		require.Equal(t, entity.AuditFailureTokenIssuance, failed.Meta.FailureReason)
+		require.Equal(t, entity.AuditLoginMethodPassword, failed.Meta.LoginMethod)
+	})
+
+	// A user whose own password is wrong IS labeled: the rule is "a credential
+	// verified or was tried against a credential this user actually has", not
+	// "the address matched". Nothing is disclosed -- the address is the user's
+	// own, and the trail already carries it as the actor.
+	t.Run("a wrong stored password is labeled password", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		user := makePasswordUser(ctx, t, srv, "her-own-password-"+xuuid.NewString())
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: user.Email, Password: "wrong", ClientIP: "10.0.0.6",
+		})
+		require.Error(t, err)
+
+		actions := publisher.actions()
+		require.Len(t, actions, 1)
+		failed, ok := actions[0].(audit.LoginFailed)
+		require.True(t, ok, "expected a login failure, got %T", actions[0])
+		require.Equal(t, entity.AuditLoginMethodPassword, failed.Meta.LoginMethod)
+	})
+}
