@@ -56,10 +56,12 @@ func TestListAuthMethods_ReturnsExactlyTheContract(t *testing.T) {
 //
 // email_password is unconditional, and asserting that against "a default
 // configuration" would be a tautology. What is worth pinning is that the list
-// does not move with the bootstrap block — the only configuration anyone might
-// be tempted to gate it on. A running instance always has both halves of that
-// block: an empty password means "generate one at startup", and an empty address
-// fails boot outright.
+// does not move with configuration at all. It varies the OTP floor rather than
+// the bootstrap block, so it does not pin the bootstrap case directly — what
+// keeps that safe is structural: the handler is given only config.Auth, so the
+// bootstrap block is not reachable from here to gate on. And it must stay that
+// way: gating the list on a configured break-glass password would answer "is
+// there an emergency entrance here?" over a public, unauthenticated endpoint.
 func TestListAuthMethods_DoesNotVaryWithConfiguration(t *testing.T) {
 	t.Parallel()
 

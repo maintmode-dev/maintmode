@@ -159,7 +159,7 @@ groups:
           severity: warning
         annotations:
           summary: "Password sign-ins are failing at an unusual rate"
-          description: "More than ~30 password sign-in attempts per minute have been rejected for 10m. This route serves ordinary users as well as the break-glass admin, so isolated failures are normal; a sustained rate at this level is credential stuffing or a broken client. The endpoint answers every failure identically, so the reason is only in the audit log (action=login.failed) and the app's WARN lines. Check whether the failures concentrate on one address -- in particular the configured bootstrap address, which would be an attempt on a permanently-live admin credential."
+          description: "More than ~30 password sign-in attempts per minute have been rejected for 10m. This route serves ordinary users as well as the break-glass admin, so isolated failures are normal; a sustained rate at this level is credential stuffing or a broken client. The endpoint answers every failure identically, so the reason is only in the audit log (action=login.failed) and the app's WARN lines. Check whether the failures concentrate on one address -- in particular the configured bootstrap address, which would be an attempt on the break-glass admin credential where one is configured."
 
       - alert: TokenRefreshFailureRateHigh
         # /refresh returning 401 is routine — every expired refresh token lands

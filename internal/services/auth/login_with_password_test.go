@@ -154,17 +154,8 @@ func TestLoginWithPassword(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	// Recording is not retiring: a seed login alone leaves the credential live,
-	// so an admin whose session dies has not locked themselves out.
-
-	// Once retired, the same value must never work again -- the whole point of
-	// demoting it from a standing credential.
-
-	// A generated password dies at restart, so it is never recorded and never
-	// retired -- behavior is unchanged from before RUK-289.
-
 	// Step 1 of the resolution order beats step 2: once a stored password exists
-	// for an address, an unretired seed is never consulted for it.
+	// for an address, the break-glass credential is not consulted for it.
 	t.Run("a stored password takes precedence over the break-glass one", func(t *testing.T) {
 		t.Parallel()
 
@@ -482,5 +473,91 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		failed, ok := actions[0].(audit.LoginFailed)
 		require.True(t, ok, "expected a login failure, got %T", actions[0])
 		require.Equal(t, entity.AuditLoginMethodPassword, failed.Meta.LoginMethod)
+	})
+}
+
+// TestLoginWithPassword_UnconfiguredBreakGlassIsIndistinguishable covers the
+// instance that has no break-glass at all.
+//
+// Once an empty configured value stopped conjuring a password, "no break-glass"
+// became a state an instance can actually be in -- and the refusal it produces
+// must look exactly like a refusal against a wrong address. Otherwise the trail
+// or the clock tells an attacker which instances have an emergency entrance and
+// which do not, and on the ones that do, which addresses have no stored
+// password.
+func TestLoginWithPassword_UnconfiguredBreakGlassIsIndistinguishable(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	t.Run("the refusal is audited like any other", func(t *testing.T) {
+		t.Parallel()
+
+		email := bootstrapAddress()
+		srv, _ := initServiceWithBootstrap(t, email, "")
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		// The empty password specifically, not just any wrong one: an
+		// unconfigured instance resolves to an empty credential, so submitting
+		// the same empty string is the shape that would make it a skeleton key
+		// if the guard in Authenticate ever went away.
+		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: email, Password: "", ClientIP: "10.0.0.20",
+		})
+		require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
+			"an unconfigured break-glass must refuse like a wrong credential, "+
+				"not like an unsupported provider")
+
+		actions := publisher.actions()
+		require.Len(t, actions, 1,
+			"a refusal that publishes nothing means the path returned early, "+
+				"before the audit record and before the decoy")
+		failed, ok := actions[0].(audit.LoginFailed)
+		require.True(t, ok, "expected a login failure, got %T", actions[0])
+		require.Equal(t, entity.AuditFailureInvalidCredentials, failed.Meta.FailureReason)
+		require.Empty(t, failed.Meta.LoginMethod,
+			"nothing verified, so nothing is named")
+	})
+
+	// The timing half. Measured ACROSS configurations because that is the only
+	// pair this change can break: within one unconfigured service both branches
+	// already burn the decoy on lines nothing here touches, so such a comparison
+	// is green before and after and proves nothing.
+	t.Run("an unconfigured refusal costs the same as a configured one", func(t *testing.T) {
+		t.Parallel()
+
+		measure := func(srv *Service, address string) time.Duration {
+			start := time.Now()
+			_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+				Email: address, Password: "definitely-not-the-password", ClientIP: "10.0.0.21",
+			})
+			require.Error(t, err)
+
+			return time.Since(start)
+		}
+
+		unconfiguredEmail := bootstrapAddress()
+		unconfigured, _ := initServiceWithBootstrap(t, unconfiguredEmail, "")
+
+		configuredEmail := bootstrapAddress()
+		configured, _ := initServiceWithBootstrap(t, configuredEmail,
+			"the-break-glass-"+xuuid.NewString())
+
+		// Sequential, in one subtest: two services on two parallel subtests would
+		// add scheduling noise to a comparison that does not need it. One
+		// discarded pass each first, so neither side is charged for lazily
+		// initialized state the other has already paid for.
+		measure(unconfigured, unconfiguredEmail)
+		measure(configured, configuredEmail)
+
+		withoutPassword := measure(unconfigured, unconfiguredEmail)
+		withWrongPassword := measure(configured, configuredEmail)
+
+		// Same 4x band as the wrong-password timing test above, and for the same
+		// reason: the gap being closed is three orders of magnitude.
+		require.Less(t, withoutPassword, withWrongPassword*4,
+			"an instance with no break-glass must not answer measurably faster")
+		require.Less(t, withWrongPassword, withoutPassword*4,
+			"nor measurably slower")
 	})
 }
