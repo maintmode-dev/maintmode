@@ -64,9 +64,10 @@ func (s *Service) LoginWithOTP(ctx context.Context, cmd *entity.VerifyOTPCmd) (*
 	s.publishAudit(ctx, audit.LoginSuccess{
 		User: user,
 		Meta: &entity.AuditMetadata{
-			IP:        cmd.ClientIP,
-			UserAgent: cmd.UserAgent,
-			SessionID: pair.SessionID.String(),
+			IP:          cmd.ClientIP,
+			UserAgent:   cmd.UserAgent,
+			SessionID:   pair.SessionID.String(),
+			LoginMethod: entity.AuditLoginMethodOTP,
 		},
 	})
 

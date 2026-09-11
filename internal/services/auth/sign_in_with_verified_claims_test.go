@@ -9,6 +9,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zaptest"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -135,4 +136,60 @@ func TestExchangeIDTokenStillDerivesAllowCreateFromTestRoles(t *testing.T) {
 	})
 	require.NoError(t, err, "X-Test-Roles must still authorize creating an unknown user")
 	require.NotEmpty(t, pair.AccessToken)
+}
+
+// TestSignInWithVerifiedClaims_AuditNamesTheMethod pins that an upstream sign-in
+// is labeled, so that an empty method in the trail means "no credential was
+// established", not "we forgot this path".
+func TestSignInWithVerifiedClaims_AuditNamesTheMethod(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	t.Run("an upstream sign-in is labeled oidc", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initService(t)
+		publisher := newRecordingAuditPublisher()
+		srv.auditPublisher = publisher
+
+		claims := &entity.OAuthIDTokenClaims{
+			Subject: xuuid.NewString(),
+			Email:   xuuid.NewString() + "@example.com",
+			Name:    "Dancer",
+		}
+
+		_, _, err := srv.SignInWithVerifiedClaims(ctx, entity.AuthMethodGoogle, claims,
+			entity.UserCreationPolicy{AllowCreate: true},
+			&entity.AuditMetadata{IP: "10.0.0.9"},
+		)
+		require.NoError(t, err)
+
+		actions := publisher.actions()
+		require.NotEmpty(t, actions)
+		success, ok := actions[len(actions)-1].(audit.LoginSuccess)
+		require.True(t, ok, "expected a login success, got %T", actions[len(actions)-1])
+		require.Equal(t, entity.AuditLoginMethodOIDC, success.Meta.LoginMethod)
+	})
+
+	// The caller's metadata must not be mutated: the same pointer reaches the
+	// failure publish, and a method leaking across branches is the bug the
+	// defensive copy in publishLoginFailure already exists to prevent.
+	t.Run("the caller's metadata is left alone", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initService(t)
+		srv.auditPublisher = newRecordingAuditPublisher()
+
+		meta := &entity.AuditMetadata{IP: "10.0.0.11"}
+		_, _, err := srv.SignInWithVerifiedClaims(ctx, entity.AuthMethodGoogle,
+			&entity.OAuthIDTokenClaims{
+				Subject: xuuid.NewString(),
+				Email:   xuuid.NewString() + "@example.com",
+				Name:    "Dancer",
+			},
+			entity.UserCreationPolicy{AllowCreate: true}, meta)
+		require.NoError(t, err)
+
+		require.Empty(t, meta.LoginMethod, "the caller's struct must not be written through")
+	})
 }

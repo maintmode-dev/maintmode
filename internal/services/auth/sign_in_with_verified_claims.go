@@ -27,6 +27,10 @@ import (
 // codebase. An earlier version left the success record to each caller on the
 // theory that the two paths differed; they did not, and the two records were
 // identical down to the SessionID.
+// provider resolves the user's identity and is written to
+// user_identities.provider. The audit label does not follow it: every upstream
+// instance records as oidc, so there is nothing to pass in. See
+// entity.AuditLoginMethodOIDC for what that does and does not distinguish.
 func (s *Service) SignInWithVerifiedClaims(
 	ctx context.Context,
 	provider entity.AuthMethod,
@@ -64,6 +68,7 @@ func (s *Service) SignInWithVerifiedClaims(
 	// where both it and the user are in hand.
 	success := *meta
 	success.SessionID = pair.SessionID.String()
+	success.LoginMethod = entity.AuditLoginMethodOIDC
 
 	s.publishAudit(ctx, audit.LoginSuccess{User: user, Meta: &success})
 
