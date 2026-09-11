@@ -19,9 +19,9 @@ import (
 
 // ChangePassword sets the caller's own password.
 //
-// The write itself -- new hash, seed retirement and session eviction, together
-// or not at all -- is installPassword's; this function is the proof that the
-// caller may ask for it, and the audit trail afterwards.
+// The write itself -- new hash and session eviction, together or not at all --
+// is installPassword's; this function is the proof that the caller may ask for
+// it, and the audit trail afterwards.
 //
 // KeepFamily names the session to spare. It is optional: when the caller cannot
 // supply one, every session goes, including theirs. Requiring it would lock out
