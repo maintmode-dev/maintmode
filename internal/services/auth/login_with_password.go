@@ -49,7 +49,7 @@ func (s *Service) LoginWithPassword(ctx context.Context, cmd *entity.LoginWithPa
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.LoginWithPassword")
 	defer span.End()
 
-	pair, user, err := s.loginWithPassword(ctx, cmd)
+	pair, user, method, err := s.loginWithPassword(ctx, cmd)
 	if err != nil {
 		xlog.Warn(ctx, "password login failed",
 			xfield.String("client_ip", cmd.ClientIP),
@@ -61,9 +61,10 @@ func (s *Service) LoginWithPassword(ctx context.Context, cmd *entity.LoginWithPa
 	s.publishAudit(ctx, audit.LoginSuccess{
 		User: user,
 		Meta: &entity.AuditMetadata{
-			IP:        cmd.ClientIP,
-			UserAgent: cmd.UserAgent,
-			SessionID: pair.SessionID.String(),
+			IP:          cmd.ClientIP,
+			UserAgent:   cmd.UserAgent,
+			SessionID:   pair.SessionID.String(),
+			LoginMethod: method,
 		},
 	})
 
@@ -72,35 +73,38 @@ func (s *Service) LoginWithPassword(ctx context.Context, cmd *entity.LoginWithPa
 
 // loginWithPassword resolves which credential answers for this address.
 //
-// The order is deliberate and is the whole behavior change of RUK-289:
+// The order is deliberate:
 //
 //  1. A user with a stored password is verified against it. This is the
 //     ordinary path and the ONLY path for anyone but the break-glass admin.
 //  2. Otherwise, if the submitted address is the configured bootstrap one, the
-//     break-glass password is tried -- but only while it is still live.
+//     break-glass password is tried. Where one is configured it never stops
+//     answering; where none is, every candidate is refused and the attempt is
+//     indistinguishable from a wrong address.
 //  3. Otherwise the attempt fails like any other.
 //
-// Step 1 precedes step 2 so that once the admin has a password of their own, an
-// unretired seed is not consulted for them: the personal credential wins as
-// soon as it exists.
+// Step 1 precedes step 2 so that the personal credential wins as soon as it
+// exists: setting a password is how an account stops going through break-glass,
+// even though the break-glass credential itself is never retired.
 //
 // Every path that does NOT verify a stored hash performs a decoy verification
 // instead. argon2id costs tens of milliseconds and a lookup miss costs nothing,
 // so without it the response time answers "does this account have a password?"
-// -- and, for the bootstrap address, "is the seed still live?".
+// -- and, for the bootstrap address, whether the submitted address is the
+// configured one.
 func (s *Service) loginWithPassword(
 	ctx context.Context,
 	cmd *entity.LoginWithPasswordCmd,
-) (*entity.TokenPair, *entity.User, error) {
+) (*entity.TokenPair, *entity.User, entity.AuditLoginMethod, error) {
 	user, err := s.usersSrv.GetByEmail(ctx, cmd.Email)
 	if err != nil && !errors.Is(err, apperr.ErrUserNotFound) {
-		return nil, nil, fmt.Errorf("look up user: %w", err)
+		return nil, nil, "", fmt.Errorf("look up user: %w", err)
 	}
 
 	if user != nil {
 		pair, u, handled, credErr := s.loginWithStoredPassword(ctx, cmd, user)
 		if handled {
-			return pair, u, credErr
+			return pair, u, entity.AuditLoginMethodPassword, credErr
 		}
 	}
 
@@ -131,21 +135,27 @@ func (s *Service) loginWithStoredPassword(
 		// password. It fails the login and is audited as such rather than being
 		// reported as a mismatch, which would bury it forever.
 		xlog.Error(ctx, "stored password credential is unreadable", xfield.Error(err))
-		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials)
+		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email,
+			entity.AuditFailureInvalidCredentials, entity.AuditLoginMethodPassword)
 
 		return nil, nil, true, apperr.ErrInvalidCredentials
 	}
 
 	if !matches {
-		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials)
+		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email,
+			entity.AuditFailureInvalidCredentials, entity.AuditLoginMethodPassword)
 		return nil, nil, true, apperr.ErrInvalidCredentials
 	}
 
 	issued, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
 		s.publishLoginFailure(ctx, user,
-			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
-			entity.AuditFailureTokenIssuance)
+			&entity.AuditMetadata{
+				IP:          cmd.ClientIP,
+				UserAgent:   cmd.UserAgent,
+				LoginMethod: entity.AuditLoginMethodPassword,
+			},
+			issuanceFailureReason(err))
 
 		return nil, nil, true, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -155,13 +165,18 @@ func (s *Service) loginWithStoredPassword(
 
 // loginWithSeed answers for the break-glass admin, and for every address that
 // has no password at all.
+//
+// The name is a leftover from a one-time-seed design that was never merged:
+// nothing here is seeded or spent, and the break-glass credential answers every
+// time it is offered. Kept only because renaming an unexported function is
+// churn against every open branch that touches this file.
 func (s *Service) loginWithSeed(
 	ctx context.Context,
 	cmd *entity.LoginWithPasswordCmd,
-) (*entity.TokenPair, *entity.User, error) {
+) (*entity.TokenPair, *entity.User, entity.AuditLoginMethod, error) {
 	method, err := s.authMethods.Get(ctx, entity.AuthMethodBootstrap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("get auth method: %w", err)
+		return nil, nil, "", fmt.Errorf("get auth method: %w", err)
 	}
 
 	bootstrap, ok := method.(addressedMethod)
@@ -176,9 +191,11 @@ func (s *Service) loginWithSeed(
 		// Not the break-glass address. Pay the hashing cost anyway so this
 		// answers as slowly as a real verification would.
 		s.burnDecoyHash(ctx, cmd.Password)
-		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials)
+		// Deliberately unlabeled: nothing verified here, and naming the method
+		// would separate this from the branch below by record.
+		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials, "")
 
-		return nil, nil, apperr.ErrInvalidCredentials
+		return nil, nil, "", apperr.ErrInvalidCredentials
 	}
 
 	claims, err := method.Authenticate(ctx, cmd.Password)
@@ -194,9 +211,17 @@ func (s *Service) loginWithSeed(
 
 		// A wrong break-glass password is an attempt against a known admin
 		// credential, and is the event this endpoint most needs on record.
-		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials)
+		//
+		// Deliberately UNLABELLED, and this is the load-bearing one. The address
+		// matched, but no credential verified. Labeling it would let anyone who
+		// can read the audit log sort failed sign-ins by method and learn which
+		// address the break-glass credential answers for -- on an instance where
+		// it has never been used successfully, the trail is otherwise silent on
+		// that. It would disclose by record exactly what the decoy verification
+		// above spends an argon2id on hiding from timing.
+		s.publishPasswordLoginFailure(ctx, cmd, cmd.Email, entity.AuditFailureInvalidCredentials, "")
 
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 
 	user, err := s.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodBootstrap, &entity.OAuthProviderUserInfo{
@@ -213,22 +238,34 @@ func (s *Service) loginWithSeed(
 		GrantRoles:  []entity.Role{entity.RoleAdmin},
 	})
 	if err != nil {
-		s.publishPasswordLoginFailure(ctx, cmd, claims.Email, provisioningFailureReason(err))
-		return nil, nil, fmt.Errorf("get or create user: %w", err)
+		// Labeled, unlike the two branches above: the break-glass password
+		// verified to reach this line. Nothing is disclosed either -- the actor
+		// here is claims.Email, the CONFIGURED address, which this branch already
+		// published before any of this.
+		s.publishPasswordLoginFailure(ctx, cmd, claims.Email,
+			provisioningFailureReason(err), entity.AuditLoginMethodBootstrap)
+
+		return nil, nil, "", fmt.Errorf("get or create user: %w", err)
 	}
 
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
 		// A blocked bootstrap admin lands here: the guard inside IssueAccessToken
-		// refuses the token, so blocking cuts off break-glass too.
+		// refuses the token, so blocking cuts off break-glass too. Labeled for
+		// the same reason as the branch above -- the credential verified -- and
+		// the record says "blocked", not "this deployment cannot mint tokens".
 		s.publishLoginFailure(ctx, user,
-			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
-			entity.AuditFailureTokenIssuance)
+			&entity.AuditMetadata{
+				IP:          cmd.ClientIP,
+				UserAgent:   cmd.UserAgent,
+				LoginMethod: entity.AuditLoginMethodBootstrap,
+			},
+			issuanceFailureReason(err))
 
-		return nil, nil, fmt.Errorf("issue token pair: %w", err)
+		return nil, nil, "", fmt.Errorf("issue token pair: %w", err)
 	}
 
-	return pair, user, nil
+	return pair, user, entity.AuditLoginMethodBootstrap, nil
 }
 
 // addressedMethod is the part of the break-glass provider this path needs
@@ -249,12 +286,22 @@ func (s *Service) burnDecoyHash(ctx context.Context, password string) {
 
 // publishPasswordLoginFailure records a failure that happened before a user was
 // resolved. The claimed address is the only attribution such an attempt has.
+//
+// method is empty for a failure where no credential verified. It is a parameter
+// rather than something derived here because the distinction is per-branch and
+// cannot be recovered from cmd: a wrong password against the break-glass address
+// and a wrong password against any other address arrive identical.
 func (s *Service) publishPasswordLoginFailure(
 	ctx context.Context,
 	cmd *entity.LoginWithPasswordCmd,
 	email string,
 	reason entity.AuditFailureReason,
+	method entity.AuditLoginMethod,
 ) {
 	s.publishLoginFailure(ctx, &entity.User{Email: email},
-		&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent}, reason)
+		&entity.AuditMetadata{
+			IP:          cmd.ClientIP,
+			UserAgent:   cmd.UserAgent,
+			LoginMethod: method,
+		}, reason)
 }

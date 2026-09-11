@@ -297,3 +297,75 @@ func TestRenderLoginFailedAttributesAnAnonymousAttempt(t *testing.T) {
 	require.Equal(t, entity.AuditFailureSessionMismatch, payload.Metadata.FailureReason,
 		"the reason is what makes such a row findable at all")
 }
+
+// TestRender_BreakGlassLoginIsNamedInTheDetails pins the visible half of the
+// break-glass audit record.
+//
+// The metadata field alone is not enough: an operator scanning the trail reads
+// the details column, and a break-glass sign-in that looks like every other
+// login there is exactly the blind spot that made keeping a permanently-live
+// break-glass password hard to justify. The details string must say so without
+// anyone having to expand the record.
+//
+// The password and nil-metadata cases are the other half of the assertion: a
+// renderer that unconditionally names break-glass would pass a bootstrap-only
+// test and mislabel every ordinary sign-in.
+func TestRender_BreakGlassLoginIsNamedInTheDetails(t *testing.T) {
+	t.Parallel()
+
+	actor := &entity.User{ID: uuid.New(), Email: "admin@example.com", Name: "Admin"}
+
+	tests := []struct {
+		name           string
+		meta           *entity.AuditMetadata
+		wantBreakGlass bool
+	}{
+		{
+			name:           "break-glass credential is named",
+			meta:           &entity.AuditMetadata{LoginMethod: entity.AuditLoginMethodBootstrap},
+			wantBreakGlass: true,
+		},
+		{
+			name:           "a user's own password is not",
+			meta:           &entity.AuditMetadata{LoginMethod: entity.AuditLoginMethodPassword},
+			wantBreakGlass: false,
+		},
+		{
+			// One non-bootstrap method stands for all of them: the predicate is
+			// a single equality, so OTP, OIDC and stub cannot fail separately.
+			// What this kills is loosening it to "anything but password".
+			name:           "an upstream sign-in is not",
+			meta:           &entity.AuditMetadata{LoginMethod: entity.AuditLoginMethodOIDC},
+			wantBreakGlass: false,
+		},
+		{
+			name:           "an unlabeled login is not",
+			meta:           &entity.AuditMetadata{},
+			wantBreakGlass: false,
+		},
+		{
+			name:           "no metadata at all is not",
+			meta:           nil,
+			wantBreakGlass: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload, err := NewRenderer().Render(LoginSuccess{User: actor, Meta: tt.meta})
+			require.NoError(t, err)
+
+			if tt.wantBreakGlass {
+				require.Contains(t, payload.Details, "break-glass")
+			} else {
+				require.NotContains(t, payload.Details, "break-glass")
+			}
+
+			// The address is always present regardless of method: it is what
+			// makes the record attributable.
+			require.Contains(t, payload.Details, actor.Email)
+		})
+	}
+}

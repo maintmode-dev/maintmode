@@ -633,10 +633,10 @@ func (c AppConfig) OAuthDanceEnabled() bool {
 // the compose file, which is a wider blast radius than the secrets file this
 // deployment already treats as the one place credentials live.
 //
-// An empty value is not a misconfiguration, it is the signal to generate a
-// random one at startup and log it once — see bootstrapauth.ResolvePassword.
-// The local/dev/test samples ship exactly that, so validateBootstrapConfig must
-// keep accepting an empty password. The KEY, however, must be present in the
+// An empty value is not a misconfiguration: it means this instance has no
+// break-glass and signs people in by the ordinary methods. The dev/test samples
+// ship exactly that, so validateBootstrapConfig must keep accepting an empty
+// password. The KEY, however, must be present in the
 // secrets file: the resolver hard-fails on a missing one.
 //
 // Email determines the identity of the break-glass admin. It deliberately comes
@@ -672,8 +672,8 @@ const (
 
 	// minBootstrapPasswordLen follows NIST 800-63B: length is the requirement
 	// that matters, character-class rules are not. It applies ONLY to a
-	// configured password — an empty one means "generate at startup" and a
-	// generated one is specified by entropy instead.
+	// configured password — an empty one means "no break-glass on this
+	// instance", which is a choice rather than a weak credential.
 	minBootstrapPasswordLen = 12
 )
 
@@ -754,18 +754,16 @@ func initConfig(appName string) *AppConfig {
 }
 
 // validateBootstrapConfig rejects a configured break-glass password too short to
-// be worth having. It deliberately does NOT reject an empty one: emptiness is
-// the documented "generate a random password at startup" signal, and every
-// shipped app.config.yaml carries it — a validator that treated empty as "too
-// short" would panic every deployment at boot, which is precisely the outage
+// be worth having. It deliberately does NOT reject an empty one: emptiness means
+// this instance runs without break-glass, which is a legitimate configuration
+// and the one the dev/test samples ship — a validator that treated empty as "too
+// short" would panic those deployments at boot, which is precisely the outage
 // this endpoint exists to prevent.
-//
-// A generated password is not checked here at all; it is specified by entropy
-// (see bootstrapauth.ResolvePassword) and never passes through this function.
 func (c *AppConfig) validateBootstrapConfig() error {
-	// Email is checked FIRST, before the empty-password early return: a
-	// generated password is the common case, and the identity still has to be
-	// sound there. It is not decoration — linkBootstrapToExistingUser resolves
+	// Email is checked FIRST, before the empty-password early return: an empty
+	// password is a legitimate configuration, and an instance that later gains
+	// one should not then discover it also needs an address. It is not
+	// decoration — linkBootstrapToExistingUser resolves
 	// an account by this address and grants it admin, so an empty or
 	// placeholder value is an admin grant pointed at the wrong row (or, when
 	// empty, at a user created with an empty email that permanently occupies
@@ -788,7 +786,7 @@ func (c *AppConfig) validateBootstrapConfig() error {
 	if len(c.Bootstrap.Password) < minBootstrapPasswordLen {
 		return fmt.Errorf(
 			"bootstrap.password is too short: %d characters, expected at least %d "+
-				"(leave it empty to have one generated at startup)",
+				"(leaving it empty is allowed and means this instance has no break-glass)",
 			len(c.Bootstrap.Password), minBootstrapPasswordLen,
 		)
 	}
@@ -802,7 +800,7 @@ func (c *AppConfig) validateBootstrapConfig() error {
 	if strings.Contains(c.Bootstrap.Password, secretPlaceholderMarker) {
 		return fmt.Errorf(
 			"bootstrap.password is a placeholder (%q): set a real password in the secrets file, "+
-				"or leave it empty to have one generated at startup",
+				"or leave it empty to run without break-glass",
 			c.Bootstrap.Password,
 		)
 	}

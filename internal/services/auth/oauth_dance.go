@@ -17,6 +17,7 @@ import (
 // dev/test `use_stub` substitution keeps applying to both paths at once. A dance
 // that bypassed the registry would verify against real Google on a stand where
 // every other login is stubbed.
+
 func (s *Service) verifyProviderIDToken(
 	ctx context.Context,
 	provider entity.AuthMethod,

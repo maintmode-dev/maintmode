@@ -73,6 +73,19 @@ components:
                     type: string
                 ip:
                     type: string
+                login_method:
+                    description: |-
+                        LoginMethod is the credential that answered a sign-in. Absent on a
+                        failure where no credential verified -- in particular a wrong password
+                        against the break-glass address, which is labeled exactly like a wrong
+                        password against any other address so the trail cannot be used to
+                        identify the break-glass address.
+                    enum:
+                        - bootstrap
+                        - password
+                        - otp
+                        - oidc
+                    type: string
                 logout_kind:
                     enum:
                         - auto
@@ -1199,7 +1212,7 @@ paths:
                 - Auth
     /api/v1/me/password:
         post:
-            description: Writes the caller's password, retires any pending break-glass seed, and revokes their other sessions. Supplying refresh_token keeps that session alive; omitting it revokes every session including the caller's.
+            description: Writes the caller's password and revokes their other sessions. Supplying refresh_token keeps that session alive; omitting it revokes every session including the caller's.
             parameters:
                 - description: Bearer access token
                   in: header

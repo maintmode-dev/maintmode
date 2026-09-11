@@ -16,7 +16,7 @@ import (
 
 // ChangePassword godoc
 // @Summary Set or change your own password
-// @Description Writes the caller's password, retires any pending break-glass seed, and revokes their other sessions. Supplying refresh_token keeps that session alive; omitting it revokes every session including the caller's.
+// @Description Writes the caller's password and revokes their other sessions. Supplying refresh_token keeps that session alive; omitting it revokes every session including the caller's.
 // @Tags Auth
 // @Accept json
 // @Produce json

@@ -38,14 +38,20 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 // instance, which is how an operator adds a corporate SSO button without a
 // release. Both built-in methods below are unconditional, and email_password is
 // the one worth
-// explaining. It is NOT gated on a configured bootstrap password, because there
-// is no state in which one is absent: an empty password means "generate one at
-// startup" and validateBootstrapConfig makes the address mandatory, failing boot
-// outright when it is missing. A predicate over that would be a branch that never
-// runs, pinned by a test asserting a state production cannot reach. It also
-// matches the intent: from outside, break-glass must be indistinguishable from an
-// ordinary password sign-in, and an instance must never be able to hide the form
-// that recovers it.
+// explaining. It is NOT gated on a configured bootstrap password, and the reason
+// changed shape without changing the answer. An instance with no break-glass used
+// to be impossible; it is now an ordinary configuration. So the gate is no longer
+// refused as a branch that never runs -- it is refused because it would LEAK.
+//
+// This endpoint is public and unauthenticated. A predicate over the bootstrap
+// password would answer "does this deployment have an emergency entrance?" in one
+// GET, with no sign-in attempt, no rate limiter and no audit record -- strictly
+// worse than the timing channel the decoy hash on the sign-in path exists to
+// close. Do not add one, however stale this comment may look.
+//
+// It also matches the intent: from outside, break-glass must be indistinguishable
+// from an ordinary password sign-in, and an instance must never be able to hide
+// the form that recovers it.
 //
 // bootstrap is not its own element for the same reason. It and email_password
 // lead to the same form on the same endpoint, so two elements would draw two

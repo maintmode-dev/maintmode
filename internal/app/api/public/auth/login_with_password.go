@@ -102,7 +102,7 @@ func unauthorized(ctx context.Context, c *echo.Context, reason string, err error
 	// WARN, not ERROR: a rejected sign-in is an expected event on a
 	// permanently-live endpoint, and logging it at ERROR would bury the failures
 	// that are genuinely the service's fault. A sustained rate of these is what
-	// the BootstrapLoginFailing alert is for.
+	// the PasswordLoginFailing alert is for.
 	xlog.Warn(ctx, "password login rejected",
 		xfield.String("reason", reason),
 		xfield.Error(err),

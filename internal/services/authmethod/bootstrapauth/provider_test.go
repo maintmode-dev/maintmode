@@ -47,61 +47,6 @@ func loggedText(logs *observer.ObservedLogs) string {
 	return sb.String()
 }
 
-func TestResolvePassword(t *testing.T) {
-	t.Parallel()
-
-	t.Run("a configured password is returned and never logged", func(t *testing.T) {
-		t.Parallel()
-
-		const configured = "a-configured-break-glass-password"
-		ctx, logs := observedCtx(t)
-
-		got, err := bootstrapauth.ResolvePassword(ctx, config.BootstrapConfig{Password: configured})
-		require.NoError(t, err)
-		require.Equal(t, configured, got)
-		require.NotContains(t, loggedText(logs), configured,
-			"a configured password must never reach the log")
-	})
-
-	t.Run("an empty password is generated and logged exactly once", func(t *testing.T) {
-		t.Parallel()
-
-		ctx, logs := observedCtx(t)
-
-		got, err := bootstrapauth.ResolvePassword(ctx, config.BootstrapConfig{})
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(got), 22,
-			"a generated password must carry at least 128 bits of entropy")
-
-		carrying := 0
-		for _, entry := range logs.All() {
-			if strings.Contains(entry.Message, got) {
-				carrying++
-				continue
-			}
-			for _, f := range entry.Context {
-				if strings.Contains(f.String, got) {
-					carrying++
-					break
-				}
-			}
-		}
-		require.Equal(t, 1, carrying, "the generated password must be logged exactly once")
-	})
-
-	t.Run("two generated passwords differ", func(t *testing.T) {
-		t.Parallel()
-
-		ctx, _ := observedCtx(t)
-
-		first, err := bootstrapauth.ResolvePassword(ctx, config.BootstrapConfig{})
-		require.NoError(t, err)
-		second, err := bootstrapauth.ResolvePassword(ctx, config.BootstrapConfig{})
-		require.NoError(t, err)
-		require.NotEqual(t, first, second)
-	})
-}
-
 func TestServiceMethodID(t *testing.T) {
 	t.Parallel()
 
@@ -173,8 +118,10 @@ func TestServiceAuthenticate(t *testing.T) {
 	t.Run("an empty resolved password never authenticates", func(t *testing.T) {
 		t.Parallel()
 
-		// Defense in depth: ResolvePassword never returns empty, but if it ever
-		// did, an empty credential must not become a skeleton key.
+		// NOT defense in depth -- this is the live mechanism. An instance with no
+		// configured password resolves to an empty one, so this check is the only
+		// thing between that ordinary configuration and a skeleton key. Do not
+		// remove it as dead code.
 		ctx, _ := observedCtx(t)
 		svc := newService("")
 
@@ -185,7 +132,7 @@ func TestServiceAuthenticate(t *testing.T) {
 }
 
 // The password must not reach the log from the AUTHENTICATE path either — not
-// on success, not on failure. TestResolvePassword covers only startup, so
+// on success, not on failure, so
 // without this a leak added here would go unnoticed: verified by mutation
 // (logging s.password on the mismatch branch leaves the resolve tests green and
 // fails only this one).
@@ -202,5 +149,5 @@ func TestServiceAuthenticate_NeverLogsThePassword(t *testing.T) {
 	require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
 
 	require.NotContains(t, loggedText(logs), password,
-		"the break-glass password must never be logged outside ResolvePassword")
+		"the break-glass password must never be logged")
 }

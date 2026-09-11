@@ -184,4 +184,8 @@ func TestLoginWithOTP_AuditsSuccess(t *testing.T) {
 	require.Equal(t, "198.51.100.4", success.Meta.IP)
 	require.Equal(t, "Mozilla/5.0", success.Meta.UserAgent)
 	require.Equal(t, pair.SessionID.String(), success.Meta.SessionID)
+	// Labeled like every other sign-in path, so that an empty method in the
+	// trail means "no credential was established" rather than "this path was
+	// missed".
+	require.Equal(t, entity.AuditLoginMethodOTP, success.Meta.LoginMethod)
 }

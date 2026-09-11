@@ -31,6 +31,7 @@ func toAPIAuditLogMetadata(m *entity.AuditMetadata) *AuditLogMetadata {
 		SessionID:         m.SessionID,
 		FailureReason:     string(m.FailureReason),
 		LogoutKind:        string(m.LogoutKind),
+		LoginMethod:       string(m.LoginMethod),
 		Roles:             m.Roles,
 		RolesAdded:        m.RolesAdded,
 		RolesRemoved:      m.RolesRemoved,

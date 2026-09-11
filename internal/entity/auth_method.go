@@ -30,6 +30,27 @@ const (
 	// seats cap). Those are safe only on the endpoint that gates them behind the
 	// break-glass secret, so the method is reachable by that endpoint naming it
 	// directly, never by a client naming it in a body.
+	//
+	// Where a password is configured it is PERMANENTLY LIVE, and that is a
+	// decision rather than an omission.
+	// Demoting it to a one-time seed -- spent when the admin gains a password of
+	// their own -- was designed and rejected: recovery would still mean editing
+	// the secrets file on the host (there is no environment override, by
+	// design), so a denylist of spent values buys nothing that a config edit
+	// does not already give, while costing a table whose rows are argon2id
+	// hashes stored in order to be REJECTED, scanned rather than looked up
+	// because the salt forbids an index.
+	//
+	// What makes a permanent credential acceptable is not its absence but its
+	// bounds: the rate limiter in front of it, a repeat login granting no new
+	// privileges (roles apply only on creation), revocation by blocking the
+	// admin, and -- the part that was missing -- an audit record naming it as
+	// the credential that answered. See entity.AuditLoginMethod.
+	//
+	// Where none is configured there is no break-glass at all: the provider
+	// stays registered and refuses every candidate, so the instance signs people
+	// in by the ordinary methods and the refusal is indistinguishable from a
+	// wrong address.
 	AuthMethodBootstrap AuthMethod = "bootstrap"
 	// AuthMethodUnknown is an output-only sentinel for "no method known".
 	// It is never a real login method and is never in the vocabulary.

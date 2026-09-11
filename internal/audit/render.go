@@ -75,7 +75,7 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 	case LoginSuccess:
 		setActor(payload, a.User)
 		payload.EntityID = a.User.ID.String()
-		payload.Details = fmt.Sprintf("login success for %s", a.User.Email)
+		payload.Details = loginSuccessDetails(a.User, a.Meta)
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LoginFailed:
 		setActor(payload, a.User)
@@ -276,6 +276,26 @@ func failedLoginEntityID(actor *entity.User) string {
 	}
 
 	return actor.ID.String()
+}
+
+// loginSuccessDetails names the break-glass credential when it was the one that
+// answered, and otherwise renders what it always has.
+//
+// Only break-glass gets its own wording. The method is in the metadata for every
+// sign-in, but the details column is what an operator reads while scanning, and
+// spelling out the ordinary cases there would bury the one that matters among
+// the ones that do not.
+//
+// Nothing is said on the FAILURE path -- see the LoginMethod field comment. A
+// failed attempt against the break-glass address must render exactly like a
+// failed attempt against any other, or the details string becomes the oracle
+// the metadata rule exists to prevent.
+func loginSuccessDetails(user *entity.User, meta *entity.AuditMetadata) string {
+	if meta != nil && meta.LoginMethod == entity.AuditLoginMethodBootstrap {
+		return fmt.Sprintf("login success for %s using the break-glass credential", user.Email)
+	}
+
+	return fmt.Sprintf("login success for %s", user.Email)
 }
 
 // setActor fills the actor identity fields from the user who performed the
