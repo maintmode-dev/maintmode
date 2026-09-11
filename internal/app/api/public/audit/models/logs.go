@@ -30,17 +30,25 @@ type AuditLog struct {
 
 // AuditLogMetadata carries structured, whitelist-safe details of an event.
 // Which fields are populated depends on the action:
-//   - login_success / login_failed: ip, user_agent, session_id (+failure_reason for failed);
+//   - login_success / login_failed: ip, user_agent, session_id, login_method
+//     (+failure_reason for failed). login_method is absent on a failure that
+//     never established a credential, which is deliberate: see below;
 //   - logout_success: session_id, logout_kind (auto|manual);
 //   - assigned / revoked: roles, target_email, target_display_name;
 //   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;
 //   - blocked / unblocked: target_email, target_display_name.
 type AuditLogMetadata struct {
-	IP                string   `json:"ip,omitempty"`
-	UserAgent         string   `json:"user_agent,omitempty"`
-	SessionID         string   `json:"session_id,omitempty"`
-	FailureReason     string   `json:"failure_reason,omitempty"`
-	LogoutKind        string   `json:"logout_kind,omitempty" enums:"auto,manual"`
+	IP            string `json:"ip,omitempty"`
+	UserAgent     string `json:"user_agent,omitempty"`
+	SessionID     string `json:"session_id,omitempty"`
+	FailureReason string `json:"failure_reason,omitempty"`
+	LogoutKind    string `json:"logout_kind,omitempty" enums:"auto,manual"`
+	// LoginMethod is the credential that answered a sign-in. Absent on a
+	// failure where no credential verified -- in particular a wrong password
+	// against the break-glass address, which is labeled exactly like a wrong
+	// password against any other address so the trail cannot be used to
+	// identify the break-glass address.
+	LoginMethod       string   `json:"login_method,omitempty" enums:"bootstrap,password,otp,oidc"`
 	Roles             []string `json:"roles,omitempty"`
 	RolesAdded        []string `json:"roles_added,omitempty"`
 	RolesRemoved      []string `json:"roles_removed,omitempty"`

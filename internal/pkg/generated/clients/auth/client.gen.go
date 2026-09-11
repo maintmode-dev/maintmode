@@ -22,6 +22,30 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
+// Defines values for ApiauthmodelsAuditLogMetadataLoginMethod.
+const (
+	Bootstrap ApiauthmodelsAuditLogMetadataLoginMethod = "bootstrap"
+	Oidc      ApiauthmodelsAuditLogMetadataLoginMethod = "oidc"
+	Otp       ApiauthmodelsAuditLogMetadataLoginMethod = "otp"
+	Password  ApiauthmodelsAuditLogMetadataLoginMethod = "password"
+)
+
+// Valid indicates whether the value is a known member of the ApiauthmodelsAuditLogMetadataLoginMethod enum.
+func (e ApiauthmodelsAuditLogMetadataLoginMethod) Valid() bool {
+	switch e {
+	case Bootstrap:
+		return true
+	case Oidc:
+		return true
+	case Otp:
+		return true
+	case Password:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiauthmodelsAuditLogMetadataLogoutKind.
 const (
 	Auto   ApiauthmodelsAuditLogMetadataLogoutKind = "auto"
@@ -280,10 +304,17 @@ type ApiauthmodelsAuditLogFieldChange struct {
 
 // ApiauthmodelsAuditLogMetadata Metadata is the structured action-specific payload for the expand grid.
 type ApiauthmodelsAuditLogMetadata struct {
-	Changes       *[]ApiauthmodelsAuditLogFieldChange      `json:"changes,omitempty"`
-	FailureReason *string                                  `json:"failure_reason,omitempty"`
-	Ip            *string                                  `json:"ip,omitempty"`
-	LogoutKind    *ApiauthmodelsAuditLogMetadataLogoutKind `json:"logout_kind,omitempty"`
+	Changes       *[]ApiauthmodelsAuditLogFieldChange `json:"changes,omitempty"`
+	FailureReason *string                             `json:"failure_reason,omitempty"`
+	Ip            *string                             `json:"ip,omitempty"`
+
+	// LoginMethod LoginMethod is the credential that answered a sign-in. Absent on a
+	// failure where no credential verified -- in particular a wrong password
+	// against the break-glass address, which is labeled exactly like a wrong
+	// password against any other address so the trail cannot be used to
+	// identify the break-glass address.
+	LoginMethod *ApiauthmodelsAuditLogMetadataLoginMethod `json:"login_method,omitempty"`
+	LogoutKind  *ApiauthmodelsAuditLogMetadataLogoutKind  `json:"logout_kind,omitempty"`
 
 	// MaintTitle Maintenance action fields. Populated for maintenance.* /
 	// maintenance_step.* actions:
@@ -298,6 +329,13 @@ type ApiauthmodelsAuditLogMetadata struct {
 	TargetEmail       *string   `json:"target_email,omitempty"`
 	UserAgent         *string   `json:"user_agent,omitempty"`
 }
+
+// ApiauthmodelsAuditLogMetadataLoginMethod LoginMethod is the credential that answered a sign-in. Absent on a
+// failure where no credential verified -- in particular a wrong password
+// against the break-glass address, which is labeled exactly like a wrong
+// password against any other address so the trail cannot be used to
+// identify the break-glass address.
+type ApiauthmodelsAuditLogMetadataLoginMethod string
 
 // ApiauthmodelsAuditLogMetadataLogoutKind defines model for ApiauthmodelsAuditLogMetadata.LogoutKind.
 type ApiauthmodelsAuditLogMetadataLogoutKind string
