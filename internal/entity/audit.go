@@ -275,13 +275,53 @@ const (
 	AuditLogoutKindAuto   = "auto"
 )
 
+// AuditLoginMethod names the credential that answered for a sign-in.
+//
+// Deliberately NOT entity.AuthMethod, which looks like the obvious fit and is
+// not: those values are DATA matched against user_identities.provider, and a
+// password or one-time-code sign-in writes no identity row, so tagging one with
+// a provider value would put a string into the trail that names nothing in
+// user_identities. AuthMethodEmail is additionally pinned by a test as
+// vocabulary-only, and there is no member for one-time codes at all. This is a
+// narrow vocabulary owned by the audit trail, like AuditLogoutKind above.
+//
+// It exists so a break-glass sign-in is distinguishable from an ordinary one.
+// That distinction is the whole safety argument for keeping the break-glass
+// password permanently live rather than demoting it to a one-time seed: the
+// credential is bounded by the rate limiter, by granting no new privileges on a
+// repeat login, and by being revocable through blocking the admin -- what was
+// missing was the ability to see it used.
+type AuditLoginMethod string
+
+const (
+	// AuditLoginMethodBootstrap is the break-glass admin password.
+	AuditLoginMethodBootstrap AuditLoginMethod = "bootstrap"
+	// AuditLoginMethodPassword is a user's own stored password.
+	AuditLoginMethodPassword AuditLoginMethod = "password"
+	// AuditLoginMethodOTP is a one-time code sent to the user's mailbox.
+	AuditLoginMethodOTP AuditLoginMethod = "otp"
+	// AuditLoginMethodOIDC is any upstream OIDC instance. Deliberately not the
+	// instance name: those are operator-configured strings of arbitrary length,
+	// and which instance answered is already recoverable from the user's
+	// identity rows.
+	//
+	// The dev stub is not distinguished either. It substitutes every method
+	// except break-glass under use_stub, so a sign-in on a dev or test stand is
+	// recorded as oidc despite the stub verifying nothing -- accepted, because
+	// use_stub is a local-development hack and no stand's audit trail is worth a
+	// second parameter through the sign-in path.
+	AuditLoginMethodOIDC AuditLoginMethod = "oidc"
+)
+
 // AuditMetadata is the structured, action-specific payload of an audit record.
 // Strictly a whitelist of safe fields: IP, user agent, session id, role names.
 // NEVER put tokens, cookies, secrets or raw payloads here: the audit trail is
 // durable, is never redacted, and every admin can read it back through the API.
 //
 // Which fields are populated depends on the action:
-//   - login_success / login_failed: IP, UserAgent, SessionID (+FailureReason for failed);
+//   - login_success / login_failed: IP, UserAgent, SessionID, LoginMethod
+//     (+FailureReason for failed). LoginMethod is empty on a failure that never
+//     established a credential -- see the field's own comment;
 //   - logout_success: SessionID, LogoutKind;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
 //   - replaced: Roles (resulting set), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
@@ -289,16 +329,27 @@ const (
 //   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
 //     TargetDisplayName.
 type AuditMetadata struct {
-	IP                string             `json:"ip,omitempty"`
-	UserAgent         string             `json:"user_agent,omitempty"`
-	SessionID         string             `json:"session_id,omitempty"`
-	FailureReason     AuditFailureReason `json:"failure_reason,omitempty"`
-	LogoutKind        AuditLogoutKind    `json:"logout_kind,omitempty"`
-	Roles             []string           `json:"roles,omitempty"`
-	RolesAdded        []string           `json:"roles_added,omitempty"`
-	RolesRemoved      []string           `json:"roles_removed,omitempty"`
-	TargetEmail       string             `json:"target_email,omitempty"`
-	TargetDisplayName string             `json:"target_display_name,omitempty"`
+	IP            string             `json:"ip,omitempty"`
+	UserAgent     string             `json:"user_agent,omitempty"`
+	SessionID     string             `json:"session_id,omitempty"`
+	FailureReason AuditFailureReason `json:"failure_reason,omitempty"`
+	LogoutKind    AuditLogoutKind    `json:"logout_kind,omitempty"`
+	// LoginMethod is the credential that answered, on login_success and
+	// login_failed only.
+	//
+	// Empty is not "unknown method" -- it is load-bearing on the failure path. A
+	// failure is labeled only where a credential actually verified, never where
+	// merely the submitted address matched the break-glass one. Labeling the
+	// latter would let anyone who can read the audit log sort failed sign-ins by
+	// method and learn which address the break-glass credential answers for,
+	// before it has ever been used successfully -- disclosing by record what the
+	// decoy hash on that path protects by timing.
+	LoginMethod       AuditLoginMethod `json:"login_method,omitempty"`
+	Roles             []string         `json:"roles,omitempty"`
+	RolesAdded        []string         `json:"roles_added,omitempty"`
+	RolesRemoved      []string         `json:"roles_removed,omitempty"`
+	TargetEmail       string           `json:"target_email,omitempty"`
+	TargetDisplayName string           `json:"target_display_name,omitempty"`
 
 	// Maintenance action fields. All omitempty; populated only for
 	// maintenance.* / maintenance_step.* actions:
