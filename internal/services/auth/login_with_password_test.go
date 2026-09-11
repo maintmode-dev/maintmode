@@ -447,7 +447,10 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		require.Len(t, actions, 1)
 		failed, ok := actions[0].(audit.LoginFailed)
 		require.True(t, ok, "expected a login failure, got %T", actions[0])
-		require.Equal(t, entity.AuditFailureTokenIssuance, failed.Meta.FailureReason)
+		// Blocked, not "this deployment cannot mint tokens" -- see
+		// issuanceFailureReason. The method is the subject here; the reason is
+		// asserted so this does not silently go back to the generic one.
+		require.Equal(t, entity.AuditFailureUserBlocked, failed.Meta.FailureReason)
 		require.Equal(t, entity.AuditLoginMethodPassword, failed.Meta.LoginMethod)
 	})
 

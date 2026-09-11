@@ -155,7 +155,7 @@ func (s *Service) loginWithStoredPassword(
 				UserAgent:   cmd.UserAgent,
 				LoginMethod: entity.AuditLoginMethodPassword,
 			},
-			entity.AuditFailureTokenIssuance)
+			issuanceFailureReason(err))
 
 		return nil, nil, true, fmt.Errorf("issue token pair: %w", err)
 	}
@@ -252,14 +252,15 @@ func (s *Service) loginWithSeed(
 	if err != nil {
 		// A blocked bootstrap admin lands here: the guard inside IssueAccessToken
 		// refuses the token, so blocking cuts off break-glass too. Labeled for
-		// the same reason as the branch above: the credential verified.
+		// the same reason as the branch above -- the credential verified -- and
+		// the record says "blocked", not "this deployment cannot mint tokens".
 		s.publishLoginFailure(ctx, user,
 			&entity.AuditMetadata{
 				IP:          cmd.ClientIP,
 				UserAgent:   cmd.UserAgent,
 				LoginMethod: entity.AuditLoginMethodBootstrap,
 			},
-			entity.AuditFailureTokenIssuance)
+			issuanceFailureReason(err))
 
 		return nil, nil, "", fmt.Errorf("issue token pair: %w", err)
 	}

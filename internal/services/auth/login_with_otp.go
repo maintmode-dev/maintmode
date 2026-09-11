@@ -53,10 +53,11 @@ func (s *Service) LoginWithOTP(ctx context.Context, cmd *entity.VerifyOTPCmd) (*
 	pair, err := s.IssueTokenPair(ctx, user, cmd.ClientIP)
 	if err != nil {
 		// A blocked user lands here: the guard inside IssueAccessToken refuses
-		// the token even though the code was correct.
+		// the token even though the code was correct, and that is what the
+		// record must say.
 		s.publishLoginFailure(ctx, user,
 			&entity.AuditMetadata{IP: cmd.ClientIP, UserAgent: cmd.UserAgent},
-			entity.AuditFailureTokenIssuance)
+			issuanceFailureReason(err))
 
 		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
