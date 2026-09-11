@@ -22,9 +22,9 @@ import (
 const bootstrapUserName = "Bootstrap Admin"
 
 // Service verifies the break-glass password and reports the configured admin
-// identity. The password is resolved once at startup (see ResolvePassword) and
-// held in memory: a generated one does not survive a restart, which is correct
-// for a break-glass credential.
+// identity. The password comes from configuration and is held in memory; an
+// empty one means this instance has no break-glass, and Authenticate then
+// refuses every candidate.
 type Service struct {
 	email    string
 	password string

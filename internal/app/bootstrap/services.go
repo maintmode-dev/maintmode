@@ -153,10 +153,7 @@ func NewServices(ctx context.Context,
 	// the single-flight rather than each fetching their own copy.
 	discovery := oidcdiscovery.New()
 
-	authMethods, err := initAuthMethods(ctx, cfg, discovery)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init oauth providers: %w", err)
-	}
+	authMethods := initAuthMethods(ctx, cfg, discovery)
 
 	// Auditor is both read-side (api/public/audit reads logs through it) and
 	// write-side (the audit-write goque processor writes the log after commit).
@@ -434,7 +431,7 @@ func initAuthMethods(
 	ctx context.Context,
 	cfg *config.AppConfig,
 	discovery *oidcdiscovery.Resolver,
-) (*authmethod.Methods, error) {
+) *authmethod.Methods {
 	methods := make([]authmethod.AuthMethod, 0, len(cfg.OauthProviders.OIDC)+1)
 
 	// Every configured instance is registered, resolved or not. Discovery is
@@ -470,20 +467,18 @@ func initAuthMethods(
 	// — not from being absent. (Contrast the stub, which is dev-only precisely
 	// because it accepts ANY credential.)
 	//
-	// Resolution happens here, once per process: a generated password is logged
-	// exactly once, at startup, and never again.
-	bootstrapPassword, err := bootstrapauth.ResolvePassword(ctx, cfg.Bootstrap)
-	if err != nil {
-		return nil, fmt.Errorf("resolve bootstrap password: %w", err)
-	}
-
-	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, bootstrapPassword))
+	// An empty configured password is not a misconfiguration: it means this
+	// instance has no break-glass and signs people in by the ordinary methods.
+	// The provider is registered either way, and Authenticate refuses every
+	// candidate when the password is empty, so the attempt stays
+	// indistinguishable from one against a wrong address.
+	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, cfg.Bootstrap.Password))
 
 	// Narrower than the registered set on purpose: it names the instances whose
 	// dance the backend runs. A BFF instance stays registered and signs users in
 	// -- the frontend runs its dance -- it simply has no dance routes here.
 	return authmethod.NewAuthMethods(cfg, methods).
-		WithDanceProviders(cfg.OauthProviders.DanceInstanceNames()), nil
+		WithDanceProviders(cfg.OauthProviders.DanceInstanceNames())
 }
 
 // newIntegrationService builds the DB-backed integration registry service on a

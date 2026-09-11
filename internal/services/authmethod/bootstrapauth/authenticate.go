@@ -27,9 +27,14 @@ func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Bootstrap.Authenticate")
 	defer span.End()
 
-	// An empty resolved password would otherwise make the empty credential a
-	// skeleton key. ResolvePassword never returns one, so this is defense in
-	// depth against a future wiring mistake, not a reachable state today.
+	// The empty check is an INVARIANT, not defense in depth: an unconfigured
+	// instance resolves to an empty password, so this is the only thing standing
+	// between that state and a skeleton key, and it is reached in normal
+	// operation rather than after a wiring mistake. Refusing here rather than
+	// declining to register the method is what keeps the attempt on the ordinary
+	// failure path -- decoy burned, failure audited, same opaque 401 -- so an
+	// instance with no break-glass is indistinguishable from one with a
+	// different address configured.
 	if s.password == "" || subtle.ConstantTimeCompare([]byte(credential), []byte(s.password)) != 1 {
 		xlog.Warn(ctx, "bootstrap login rejected: credential mismatch")
 		return nil, apperr.ErrInvalidCredentials
