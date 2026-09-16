@@ -16,26 +16,45 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
+	"github.com/ruko1202/maintmode/internal/utils/xurl"
 )
 
-// validateKind parses and validates the config+secrets for a kind. It returns
-// the registered Integration so callers can reuse its SecretKeys.
-func (s *Service) validateKind(kind string, config json.RawMessage, plainSecrets map[string]string) (integrationkinds.Integration, error) {
-	in, err := s.registry.Get(kind)
+// resolveSettings turns a row's raw config and secrets into the values a write
+// needs, refusing the write if any step says no.
+//
+// Named for what it PRODUCES, not for the refusal: it returns the registered
+// Integration, whose SecretKeys and Name the caller reuses, and the parsed
+// Settings, which the secret path needs to choose the AAD binding. Returning
+// the parsed value rather than re-parsing keeps one parse per write, so the
+// bytes validated and the bytes bound can never be two different things -- and
+// that is the reason the function exists at all, so a name saying only
+// "validate" describes the half a caller can ignore.
+//
+// One caller does ignore it: Update re-runs this on the merged state purely to
+// find out whether the result would still be valid, and drops both values. That
+// is a legitimate second use of the same work, not the primary one.
+//
+// It takes the NAME, because that is what the registry keys on. The category is
+// checked separately, by the registry's admit: a row is legal only when both halves match
+// a registered entry, and checking the name alone would admit (notify, google).
+func (s *Service) resolveSettings(
+	name string, config json.RawMessage, plainSecrets map[string]string,
+) (integrationkinds.Integration, integrationkinds.Settings, error) {
+	in, err := s.registry.get(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := rejectSecretKeysInConfig(in, config); err != nil {
-		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
+		return nil, nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}
 	settings, err := in.Parse(config, plainSecrets)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
+		return nil, nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}
 	if err := in.Validate(settings); err != nil {
-		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
+		return nil, nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}
-	return in, nil
+	return in, settings, nil
 }
 
 // rejectSecretKeysInConfig guards against the most likely section mix-up: a
@@ -70,7 +89,7 @@ func warnUnknownSecretKeys[V any](ctx context.Context, in integrationkinds.Integ
 		return
 	}
 	xlog.Warn(ctx, "ignoring unknown secret keys for integration",
-		xfield.String("kind", in.Kind()),
+		xfield.String("name", in.Name()),
 		xfield.Strings("secret_keys", unknown),
 	)
 }
@@ -117,14 +136,16 @@ func (s *Service) newDEK(ctx context.Context) (dek []byte, dekID uuid.UUID, err 
 // stored secrets map ({key: base64(envelope)}) ready to persist — the store
 // mapper marshals it to jsonb at the DB boundary. Only keys the kind declares
 // secret are considered; an unknown key is ignored.
-func (s *Service) encryptSecrets(in integrationkinds.Integration, dek []byte, plain map[string]string) (map[string]string, error) {
+func (s *Service) encryptSecrets(
+	in integrationkinds.Integration, settings integrationkinds.Settings, dek []byte, plain map[string]string,
+) (map[string]string, error) {
 	out := make(map[string]string, len(plain))
 	for _, key := range in.SecretKeys() {
 		v, ok := plain[key]
 		if !ok || v == "" {
 			continue // absent secret: nothing to store for this key
 		}
-		sealed, err := s.sealSecret(in, dek, key, v)
+		sealed, err := s.sealSecret(in, settings, dek, key, v)
 		if err != nil {
 			return nil, err
 		}
@@ -133,12 +154,49 @@ func (s *Service) encryptSecrets(in integrationkinds.Integration, dek []byte, pl
 	return out, nil
 }
 
-// sealSecret encrypts one plaintext secret value under dek, bound to its
-// (kind, key) slot via AAD, and returns the storable base64(envelope) form.
-// The single seal path — create and update both go through here, so the AAD
-// binding and encoding can never drift apart between them.
-func (s *Service) sealSecret(in integrationkinds.Integration, dek []byte, key, value string) (string, error) {
-	envelope, err := s.cipher.Encrypt(dek, []byte(value), secrets.SecretAAD(in.Kind(), key))
+// secretAAD picks the binding for one secret slot.
+//
+// A kind that declares itself ClientBound (the login providers) binds its
+// secrets to the OAuth client they were issued for as well as to the slot;
+// everything else uses the plain (kind, key) form that every stored
+// Slack/SMTP/Telegram secret is already sealed under.
+//
+// settings is the EFFECTIVE state being written — on update that means the
+// post-patch config, not what is currently stored. Sealing under the stored
+// values while persisting new ones is the way to produce a row that can never
+// be decrypted again, so the caller passes what it is about to save.
+//
+// The single AAD path: seal and open both come through here, so the two can
+// never drift apart.
+func secretAAD(in integrationkinds.Integration, settings integrationkinds.Settings, key string) []byte {
+	if bound, ok := settings.(integrationkinds.ClientBound); ok {
+		issuerURL, clientID := bound.AADBinding()
+
+		// NORMALIZED, and it has to be the same normalization the stability
+		// guard uses. The guard treats a trailing slash or a differently-cased
+		// host as "not a change" and lets the update through without a new
+		// secret -- correctly, since discovery trims the slash and the host is
+		// case-insensitive. If the AAD were sealed from the raw value, that
+		// harmless-looking edit would carry the ciphertext forward under one
+		// value and reopen it under another, killing the provider with
+		// ErrIntegrationUnreadable on a read nobody connects to the edit.
+		//
+		// The two must move together. Changing one without the other is how
+		// this seam breaks silently, which is why both go through this function.
+		return secrets.SecretAADForClient(in.Name(), key, xurl.NormalizeIssuer(issuerURL), clientID)
+	}
+
+	return secrets.SecretAAD(in.Name(), key)
+}
+
+// sealSecret encrypts one plaintext secret value under dek, bound via AAD to
+// its slot (and, for a login provider, to its OAuth client), and returns the
+// storable base64(envelope) form. The single seal path — create and update both
+// go through here.
+func (s *Service) sealSecret(
+	in integrationkinds.Integration, settings integrationkinds.Settings, dek []byte, key, value string,
+) (string, error) {
+	envelope, err := s.cipher.Encrypt(dek, []byte(value), secretAAD(in, settings, key))
 	if err != nil {
 		return "", fmt.Errorf("encrypt secret %q: %w", key, err)
 	}
@@ -191,12 +249,20 @@ func (s *Service) mergeSecrets(
 		case intent == nil || *intent == "":
 			// CLEAR (null or ""): the key simply does not make it into the result.
 		default:
-			// REPLACE: encrypt the new value under the setting's existing DEK.
+			// REPLACE: encrypt the new value under the setting's existing DEK,
+			// bound to the EFFECTIVE config -- current already carries the patch
+			// (Update applies it before calling here), so a login provider's
+			// secret is sealed against the identifiers the row will actually
+			// hold rather than the ones it is replacing.
 			dek, err := dekOnce()
 			if err != nil {
 				return nil, err
 			}
-			sealed, err := s.sealSecret(in, dek, key, *intent)
+			settings, parseErr := in.Parse(current.Config, nil)
+			if parseErr != nil {
+				return nil, fmt.Errorf("%w: parse effective config: %w", apperr.ErrValidation, parseErr)
+			}
+			sealed, err := s.sealSecret(in, settings, dek, key, *intent)
 			if err != nil {
 				return nil, err
 			}
@@ -228,4 +294,113 @@ func (s *Service) unwrapDEKFor(ctx context.Context, dekID uuid.UUID) ([]byte, er
 		return nil, fmt.Errorf("%w: unwrap dek: %w", apperr.ErrUnwrapDEK, err)
 	}
 	return dek, nil
+}
+
+// checkAADBindingStable refuses an update that would strand a login provider's
+// stored secret.
+//
+// A ClientBound kind seals its secrets against identifiers taken from the config
+// (the issuer URL and the client id). mergeSecrets carries an unchanged
+// ciphertext forward WITHOUT re-encrypting it, so an update that changes either
+// identifier while leaving a secret unsent would persist a ciphertext bound to
+// values the row no longer holds: unopenable, permanently, with the failure
+// surfacing later as ErrIntegrationUnreadable on a read nobody connects to this
+// edit.
+//
+// So the rule is an invariant on the AAD inputs rather than a rule about one
+// named field: if any of them changes, every secret of the kind must be
+// resupplied in the same request. Naming a field instead would leave the hole
+// open, because the KEEP branch fires whenever a key is merely absent.
+//
+// Kinds that are not ClientBound are unaffected — their AAD holds nothing that
+// an edit can move.
+func (s *Service) checkAADBindingStable(
+	in integrationkinds.Integration,
+	current *entity.IntegrationSetting,
+	cmd *entity.UpdateIntegrationCmd,
+	incoming map[string]*string,
+) error {
+	// A config the caller did not send cannot change the binding.
+	if cmd.Config == nil {
+		return nil
+	}
+
+	storedBinding, ok := aadBindingOf(in, current.Config)
+	if !ok {
+		return nil // not a ClientBound kind
+	}
+	incomingBinding, ok := aadBindingOf(in, cmd.Config)
+	if !ok {
+		return nil
+	}
+
+	// Only the AAD inputs matter here: a secret is stranded when the values it
+	// was sealed under move, and the wider security fields are not among them.
+	storedIssuer, storedClient := storedBinding.aadInputs()
+	incomingIssuer, incomingClient := incomingBinding.aadInputs()
+	if storedIssuer == incomingIssuer && storedClient == incomingClient {
+		return nil
+	}
+
+	// The binding moved. Every secret the kind declares must arrive with it.
+	for _, key := range in.SecretKeys() {
+		if _, hadStored := current.Secrets[key]; !hadStored {
+			continue // nothing stored under this key: nothing to strand
+		}
+		intent, sent := incoming[key]
+		if !sent || intent == nil || *intent == "" {
+			return fmt.Errorf(
+				"%w: changing issuer_url or client_id requires %s to be supplied in the same request, "+
+					"because the stored secret is bound to the values being replaced",
+				apperr.ErrValidation, key,
+			)
+		}
+	}
+
+	return nil
+}
+
+// aadBinding is the comparable form of what a ClientBound kind puts in its AAD,
+// plus the fields that change who can sign in without touching the AAD at all.
+//
+// The two are carried together because one caller needs each: the secret
+// stability check compares only the AAD inputs, while the linked-account guard
+// compares everything here. Splitting them into two parses would let the two
+// answers come from different reads of the same config.
+type aadBinding struct {
+	issuerURL string
+	clientID  string
+	// security is opaque: the kind renders its own security-relevant fields
+	// into one comparable string, so this layer never has to know their names.
+	security string
+}
+
+// aadInputs reports just the pair the secret is sealed under.
+func (b aadBinding) aadInputs() (issuerURL, clientID string) {
+	return b.issuerURL, b.clientID
+}
+
+// aadBindingOf parses config and reports the kind's AAD binding, or ok=false if
+// the kind is not ClientBound or the config does not parse.
+//
+// Unparseable config is deliberately not an error here: the write path
+// validates it a few lines later with a message about the actual problem, and
+// reporting "binding unchanged" for a config that is about to be rejected keeps
+// this check from producing a second, more confusing error for the same input.
+func aadBindingOf(in integrationkinds.Integration, config json.RawMessage) (aadBinding, bool) {
+	settings, err := in.Parse(config, nil)
+	if err != nil {
+		return aadBinding{}, false
+	}
+	bound, ok := settings.(integrationkinds.ClientBound)
+	if !ok {
+		return aadBinding{}, false
+	}
+	issuerURL, clientID := bound.AADBinding()
+
+	return aadBinding{
+		issuerURL: xurl.NormalizeIssuer(issuerURL),
+		clientID:  clientID,
+		security:  bound.SecurityRelevant(),
+	}, true
 }

@@ -32,7 +32,7 @@ func TestProbeEmail(t *testing.T) {
 		host, port := newMockSMTPServer(t, captured)
 
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, nil),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -53,7 +53,7 @@ func TestProbeEmail(t *testing.T) {
 		// Port 1 on loopback: nothing listens, so the dial is refused promptly
 		// rather than hanging on a firewall drop.
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, "127.0.0.1", 1, nil),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -75,7 +75,7 @@ func TestProbeEmail(t *testing.T) {
 		// Validate: against a dead port the same assertion would pass on a dial
 		// error and prove nothing.
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, map[string]any{"username": "smtp-user"}),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -96,7 +96,7 @@ func TestProbeEmail(t *testing.T) {
 		host, port := newMockSMTPServer(t, make(chan capturedEnvelope, 1))
 
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, map[string]any{"password": "in-the-wrong-section"}),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -120,7 +120,7 @@ func TestProbeEmail(t *testing.T) {
 		host, port := newMockSMTPServer(t, make(chan capturedEnvelope, 1))
 
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, map[string]any{"username": "smtp-user"}),
 			Secrets: map[string]string{"password": "s3cr3t"},
 			To:      "admin@example.com",
@@ -141,7 +141,7 @@ func TestProbeEmail(t *testing.T) {
 		host, port := newMockSMTPServer(t, captured)
 
 		require.NoError(t, srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, nil),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -158,7 +158,7 @@ func TestProbeEmail(t *testing.T) {
 
 		for _, to := range []string{"", "not-an-address", "a@b.c\r\nBcc: c@d.e"} {
 			err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-				Kind:    kinds.email,
+				Name:    kinds.email,
 				Config:  emailConfig(t, host, port, nil),
 				Secrets: map[string]string{},
 				To:      to,
@@ -178,7 +178,7 @@ func TestProbeEmail(t *testing.T) {
 		// a negative deadline expires instantly -- a 502 against a healthy
 		// server.
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, host, port, map[string]any{"timeout": "-5m"}),
 			Secrets: map[string]string{},
 			To:      "admin@example.com",
@@ -197,7 +197,7 @@ func TestProbeEmail(t *testing.T) {
 		const password = "s3cr3t-must-not-appear"
 
 		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
-			Kind:    kinds.email,
+			Name:    kinds.email,
 			Config:  emailConfig(t, "127.0.0.1", 1, map[string]any{"username": "smtp-user"}),
 			Secrets: map[string]string{"password": password},
 			To:      "admin@example.com",

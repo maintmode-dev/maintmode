@@ -20,11 +20,18 @@ const (
 	NotifyTransportEmail NotifyTransport = "email"
 )
 
+// IsValid reports whether a channel may be created on this transport.
+//
+// It is NOT "is this a transport the product delivers on": email is excluded
+// deliberately, per the comment on NotifyTransportEmail above. System mail
+// passes the constant straight to the sender and never comes through here, so
+// the only caller is channel creation -- which is exactly where an email
+// channel must not be admitted, because transport_channel_id is free text and
+// would carry an arbitrary recipient address.
 func (t NotifyTransport) IsValid() bool {
 	switch t {
 	case NotifyTransportSlack,
-		NotifyTransportTelegram,
-		NotifyTransportEmail:
+		NotifyTransportTelegram:
 		return true
 	default:
 		return false

@@ -739,7 +739,8 @@
                     "maintenance_step.completed",
                     "maintenance_step.canceled",
                     "integration.created",
-                    "integration.updated"
+                    "integration.updated",
+                    "integration.deleted"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
@@ -762,7 +763,8 @@
                     "AuditActionMaintStepCompleted",
                     "AuditActionMaintStepCanceled",
                     "AuditActionIntegrationCreated",
-                    "AuditActionIntegrationUpdated"
+                    "AuditActionIntegrationUpdated",
+                    "AuditActionIntegrationDeleted"
                 ]
             },
             "entity.AuditEntityType": {

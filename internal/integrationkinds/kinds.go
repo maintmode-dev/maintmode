@@ -16,6 +16,17 @@ var (
 	Slack    Integration = slack{}
 	Email    Integration = email{}
 	Telegram Integration = telegram{}
+	// Login providers. They deliver nothing, so they have no transport builder
+	// and must never join the resolver's builder map -- see
+	// TestBuilders_AlignWithIntegrationKinds.
+	//
+	// Google and Custom are the SAME implementation registered under two names.
+	// What separates them is the preset: Google's issuer is known in advance and
+	// is refused as operator input, while Custom asks for everything. Registering
+	// one object twice is impossible -- NewRegistry keys on Name() and rejects a
+	// duplicate -- so each entry is its own value.
+	Google Integration = oidc{name: nameGoogle, presetKey: nameGoogle}
+	Custom Integration = oidc{name: nameCustom}
 )
 
 // unmarshalConfig decodes the raw config JSON into a kind's typed Settings. An
@@ -30,3 +41,28 @@ func unmarshalConfig(config json.RawMessage, dst any) error {
 	}
 	return nil
 }
+
+// Categories an integration_settings row can belong to. They are what the
+// .kind column holds after the registry moved to keying by system name: a row
+// answers "which half of the product is this" with the category, and "which
+// system" with the name.
+//
+// Declared as constants rather than derived from an implementation because the
+// category is a property of the ROW, not of the code that parses it: no
+// Integration implements "notify".
+const (
+	// CategoryNotify is a delivery integration -- Slack, Telegram, SMTP.
+	CategoryNotify = "notify"
+	// CategoryLogin is a sign-in provider. It is the category the
+	// linked-account guard, the login reloader and the admin health field key
+	// on; before the rename each of them compared against the "oidc" kind,
+	// which stopped meaning "a login provider" the moment login rows could
+	// carry more than one system name.
+	//
+	// The category does NOT imply OIDC, even though both entries in it are OIDC
+	// today. A provider with no discovery document -- GitHub's OAuth2, say --
+	// belongs here too: what the category promises is "this row signs people
+	// in", and the one place that still assumes a shape is the reloader's
+	// buildOne, which says so and says what adding a second shape costs.
+	CategoryLogin = "login"
+)

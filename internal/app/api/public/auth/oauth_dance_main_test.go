@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +18,7 @@ import (
 	oidcgw "github.com/ruko1202/maintmode/internal/gateways/oidc"
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/services/auth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -153,7 +155,7 @@ func newFakeGateway(t *testing.T, idToken string, err error) *fakeDanceGateway {
 	return &fakeDanceGateway{
 		idToken: idToken,
 		err:     err,
-		real:    oidcgw.NewClient(danceProviderConfig(t), oidcdiscovery.New()),
+		real:    oidcgw.NewClient(danceProviderConfig(t), oidcdiscovery.NewAllowingLoopback(10*time.Second)),
 	}
 }
 
@@ -213,20 +215,14 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
 
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
 	provider := danceProviderConfig(t)
-	provider.RedirectURI = redirectURI
-	providers := config.OauthProviders{
-		OIDC: map[string]config.OIDCProvider{string(entity.AuthMethodGoogle): provider},
-	}
 
-	// The stand's config leaves the dance credentials commented out, so the
-	// registry NewServices built lists no danceable provider. These tests are
-	// about a stand that has armed it, so the fixture says so -- the same way it
-	// supplies its own gateway rather than reaching for the stand's.
-	services.AuthMethods.WithDanceProviders([]string{string(entity.AuthMethodGoogle)})
+	// The provider reaches the handler through the SNAPSHOT, the way a
+	// registry-configured one does in production. There is no config side any
+	// more: danceability is having a gateway, and the cookie's Secure flag is
+	// aggregated over the snapshot's providers rather than read off config.
 
 	// The same store on both sides, exactly as main.go arms it: the auth service
 	// parks and redeems the one-time code, the invitation service redeems the
@@ -234,14 +230,28 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	danceStore := oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
 	services.Invitation.WithDanceHandles(danceStore)
 
+	installProviders(t, services.AuthMethods, testProvider{
+		ID:          entity.AuthMethodGoogle,
+		DisplayName: provider.DisplayName,
+		IssuerURL:   provider.IssuerURL,
+		RedirectURI: redirectURI,
+	})
+
 	// The signer lives on the service now, so the dance is armed in two places:
-	// the service gets the signing key, the handler gets the transport.
+	// the service gets the signing key, the handler gets the providers.
+	// The service reads its gateway from the live snapshot, so standing one in
+	// means wrapping the configuration it reads -- not reaching into the
+	// snapshot. Everything but this provider's Exchange still comes from the
+	// real thing.
+	services.Auth = services.Auth.WithAuthMethods(
+		gatewayOverride{AuthMethods: services.AuthMethods, id: entity.AuthMethodGoogle, gateway: gateway},
+	)
+
 	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, danceStore,
-			map[entity.AuthMethod]auth.DanceGateway{entity.AuthMethodGoogle: gateway}),
+		services.Auth.WithDance(cfg.Auth, danceStore),
 		services.Token, services.User, services.OTP)
 
-	return impl.WithOAuthDance(providers, config.App{
+	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
 		FrontendURL:       testFrontendURL,
 		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
 		OAuthCookiePath:   testCookiePath,
@@ -284,42 +294,60 @@ func initMultiInstanceDance(t *testing.T) *Implementation {
 		testSecondProvider:              "https://sso.acme.example/authorize",
 	}
 
-	providers := config.OauthProviders{OIDC: map[string]config.OIDCProvider{}}
-	for name, authURL := range instances {
-		providers.OIDC[name] = config.OIDCProvider{
-			DisplayName:  name,
-			IssuerURL:    newDiscoveryStubFor(t, authURL),
-			ClientID:     name + "-client-id",
-			ClientSecret: name + "-client-secret",
-			RedirectURI:  testRedirectURI,
-		}
-	}
-
-	// The instances go through the config NewServices reads, so the registry is
-	// populated the same way production populates it. Arming the danceable set
-	// alone would not be enough: Parse refuses a name nothing registered, and
-	// /start would answer 400 for an instance the config plainly declares.
-	multiCfg := *cfg
-	multiCfg.OauthProviders = providers
-
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
 
-	services, err := bootstrap.NewServices(t.Context(), &multiCfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
-	gateways := map[entity.AuthMethod]auth.DanceGateway{}
-	for name, provider := range providers.OIDC {
-		gateways[entity.AuthMethod(name)] = oidcgw.NewClient(provider, services.OIDCDiscovery)
+	// Both providers reach the service through the SNAPSHOT, gateway included,
+	// exactly as the reloader installs a registry row. Nothing is configured in
+	// the config file any more, so there is no second path to populate here --
+	// which is the point: the snapshot is the whole configuration.
+	built := make([]testProvider, 0, len(instances))
+	for name, authURL := range instances {
+		// Built by the reloader from these settings, exactly as the process
+		// does: the stub is a real discovery document, so nothing here has to
+		// assemble the halves by hand.
+		built = append(built, testProvider{
+			ID:           entity.AuthMethod(name),
+			DisplayName:  name,
+			IssuerURL:    newDiscoveryStubFor(t, authURL),
+			ClientSecret: name + "-client-secret",
+			RedirectURI:  testRedirectURI,
+		})
 	}
+	installProviders(t, services.AuthMethods, built...)
 
 	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()), gateways),
+		services.Auth.WithDance(cfg.Auth, oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())),
 		services.Token, services.User, services.OTP)
 
-	return impl.WithOIDCProviders(providers).WithOAuthDance(providers, config.App{
+	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
 		FrontendURL:       testFrontendURL,
 		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
 		OAuthCookiePath:   testCookiePath,
 	})
+}
+
+// gatewayOverride serves one provider's confidential half from a test's own
+// object, and defers everything else to the live configuration.
+//
+// The callback tests assert on an ID token the provider returns and on a
+// provider that refuses; no gateway built against a discovery stub can do
+// either, because Exchange is a real call to a token endpoint. Wrapping the
+// contract the auth service declares keeps that substitution in the test, with
+// nothing in the shipped package existing for its sake.
+type gatewayOverride struct {
+	auth.AuthMethods
+
+	id      entity.AuthMethod
+	gateway authmethod.Gateway
+}
+
+func (o gatewayOverride) DanceGateway(method entity.AuthMethod) (authmethod.Gateway, bool) {
+	if method == o.id {
+		return o.gateway, true
+	}
+
+	return o.AuthMethods.DanceGateway(method)
 }

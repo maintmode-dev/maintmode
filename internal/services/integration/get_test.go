@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	integrationsvc "github.com/ruko1202/maintmode/internal/services/integration"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -18,7 +19,7 @@ func TestService_GetNotFound(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	svc, _, _ := initService(t)
-	_, err := svc.GetByKind(ctx, "telegram-missing-"+xuuid.NewString())
+	_, err := svc.GetByKindName(ctx, integrationkinds.CategoryNotify, "telegram-missing-"+xuuid.NewString())
 	require.ErrorIs(t, err, apperr.ErrIntegrationNotFound)
 }
 
@@ -32,7 +33,8 @@ func TestService_ListMasksSecrets(t *testing.T) {
 
 	const plaintext = "xoxb-list-secret"
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": plaintext}),
@@ -44,7 +46,7 @@ func TestService_ListMasksSecrets(t *testing.T) {
 	list, err := svc.List(ctx)
 	require.NoError(t, err)
 
-	item, found := lo.Find(list, func(m *entity.MaskedIntegration) bool { return m.Kind == kinds.slack })
+	item, found := lo.Find(list, func(m *entity.MaskedIntegration) bool { return m.Name == kinds.slack })
 	require.True(t, found, "the created integration must be listed")
 	require.Equal(t, map[string]bool{"bot_token": true}, item.SecretsSet)
 
@@ -56,13 +58,14 @@ func TestService_ListMasksSecrets(t *testing.T) {
 	require.NotContains(t, string(raw), ciphertext, "List must never surface the stored ciphertext")
 }
 
-// createEnabledSlack creates an enabled integration of the test's unique slack
-// kind with one encrypted secret, returning nothing — the caller reads it back
-// through the listing under test.
-func createEnabledSlack(ctx context.Context, t *testing.T, svc *integrationsvc.Service, kind string) {
+// createEnabledSlack creates an enabled integration under the test's unique
+// slack NAME with one encrypted secret, returning nothing — the caller reads it
+// back through the listing under test.
+func createEnabledSlack(ctx context.Context, t *testing.T, svc *integrationsvc.Service, name string) {
 	t.Helper()
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    name,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-health-secret"}),

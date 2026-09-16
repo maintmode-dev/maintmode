@@ -6,14 +6,14 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
-	"github.com/ruko1202/maintmode/internal/entity"
-
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 const (
 	// kindEmail is derived from the transport constant (see kindSlack).
-	kindEmail              = string(entity.NotifyTransportEmail)
+	// Equal to entity.NotifyTransportEmail by test, not by import -- see the
+	// note on kindSlack for why this package must not depend on entity.
+	kindEmail              = "email"
 	emailSecretKeyPassword = "password"
 
 	// The TLS policy vocabulary. It lives here rather than in the transport
@@ -39,16 +39,15 @@ type EmailSettings struct {
 	Timeout   string `json:"timeout"`
 }
 
-// Kind marks EmailSettings as the "email" settings value (integrationkinds.Settings).
-func (EmailSettings) Kind() string { return kindEmail }
-
 // Email implements the integrationkinds.Integration contract for kind "email". The kind matches
 // entity.NotifyTransportEmail so the runtime resolver can find it by the
 // channel's transport ("email"); the spec's "smtp" wording refers to the
 // underlying protocol, not the registry key.
 type email struct{}
 
-func (email) Kind() string { return kindEmail }
+func (email) Name() string { return kindEmail }
+
+func (email) Category() string { return CategoryNotify }
 
 func (email) SecretKeys() []string { return []string{emailSecretKeyPassword} }
 

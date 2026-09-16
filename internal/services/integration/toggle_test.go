@@ -19,7 +19,8 @@ func TestService_Toggle(t *testing.T) {
 	svc, kinds, mocks := initService(t)
 
 	created, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -30,7 +31,8 @@ func TestService_Toggle(t *testing.T) {
 	secretBefore := rawStoredSecret(ctx, t, kinds.slack, "bot_token")
 
 	toggled, err := svc.Toggle(ctx, &entity.ToggleIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(false),
 		Actor:   testActor(),
 	})
@@ -38,7 +40,7 @@ func TestService_Toggle(t *testing.T) {
 	require.False(t, toggled.Enabled)
 
 	// Toggle only flips enabled: config and secret bytes are untouched.
-	got, err := svc.GetByKind(ctx, kinds.slack)
+	got, err := svc.GetByKindName(ctx, kinds.notify, kinds.slack)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"api_url":"https://a.test"}`, string(got.Config))
 	require.Equal(t, secretBefore, rawStoredSecret(ctx, t, kinds.slack, "bot_token"),
@@ -55,7 +57,8 @@ func TestService_ToggleWithoutActorRejected(t *testing.T) {
 	ctx := context.Background()
 	svc, kinds, _ := initService(t)
 	_, err := svc.Toggle(ctx, &entity.ToggleIntegrationCmd{
-		Kind: kinds.slack, Enabled: lo.ToPtr(false), Actor: nil,
+		Kind: kinds.notify,
+		Name: kinds.slack, Enabled: lo.ToPtr(false), Actor: nil,
 	})
 	require.ErrorIs(t, err, apperr.ErrValidation, "nil actor must be a typed error, not a panic")
 }
@@ -71,7 +74,8 @@ func TestService_UpdateAndToggleAdvanceUpdatedAt(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -80,7 +84,8 @@ func TestService_UpdateAndToggleAdvanceUpdatedAt(t *testing.T) {
 	require.NoError(t, err)
 
 	updated, err := svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://b.test"}`),
 		Actor:   testActor(),
@@ -88,7 +93,8 @@ func TestService_UpdateAndToggleAdvanceUpdatedAt(t *testing.T) {
 	require.NoError(t, err)
 
 	toggled, err := svc.Toggle(ctx, &entity.ToggleIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(false),
 		Actor:   testActor(),
 	})
@@ -104,7 +110,8 @@ func TestService_ToggleNotFound(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Toggle(ctx, &entity.ToggleIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(false),
 		Actor:   testActor(),
 	})

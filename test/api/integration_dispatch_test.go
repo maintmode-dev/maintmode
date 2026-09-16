@@ -61,7 +61,7 @@ func ensureDisabledSlackIntegration(ctx context.Context, t *testing.T, botToken 
 	body := `{"kind":"slack","enabled":false,"config":{},"secrets":{"bot_token":"` + botToken + `"}}`
 	status, respBody := adminIntegrationRequest(ctx, t, http.MethodPost, "", body)
 	if status == http.StatusConflict {
-		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPatch, "/slack",
+		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPatch, "/slack/default",
 			`{"enabled":false,"secrets":{"bot_token":"`+botToken+`"}}`)
 	}
 	require.Equal(t, http.StatusOK, status, "ensure disabled slack integration: %s", respBody)
@@ -84,7 +84,7 @@ func TestIntegrationDispatch_DisabledSlackDropsDelivery(t *testing.T) {
 	ensureDisabledSlackIntegration(ctx, t, botToken)
 
 	// Read side never surfaces the secret: only the is-set flag comes back.
-	status, body := adminIntegrationRequest(ctx, t, http.MethodGet, "/slack", "")
+	status, body := adminIntegrationRequest(ctx, t, http.MethodGet, "/slack/default", "")
 	require.Equal(t, http.StatusOK, status, "get slack integration: %s", body)
 	require.Contains(t, body, `"secrets_set"`, "read must expose the is-set view")
 	require.NotContains(t, body, botToken, "read must never surface the plaintext secret")

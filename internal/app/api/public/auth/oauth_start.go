@@ -8,6 +8,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
+	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
 // StartOAuthDance godoc
@@ -37,6 +38,19 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	// target at this point, and echoing an arbitrary path segment into a
 	// Location header is how open redirects start.
 	//
+	// The routes are registered whether or not the frontend half of the dance is
+	// configured, because which PROVIDERS exist is a runtime question. The
+	// frontend half is not: without a cookie path the browser scopes the dance
+	// cookies to the internal route behind the proxy, so they never come back
+	// and every sign-in fails as a 302 that reads like success. Refusing here
+	// keeps the mistake loud, which is what refusing to register the routes used
+	// to do.
+	if i.danceCookiePath == "" || i.frontendURL == "" || i.frontendCallbackPath == "" {
+		xlog.Error(ctx, "oauth dance is not configured for this instance")
+
+		return httperrors.ToAPIError(c, op, apperr.ErrAuthUnavailable)
+	}
+
 	// The invitation token, when this dance began from an invitation link, is
 	// read here and handed straight to the service: it never reaches the
 	// provider, the redirect, or a log line (the request sanitizer masks it).

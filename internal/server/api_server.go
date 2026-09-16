@@ -80,12 +80,11 @@ type APIServer struct {
 	// user). Each limiter degrades to a per-replica in-memory bucket when valkey
 	// is unreachable.
 	valkey *valkeylib.Client
-	// oauthDanceEnabled decides whether the backend-driven dance routes are
-	// registered at all. It arrives already computed (config.OAuthDanceEnabled)
-	// rather than as the config block itself: the router needs the decision, not
-	// the credentials behind it, and passing the whole AppConfig here to answer
-	// one boolean would hand the routing layer the client secret it must never
-	// touch.
+	// oauthDanceEnabled gates the BFF code-exchange route only; the
+	// provider-addressed routes are unconditional (see oauthDanceRoutes).
+	//
+	// It arrives already computed rather than as the config block: the router
+	// needs the decision, not the client secret behind it.
 	oauthDanceEnabled bool
 }
 
@@ -228,14 +227,16 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
 }
 
-// oauthDanceRoutes registers the backend-driven OAuth dance, and only when it is
-// configured.
+// oauthDanceRoutes registers the backend-driven OAuth dance.
 //
-// The gate is what makes this ticket safe to deploy: an instance that sets no
-// client_secret keeps exactly the routing it had before, and the BFF path at
-// /exchange/google — registered above, unconditionally — stays the only way in.
-// A half-configured block leaves these unregistered too, because a dance that
-// cannot reach the token endpoint is worse than no dance.
+// The provider-addressed routes are registered unconditionally, because which
+// providers exist became a runtime question: an instance whose first provider
+// arrives through the registry has no config entry to gate on, and no snapshot
+// swap can create a route. The handler refuses an unknown provider instead.
+//
+// /code/exchange keeps the startup gate, which covers more than "a provider
+// exists": without the frontend URL and both paths, a dance mints cookies the
+// browser never returns. A dance that cannot complete is worse than no dance.
 //
 // The routes share the group's per-IP limiter with /exchange/google. That is
 // deliberate: they are the same surface for the same anonymous caller, and
@@ -247,13 +248,16 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 // own allow-list is the real guard: it rejects anything that is not a known
 // provider before minting a secret.
 func (s *APIServer) oauthDanceRoutes(loginOAuthGr *echo.Group) {
-	if !s.oauthDanceEnabled {
-		return
-	}
-
-	loginOAuthGr.Add(http.MethodPost, "/code/exchange", s.handlers.Auth.ExchangeOAuthDanceCode)
+	// Unconditional: which providers exist is a runtime question now, and a
+	// route cannot be created later by a snapshot swap.
 	loginOAuthGr.Add(http.MethodGet, "/:provider/start", s.handlers.Auth.StartOAuthDance)
 	loginOAuthGr.Add(http.MethodGet, "/:provider/callback", s.handlers.Auth.OAuthDanceCallback)
+
+	// Gated: this one needs the frontend URL and both paths, which are startup
+	// configuration rather than anything the registry can supply.
+	if s.oauthDanceEnabled {
+		loginOAuthGr.Add(http.MethodPost, "/code/exchange", s.handlers.Auth.ExchangeOAuthDanceCode)
+	}
 }
 
 // otpRoutes registers the one-time-code endpoints behind all three limiter
@@ -386,17 +390,22 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 			s.scenarioMW(entity.AuthzScenarioIntegrationRead))
 		integrationAPI.Add(http.MethodPost, "", s.handlers.Integrations.Create,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
-		integrationAPI.Add(http.MethodGet, "/:kind", s.handlers.Integrations.Get,
+		// A row is addressed by (kind, name), not by kind: several rows of one
+		// kind can coexist, so a kind-only path would resolve to an arbitrary
+		// one. Single-instance kinds carry the name "default".
+		integrationAPI.Add(http.MethodGet, "/:kind/:name", s.handlers.Integrations.Get,
 			s.scenarioMW(entity.AuthzScenarioIntegrationRead))
-		integrationAPI.Add(http.MethodPatch, "/:kind", s.handlers.Integrations.Update,
+		integrationAPI.Add(http.MethodPatch, "/:kind/:name", s.handlers.Integrations.Update,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
-		integrationAPI.Add(http.MethodPost, "/:kind/toggle", s.handlers.Integrations.Toggle,
+		integrationAPI.Add(http.MethodDelete, "/:kind/:name", s.handlers.Integrations.Delete,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
-		// Static "email" ahead of the ":kind" parameter: a live probe exists for
-		// SMTP only. Echo resolves the static segment first, so this does not
-		// shadow /:kind/toggle -- TestIntegrationRoutes pins that rather than
-		// leaving it to be assumed.
-		integrationAPI.Add(http.MethodPost, "/email/test", s.handlers.Integrations.TestEmail,
+		integrationAPI.Add(http.MethodPost, "/:kind/:name/toggle", s.handlers.Integrations.Toggle,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
+		// A live probe exists for SMTP only. Echo prefers a static segment over
+		// a parameter at the same position regardless of registration order, so
+		// this shadows neither /:kind/:name nor /:kind/:name/toggle -- with three
+		// segments that preference now decides at two positions.
+		integrationAPI.Add(http.MethodPost, "/notify/email/test", s.handlers.Integrations.TestEmail,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
 	}
 

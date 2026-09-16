@@ -13,8 +13,17 @@ import (
 const (
 	// #nosec G101 -- not a credential: this is a public AAD domain-separation
 	// label authenticated (not secret) alongside each envelope.
-	aadDomainSecret  = "maintmode/integration-secret/v2"
-	aadDomainDEKWrap = "maintmode/dek-wrap/v2"
+	aadDomainSecret = "maintmode/integration-secret/v2"
+	// #nosec G101 -- not a credential: a public AAD domain-separation label,
+	// authenticated (not secret) alongside each envelope.
+	//
+	// aadDomainSecretClient binds a LOGIN provider's secret, which needs more in
+	// its AAD than kind+key can carry (see SecretAADForClient). Its own domain,
+	// not a v3 bump of the one above: the two coexist permanently rather than
+	// one superseding the other, and a domain bump would make every existing
+	// Slack/SMTP envelope fail to open.
+	aadDomainSecretClient = "maintmode/integration-secret-client/v2"
+	aadDomainDEKWrap      = "maintmode/dek-wrap/v2"
 	// aadDomainDEKVerify binds the in-memory equivalence probe (EquivalentDEKs);
 	// its envelopes are never persisted, the domain only keeps them from ever
 	// opening as a real secret or DEK wrap.
@@ -26,14 +35,53 @@ const (
 )
 
 // SecretAAD binds a secret envelope to its logical slot: the integration kind
-// plus the secret key. kind is UNIQUE + immutable and secretKey identifies the
-// field, so a ciphertext moved to another row (different kind) or another key in
-// the same row (e.g. bot_token <-> a second secret) fails the GCM tag check. Only
-// stable identifiers go in — never mutable state (enabled/config/updated_at) —
-// because mergeSecrets carries an unchanged ciphertext forward as-is (no
-// re-encrypt), so its AAD must not change on an unrelated edit.
+// plus the secret key. secretKey identifies the field, so a ciphertext moved to
+// another row (different kind) or another key in the same row (e.g. bot_token
+// <-> a second secret) fails the GCM tag check. Only stable identifiers go in —
+// never mutable state (enabled/config/updated_at) — because mergeSecrets carries
+// an unchanged ciphertext forward as-is (no re-encrypt), so its AAD must not
+// change on an unrelated edit.
+//
+// This function is FROZEN. Every integration secret written before login
+// providers existed is sealed under it, and it does not re-encrypt on edit, so
+// changing these bytes would make every stored Slack/SMTP/Telegram secret
+// unreadable with no way back short of re-entering each one by hand. Kinds that
+// need more in their AAD get their own function, as SecretAADForClient did.
+//
+// Note what it no longer implies: kind alone is no longer unique. Two rows of
+// one kind can hold ciphertexts that open under each other's AAD. For delivery
+// kinds that is harmless — they are single-instance by service convention — but
+// it is why login providers do not use this function.
 func SecretAAD(kind, secretKey string) []byte {
 	return encodeAAD(aadDomainSecret, kind, secretKey)
+}
+
+// SecretAADForClient binds a login provider's secret to the OAuth client it was
+// issued for: the kind, the secret key, the issuer URL and the client id.
+//
+// Both config fields are needed, and neither alone would do. config is one
+// plaintext jsonb column, so an attacker who can write the table copies whatever
+// single field is in the AAD along with the ciphertext and the dek_id:
+//
+//   - issuer_url alone: copied verbatim, leaving only DNS or TLS for the real
+//     issuer host to subvert.
+//   - client_id alone: weaker still — it takes no part in routing, so the token
+//     request goes wherever the row's issuer_url points, and the secret is gone
+//     the moment we POST to that endpoint whatever the far end answers.
+//
+// Together they close it: the ciphertext opens only on a row that keeps the real
+// issuer, so discovery resolves to the genuine IdP, AND only against the real
+// client_id, so the registration cannot be swapped underneath it.
+//
+// The cost is a rule the service must enforce: because mergeSecrets carries an
+// unchanged ciphertext forward without re-encrypting, changing either field
+// without resupplying the secret would strand it. The service refuses that
+// combination rather than letting it produce an unopenable row.
+//
+// issuerURL is empty for kinds that have no issuer (github_oauth); that is a
+// stable value for them and distinct from any real issuer.
+func SecretAADForClient(kind, secretKey, issuerURL, clientID string) []byte {
+	return encodeAAD(aadDomainSecretClient, kind, secretKey, issuerURL, clientID)
 }
 
 // DEKWrapAAD binds a wrapped-DEK envelope to the KEK that wrapped it (kekID), and

@@ -232,6 +232,14 @@ components:
                 enabled:
                     type: boolean
                 kind:
+                    description: 'Kind is the category: "notify" or "login".'
+                    example: notify
+                    type: string
+                name:
+                    description: |-
+                        Name is the system. REQUIRED. For a login provider it is the identity its
+                        users authenticate against, so it cannot be changed afterwards.
+                    example: slack
                     type: string
                 secrets:
                     type: object
@@ -262,10 +270,32 @@ components:
                     $ref: '#/components/schemas/github_com_ruko1202_maintmode_internal_app_api_public_integration_models.UserSummary'
                 enabled:
                     type: boolean
+                health:
+                    description: |-
+                        Health is present for login providers only, and reports whether the
+                        provider can actually be used: "ok", "unresolved" (discovery has not
+                        answered, so it is listed but refuses sign-in), "disabled", or
+                        "unreadable" (its stored secret will not decrypt).
+
+                        The sign-in page deliberately does NOT use this -- it reports what is
+                        configured, not what is reachable, and probing every IdP to render a login
+                        form would be a self-inflicted outage. This is the admin-facing answer to
+                        "I saved it, why does it not work".
+                    example: ok
+                    type: string
                 id:
                     format: uuid
                     type: string
                 kind:
+                    description: 'Kind is the CATEGORY the row belongs to: "notify" or "login".'
+                    example: notify
+                    type: string
+                name:
+                    description: |-
+                        Name is the SYSTEM it connects to: slack, telegram, email, google or
+                        custom. Together with Kind it is the row's identity AND the path that
+                        addresses it: clients build /api/v1/integrations/{kind}/{name} from these
+                        two fields rather than assembling an identifier of their own.
                     example: slack
                     type: string
                 secrets_set:
@@ -1189,13 +1219,60 @@ paths:
             summary: Create an integration
             tags:
                 - Integrations
-    /api/v1/integrations/{kind}:
+    /api/v1/integrations/{kind}/{name}:
+        delete:
+            description: Removes an integration and its stored secrets. Refused with 409 while accounts still sign in through this provider name — unlink them first. Admin only.
+            parameters:
+                - description: 'Category: notify or login'
+                  in: path
+                  name: kind
+                  required: true
+                  schema:
+                    type: string
+                - description: 'System within the category: slack, telegram, email, google or custom'
+                  in: path
+                  name: name
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "204":
+                    description: Deleted
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Forbidden
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Not Found
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Conflict
+            security:
+                - BearerAuth: []
+            summary: Delete an integration
+            tags:
+                - Integrations
         get:
             description: Returns the masked integration for a kind. Admin only.
             parameters:
-                - description: Integration kind
+                - description: 'Category: notify or login'
                   in: path
                   name: kind
+                  required: true
+                  schema:
+                    type: string
+                - description: 'System within the category: slack, telegram, email, google or custom'
+                  in: path
+                  name: name
                   required: true
                   schema:
                     type: string
@@ -1226,9 +1303,15 @@ paths:
         patch:
             description: Updates an integration's config and (partially) secrets. Admin only. A secret key omitted keeps its stored value.
             parameters:
-                - description: Integration kind
+                - description: 'Category: notify or login'
                   in: path
                   name: kind
+                  required: true
+                  schema:
+                    type: string
+                - description: 'System within the category: slack, telegram, email, google or custom'
+                  in: path
+                  name: name
                   required: true
                   schema:
                     type: string
@@ -1269,13 +1352,19 @@ paths:
             summary: Update an integration
             tags:
                 - Integrations
-    /api/v1/integrations/{kind}/toggle:
+    /api/v1/integrations/{kind}/{name}/toggle:
         post:
             description: Flips the enabled flag at runtime without resending settings. Admin only.
             parameters:
-                - description: Integration kind
+                - description: 'Category: notify or login'
                   in: path
                   name: kind
+                  required: true
+                  schema:
+                    type: string
+                - description: 'System within the category: slack, telegram, email, google or custom'
+                  in: path
+                  name: name
                   required: true
                   schema:
                     type: string
@@ -1316,7 +1405,7 @@ paths:
             summary: Enable/disable an integration
             tags:
                 - Integrations
-    /api/v1/integrations/email/test:
+    /api/v1/integrations/notify/email/test:
         post:
             description: 'Sends a test message using the settings in the request body, without saving them or recording the result. Answers 204 when the server accepted the message, 502 with the far end''s own error when it did not. Secrets must be supplied in the body: a stored password is never substituted. Admin only.'
             requestBody:

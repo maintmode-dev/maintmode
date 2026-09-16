@@ -139,6 +139,12 @@ func TestSanitizeBodyMasksTokenPairs(t *testing.T) {
 			"code":          `{"code":"SECRET-VALUE"}`,
 			"password":      `{"password":"SECRET-VALUE"}`,
 			"session_nonce": `{"session_nonce":"SECRET-VALUE"}`,
+			// Integration credentials rather than session ones, and they arrive
+			// the same way: an admin creating an integration posts them in a
+			// body. A captured dev request carrying a live OAuth client secret
+			// outlives the stand it came from.
+			"client_secret": `{"client_secret":"SECRET-VALUE"}`,
+			"bot_token":     `{"bot_token":"SECRET-VALUE"}`,
 		}
 
 		for field, body := range fields {

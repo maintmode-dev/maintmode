@@ -64,6 +64,18 @@ func TestBuilders_AlignWithIntegrationKinds(t *testing.T) {
 	deliveryKinds := []integrationkinds.Integration{integrationkinds.Slack, integrationkinds.Telegram, integrationkinds.Email}
 	require.Len(t, b, len(deliveryKinds), "every builder must correspond to a delivery-capable kind")
 	for _, in := range deliveryKinds {
-		require.Contains(t, b, entity.NotifyTransport(in.Kind()), "kind %q has no builder", in.Kind())
+		require.Contains(t, b, entity.NotifyTransport(in.Name()), "kind %q has no builder", in.Name())
+	}
+
+	// The junction is checked from both sides on purpose. The registry now holds
+	// kinds that deliver nothing -- the login providers -- and the Len assertion
+	// above catches one being added here only by arithmetic, which reads as an
+	// off-by-one rather than as what it is: a sign-in provider wired into the
+	// delivery path, where its settings would be type-asserted to a transport
+	// config and drop every notification for that kind.
+	nonDeliveryKinds := []integrationkinds.Integration{integrationkinds.Google, integrationkinds.Custom}
+	for _, in := range nonDeliveryKinds {
+		require.NotContains(t, b, entity.NotifyTransport(in.Name()),
+			"kind %q delivers nothing and must have no builder", in.Name())
 	}
 }

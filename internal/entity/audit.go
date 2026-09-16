@@ -50,6 +50,7 @@ const (
 	// enabled flag only — never secret values.
 	AuditActionIntegrationCreated AuditAction = "integration.created"
 	AuditActionIntegrationUpdated AuditAction = "integration.updated"
+	AuditActionIntegrationDeleted AuditAction = "integration.deleted"
 )
 
 func (a AuditAction) IsValid() bool {
@@ -71,7 +72,8 @@ func (a AuditAction) IsValid() bool {
 		AuditActionMaintStepCompleted,
 		AuditActionMaintStepCanceled,
 		AuditActionIntegrationCreated,
-		AuditActionIntegrationUpdated:
+		AuditActionIntegrationUpdated,
+		AuditActionIntegrationDeleted:
 		return true
 	default:
 		return false
@@ -420,6 +422,7 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 
 	AuditActionIntegrationCreated: AuditCategoryIntegration,
 	AuditActionIntegrationUpdated: AuditCategoryIntegration,
+	AuditActionIntegrationDeleted: AuditCategoryIntegration,
 }
 
 // AuditActionCategory returns the facet category of action.
@@ -459,6 +462,7 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 	AuditCategoryIntegration: {
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
+		AuditActionIntegrationDeleted,
 	},
 }
 

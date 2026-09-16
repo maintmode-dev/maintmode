@@ -13,7 +13,7 @@ func cfg(s string) json.RawMessage { return json.RawMessage(s) }
 func TestSlack_ParseValidateSecretKeys(t *testing.T) {
 	t.Parallel()
 	s := slack{}
-	require.Equal(t, "slack", s.Kind())
+	require.Equal(t, "slack", s.Name())
 	require.Equal(t, []string{"bot_token"}, s.SecretKeys())
 
 	t.Run("parse valid", func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestSlack_ParseValidateSecretKeys(t *testing.T) {
 func TestTelegram_ParseValidateSecretKeys(t *testing.T) {
 	t.Parallel()
 	tg := Telegram
-	require.Equal(t, "telegram", tg.Kind())
+	require.Equal(t, "telegram", tg.Name())
 	require.Equal(t, []string{"bot_token"}, tg.SecretKeys())
 
 	// Assert the concrete field mapping — the telegram-specific code Slack's tests
@@ -105,7 +105,7 @@ func TestTelegram_ParseValidateSecretKeys(t *testing.T) {
 func TestEmail_ParseValidateSecretKeys(t *testing.T) {
 	t.Parallel()
 	e := Email
-	require.Equal(t, "email", e.Kind())
+	require.Equal(t, "email", e.Name())
 	require.Equal(t, []string{"password"}, e.SecretKeys())
 
 	t.Run("valid authenticated", func(t *testing.T) {

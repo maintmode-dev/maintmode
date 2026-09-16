@@ -112,6 +112,7 @@ func (e ApimodelsRole) Valid() bool {
 // Defines values for EntityAuditAction.
 const (
 	AuditActionIntegrationCreated EntityAuditAction = "integration.created"
+	AuditActionIntegrationDeleted EntityAuditAction = "integration.deleted"
 	AuditActionIntegrationUpdated EntityAuditAction = "integration.updated"
 	AuditActionLoginFailed        EntityAuditAction = "login.failed"
 	AuditActionLoginSuccess       EntityAuditAction = "login.success"
@@ -137,6 +138,8 @@ const (
 func (e EntityAuditAction) Valid() bool {
 	switch e {
 	case AuditActionIntegrationCreated:
+		return true
+	case AuditActionIntegrationDeleted:
 		return true
 	case AuditActionIntegrationUpdated:
 		return true

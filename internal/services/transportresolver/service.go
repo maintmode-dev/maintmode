@@ -30,7 +30,7 @@ const cacheTTL = 30 * time.Second
 type SettingsSource interface {
 	// Settings yields the kind's parsed settings (whatever its Parse produced) —
 	// consumed only by that kind's Builder below.
-	Settings(ctx context.Context, kind string) (integrationkinds.Settings, error)
+	Settings(ctx context.Context, kind, name string) (integrationkinds.Settings, error)
 }
 
 // Service resolves transports for delivery: settings from the registry, client

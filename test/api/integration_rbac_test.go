@@ -83,10 +83,11 @@ func integrationRoutes() []integrationRoute {
 	const body = `{"kind":"slack","enabled":false,"config":{},"secrets":{"bot_token":"x"}}`
 	return []integrationRoute{
 		{"list", http.MethodGet, "", "", false},
-		{"get one", http.MethodGet, "/slack", "", false},
+		{"get one", http.MethodGet, "/slack/default", "", false},
 		{"create", http.MethodPost, "", body, true},
-		{"update", http.MethodPatch, "/slack", body, true},
-		{"toggle", http.MethodPost, "/slack/toggle", `{"enabled":false}`, true},
+		{"update", http.MethodPatch, "/slack/default", body, true},
+		{"toggle", http.MethodPost, "/slack/default/toggle", `{"enabled":false}`, true},
+		{"delete", http.MethodDelete, "/slack/default", "", true},
 	}
 }
 

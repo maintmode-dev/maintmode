@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ruko1202/xhttp/dialguard"
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -66,7 +68,7 @@ func TestResolve(t *testing.T) {
 
 		url, _ := newDiscoveryServer(t, discoveryDoc)
 
-		got, err := oidcdiscovery.New().Resolve(testCtx(t), url)
+		got, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
 		require.NoError(t, err)
 		require.Equal(t, url, got.Issuer)
 
@@ -85,7 +87,7 @@ func TestResolve(t *testing.T) {
 			return discoveryDoc("https://somewhere.else.example")
 		})
 
-		_, err := oidcdiscovery.New().Resolve(testCtx(t), url)
+		_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "issuer")
 	})
@@ -105,7 +107,7 @@ func TestResolve(t *testing.T) {
 			}`, issuer)
 		})
 
-		_, err := oidcdiscovery.New().Resolve(testCtx(t), url)
+		_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "https")
 	})
@@ -120,6 +122,75 @@ func TestResolve(t *testing.T) {
 	// http://127.0.0.1:<port>/ as its jwks_uri and have this process fetch from
 	// inside its own host.
 
+	// SECOND-ORDER SSRF. The issuer an operator types is guarded against
+	// internal addresses; the endpoints the DOCUMENT names were not, and they
+	// are the URLs this process actually dials.
+	//
+	// An admin who controls a public issuer passes every check at create, then
+	// serves a document naming an internal host. The server posts the client
+	// secret to that token_endpoint and fetches signing keys from that
+	// jwks_uri -- which is not only an internal-network read but an
+	// attacker-steerable source of the keys that decide whether a token is
+	// genuine.
+	t.Run("refuses an endpoint pointing at an address only the server can reach", func(t *testing.T) {
+		t.Parallel()
+
+		// One field at a time, so a guard applied to only some of them fails
+		// here rather than passing on the strength of its neighbors.
+		for field, internal := range map[string]string{
+			"authorization_endpoint": "https://127.0.0.1/authorize",
+			"token_endpoint":         "https://169.254.169.254/latest/meta-data",
+			"jwks_uri":               "https://10.0.0.5:8200/v1/secret",
+		} {
+			endpoints := map[string]string{
+				"authorization_endpoint": "https://idp.example/authorize",
+				"token_endpoint":         "https://idp.example/token",
+				"jwks_uri":               "https://idp.example/jwks",
+			}
+			endpoints[field] = internal
+
+			url, _ := newDiscoveryServer(t, func(issuer string) string {
+				return fmt.Sprintf(`{
+					"issuer": %q,
+					"authorization_endpoint": %q,
+					"token_endpoint": %q,
+					"jwks_uri": %q
+				}`, issuer,
+					endpoints["authorization_endpoint"],
+					endpoints["token_endpoint"],
+					endpoints["jwks_uri"])
+			})
+
+			_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
+			require.Errorf(t, err, "%s naming %s must be refused", field, internal)
+		}
+	})
+
+	// The other side of the rule, and the reason it stops where it does: a
+	// legitimate document routinely names endpoints on a different registrable
+	// domain than its issuer. This is Google's real shape, measured from the
+	// live document -- two of its three endpoints are on googleapis.com while
+	// the issuer is accounts.google.com.
+	//
+	// A same-domain requirement would refuse the preset an operator is most
+	// likely to configure, which is why the guard checks the ADDRESS rather than
+	// the domain.
+	t.Run("allows endpoints on a different domain than the issuer", func(t *testing.T) {
+		t.Parallel()
+
+		url, _ := newDiscoveryServer(t, func(issuer string) string {
+			return fmt.Sprintf(`{
+				"issuer": %q,
+				"authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+				"token_endpoint": "https://oauth2.googleapis.com/token",
+				"jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+			}`, issuer)
+		})
+
+		_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
+		require.NoError(t, err, "a cross-domain endpoint is normal, not an attack")
+	})
+
 	t.Run("refuses a document missing an endpoint it needs", func(t *testing.T) {
 		t.Parallel()
 
@@ -127,7 +198,7 @@ func TestResolve(t *testing.T) {
 			return fmt.Sprintf(`{"issuer": %q, "jwks_uri": "https://idp.example/jwks"}`, issuer)
 		})
 
-		_, err := oidcdiscovery.New().Resolve(testCtx(t), url)
+		_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
 		require.Error(t, err)
 	})
 
@@ -136,7 +207,7 @@ func TestResolve(t *testing.T) {
 
 		url, _ := newDiscoveryServer(t, func(string) string { return "{not json" })
 
-		_, err := oidcdiscovery.New().Resolve(testCtx(t), url)
+		_, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url)
 		require.Error(t, err)
 	})
 
@@ -147,7 +218,7 @@ func TestResolve(t *testing.T) {
 
 		url, hits := newDiscoveryServer(t, discoveryDoc)
 
-		got, err := oidcdiscovery.New().Resolve(testCtx(t), url+"/")
+		got, err := oidcdiscovery.NewAllowingLoopback(10*time.Second).Resolve(testCtx(t), url+"/")
 		require.NoError(t, err)
 		require.Equal(t, url, got.Issuer)
 		require.Equal(t, int64(1), hits.Load())
@@ -157,7 +228,7 @@ func TestResolve(t *testing.T) {
 		t.Parallel()
 
 		url, hits := newDiscoveryServer(t, discoveryDoc)
-		resolver := oidcdiscovery.New()
+		resolver := oidcdiscovery.NewAllowingLoopback(10 * time.Second)
 		ctx := testCtx(t)
 
 		for range 3 {
@@ -189,7 +260,7 @@ func TestResolve(t *testing.T) {
 
 		// No cool-off: this test is about the retry itself, and a cool-off would
 		// only make it wait.
-		resolver := oidcdiscovery.NewWithCoolOff(0)
+		resolver := oidcdiscovery.NewAllowingLoopback(0)
 		ctx := testCtx(t)
 
 		_, err := resolver.Resolve(ctx, srv.URL)
@@ -216,7 +287,7 @@ func TestResolve(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		})
 
-		resolver := oidcdiscovery.NewWithCoolOff(time.Minute)
+		resolver := oidcdiscovery.NewAllowingLoopback(time.Minute)
 		ctx := testCtx(t)
 
 		_, first := resolver.Resolve(ctx, srv.URL)
@@ -249,7 +320,7 @@ func TestResolveIsolatesInstances(t *testing.T) {
 
 	// A real cool-off, so the dead instance is genuinely in the short-circuiting
 	// state while the live one is asked.
-	resolver := oidcdiscovery.NewWithCoolOff(time.Minute)
+	resolver := oidcdiscovery.NewAllowingLoopback(time.Minute)
 	ctx := testCtx(t)
 
 	_, err := resolver.Resolve(ctx, dead.URL)
@@ -289,7 +360,7 @@ func TestResolveSurvivesTheLeaderGivingUp(t *testing.T) {
 		_, _ = w.Write([]byte(discoveryDoc(srv.URL)))
 	})
 
-	resolver := oidcdiscovery.New()
+	resolver := oidcdiscovery.NewAllowingLoopback(10 * time.Second)
 
 	leaderCtx, cancelLeader := context.WithCancel(testCtx(t))
 	arrived := make(chan struct{})
@@ -341,7 +412,7 @@ func TestResolveIsSingleFlighted(t *testing.T) {
 		_, _ = w.Write([]byte(discoveryDoc(srv.URL)))
 	})
 
-	resolver := oidcdiscovery.New()
+	resolver := oidcdiscovery.NewAllowingLoopback(10 * time.Second)
 	ctx := testCtx(t)
 
 	var (
@@ -371,4 +442,85 @@ func TestResolveIsSingleFlighted(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.Equal(t, int64(1), hits.Load(), "concurrent first uses must collapse into one fetch")
+}
+
+// The production constructor refuses to dial an internal address, and this is
+// the only test that drives THAT constructor.
+//
+// Every other test here uses NewAllowingLoopback, because an httptest.Server
+// listens on 127.0.0.1 and the guard would refuse it -- which means the suite
+// as a whole says nothing about whether New() carries a guard at all. Deleting
+// WithoutInternalHosts from New leaves all of them green.
+//
+// It is driven through an httptest.Server so the refusal is the ONLY reason the
+// fetch fails: the server is listening and would answer a valid discovery
+// document, so a passing assertion cannot be a connection refused by something
+// else. And loopback is the one range the test constructor hands back, which is
+// exactly why this case has to run on the production one.
+func TestResolveRefusesAnInternalAddressAtDialTime(t *testing.T) {
+	t.Parallel()
+	ctx := testCtx(t)
+
+	url, hits := newDiscoveryServer(t, discoveryDoc)
+
+	_, err := oidcdiscovery.New().Resolve(ctx, url)
+
+	require.Error(t, err, "a discovery fetch at a loopback address must be refused")
+	require.ErrorIs(t, err, dialguard.ErrBlockedAddress)
+	require.Zero(t, hits.Load(),
+		"the guard must refuse before the connection, so the server never sees a request")
+}
+
+// The guard refuses the ADDRESS, not the URL, which is what makes it a layer
+// the validator cannot be: a hostname that resolves to loopback passes every
+// string check and is still refused here.
+//
+// localhost rather than a public name pointing inward, because the second needs
+// DNS this suite must not depend on. The mechanism under test is the same one:
+// the name is resolved, and the guard judges what came back.
+func TestResolveRefusesAHostnameThatResolvesInward(t *testing.T) {
+	t.Parallel()
+	ctx := testCtx(t)
+
+	url, hits := newDiscoveryServer(t, discoveryDoc)
+	named := strings.Replace(url, "127.0.0.1", "localhost", 1)
+	require.Contains(t, named, "localhost", "the fixture must exercise a NAME, not a literal")
+
+	_, err := oidcdiscovery.New().Resolve(ctx, named)
+
+	require.ErrorIs(t, err, dialguard.ErrBlockedAddress,
+		"a name resolving to loopback must be refused at dial time")
+	require.Zero(t, hits.Load())
+}
+
+// NewAllowingLoopback gives back loopback and NOTHING else.
+//
+// It is the constructor every other test here runs on, so if it ever widened
+// into "no guard at all" the suite would keep passing while testing a client no
+// deployment uses. Loosening the exemption from loopback to the whole list is a
+// one-word edit -- and without this test, nothing fails.
+//
+// The metadata address is the case worth naming: it is the target the guard
+// exists for, it is not loopback, and a test fixture must not be able to reach
+// it either.
+func TestNewAllowingLoopbackExemptsOnlyLoopback(t *testing.T) {
+	t.Parallel()
+	ctx := testCtx(t)
+
+	resolver := oidcdiscovery.NewAllowingLoopback(10 * time.Second)
+
+	for name, issuer := range map[string]string{
+		"cloud metadata": "http://169.254.169.254",
+		"private 10/8":   "http://10.255.255.1",
+		"cgnat":          "http://100.100.100.200",
+	} {
+		t.Run("still refuses "+name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := resolver.Resolve(ctx, issuer)
+
+			require.ErrorIs(t, err, dialguard.ErrBlockedAddress,
+				"%s is not loopback and must stay blocked in tests too", issuer)
+		})
+	}
 }

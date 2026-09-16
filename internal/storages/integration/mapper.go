@@ -26,6 +26,7 @@ func toDB(s *entity.IntegrationSetting) (*model.IntegrationSettings, error) {
 	return &model.IntegrationSettings{
 		ID:              s.ID,
 		Kind:            s.Kind,
+		Name:            s.Name,
 		Enabled:         s.Enabled,
 		Config:          lo.Ternary(len(s.Config) == 0, "{}", string(s.Config)),
 		Secrets:         secretsJSON,
@@ -53,6 +54,7 @@ func fromDB(m *model.IntegrationSettings) (*entity.IntegrationSetting, error) {
 	return &entity.IntegrationSetting{
 		ID:              m.ID,
 		Kind:            m.Kind,
+		Name:            m.Name,
 		Enabled:         m.Enabled,
 		Config:          lo.Ternary(m.Config == "", json.RawMessage("{}"), json.RawMessage(m.Config)),
 		Secrets:         secrets,

@@ -37,7 +37,7 @@ func ensureTelegramIntegration(ctx context.Context, t *testing.T, enabled bool) 
 	body := `{"kind":"telegram","enabled":` + enabledJSON + `,"config":{},"secrets":{"bot_token":"api-test-bogus"}}`
 	status, respBody := adminIntegrationRequest(ctx, t, http.MethodPost, "", body)
 	if status == http.StatusConflict {
-		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPost, "/telegram/toggle",
+		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPost, "/telegram/default/toggle",
 			`{"enabled":`+enabledJSON+`}`)
 	}
 	require.Equal(t, http.StatusOK, status, "ensure telegram integration enabled=%s: %s", enabledJSON, respBody)

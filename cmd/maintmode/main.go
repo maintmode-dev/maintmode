@@ -41,13 +41,11 @@ import (
 	"github.com/ruko1202/maintmode/internal/config/pg"
 	"github.com/ruko1202/maintmode/internal/config/valkey"
 	"github.com/ruko1202/maintmode/internal/server"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/entity"
-	oidcgw "github.com/ruko1202/maintmode/internal/gateways/oidc"
-	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 )
 
@@ -58,7 +56,12 @@ import (
 // is deliberate: registration decides whether the endpoints exist, this decides
 // whether a token-exchange client holding a client secret is constructed at all.
 // An unconfigured instance ends up with neither.
-func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkeyClient *valkeylib.Client) *apiauth.Implementation {
+func newAuthHandlers(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	services *bootstrap.Services,
+	valkeyClient *valkeylib.Client,
+) *apiauth.Implementation {
 	// The provider list is attached before the dance gate: an instance
 	// reachable only through the BFF path still needs its sign-in button.
 	impl := apiauth.New(
@@ -67,46 +70,49 @@ func newAuthHandlers(cfg *config.AppConfig, services *bootstrap.Services, valkey
 		services.Token,
 		services.User,
 		services.OTP,
-	).WithOIDCProviders(cfg.OauthProviders)
+	).WithAuthMethods(services.AuthMethods)
 
-	if !cfg.OAuthDanceEnabled() {
-		return impl
-	}
-
-	// One token-exchange client per configured instance, each sharing the
-	// process-wide discovery cache with the verification half.
-	danceable := cfg.OauthProviders.DanceInstanceNames()
-	gateways := make(map[entity.AuthMethod]auth.DanceGateway, len(danceable))
-	for _, name := range danceable {
-		gateways[entity.AuthMethod(name)] = oidcgw.NewClient(
-			cfg.OauthProviders.OIDC[name],
-			services.OIDCDiscovery,
-		)
-	}
-
-	// Two halves of arming the dance, and they sit in different layers on
-	// purpose: the service owns the state signature (it already holds the JWT
-	// issuer key the signature is seeded from), the handler owns the transport.
-	// The handle store gets the dance STATE lifetime, not a constant: an
-	// invitation handle has to survive the same consent screen the state does.
-	// config.Auth owns the fallback so both resolve it from one place.
+	// The dance is armed unconditionally, and that is a change in kind from
+	// what the early return here used to do.
+	//
+	// It used to skip everything below when no YAML provider carried dance
+	// credentials -- which also skipped the signer and the handle store, so an
+	// instance whose providers arrive from the registry instead would have had a
+	// nil signer and no way to redeem an invitation handle. Neither depends on a
+	// provider existing: the signer needs the JWT key, the store needs Valkey.
 	danceStateTTL := cfg.Auth.DanceStateTTL()
-
 	danceStore := oauthdance.NewStore(valkeyClient, danceStateTTL)
 
-	services.Auth.WithDance(
-		cfg.Auth,
-		danceStore,
-		gateways,
-	)
+	services.Auth.WithDance(cfg.Auth, danceStore)
 
-	// The same store, armed on the invitation side: it is what turns the handle
-	// the browser carries back into the invitation being accepted. Armed here
-	// rather than at construction because this is where Valkey is available and
-	// where the dance's config gate has already been passed.
+	// The same store on both sides, exactly as the invitation flow needs it: the
+	// auth service parks and redeems the one-time code, the invitation service
+	// redeems the handle that carries the invitation through the dance.
 	services.Invitation.WithDanceHandles(danceStore)
 
-	return impl.WithOAuthDance(cfg.OauthProviders, cfg.App)
+	// The reloader owns the login snapshot from here on. There is no second
+	// source any more: providers used to also come from the config file, and
+	// that half is gone -- the registry is where a provider is configured, and
+	// the bootstrap admin is the way back in when nobody can sign in.
+	reloader := authmethod.NewReloader(
+		services.Integration,
+		services.AuthMethods,
+		services.OIDCDiscovery,
+	)
+
+	// Subscribed here rather than beside the transport resolver, which returns
+	// early on dev stands running the delivery stub -- a login listener
+	// registered there would be dead on exactly the stands where this feature
+	// gets exercised.
+	services.Integration.AddOnChange(reloader.OnIntegrationChanged)
+
+	// Blocks until the first snapshot is built, then keeps it current in the
+	// background: the handlers below are wired immediately afterwards, so
+	// returning before the configuration exists would serve the first requests
+	// with no providers.
+	reloader.Run(ctx)
+
+	return impl.WithOAuthDance(cfg.App)
 }
 
 func main() {
@@ -199,7 +205,7 @@ func startAPIServer(
 			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
 			Approvals:     uiapprovals.New(services.Calendar, services.UserSummary),
 			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver),
-			Integrations:  integrationapi.New(services.Integration, services.UserSummary),
+			Integrations:  integrationapi.New(services.Integration, services.UserSummary).WithLoginHealth(services.AuthMethods),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
 			// The dance dependencies attach only when the feature is
@@ -207,7 +213,7 @@ func startAPIServer(
 			// registered either, so nothing here is ever read — but wiring a
 			// gateway holding an empty client secret would be a live object
 			// waiting for a routing mistake.
-			Auth:        newAuthHandlers(cfg, services, valkeyClient),
+			Auth:        newAuthHandlers(ctx, cfg, services, valkeyClient),
 			Roles:       apiroles.New(services.User),
 			Users:       apiusers.New(services.User, services.License),
 			Invitations: apiinvitations.New(services.Invitation),

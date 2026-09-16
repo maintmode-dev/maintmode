@@ -205,11 +205,10 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, entity.AuthMethod(testProviderName), srv.MethodID())
 	})
 
-	// An IdP that is down when the process starts must cost that instance's
-	// sign-ins, not the boot: construction reaches no network, Warm reports the
-	// failure without it being fatal, and a verify against the unresolved
-	// instance is unavailable rather than a bad token -- the caller's credential
-	// was never examined.
+	// An IdP that is down must cost that instance's sign-ins, not the boot:
+	// construction reaches no network, and a verify against an instance whose
+	// discovery will not answer is unavailable rather than a bad token -- the
+	// caller's credential was never examined.
 	t.Run("an unreachable idp costs sign-ins, not startup", func(t *testing.T) {
 		t.Parallel()
 
@@ -222,8 +221,6 @@ func TestNewProvider(t *testing.T) {
 			},
 			newFailingResolverMock(t),
 		)
-
-		require.Error(t, srv.Warm(ctx))
 
 		claims, err := srv.Authenticate(ctx, "any.token.here")
 		require.Nil(t, claims)

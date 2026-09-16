@@ -20,14 +20,15 @@ import (
 // @Tags Integrations
 // @Accept json
 // @Produce json
-// @Param kind path string true "Integration kind"
+// @Param kind path string true "Category: notify or login"
+// @Param name path string true "System within the category: slack, telegram, email, google or custom"
 // @Param request body apimodels.ToggleIntegrationRequest true "Toggle request"
 // @Success 200 {object} apimodels.Integration
 // @Failure 400 {object} httperrors.ErrorResponse
 // @Failure 403 {object} httperrors.ErrorResponse
 // @Failure 404 {object} httperrors.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/integrations/{kind}/toggle [post]
+// @Router /api/v1/integrations/{kind}/{name}/toggle [post]
 func (i *Implementation) Toggle(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Integration.Toggle")
 	defer span.End()
@@ -45,6 +46,7 @@ func (i *Implementation) Toggle(c *echo.Context) error {
 
 	masked, err := i.integrationSrv.Toggle(ctx, &entity.ToggleIntegrationCmd{
 		Kind:    c.Param("kind"),
+		Name:    c.Param("name"),
 		Enabled: req.Enabled,
 		Actor:   actor,
 	})

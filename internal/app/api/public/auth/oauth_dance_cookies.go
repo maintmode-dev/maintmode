@@ -98,7 +98,7 @@ func (i *Implementation) danceCookie(name, value string, maxAge int) *http.Cooki
 		Path:     i.danceCookiePath,
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   i.danceCookieSecure,
+		Secure:   i.danceCookieSecure(),
 		// Lax, not Strict: the callback is a top-level navigation from the
 		// provider, and Strict withholds cookies on exactly that.
 		SameSite: http.SameSiteLaxMode,

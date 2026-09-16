@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 )
 
 func doListAuthMethods(t *testing.T, impl *Implementation) recordedResponse {
@@ -116,12 +116,16 @@ func TestListAuthMethods_IsIdenticalForEveryCaller(t *testing.T) {
 func TestListAuthMethods_ListsConfiguredOIDCInstances(t *testing.T) {
 	t.Parallel()
 
-	impl := initImpl(t).WithOIDCProviders(config.OauthProviders{
-		OIDC: map[string]config.OIDCProvider{
-			"acme":   {DisplayName: "Acme SSO"},
-			"google": {DisplayName: "Google"},
-		},
-	})
+	// Installed through the snapshot rather than pinned from config: the button
+	// list is live now, and a test that still handed over a config copy would
+	// stop exercising the path the endpoint actually reads.
+	methods := authmethod.NewAuthMethods(cfg, nil)
+	installProviders(t, methods,
+		testProvider{ID: "acme", DisplayName: "Acme SSO"},
+		testProvider{ID: "google", DisplayName: "Google"},
+	)
+
+	impl := initImpl(t).WithAuthMethods(methods)
 
 	resp := doListAuthMethods(t, impl)
 	require.Equal(t, http.StatusOK, resp.status)

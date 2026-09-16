@@ -6,15 +6,17 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/services/auth"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/otp"
 	"github.com/ruko1202/maintmode/internal/services/token"
 	"github.com/ruko1202/maintmode/internal/services/user"
 )
 
 type Implementation struct {
-	// oidcProviders is the configured instance set, used to list sign-in
-	// buttons. Empty is legal: an instance may configure no OIDC provider.
-	oidcProviders config.OauthProviders
+	// authMethods is the live login configuration. The sign-in button list is
+	// read from its snapshot per request rather than from a config copy pinned
+	// here, so a provider configured at runtime appears without a restart.
+	authMethods *authmethod.Methods
 
 	authSrv  *auth.Service
 	tokenSrv *token.Service
@@ -27,10 +29,7 @@ type Implementation struct {
 	// danceCookiePath is the EXTERNAL cookie scope, taken from config rather
 	// than from the mounted route — the proxy strips a prefix the handler never
 	// sees. The config gate requires it, so it is never empty here.
-	danceCookiePath string
-	// danceCookieSecure follows the redirect_uri's scheme, not the environment
-	// name — see the cookie builder for why the environment name was wrong.
-	danceCookieSecure    bool
+	danceCookiePath      string
 	frontendURL          string
 	frontendCallbackPath string
 	// otpResponseFloor is the minimum time RequestOTP takes to answer. It closes
@@ -71,14 +70,14 @@ func New(
 	}
 }
 
-// WithOIDCProviders attaches the configured provider instances, which the
-// providers endpoint lists as sign-in buttons.
+// WithAuthMethods attaches the live login configuration, from which the
+// providers endpoint reads its sign-in buttons.
 //
 // Separate from WithOAuthDance because the two are independent: an instance
-// reachable only through the BFF path still needs its button, and still has no
+// reachable only through the BFF path still needs its buttons, and still has no
 // dance.
-func (i *Implementation) WithOIDCProviders(providers config.OauthProviders) *Implementation {
-	i.oidcProviders = providers
+func (i *Implementation) WithAuthMethods(methods *authmethod.Methods) *Implementation {
+	i.authMethods = methods
 
 	return i
 }
@@ -93,17 +92,26 @@ func (i *Implementation) WithOIDCProviders(providers config.OauthProviders) *Imp
 // The state signature is NOT wired here: it belongs to the auth service, which
 // derives it from the JWT issuer key it already holds — see WithDanceSigner.
 //
-// The cookie Secure flag is one value for the handler, aggregated over every
-// configured instance rather than read off one of them — see
-// config.DanceCookieSecure for which way that aggregation leans and why.
-func (i *Implementation) WithOAuthDance(
-	providers config.OauthProviders,
-	appCfg config.App,
-) *Implementation {
+// The cookie Secure flag is NOT captured here. It is aggregated over the
+// providers that can dance, which are now added and removed at runtime, so it
+// is read from the live snapshot per request -- see danceCookieSecure below and
+// Snapshot.DanceCookieSecure for which way that aggregation leans and why.
+func (i *Implementation) WithOAuthDance(appCfg config.App) *Implementation {
 	i.danceCookiePath = appCfg.OAuthCookiePath
-	i.danceCookieSecure = providers.DanceCookieSecure()
 	i.frontendURL = appCfg.FrontendURL
 	i.frontendCallbackPath = appCfg.OAuthCallbackPath
 
 	return i
+}
+
+// danceCookieSecure reads the flag off the live snapshot.
+//
+// Fail-safe when no snapshot is wired at all: a cookie the browser withholds
+// costs a sign-in, one it leaks over http costs the session.
+func (i *Implementation) danceCookieSecure() bool {
+	if i.authMethods == nil {
+		return true
+	}
+
+	return i.authMethods.DanceCookieSecure()
 }

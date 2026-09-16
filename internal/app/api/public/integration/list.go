@@ -34,7 +34,7 @@ func (i *Implementation) List(c *echo.Context) error {
 
 	summaries := i.userSummarySrv.ResolveMany(ctx, userIDs(items))
 	return c.JSON(http.StatusOK, &apimodels.ListIntegrationsResponse{
-		Integrations: apimodels.ToAPIIntegrations(items, summaries),
+		Integrations: apimodels.ToAPIIntegrations(items, summaries, i.healthOf),
 	})
 }
 

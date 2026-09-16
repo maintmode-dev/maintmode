@@ -90,10 +90,10 @@ func initResolver(t *testing.T) harness {
 	builders := transportresolver.Builders()
 	builders[entity.NotifyTransport(kind)] = buildResolvable
 	resolver := transportresolver.New(registry, builders)
-	registry.SetOnChange(resolver.Invalidate)
+	registry.AddOnChange(func(_, name string) { resolver.Invalidate(name) })
 
 	t.Cleanup(func() {
-		_, _ = db.Exec(`DELETE FROM integration_settings WHERE kind = $1`, kind)
+		_, _ = db.Exec(`DELETE FROM integration_settings WHERE name = $1`, kind)
 	})
 
 	return harness{registry: registry, resolver: resolver, kind: kind}
@@ -131,7 +131,8 @@ func secretIntentsJSON(t *testing.T, m map[string]*string) json.RawMessage {
 // parallel runs get distinct UNIQUE(kind) rows.
 type namedResolvable struct{ name string }
 
-func (r namedResolvable) Kind() string       { return r.name }
+func (r namedResolvable) Name() string       { return r.name }
+func (namedResolvable) Category() string     { return integrationkinds.CategoryNotify }
 func (namedResolvable) SecretKeys() []string { return []string{"token"} }
 
 func (namedResolvable) Parse(_ json.RawMessage, secretsIn map[string]string) (integrationkinds.Settings, error) {
@@ -141,8 +142,6 @@ func (namedResolvable) Validate(integrationkinds.Settings) error { return nil }
 
 // resolvableSettings is namedResolvable's parsed settings: just the plaintext token.
 type resolvableSettings string
-
-func (resolvableSettings) Kind() string { return "resolvable" }
 
 // buildResolvable is the delivery half of the resolvable kind — registered into
 // the resolver's builder map the same way production kinds are.

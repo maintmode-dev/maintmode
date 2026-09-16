@@ -589,15 +589,19 @@ type AppConfig struct {
 	Bootstrap       BootstrapConfig       `mapstructure:"bootstrap"`
 }
 
-// OAuthDanceEnabled reports whether the backend-driven OAuth routes should be
-// registered: at least one OIDC instance, plus the three App values every
-// redirect is built from.
+// OAuthDanceEnabled reports whether /login/oauth/code/exchange should be
+// registered: the three App values every redirect is built from.
 //
-// "Configured at all" is the whole gate now. Instance completeness is not part
-// of it — validateOIDCProviders aborts startup on a half-filled block, so by
-// the time this runs an instance is either whole or the process is gone. Two
-// gates answering the same question, one fatal and one silently unregistering
-// routes, is the ambiguity this replaces.
+// It asks about the FRONTEND CONTRACT and nothing else. It used to also count
+// the OIDC instances in config, which was right while that was where providers
+// lived -- and became wrong the moment they moved into the registry: with the
+// config section gone the count is zero forever, so the route would never be
+// registered while the reloader kept building a working gateway, holding a real
+// client secret, for every stored login row.
+//
+// Which providers EXIST is a runtime question now, answered per request by the
+// handler against the live snapshot. The two :provider routes are registered
+// unconditionally for the same reason.
 //
 // FrontendURL and OAuthCallbackPath are both part of the gate because every
 // redirect out of /callback — success and failure alike — is built from the
@@ -617,8 +621,7 @@ type AppConfig struct {
 // It NEVER aborts startup: an instance that configures no OAuth dance boots
 // exactly as it did before, whatever its frontend_url holds.
 func (c AppConfig) OAuthDanceEnabled() bool {
-	return len(c.OauthProviders.DanceInstanceNames()) > 0 &&
-		c.App.FrontendURL != "" && c.App.OAuthCallbackPath != "" &&
+	return c.App.FrontendURL != "" && c.App.OAuthCallbackPath != "" &&
 		c.App.OAuthCookiePath != ""
 }
 
@@ -723,10 +726,6 @@ func initConfig(appName string) *AppConfig {
 	}
 
 	if err := cfg.validateIssuerConfig(); err != nil {
-		log.Panicf("invalid config for service %s: %s", appName, err)
-	}
-
-	if err := cfg.validateOIDCProviders(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 

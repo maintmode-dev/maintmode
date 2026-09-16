@@ -191,6 +191,16 @@ linters:
             bodies are the one thing redaction cannot make safe. It is a local
             debugging tool: never enable it in code that ships.
 
+        # _test.go is excluded from forbidigo below, which is what makes this
+        # rule say exactly what the doc comment says: tests may call it, shipped
+        # code may not.
+        - pattern: '^oidcdiscovery\.NewAllowingLoopback$'
+          msg: >-
+            NewAllowingLoopback hands back part of an SSRF control so a test can
+            drive discovery against an httptest.Server on 127.0.0.1. Production
+            builds its resolver with oidcdiscovery.New, in bootstrap. Calling
+            this outside a test weakens the guard for a whole deployment.
+
     nestif:
       min-complexity: 4
 

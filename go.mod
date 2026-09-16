@@ -26,7 +26,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/ruko1202/goque v0.8.10
 	github.com/ruko1202/swaggerui v0.5.0
-	github.com/ruko1202/xhttp v0.2.1
+	github.com/ruko1202/xhttp v0.4.0
 	github.com/ruko1202/xlog v0.5.1
 	github.com/samber/lo v1.53.0
 	github.com/slack-go/slack v0.27.0
@@ -103,6 +103,6 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260727163830-6c54dddc4772 // indirect
-	google.golang.org/grpc v1.82.1 // indirect
+	google.golang.org/grpc v1.83.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

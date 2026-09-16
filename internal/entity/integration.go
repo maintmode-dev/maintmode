@@ -9,13 +9,21 @@ import (
 )
 
 // IntegrationSetting is a stored connection to an external system (Slack,
-// Telegram, SMTP, ...), identified by Kind. Config holds non-secret fields as
+// Telegram, SMTP, ...), identified by (Kind, Name). Config holds non-secret fields as
 // plaintext; Secrets holds each secret value as base64(envelope) encrypted with
 // the DEK at DEKID. The plaintext secret is never held here — it is decrypted
 // only transiently inside the integration service.
 type IntegrationSetting struct {
-	ID      uuid.UUID
-	Kind    string
+	ID   uuid.UUID
+	Kind string
+	// Name is the SYSTEM this row connects to -- "slack", "email", "google" --
+	// and the registry key that decides which implementation parses it. Kind is
+	// the category it belongs to, "notify" or "login"; (Kind, Name) is the row's
+	// identity and its REST address.
+	//
+	// Immutable after create: for a login provider it is written verbatim into
+	// user_identities.provider, so renaming orphans every account linked to it.
+	Name    string
 	Enabled bool
 	// Config is the non-secret settings as a raw JSON object, opaque to the
 	// service: each kind unmarshals it into its own typed Settings. It is stored
@@ -40,6 +48,10 @@ type IntegrationSetting struct {
 // the actor from the access token.
 type CreateIntegrationCmd struct {
 	Kind string
+	// Name is the instance name within Kind. Required, and refused if it is
+	// reserved, blank after trimming, contains a slash, or exceeds the length
+	// cap -- see the integration service's name validation.
+	Name string
 	// Enabled is a pointer so the service can tell "explicitly on/off" from
 	// "omitted": a nil Enabled is rejected rather than silently defaulting to
 	// false, since an integration's on/off state must be a deliberate choice.
@@ -59,7 +71,11 @@ type CreateIntegrationCmd struct {
 // (e.g. dropping SMTP auth to switch to an open relay). UpdatedByUserID is the
 // actor from the access token.
 type UpdateIntegrationCmd struct {
-	Kind    string
+	Kind string
+	// Name addresses the row; it is never updated. Immutability is structural:
+	// the store's UPDATE lists its columns explicitly and name is not among
+	// them.
+	Name    string
 	Enabled *bool
 	Config  json.RawMessage
 	Secrets json.RawMessage
@@ -77,7 +93,9 @@ type UpdateIntegrationCmd struct {
 // server pairing a stored password with a caller-named host -- is how "test
 // connection" buttons leak credentials.
 type ProbeIntegrationCmd struct {
-	Kind    string
+	// Name is the system being probed. The probe needs the implementation, not
+	// the category, so it carries the registry key alone.
+	Name    string
 	Config  json.RawMessage
 	Secrets map[string]string
 	// To is the recipient of the test message. Required: sending mail to an
@@ -89,6 +107,7 @@ type ProbeIntegrationCmd struct {
 // ToggleIntegrationCmd flips the enabled flag of an integration at runtime.
 type ToggleIntegrationCmd struct {
 	Kind    string
+	Name    string
 	Enabled *bool
 	Actor   *User
 }
@@ -100,6 +119,7 @@ type ToggleIntegrationCmd struct {
 type MaskedIntegration struct {
 	ID         uuid.UUID
 	Kind       string
+	Name       string
 	Enabled    bool
 	Config     json.RawMessage
 	SecretsSet map[string]bool
@@ -120,6 +140,7 @@ func (s *IntegrationSetting) Mask() *MaskedIntegration {
 	return &MaskedIntegration{
 		ID:              s.ID,
 		Kind:            s.Kind,
+		Name:            s.Name,
 		Enabled:         s.Enabled,
 		Config:          s.Config,
 		SecretsSet:      set,

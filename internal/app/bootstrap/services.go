@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/ruko1202/goque"
 	"github.com/ruko1202/xlog"
@@ -23,7 +22,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
-	"github.com/ruko1202/maintmode/internal/services/authmethod/oidc"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
@@ -153,7 +151,7 @@ func NewServices(ctx context.Context,
 	// the single-flight rather than each fetching their own copy.
 	discovery := oidcdiscovery.New()
 
-	authMethods := initAuthMethods(ctx, cfg, discovery)
+	authMethods := initAuthMethods(cfg)
 
 	// Auditor is both read-side (api/public/audit reads logs through it) and
 	// write-side (the audit-write goque processor writes the log after commit).
@@ -167,7 +165,7 @@ func NewServices(ctx context.Context,
 		return nil, fmt.Errorf("init keyring: %w", err)
 	}
 
-	integrationSrv, err := newIntegrationService(ctx, stores, auditPublisher, keyring)
+	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher, keyring)
 	if err != nil {
 		return nil, err
 	}
@@ -427,37 +425,22 @@ func newCoreServices(
 	}, nil
 }
 
-func initAuthMethods(
-	ctx context.Context,
-	cfg *config.AppConfig,
-	discovery *oidcdiscovery.Resolver,
-) *authmethod.Methods {
-	methods := make([]authmethod.AuthMethod, 0, len(cfg.OauthProviders.OIDC)+1)
-
-	// Every configured instance is registered, resolved or not. Discovery is
-	// attempted here so the common case is ready before the first sign-in, but
-	// a provider whose IdP is unreachable must not stop the others -- or the
-	// process -- from coming up: it completes itself on first use instead.
+// initAuthMethods builds the methods that exist before any provider does.
+//
+// It takes no context and returns no error, and both of those are recent: the
+// context was for the discovery warm-up of config providers, and the error for
+// resolving the bootstrap password. Providers left for the registry, and
+// RUK-298 made the password a plain config value -- so what remains cannot
+// fail and has nothing to wait on.
+func initAuthMethods(cfg *config.AppConfig) *authmethod.Methods {
+	// No login providers are built here any more. They used to come from the
+	// config file and be registered at boot, resolved or not; they are now rows
+	// in the registry, and the login reloader installs them into the live
+	// snapshot -- at startup and on every change, without a restart.
 	//
-	// Warmed concurrently so one unreachable IdP costs the boot a single
-	// timeout rather than one per instance. Failures are logged and dropped;
-	// none of them is fatal.
-	var warming sync.WaitGroup
-	for _, name := range cfg.OauthProviders.InstanceNames() {
-		provider := oidc.NewProvider(name, cfg.OauthProviders.OIDC[name], discovery)
-		methods = append(methods, provider)
-
-		warming.Add(1)
-		go func() {
-			defer warming.Done()
-
-			if err := provider.Warm(ctx); err != nil {
-				xlog.Error(ctx, "oidc provider is not resolved yet",
-					xfield.String("provider", name), xfield.Error(err))
-			}
-		}()
-	}
-	warming.Wait()
+	// What stays is the break-glass method below, which is not a provider and
+	// must never depend on one.
+	methods := make([]authmethod.AuthMethod, 0, 1)
 
 	// The break-glass method is registered in EVERY environment, production
 	// included. Gating it on "is a password configured" would recreate the loop
@@ -474,11 +457,17 @@ func initAuthMethods(
 	// indistinguishable from one against a wrong address.
 	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, cfg.Bootstrap.Password))
 
-	// Narrower than the registered set on purpose: it names the instances whose
-	// dance the backend runs. A BFF instance stays registered and signs users in
-	// -- the frontend runs its dance -- it simply has no dance routes here.
-	return authmethod.NewAuthMethods(cfg, methods).
-		WithDanceProviders(cfg.OauthProviders.DanceInstanceNames())
+	// The gateways -- the confidential half -- are not available here: they hold
+	// the client secret and are built in main, where it is resolved. So this
+	// returns the verification half only, and main completes the snapshot.
+	// Until it does, no provider is danceable, which is the safe direction: a
+	// listed provider whose /start refuses beats one that mints state it cannot
+	// redeem.
+	//
+	// WithDanceProviders is gone with the config's provider list: danceability
+	// is having a gateway in the live snapshot, not membership of a list read
+	// at boot.
+	return authmethod.NewAuthMethods(cfg, methods)
 }
 
 // newIntegrationService builds the DB-backed integration registry service on a
@@ -486,6 +475,7 @@ func initAuthMethods(
 // delivery-side resolver over it is wired separately (initTransportResolver).
 func newIntegrationService(
 	ctx context.Context,
+	cfg *config.AppConfig,
 	stores *Stores,
 	auditPublisher *auditpublisher.Publisher,
 	keyring *secrets.Keyring,
@@ -500,11 +490,19 @@ func newIntegrationService(
 		integrationkinds.Slack,
 		integrationkinds.Telegram,
 		integrationkinds.Email,
+		// Login providers: one OIDC implementation under two names. The set
+		// registered here IS the closed set of system names -- there is no
+		// second list of them to drift out of sync with this one.
+		integrationkinds.Google,
+		integrationkinds.Custom,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("build integration registry: %w", err)
 	}
 
+	// The identities store arrives through a setter, not the constructor: it
+	// belongs to the auth module, and the registry reaches it only through the
+	// one-method consumer interface the module boundaries require.
 	return integration.NewService(
 		stores.TxManager,
 		stores.Integrations,
@@ -513,7 +511,31 @@ func newIntegrationService(
 		keyring,
 		secrets.NewAESCipher(),
 		auditPublisher,
-	), nil
+	).WithIdentities(stores.UserIdentities).
+		WithLoginPresets(cfg.OauthProviders.Presets), nil
+}
+
+// cacheInvalidator is the half of the transport resolver the change hook needs.
+// Declared here so the hook can be built -- and tested -- without a live
+// resolver behind it.
+type cacheInvalidator interface {
+	Invalidate(transport string)
+}
+
+// invalidateOnChange builds the registry's post-commit hook.
+//
+// It passes the NAME, not the category. The resolver's cache is keyed by the
+// transport, which is the system name; passing the category would evict a key
+// that does not exist while the real entry went stale for its full cache TTL --
+// on the writing replica too, where the effect is meant to be immediate, and
+// silently, since a stale delivery config is not an error anywhere.
+//
+// A named function rather than a closure at the call site because that is the
+// difference between this being covered and not: a test can call it, where a
+// closure inside initTransportResolver could only be reached by standing up the
+// whole bootstrap.
+func invalidateOnChange(resolver cacheInvalidator) func(category, name string) {
+	return func(_, name string) { resolver.Invalidate(name) }
 }
 
 func initTransportResolver(cfg *config.AppConfig, integrationSrv *integration.Service) notifytransport.TransportResolver {
@@ -527,7 +549,8 @@ func initTransportResolver(cfg *config.AppConfig, integrationSrv *integration.Se
 	// onChange hook drives the resolver's cache invalidation. Dev use_stub swaps
 	// in the stub implementation once here — no per-delivery branch.
 	liveResolver := transportresolver.New(integrationSrv, transportresolver.Builders())
-	integrationSrv.SetOnChange(liveResolver.Invalidate)
+
+	integrationSrv.AddOnChange(invalidateOnChange(liveResolver))
 
 	return liveResolver
 }

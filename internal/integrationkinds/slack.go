@@ -11,8 +11,6 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 
-	"github.com/ruko1202/maintmode/internal/entity"
-
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
@@ -20,7 +18,13 @@ const (
 	// kindSlack is DERIVED from the transport constant: a delivery-capable
 	// kind and its channel transport are one name by construction, not two
 	// strings glued by a test.
-	kindSlack              = string(entity.NotifyTransportSlack)
+	// kindSlack must equal entity.NotifyTransportSlack. It is a literal rather
+	// than that constant so this package does not import entity: entity would
+	// then be unable to hold a type whose field is an integrationkinds.Settings,
+	// which is what kept the login-provider types out of the shared vocabulary
+	// and made two services trade structs directly. The equality is asserted by
+	// TestBuilders_AlignWithIntegrationKinds, and a drift fails it.
+	kindSlack              = "slack"
 	slackSecretKeyBotToken = "bot_token"
 )
 
@@ -35,13 +39,12 @@ type SlackSettings struct {
 	Timeout  string `json:"timeout"`
 }
 
-// Kind marks SlackSettings as the "slack" settings value (integrationkinds.Settings).
-func (SlackSettings) Kind() string { return kindSlack }
-
 // Slack implements the integrationkinds.Integration contract for kind "slack".
 type slack struct{}
 
-func (slack) Kind() string { return kindSlack }
+func (slack) Name() string { return kindSlack }
+
+func (slack) Category() string { return CategoryNotify }
 
 // SecretKeys returns a fresh slice each call so a caller cannot mutate an
 // internal source of truth.
