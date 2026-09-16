@@ -1,10 +1,8 @@
-package integration_test
+package integration
 
 import (
 	"encoding/json"
 	"testing"
-
-	integrationsvc "github.com/ruko1202/maintmode/internal/services/integration"
 
 	"github.com/stretchr/testify/require"
 
@@ -12,26 +10,29 @@ import (
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
 
-func TestNewRegistry_RegistersRealKinds(t *testing.T) {
+func TestNewRegistry_RegistersRealSystems(t *testing.T) {
 	t.Parallel()
-	// The production kinds register without a duplicate/empty-kind error — the
-	// same set bootstrap registers at startup.
-	reg, err := integrationsvc.NewRegistry(integrationkinds.Slack, integrationkinds.Telegram, integrationkinds.Email)
+	// The production delivery systems register without a duplicate/empty-name
+	// error. The login entries are covered separately, in login_kinds_test.go:
+	// they are two entries over one implementation, which is a different
+	// property than "each system registers".
+	reg, err := NewRegistry(integrationkinds.Slack, integrationkinds.Telegram, integrationkinds.Email)
 	require.NoError(t, err)
-	for _, kind := range []string{"slack", "telegram", "email"} {
-		got, err := reg.Get(kind)
+	for _, name := range []string{"slack", "telegram", "email"} {
+		got, err := reg.get(name)
 		require.NoError(t, err)
-		require.Equal(t, kind, got.Kind())
+		require.Equal(t, name, got.Name())
 	}
 }
 
 // fakeIntegration is a minimal Integration for registry tests. The
-// parse/validate methods are unused here; only Kind matters.
+// parse/validate methods are unused here; only the name matters.
 type fakeIntegration struct {
-	kind string
+	name string
 }
 
-func (f fakeIntegration) Kind() string         { return f.kind }
+func (f fakeIntegration) Name() string         { return f.name }
+func (fakeIntegration) Category() string       { return integrationkinds.CategoryNotify }
 func (f fakeIntegration) SecretKeys() []string { return nil }
 
 func (f fakeIntegration) Parse(json.RawMessage, map[string]string) (integrationkinds.Settings, error) {
@@ -39,26 +40,26 @@ func (f fakeIntegration) Parse(json.RawMessage, map[string]string) (integrationk
 }
 func (f fakeIntegration) Validate(integrationkinds.Settings) error { return nil }
 
-func TestNewRegistry_LookupByKind(t *testing.T) {
+func TestNewRegistry_LookupByName(t *testing.T) {
 	t.Parallel()
-	reg, err := integrationsvc.NewRegistry(fakeIntegration{kind: "slack"}, fakeIntegration{kind: "telegram"})
+	reg, err := NewRegistry(fakeIntegration{name: "slack"}, fakeIntegration{name: "telegram"})
 	require.NoError(t, err)
 
-	got, err := reg.Get("slack")
+	got, err := reg.get("slack")
 	require.NoError(t, err)
-	require.Equal(t, "slack", got.Kind())
+	require.Equal(t, "slack", got.Name())
 
-	got, err = reg.Get("telegram")
+	got, err = reg.get("telegram")
 	require.NoError(t, err)
-	require.Equal(t, "telegram", got.Kind())
+	require.Equal(t, "telegram", got.Name())
 }
 
 func TestNewRegistry_UnknownKind(t *testing.T) {
 	t.Parallel()
-	reg, err := integrationsvc.NewRegistry(fakeIntegration{kind: "slack"})
+	reg, err := NewRegistry(fakeIntegration{name: "slack"})
 	require.NoError(t, err)
 
-	_, err = reg.Get("jira")
+	_, err = reg.get("nonexistent")
 	require.ErrorIs(t, err, apperr.ErrUnknownIntegrationKind)
 }
 
@@ -67,54 +68,57 @@ func TestNewRegistry_UnknownKindIsValidationError(t *testing.T) {
 	// ErrUnknownIntegrationKind wraps ErrValidation so the API maps it to 400.
 	// Assert the wrap chain directly — the ErrorIs on the leaf sentinel above
 	// would still pass if someone changed the sentinel to a bare errors.New.
-	reg, err := integrationsvc.NewRegistry(fakeIntegration{kind: "slack"})
+	reg, err := NewRegistry(fakeIntegration{name: "slack"})
 	require.NoError(t, err)
 
-	_, err = reg.Get("jira")
+	_, err = reg.get("nonexistent")
 	require.ErrorIs(t, err, apperr.ErrValidation)
 }
 
-func TestNewRegistry_RegistersAllKinds(t *testing.T) {
+func TestNewRegistry_RegistersEverySystem(t *testing.T) {
 	t.Parallel()
-	// Every registered kind must be retrievable — a regression that drops or
-	// shadows a middle kind would slip past a 2-kind lookup test.
-	wantKinds := []string{"slack", "telegram", "smtp", "webhook"}
-	reg, err := integrationsvc.NewRegistry(
-		fakeIntegration{kind: "slack"},
-		fakeIntegration{kind: "telegram"},
-		fakeIntegration{kind: "smtp"},
-		fakeIntegration{kind: "webhook"},
-	)
+	// Every registered system must be retrievable — a regression that drops or
+	// shadows a middle entry would slip past a two-entry lookup test. Fake names
+	// rather than the real five, because the property under test is the map, not
+	// the product's set.
+	want := []string{"alpha", "beta", "gamma", "delta"}
+
+	entries := make([]integrationkinds.Integration, 0, len(want))
+	for _, name := range want {
+		entries = append(entries, fakeIntegration{name: name})
+	}
+
+	reg, err := NewRegistry(entries...)
 	require.NoError(t, err)
 
-	for _, kind := range wantKinds {
-		got, err := reg.Get(kind)
+	for _, name := range want {
+		got, err := reg.get(name)
 		require.NoError(t, err)
-		require.Equal(t, kind, got.Kind())
+		require.Equal(t, name, got.Name())
 	}
 }
 
-func TestNewRegistry_DuplicateKindFailsFast(t *testing.T) {
+func TestNewRegistry_DuplicateNameFailsFast(t *testing.T) {
 	t.Parallel()
-	_, err := integrationsvc.NewRegistry(fakeIntegration{kind: "slack"}, fakeIntegration{kind: "slack"})
+	_, err := NewRegistry(fakeIntegration{name: "slack"}, fakeIntegration{name: "slack"})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "duplicate kind")
+	require.Contains(t, err.Error(), "duplicate name")
 }
 
-func TestNewRegistry_EmptyKindFailsFast(t *testing.T) {
+func TestNewRegistry_EmptyNameFailsFast(t *testing.T) {
 	t.Parallel()
-	_, err := integrationsvc.NewRegistry(fakeIntegration{kind: ""})
+	_, err := NewRegistry(fakeIntegration{name: ""})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "empty kind")
+	require.Contains(t, err.Error(), "empty name")
 }
 
 func TestNewRegistry_Empty(t *testing.T) {
 	t.Parallel()
 	// An empty registry is valid (no integrations configured yet); every lookup
 	// simply reports the kind as unknown.
-	reg, err := integrationsvc.NewRegistry()
+	reg, err := NewRegistry()
 	require.NoError(t, err)
 
-	_, err = reg.Get("slack")
+	_, err = reg.get("slack")
 	require.ErrorIs(t, err, apperr.ErrUnknownIntegrationKind)
 }

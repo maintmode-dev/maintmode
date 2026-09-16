@@ -22,6 +22,7 @@ import (
 func (s *Service) Toggle(ctx context.Context, cmd *entity.ToggleIntegrationCmd) (*entity.MaskedIntegration, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.Toggle",
 		xfield.String("kind", cmd.Kind),
+		xfield.String("name", cmd.Name),
 	)
 	defer span.End()
 
@@ -29,11 +30,11 @@ func (s *Service) Toggle(ctx context.Context, cmd *entity.ToggleIntegrationCmd) 
 		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}
 
-	integration, err := s.updateWithApply(ctx, cmd.Kind, func(_ context.Context, current *entity.IntegrationSetting) error {
+	integration, err := s.updateWithApply(ctx, cmd.Kind, cmd.Name, func(_ context.Context, current *entity.IntegrationSetting) error {
 		current.Enabled = lo.FromPtr(cmd.Enabled)
 		current.UpdatedByUserID = &cmd.Actor.ID
 
-		s.publishAudit(ctx, audit.IntegrationUpdated{Actor: cmd.Actor, Kind: cmd.Kind, Enabled: lo.FromPtr(cmd.Enabled)})
+		s.publishAudit(ctx, audit.IntegrationUpdated{Actor: cmd.Actor, Kind: cmd.Kind, Name: cmd.Name, Enabled: lo.FromPtr(cmd.Enabled)})
 		return nil
 	})
 

@@ -20,7 +20,8 @@ func TestService_UpdateKeepsAbsentSecret(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "original-token"}),
@@ -31,7 +32,8 @@ func TestService_UpdateKeepsAbsentSecret(t *testing.T) {
 
 	// Update config only, no secret in the command.
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://b.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{}),
@@ -39,7 +41,7 @@ func TestService_UpdateKeepsAbsentSecret(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	got, err := svc.GetByKind(ctx, kinds.slack)
+	got, err := svc.GetByKindName(ctx, kinds.notify, kinds.slack)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"api_url":"https://b.test"}`, string(got.Config), "config updated")
 	require.Equal(t, map[string]bool{"bot_token": true}, got.SecretsSet, "secret retained")
@@ -60,7 +62,8 @@ func TestService_UpdateClearsSecret(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.email,
+		Kind:    kinds.notify,
+		Name:    kinds.email,
 		Enabled: lo.ToPtr(true),
 		// Encrypted rather than "none": credentials with a plaintext channel are
 		// rejected by the kind. This test is about clearing the secret, so the
@@ -74,7 +77,8 @@ func TestService_UpdateClearsSecret(t *testing.T) {
 	// Clear the password (null) and drop username in the same edit, so the
 	// half-credential invariant still holds — the result is a valid open relay.
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.email,
+		Kind:    kinds.notify,
+		Name:    kinds.email,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"host":"smtp.test","from":"a@b.c","tls_policy":"none"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{"password": nil}),
@@ -82,14 +86,14 @@ func TestService_UpdateClearsSecret(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	got, err := svc.GetByKind(ctx, kinds.email)
+	got, err := svc.GetByKindName(ctx, kinds.notify, kinds.email)
 	require.NoError(t, err)
 	require.NotContains(t, got.SecretsSet, "password", "the cleared secret must be gone from secrets_set")
 
 	// The secrets column no longer holds a password key at all.
 	var present bool
 	require.NoError(t, db.QueryRowxContext(ctx,
-		`SELECT secrets ? 'password' FROM integration_settings WHERE kind = $1`, kinds.email).Scan(&present))
+		`SELECT secrets ? 'password' FROM integration_settings WHERE name = $1`, kinds.email).Scan(&present))
 	require.False(t, present, "the cleared secret must be removed from the stored jsonb")
 }
 
@@ -101,7 +105,8 @@ func TestService_UpdateClearingRequiredSecretRejected(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "tok"}),
@@ -110,7 +115,8 @@ func TestService_UpdateClearingRequiredSecretRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{"bot_token": nil}),
@@ -128,7 +134,8 @@ func TestService_UpdatePreservesAbsentSecretPlaintext(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "original-token"}),
@@ -137,7 +144,8 @@ func TestService_UpdatePreservesAbsentSecretPlaintext(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://b.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{}),
@@ -156,7 +164,8 @@ func TestService_UpdateChangesSecret(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "old"}),
@@ -165,7 +174,8 @@ func TestService_UpdateChangesSecret(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{"bot_token": lo.ToPtr("new-token")}),
@@ -183,7 +193,8 @@ func TestService_UpdatePublishesAuditAndReusesDEK(t *testing.T) {
 	svc, kinds, mocks := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "tok"}),
@@ -193,7 +204,8 @@ func TestService_UpdatePublishesAuditAndReusesDEK(t *testing.T) {
 	dekBefore := rawStoredDEKID(ctx, t, kinds.slack)
 
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://b.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{"bot_token": lo.ToPtr("new-tok")}),
@@ -208,7 +220,7 @@ func TestService_UpdatePublishesAuditAndReusesDEK(t *testing.T) {
 	// create above also published an IntegrationCreated on the same spy, so filter
 	// to the update event rather than asserting a bare count.
 	upd := lastUpdated(t, mocks.audit.Actions())
-	require.Equal(t, kinds.slack, upd.Kind)
+	require.Equal(t, kinds.slack, upd.Name)
 	require.NotContains(t, fmt.Sprintf("%+v", upd), "new-tok")
 }
 
@@ -220,7 +232,8 @@ func TestService_UpdateNotFound(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{"bot_token": lo.ToPtr("t")}),
@@ -238,7 +251,8 @@ func TestService_UpdateOmittedFieldsKeepStored(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://keep.me"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "keep-token"}),
@@ -248,7 +262,8 @@ func TestService_UpdateOmittedFieldsKeepStored(t *testing.T) {
 
 	// Everything omitted: nil Enabled, nil Config, nil Secrets.
 	updated, err := svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:  kinds.slack,
+		Kind:  kinds.notify,
+		Name:  kinds.slack,
 		Actor: testActor(),
 	})
 	require.NoError(t, err)
@@ -268,7 +283,8 @@ func TestService_UpdateExplicitEmptyConfigReplaces(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://old.example"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -277,7 +293,8 @@ func TestService_UpdateExplicitEmptyConfigReplaces(t *testing.T) {
 	require.NoError(t, err)
 
 	updated, err := svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:   kinds.slack,
+		Kind:   kinds.notify,
+		Name:   kinds.slack,
 		Config: json.RawMessage(`{}`),
 		Actor:  testActor(),
 	})

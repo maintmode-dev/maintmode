@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -30,7 +31,7 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		t.Parallel()
 		svc, _, _ := initService(t)
 
-		_, err := svc.Settings(ctx, "ghost-"+xuuid.NewString())
+		_, err := svc.Settings(ctx, integrationkinds.CategoryNotify, "ghost-"+xuuid.NewString())
 		require.ErrorIs(t, err, apperr.ErrIntegrationNotConfigured)
 		require.ErrorIs(t, err, apperr.ErrIntegrationDisabled,
 			"the dispatch drop contract relies on this wrap")
@@ -41,7 +42,8 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		t.Parallel()
 		svc, kinds, _ := initService(t)
 		_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-			Kind:    kinds.slack,
+			Kind:    kinds.notify,
+			Name:    kinds.slack,
 			Enabled: lo.ToPtr(false),
 			Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
 			Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-disabled"}),
@@ -49,7 +51,7 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = svc.Settings(ctx, kinds.slack)
+		_, err = svc.Settings(ctx, kinds.notify, kinds.slack)
 		require.ErrorIs(t, err, apperr.ErrIntegrationDisabled)
 		require.NotErrorIs(t, err, apperr.ErrIntegrationNotConfigured)
 	})
@@ -63,10 +65,10 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 
 		_, err := db.ExecContext(ctx,
 			`UPDATE data_keys SET kek_id = 'local-kms://gone'
-			 WHERE id = (SELECT dek_id FROM integration_settings WHERE kind = $1)`, kinds.slack)
+			 WHERE id = (SELECT dek_id FROM integration_settings WHERE name = $1)`, kinds.slack)
 		require.NoError(t, err)
 
-		_, err = svc.Settings(ctx, kinds.slack)
+		_, err = svc.Settings(ctx, kinds.notify, kinds.slack)
 		require.ErrorIs(t, err, apperr.ErrIntegrationUnreadable)
 		require.NotErrorIs(t, err, apperr.ErrIntegrationDisabled,
 			"an operational fault must not be silently dropped as a drop")
@@ -80,10 +82,10 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		_, err := db.ExecContext(ctx,
 			`UPDATE integration_settings
 			 SET secrets = jsonb_set(secrets, '{bot_token}', to_jsonb('Y29ycnVwdA=='::text))
-			 WHERE kind = $1`, kinds.slack)
+			 WHERE name = $1`, kinds.slack)
 		require.NoError(t, err)
 
-		_, err = svc.Settings(ctx, kinds.slack)
+		_, err = svc.Settings(ctx, kinds.notify, kinds.slack)
 		require.ErrorIs(t, err, apperr.ErrIntegrationUnreadable)
 	})
 
@@ -94,13 +96,13 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 
 		ghost := kinds.slack + "-ghost"
 		_, err := db.ExecContext(ctx,
-			`UPDATE integration_settings SET kind = $1 WHERE kind = $2`, ghost, kinds.slack)
+			`UPDATE integration_settings SET name = $1 WHERE name = $2`, ghost, kinds.slack)
 		require.NoError(t, err)
 		t.Cleanup(func() {
-			_, _ = db.Exec(`DELETE FROM integration_settings WHERE kind = $1`, ghost)
+			_, _ = db.Exec(`DELETE FROM integration_settings WHERE name = $1`, ghost)
 		})
 
-		_, err = svc.Settings(ctx, ghost)
+		_, err = svc.Settings(ctx, integrationkinds.CategoryNotify, ghost)
 		require.ErrorIs(t, err, apperr.ErrIntegrationUnreadable)
 	})
 
@@ -109,7 +111,7 @@ func TestSettings_ErrorTaxonomy(t *testing.T) {
 		svc, kinds, _ := initService(t)
 		createEnabledSlack(ctx, t, svc, kinds.slack)
 
-		settings, err := svc.Settings(ctx, kinds.slack)
+		settings, err := svc.Settings(ctx, kinds.notify, kinds.slack)
 		require.NoError(t, err)
 		require.NotNil(t, settings)
 	})

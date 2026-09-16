@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -23,7 +24,8 @@ func TestService_CreateEncryptsSecretAndMasksOnRead(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	masked, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-super-secret"}),
@@ -40,8 +42,8 @@ func TestService_CreateEncryptsSecretAndMasksOnRead(t *testing.T) {
 	require.NotEmpty(t, stored)
 	require.NotContains(t, stored, "xoxb-super-secret", "stored secret must be encrypted, not plaintext")
 
-	// GetByKind also masks.
-	got, err := svc.GetByKind(ctx, kinds.slack)
+	// GetByKindName also masks.
+	got, err := svc.GetByKindName(ctx, kinds.notify, kinds.slack)
 	require.NoError(t, err)
 	require.Equal(t, map[string]bool{"bot_token": true}, got.SecretsSet)
 }
@@ -56,7 +58,8 @@ func TestService_CreateStoresConfigVerbatimAndSecretSeparately(t *testing.T) {
 	// secret value from Secrets must never appear in the returned config, and the
 	// config JSON is preserved byte-equivalent (opaque to the service).
 	masked, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://slack.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-real"}),
@@ -77,7 +80,8 @@ func TestService_CreateUnknownKind(t *testing.T) {
 	svc, _, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    "jira-" + xuuid.NewString(),
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    "jira-" + xuuid.NewString(),
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -94,7 +98,8 @@ func TestService_CreateInvalidConfigRejected(t *testing.T) {
 
 	// Missing bot_token secret -> kind validation fails.
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{}`),
 		Secrets: secretsJSON(t, map[string]string{}),
@@ -110,7 +115,8 @@ func TestService_CreateWithoutEnabledRejected(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: nil, // omitted
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -126,7 +132,8 @@ func TestService_CreateWithoutActorRejected(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -142,7 +149,8 @@ func TestService_CreatePublishesAuditWithoutSecret(t *testing.T) {
 	svc, kinds, mocks := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "top-secret-token"}),
@@ -153,7 +161,7 @@ func TestService_CreatePublishesAuditWithoutSecret(t *testing.T) {
 	require.Len(t, mocks.audit.Actions(), 1)
 	created, ok := mocks.audit.Actions()[0].(audit.IntegrationCreated)
 	require.True(t, ok, "an IntegrationCreated action is published")
-	require.Equal(t, kinds.slack, created.Kind)
+	require.Equal(t, kinds.slack, created.Name)
 
 	// The audit action carries no secret value in any field.
 	require.NotContains(t, fmt.Sprintf("%+v", created), "top-secret-token",
@@ -170,7 +178,8 @@ func TestService_CreatePublishesAuditWithActor(t *testing.T) {
 
 	actor := testActor()
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -193,7 +202,8 @@ func TestService_CreateDuplicateKindConflict(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	cmd := &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "t"}),
@@ -229,7 +239,8 @@ func TestService_CreateRejectsSecretKeyInConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-				Kind:    tc.kind,
+				Kind:    kinds.notify,
+				Name:    tc.kind,
 				Enabled: lo.ToPtr(true),
 				Config:  json.RawMessage(tc.config),
 				Secrets: secretsJSON(t, map[string]string{}),
@@ -256,7 +267,8 @@ func TestService_CreateAllowsNonSecretConfigKey(t *testing.T) {
 
 	// "api_url" is plaintext config; only "bot_token" would be rejected.
 	masked, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test","timeout":"10s"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-real"}),
@@ -275,7 +287,8 @@ func TestService_UpdateRejectsSecretKeyInConfig(t *testing.T) {
 	svc, kinds, _ := initService(t)
 
 	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"api_url":"https://a.test"}`),
 		Secrets: secretsJSON(t, map[string]string{"bot_token": "xoxb-real"}),
@@ -284,7 +297,8 @@ func TestService_UpdateRejectsSecretKeyInConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    kinds.slack,
+		Kind:    kinds.notify,
+		Name:    kinds.slack,
 		Enabled: lo.ToPtr(true),
 		Config:  json.RawMessage(`{"bot_token":"xoxb-leaked","api_url":"https://a.test"}`),
 		Secrets: secretIntentsJSON(t, map[string]*string{}),

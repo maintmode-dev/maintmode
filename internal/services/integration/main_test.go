@@ -59,20 +59,73 @@ type renamedKind struct {
 	name string
 }
 
-func (r renamedKind) Kind() string { return r.name }
+func (r renamedKind) Name() string { return r.name }
+
+// PresetKey forwards the wrapped entry's catalog key when it has one.
+//
+// The embedded interface would carry it implicitly, but only if the wrapper
+// itself satisfied Preseted -- and a wrapper over a non-preseted entry must NOT.
+// Forwarding explicitly keeps "is this preset-backed" an answer from the real
+// entry rather than a property of being wrapped.
+func (r renamedKind) PresetKey() string {
+	preseted, ok := r.Integration.(integrationkinds.Preseted)
+	if !ok {
+		return ""
+	}
+
+	return preseted.PresetKey()
+}
 
 // serviceMocks bundles the per-test doubles a service is wired with.
 type serviceMocks struct {
-	audit *publishermock.Spy
+	audit      *publishermock.Spy
+	identities *fakeIdentities
 }
 
-// testKinds are the unique per-test kind names, each backed by the matching real
-// integration behavior. They replace the hard-coded "slack"/"email" strings so
-// parallel tests never collide on UNIQUE(kind).
+// fakeIdentities stands in for the auth module's identity store. Linked is what
+// CountByProvider reports; a test sets it to make a provider look "in use".
+type fakeIdentities struct {
+	linked int64
+	// unlinkedFrom is the provider the cascade deleted by, recorded so a test
+	// can prove the delete addressed the NAME and not the category.
+	unlinkedFrom entity.AuthMethod
+}
+
+// DeleteByProvider stands in for the cascade: it reports what it would have
+// removed and records the name, so a test can assert both.
+func (f *fakeIdentities) DeleteByProvider(_ context.Context, provider entity.AuthMethod) (int64, error) {
+	f.unlinkedFrom = provider
+	removed := f.linked
+	f.linked = 0
+
+	return removed, nil
+}
+
+// testKinds are the unique per-test SYSTEM NAMES, each backed by the matching
+// real integration behavior. They replace the hard-coded "slack"/"email"
+// strings so parallel tests never collide on UNIQUE (kind, name).
+//
+// The uniqueness moved with the addressing: it used to be the kind that was
+// suffixed, because the kind was the system. Now the kind is a category shared
+// by every row of its half, so the suffix belongs on the name -- and notify and
+// login below are the real categories, not per-test values.
 type testKinds struct {
 	slack    string
 	email    string
 	telegram string
+	// oidc is the per-test login name backed by a catalog entry: it behaves
+	// like "google", so the preset owns issuer_url and display_name and a create
+	// supplying either is refused.
+	oidc string
+	// byoIssuer is the per-test login name with NO catalog entry, registered
+	// under a name the preset rules let through. Tests that re-point an issuer
+	// need it: under a preset that field cannot be changed at all, so they would
+	// otherwise be testing the preset rule instead of the guard they are about.
+	byoIssuer string
+	// notify and login are the real categories, the same for every test. They
+	// live here so a call site reads one pair out of one fixture.
+	notify string
+	login  string
 }
 
 // initService builds a service on the shared DB but with a fresh registry whose
@@ -83,19 +136,25 @@ func initService(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMock
 
 	suffix := "-" + xuuid.NewString()
 	kinds := testKinds{
-		slack:    integrationkinds.Slack.Kind() + suffix,
-		email:    integrationkinds.Email.Kind() + suffix,
-		telegram: integrationkinds.Telegram.Kind() + suffix,
+		slack:     integrationkinds.Slack.Name() + suffix,
+		email:     integrationkinds.Email.Name() + suffix,
+		telegram:  integrationkinds.Telegram.Name() + suffix,
+		oidc:      integrationkinds.Google.Name() + suffix,
+		byoIssuer: integrationkinds.Custom.Name() + suffix,
+		notify:    integrationkinds.CategoryNotify,
+		login:     integrationkinds.CategoryLogin,
 	}
 
 	registry, err := integrationsvc.NewRegistry(
 		renamedKind{Integration: integrationkinds.Slack, name: kinds.slack},
 		renamedKind{Integration: integrationkinds.Email, name: kinds.email},
 		renamedKind{Integration: integrationkinds.Telegram, name: kinds.telegram},
+		renamedKind{Integration: integrationkinds.Google, name: kinds.oidc},
+		renamedKind{Integration: integrationkinds.Custom, name: kinds.byoIssuer},
 	)
 	require.NoError(t, err)
 
-	mocks := &serviceMocks{audit: publishermock.New(t)}
+	mocks := &serviceMocks{audit: publishermock.New(t), identities: &fakeIdentities{}}
 
 	svc := integrationsvc.NewService(
 		dbtx.NewTxManager(db),
@@ -105,16 +164,49 @@ func initService(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMock
 		keyring,
 		testCipher,
 		mocks.audit,
-	)
-	// Each test's rows use unique kinds; drop them at the end so the shared table
+	).WithIdentities(mocks.identities).
+		// The fixture's login name carries the per-test suffix so parallel runs
+		// stay off each other's rows, which makes it a PRESET name rather than
+		// "custom" -- so it needs a catalog entry to be creatable at all.
+		WithLoginPresets(config.LoginPresets{
+			integrationkinds.Google.Name(): {DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
+		})
+	// Each test's rows use unique NAMES; drop them at the end so the shared table
 	// does not accumulate across a package run.
+	//
+	// The DEKs go too. Create mints one per integration, and rotation scans the
+	// WHOLE data_keys table under a table-wide FOR UPDATE -- so rows left behind
+	// do not just accumulate, they slow every rotation test on the shared dev
+	// database until one times out. Deleted after the settings, which reference
+	// them.
 	t.Cleanup(func() {
-		_, _ = db.Exec(`DELETE FROM integration_settings WHERE kind = ANY($1)`,
-			pq.Array([]string{kinds.slack, kinds.email, kinds.telegram}))
+		nameList := pq.Array([]string{kinds.slack, kinds.email, kinds.telegram, kinds.oidc, kinds.byoIssuer})
+
+		var dekIDs []string
+		rows, err := db.Query(`SELECT dek_id FROM integration_settings WHERE name = ANY($1)`, nameList)
+		if err == nil {
+			for rows.Next() {
+				var id string
+				if rows.Scan(&id) == nil {
+					dekIDs = append(dekIDs, id)
+				}
+			}
+			_ = rows.Close()
+		}
+
+		_, _ = db.Exec(`DELETE FROM integration_settings WHERE name = ANY($1)`, nameList)
+		if len(dekIDs) > 0 {
+			_, _ = db.Exec(`DELETE FROM data_keys WHERE id = ANY($1)`, pq.Array(dekIDs))
+		}
 	})
 
 	return svc, kinds, mocks
 }
+
+// testPresetIssuer is the issuer the fixture's catalog supplies. A login row
+// created through initService carries THIS issuer, not whatever the test passed
+// in config -- the preset owns that field.
+const testPresetIssuer = "https://idp.fixture.example"
 
 // testActor is the authenticated admin performing an operation in a test.
 func testActor() *entity.User {
@@ -167,11 +259,13 @@ func testKEK() string {
 // DB so a test can assert the persisted value is NOT the plaintext input.
 //
 //nolint:unparam // kind is fixed in current tests but kept for call-site clarity.
-func rawStoredSecret(ctx context.Context, t *testing.T, kind, key string) string {
+func rawStoredSecret(ctx context.Context, t *testing.T, name, key string) string {
 	t.Helper()
 	var stored string
+	// Addressed by NAME. The kind is a shared category now, so selecting on it
+	// would match every row this test created and make the result arbitrary.
 	err := db.QueryRowxContext(ctx,
-		`SELECT secrets ->> $1 FROM integration_settings WHERE kind = $2`, key, kind).Scan(&stored)
+		`SELECT secrets ->> $1 FROM integration_settings WHERE name = $2`, key, name).Scan(&stored)
 	require.NoError(t, err)
 	return stored
 }
@@ -179,12 +273,12 @@ func rawStoredSecret(ctx context.Context, t *testing.T, kind, key string) string
 // rawStoredDEKID returns the dek_id an integration references, so a test can
 // assert the DEK is reused (not repointed) across an update.
 //
-//nolint:unparam // kind is fixed in current tests but kept for call-site clarity.
-func rawStoredDEKID(ctx context.Context, t *testing.T, kind string) uuid.UUID {
+//nolint:unparam // name is fixed in current tests but kept for call-site clarity.
+func rawStoredDEKID(ctx context.Context, t *testing.T, name string) uuid.UUID {
 	t.Helper()
 	var dekID uuid.UUID
 	err := db.QueryRowxContext(ctx,
-		`SELECT dek_id FROM integration_settings WHERE kind = $1`, kind).Scan(&dekID)
+		`SELECT dek_id FROM integration_settings WHERE name = $1`, name).Scan(&dekID)
 	require.NoError(t, err)
 	return dekID
 }
@@ -193,8 +287,8 @@ func rawStoredDEKID(ctx context.Context, t *testing.T, kind string) uuid.UUID {
 // so a test can prove the persisted ciphertext still decrypts to the expected
 // plaintext — the one round-trip the mask-only read path cannot verify.
 //
-//nolint:unparam // kind is fixed in current tests but kept for call-site clarity.
-func decryptStoredSecret(ctx context.Context, t *testing.T, kind, key string) string {
+//nolint:unparam // name is fixed in current tests but kept for call-site clarity.
+func decryptStoredSecret(ctx context.Context, t *testing.T, name, key string) string {
 	t.Helper()
 
 	var encryptedDEK []byte
@@ -202,16 +296,17 @@ func decryptStoredSecret(ctx context.Context, t *testing.T, kind, key string) st
 	err := db.QueryRowxContext(ctx, `
 		SELECT dk.encrypted_dek, dk.kek_id, s.secrets ->> $1
 		FROM integration_settings s JOIN data_keys dk ON dk.id = s.dek_id
-		WHERE s.kind = $2`, key, kind).Scan(&encryptedDEK, &kekID, &storedSecret)
+		WHERE s.name = $2`, key, name).Scan(&encryptedDEK, &kekID, &storedSecret)
 	require.NoError(t, err)
 
 	dek, err := keyring.UnwrapDEK(encryptedDEK, kekID)
 	require.NoError(t, err)
 	envelope, err := base64.StdEncoding.DecodeString(storedSecret)
 	require.NoError(t, err)
-	// The stored secret is bound to its (kind, key) slot via AAD, so decrypt must
-	// supply the same AAD the service used to seal it.
-	plain, err := testCipher.Decrypt(dek, envelope, secrets.SecretAAD(kind, key))
+	// The stored secret is bound to its (system name, key) slot via AAD, so
+	// decrypt must supply the same AAD the service used to seal it -- and the
+	// service seals with the registry key, which is the name.
+	plain, err := testCipher.Decrypt(dek, envelope, secrets.SecretAAD(name, key))
 	require.NoError(t, err)
 	return string(plain)
 }

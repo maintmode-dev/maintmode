@@ -57,11 +57,11 @@ const (
 // by editing the form is ErrValidation.
 func (s *Service) Probe(ctx context.Context, cmd *entity.ProbeIntegrationCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.Probe",
-		xfield.String("kind", cmd.Kind),
+		xfield.String("name", cmd.Name),
 	)
 	defer span.End()
 
-	in, err := s.registry.Get(cmd.Kind)
+	in, err := s.registry.get(cmd.Name)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (s *Service) Probe(ctx context.Context, cmd *entity.ProbeIntegrationCmd) er
 
 	email, ok := settings.(integrationkinds.EmailSettings)
 	if !ok {
-		return fmt.Errorf("%w: kind %q cannot be probed", apperr.ErrValidation, cmd.Kind)
+		return fmt.Errorf("%w: %q cannot be probed", apperr.ErrValidation, cmd.Name)
 	}
 
 	return s.probeEmail(ctx, email, cmd)

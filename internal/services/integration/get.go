@@ -9,15 +9,17 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// GetByKind returns the masked integration for a kind (ErrIntegrationNotFound if
-// none). Secrets are never surfaced as plaintext or ciphertext — only is-set.
-func (s *Service) GetByKind(ctx context.Context, kind string) (*entity.MaskedIntegration, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.GetByKind",
+// GetByKindName returns the masked integration for one (kind, name)
+// (ErrIntegrationNotFound if none). Secrets are never surfaced as plaintext or
+// ciphertext — only is-set.
+func (s *Service) GetByKindName(ctx context.Context, kind, name string) (*entity.MaskedIntegration, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.GetByKindName",
 		xfield.String("kind", kind),
+		xfield.String("name", name),
 	)
 	defer span.End()
 
-	setting, err := s.store.GetByKind(ctx, kind)
+	setting, err := s.store.GetByKindName(ctx, kind, name)
 	if err != nil {
 		xlog.Error(ctx, "failed to get integration", xfield.Error(err))
 		return nil, err

@@ -11,14 +11,14 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 
-	"github.com/ruko1202/maintmode/internal/entity"
-
 	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 const (
 	// kindTelegram is derived from the transport constant (see kindSlack).
-	kindTelegram        = string(entity.NotifyTransportTelegram)
+	// Equal to entity.NotifyTransportTelegram by test, not by import -- see the
+	// note on kindSlack for why this package must not depend on entity.
+	kindTelegram        = "telegram"
 	tgSecretKeyBotToken = "bot_token"
 )
 
@@ -31,13 +31,12 @@ type TelegramSettings struct {
 	Timeout  string `json:"timeout"`
 }
 
-// Kind marks TelegramSettings as the "telegram" settings value (integrationkinds.Settings).
-func (TelegramSettings) Kind() string { return kindTelegram }
-
 // Telegram implements the integrationkinds.Integration contract for kind "telegram".
 type telegram struct{}
 
-func (telegram) Kind() string { return kindTelegram }
+func (telegram) Name() string { return kindTelegram }
+
+func (telegram) Category() string { return CategoryNotify }
 
 func (telegram) SecretKeys() []string { return []string{tgSecretKeyBotToken} }
 

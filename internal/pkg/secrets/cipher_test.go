@@ -259,3 +259,83 @@ func TestOTPCodeAAD_IsDomainSeparated(t *testing.T) {
 	_, err = cipher.Decrypt(dek, envelope, SecretAAD("shared-id", "shared-id"))
 	require.Error(t, err)
 }
+
+// SecretAAD's bytes are a stored format, not an implementation detail: every
+// integration secret written before login providers existed is sealed under
+// them, and mergeSecrets carries ciphertext forward without re-encrypting. A
+// change here does not fail loudly at compile time — it fails at decrypt time,
+// on every existing Slack and SMTP install, with no way back short of
+// re-entering each secret by hand.
+//
+// So this pins the exact bytes rather than a property of them. If it fails, the
+// question is not "update the expectation" but "why is a frozen format moving".
+func TestSecretAAD_ByteFormatIsFrozen(t *testing.T) {
+	t.Parallel()
+
+	got := SecretAAD("slack", "bot_token")
+
+	want := []byte{
+		31, 'm', 'a', 'i', 'n', 't', 'm', 'o', 'd', 'e', '/', 'i', 'n', 't', 'e',
+		'g', 'r', 'a', 't', 'i', 'o', 'n', '-', 's', 'e', 'c', 'r', 'e', 't', '/',
+		'v', '2',
+		5, 's', 'l', 'a', 'c', 'k',
+		9, 'b', 'o', 't', '_', 't', 'o', 'k', 'e', 'n',
+	}
+	require.Equal(t, want, got, "SecretAAD is a frozen on-disk format: changing it makes every stored integration secret unreadable")
+}
+
+// The login-provider AAD binds the OAuth client the secret was issued for.
+// Each component must be load-bearing on its own, because the attack it exists
+// to stop is an at-rest writer relocating a ciphertext onto a row they control:
+// they copy whatever the AAD does not distinguish.
+func TestSecretAADForClient_BindsIssuerAndClient(t *testing.T) {
+	t.Parallel()
+
+	cipher := NewAESCipher()
+	dek := testDEK(t)
+
+	const (
+		kind   = "oidc"
+		key    = "client_secret"
+		issuer = "https://corp-idp.example"
+		client = "client-abc"
+	)
+
+	envelope, err := cipher.Encrypt(dek, []byte("s3cret"), SecretAADForClient(kind, key, issuer, client))
+	require.NoError(t, err)
+
+	t.Run("opens under the same client", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := cipher.Decrypt(dek, envelope, SecretAADForClient(kind, key, issuer, client))
+		require.NoError(t, err)
+		require.Equal(t, []byte("s3cret"), got)
+	})
+
+	// Relocating the ciphertext onto a row pointed at another issuer is the
+	// exfiltration step: discovery would resolve the attacker's host and the
+	// real secret would be POSTed to their token endpoint.
+	t.Run("refuses a different issuer", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cipher.Decrypt(dek, envelope, SecretAADForClient(kind, key, "https://attacker.example", client))
+		require.Error(t, err)
+	})
+
+	// Swapping the registration underneath a secret must not open either.
+	t.Run("refuses a different client id", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cipher.Decrypt(dek, envelope, SecretAADForClient(kind, key, issuer, "client-xyz"))
+		require.Error(t, err)
+	})
+
+	// The two domains must not be interchangeable, or a login secret could be
+	// opened as a delivery one and the extra binding would be bypassable.
+	t.Run("refuses the plain secret AAD", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := cipher.Decrypt(dek, envelope, SecretAAD(kind, key))
+		require.Error(t, err)
+	})
+}

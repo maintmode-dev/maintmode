@@ -6,11 +6,17 @@ import (
 )
 
 var (
-	// ErrIntegrationNotFound is returned when no integration exists for a kind.
+	// ErrIntegrationNotFound is returned when no integration exists for a
+	// (kind, name).
 	ErrIntegrationNotFound = errors.New("integration not found")
-	// ErrIntegrationConflict is returned when creating an integration for a kind
-	// that already exists (UNIQUE(kind)).
-	ErrIntegrationConflict = errors.New("integration already exists for this kind")
+	// ErrIntegrationConflict is returned when creating an integration whose
+	// (kind, name) already exists (UNIQUE(kind, name)).
+	ErrIntegrationConflict = errors.New("integration already exists for this kind and name")
+	// ErrIntegrationNameReserved is returned when a create collides with a
+	// provider configured in the config file. Config wins, so the row is refused
+	// rather than stored and shadowed -- a shadowed row would silently become
+	// the live IdP for that name the day the config entry is removed.
+	ErrIntegrationNameReserved = errors.New("integration name is reserved by configuration")
 	// ErrIntegrationDisabled signals that an integration exists but is turned off.
 	// The notify dispatch path treats it as a best-effort drop, not an error.
 	ErrIntegrationDisabled = errors.New("integration is disabled")
