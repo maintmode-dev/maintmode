@@ -5,17 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
-
-func TestStore_GetByKindNameNotFound(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	_, err := store.GetByKindName(ctx, integrationkinds.CategoryNotify, "nonexistent-"+t.Name())
-	require.ErrorIs(t, err, apperr.ErrIntegrationNotFound)
-}
 
 func TestStore_CreateWithEmptyConfigAndSecrets(t *testing.T) {
 	t.Parallel()

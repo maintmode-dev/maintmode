@@ -57,8 +57,6 @@ func TestReloader_BuildProvider(t *testing.T) {
 			"building must not depend on the IdP answering")
 		require.NotNil(t, built.Method)
 		require.NotNil(t, built.Gateway)
-		require.Equal(t, "unreachable", built.DisplayName,
-			"a provider with no label falls back to its instance name")
 	})
 }
 

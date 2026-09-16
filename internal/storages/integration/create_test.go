@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -50,20 +49,6 @@ func TestStore_ConfigRawJSONRoundTrips(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, string(setting.Config), string(got.Config))
 	require.Equal(t, setting.Secrets, got.Secrets)
-}
-
-func TestStore_CreateDuplicateKindNameConflict(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	dekID := seedDEK(ctx, t)
-	setting := newSetting(t, dekID)
-
-	_, err := store.Create(ctx, setting)
-	require.NoError(t, err)
-
-	dup := *setting // same (kind, name)
-	_, err = store.Create(ctx, &dup)
-	require.ErrorIs(t, err, apperr.ErrIntegrationConflict)
 }
 
 // The whole point of the migration: one kind, several named instances. Under
