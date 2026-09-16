@@ -13,6 +13,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -45,12 +46,14 @@ func seedDEK(ctx context.Context, t *testing.T) uuid.UUID {
 	return id
 }
 
-// newSetting builds an integration with a unique kind so parallel runs on the
-// shared DB do not collide on UNIQUE(kind).
+// newSetting builds an integration with a unique NAME so parallel runs on the
+// shared DB do not collide on UNIQUE (kind, name). The kind is the real
+// category, which every delivery row shares.
 func newSetting(t *testing.T, dekID uuid.UUID) *entity.IntegrationSetting {
 	t.Helper()
 	return &entity.IntegrationSetting{
-		Kind:            "slack-" + xuuid.NewString(),
+		Kind:            integrationkinds.CategoryNotify,
+		Name:            "slack-" + xuuid.NewString(),
 		Enabled:         true,
 		Config:          json.RawMessage(`{"api_url":"https://slack.test"}`),
 		Secrets:         map[string]string{"bot_token": "ciphertext"},

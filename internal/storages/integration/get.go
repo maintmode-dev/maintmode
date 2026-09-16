@@ -14,28 +14,35 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-// GetByKind reads the integration for a kind. Not-found is ErrIntegrationNotFound.
-// This is the resolver's read path.
-func (s *Store) GetByKind(ctx context.Context, kind string) (*entity.IntegrationSetting, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.Integration.GetByKind")
+// GetByKindName reads one integration by its identity. Not-found is
+// ErrIntegrationNotFound. This is the resolver's read path.
+//
+// The name is half the identity, not an optional refinement: since the schema
+// allows several rows per kind, a kind-only lookup would return an arbitrary
+// one. The method is named for both halves so a caller that has only a kind
+// cannot reach it by accident.
+func (s *Store) GetByKindName(ctx context.Context, kind, name string) (*entity.IntegrationSetting, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Integration.GetByKindName")
 	defer span.End()
 
 	stmt := table.IntegrationSettings.
 		SELECT(table.IntegrationSettings.AllColumns).
-		WHERE(table.IntegrationSettings.Kind.EQ(postgres.String(kind)))
+		WHERE(table.IntegrationSettings.Kind.EQ(postgres.String(kind)).
+			AND(table.IntegrationSettings.Name.EQ(postgres.String(name))))
 
 	return s.get(ctx, stmt)
 }
 
-// GetForUpdateByKind reads and locks the integration row (FOR UPDATE) so a
+// GetForUpdateByKindName reads and locks the integration row (FOR UPDATE) so a
 // read-modify-write update is serialized. Must run inside a transaction.
-func (s *Store) GetForUpdateByKind(ctx context.Context, kind string) (*entity.IntegrationSetting, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.Integration.GetForUpdateByKind")
+func (s *Store) GetForUpdateByKindName(ctx context.Context, kind, name string) (*entity.IntegrationSetting, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.Integration.GetForUpdateByKindName")
 	defer span.End()
 
 	stmt := table.IntegrationSettings.
 		SELECT(table.IntegrationSettings.AllColumns).
-		WHERE(table.IntegrationSettings.Kind.EQ(postgres.String(kind))).
+		WHERE(table.IntegrationSettings.Kind.EQ(postgres.String(kind)).
+			AND(table.IntegrationSettings.Name.EQ(postgres.String(name)))).
 		FOR(postgres.UPDATE())
 
 	return s.get(ctx, stmt)
