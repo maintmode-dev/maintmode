@@ -58,7 +58,7 @@ type Service struct {
 	txManager      *dbtx.TxManager
 	usersSrv       *user.Service
 	tokenSrv       *token.Service
-	authMethods    *authmethod.Methods
+	authMethods    AuthMethods
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
 	auditPublisher AuditPublisher
@@ -70,7 +70,6 @@ type Service struct {
 	// route is behind the same config gate, so neither is ever reached unset.
 	danceSigner   danceStateSigner
 	danceCodes    DanceCodeStore
-	danceGateways map[entity.AuthMethod]DanceGateway
 	danceStateTTL time.Duration
 	// invitations is zero until WithInvitations is called. A nil claimer means
 	// this instance completes no invited dances: every handle is refused, which
@@ -143,9 +142,24 @@ type InvitationClaimer interface {
 // than ours — the authorization URL carries the same client id, redirect URI and
 // endpoint the exchange does, and splitting them would mean assembling that set
 // twice.
+
 type DanceGateway interface {
 	AuthCodeURL(ctx context.Context, state, verifier string) (string, error)
 	Exchange(ctx context.Context, code, codeVerifier string) (string, error)
+}
+
+// AuthMethods is the half of the live login configuration this service reads,
+// declared consumer-side so the contract belongs to the caller.
+//
+// Naming it rather than taking *authmethod.Methods is what lets a handler test
+// stand in a gateway whose Exchange does not reach a token endpoint -- the one
+// thing no gateway built against a discovery stub can do. Production passes the
+// real Methods, which satisfies this by construction.
+type AuthMethods interface {
+	Get(ctx context.Context, methodID entity.AuthMethod) (authmethod.AuthMethod, error)
+	Parse(name string) (entity.AuthMethod, bool)
+	DanceProvider(segment string) (entity.AuthMethod, bool)
+	DanceGateway(method entity.AuthMethod) (authmethod.Gateway, bool)
 }
 
 // WithDance enables the backend-driven OAuth dance.
@@ -157,20 +171,38 @@ type DanceGateway interface {
 // gateways is keyed by instance name. The provider a callback names is looked
 // up here rather than carried in the request, so a callback cannot nominate a
 // gateway of its own choosing.
+// WithDance arms the backend-driven dance: the signing key and the one-time
+// code store.
+//
+// It no longer takes the gateways. They live in the auth-method snapshot, which
+// is replaced at runtime when an operator reconfigures a provider — a map
+// captured here would have frozen the providers at boot, which is the thing
+// this work exists to undo. A parameter nobody read would have been worse than
+// the changed signature.
 func (s *Service) WithDance(
 	authCfg config.Auth,
 	codes DanceCodeStore,
-	gateways map[entity.AuthMethod]DanceGateway,
 ) *Service {
 	s.danceSigner = newDanceStateSigner(s.cfg.PrivateKey)
 	s.danceCodes = codes
-	s.danceGateways = gateways
 	// config.Auth owns the fallback so the wiring, which must give the
 	// invitation-handle store the SAME lifetime, resolves it from one place. Two
 	// copies would drift the instant one was tuned, and the symptom — handles
 	// expiring mid-consent while states stayed valid — reads as a flaky provider
 	// rather than a config bug.
 	s.danceStateTTL = authCfg.DanceStateTTL()
+
+	return s
+}
+
+// WithAuthMethods swaps the login configuration this service reads.
+//
+// A setter in the same family as WithDance and WithInvitations: the service is
+// constructed once in bootstrap and specialised afterwards. The dance tests use
+// it to serve one provider's Exchange from their own object, which is the only
+// part of a gateway a discovery stub cannot stand in for.
+func (s *Service) WithAuthMethods(methods AuthMethods) *Service {
+	s.authMethods = methods
 
 	return s
 }
@@ -191,9 +223,15 @@ func (s *Service) WithInvitations(claimer InvitationClaimer) *Service {
 	return s
 }
 
-// danceGatewayFor resolves the gateway serving provider.
+// danceGatewayFor resolves the gateway serving provider, from the live snapshot
+// rather than a map captured at construction.
+//
+// A caller that established the provider is danceable must be able to obtain
+// the gateway that made it so. Both answers come from the same snapshot inside
+// authmethod, so a reload between the two cannot leave this returning nothing
+// for a provider the caller was just told was usable.
 func (s *Service) danceGatewayFor(provider entity.AuthMethod) (DanceGateway, error) {
-	gateway, ok := s.danceGateways[provider]
+	gateway, ok := s.authMethods.DanceGateway(provider)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, provider)
 	}
@@ -207,7 +245,7 @@ func NewService(
 	usersSrv *user.Service,
 	locker *distributedlock.Store,
 	blacklistStore *blacklisttoken.Store,
-	authMethods *authmethod.Methods,
+	authMethods AuthMethods,
 	tokenSvc *token.Service,
 	auditPublisher AuditPublisher,
 	otpVerifier OTPVerifier,

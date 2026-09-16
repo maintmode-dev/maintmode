@@ -3,6 +3,7 @@ package authmethod
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
@@ -36,11 +37,57 @@ type AuthMethod interface {
 }
 
 type Methods struct {
-	useStub      bool
-	methodsStore map[entity.AuthMethod]AuthMethod
-	// danceProviders is the subset that can run the backend dance -- those with
-	// a client secret and a callback URL configured.
-	danceProviders map[entity.AuthMethod]struct{}
+	useStub bool
+	// builtins are the methods that are NOT configured through the registry:
+	// the break-glass admin and, on dev stands, the stub. Fixed at construction
+	// -- there is no way to add one later -- and carried here so a rebuild can
+	// say what survives it without inferring that from the snapshot it is about
+	// to replace.
+	builtins map[entity.AuthMethod]AuthMethod
+	// current is the live login configuration, replaced wholesale by the
+	// reloader and read lock-free on every request. Readers Load it once per
+	// operation so a reload cannot tear what they see.
+	current atomic.Pointer[snapshot]
+}
+
+// snapshot returns the live configuration. Callers that need more than one
+// answer about the same request MUST hold the returned pointer rather than
+// calling this repeatedly, or a reload between calls could answer two questions
+// from two different worlds.
+//
+// Unexported, along with the type it returns: handing the snapshot out made it
+// nameable by every caller, purely so another layer could reach one answer
+// through it. Callers outside get that answer directly, from the wrappers
+// below.
+func (p *Methods) snapshot() *snapshot {
+	return p.current.Load()
+}
+
+// DanceCookieSecure reports whether the OAuth dance cookies carry Secure.
+//
+// Read from the LIVE snapshot rather than captured once at handler
+// construction. It used to come from the config file, which was correct while
+// providers could only be read at boot; once they can be added at runtime, a
+// captured value freezes -- and with no providers in config it freezes at
+// "secure", which on a plain-http local stand means the browser withholds the
+// cookie and every sign-in fails as a 302 that reads as success.
+func (p *Methods) DanceCookieSecure() bool {
+	return p.snapshot().danceCookieSecure
+}
+
+// Listing returns the sign-in methods to render, in stable order.
+func (p *Methods) Listing() []entity.LoginMethodView {
+	return p.snapshot().listing
+}
+
+// Replace swaps in a new configuration. Only a fully built snapshot may be
+// passed: a partial one would be exactly the torn state the pointer exists to
+// prevent, so a failed rebuild keeps the previous snapshot live instead.
+func (p *Methods) replace(next *snapshot) {
+	if next == nil {
+		return
+	}
+	p.current.Store(next)
 }
 
 func NewAuthMethods(
@@ -65,10 +112,13 @@ func NewAuthMethods(
 	// and is a separate decision from whether the stub exists at all. It stays
 	// derived from the same isDev so the two can never disagree: a true useStub
 	// with no stub registered would make Get fail for every method.
-	return &Methods{
-		useStub:      isDev && cfg.OauthProviders.UseStub,
-		methodsStore: methodsMap,
+	m := &Methods{
+		useStub:  isDev && cfg.OauthProviders.UseStub,
+		builtins: methodsMap,
 	}
+	m.replace(newSnapshot(methodsMap, nil))
+
+	return m
 }
 
 func (p *Methods) Get(ctx context.Context, methodID entity.AuthMethod) (AuthMethod, error) {
@@ -83,7 +133,7 @@ func (p *Methods) Get(ctx context.Context, methodID entity.AuthMethod) (AuthMeth
 		methodID = entity.AuthMethodStub
 	}
 
-	method, ok := p.methodsStore[methodID]
+	method, ok := p.snapshot().methods[methodID]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, methodID)
 	}
@@ -119,7 +169,7 @@ func (p *Methods) Parse(name string) (entity.AuthMethod, bool) {
 		return "", false
 	}
 
-	if _, ok := p.methodsStore[method]; !ok {
+	if _, ok := p.snapshot().methods[method]; !ok {
 		return "", false
 	}
 
@@ -135,24 +185,33 @@ func (p *Methods) Parse(name string) (entity.AuthMethod, bool) {
 // static /login/oauth/code/exchange route, so an unvalidated parameter is how a
 // request for one route ends up served by another.
 func (p *Methods) DanceProvider(segment string) (entity.AuthMethod, bool) {
-	method, ok := p.Parse(segment)
-	if !ok {
+	// One Load for both questions. Asking the snapshot twice would let a reload
+	// land in between and answer "is it registered" and "can it dance" from two
+	// different configurations -- which is the skew this design exists to make
+	// unrepresentable.
+	current := p.snapshot()
+
+	method := entity.AuthMethod(segment)
+	if method == entity.AuthMethodStub || method == entity.AuthMethodBootstrap {
 		return "", false
 	}
-
-	if _, danceable := p.danceProviders[method]; !danceable {
+	if _, ok := current.methods[method]; !ok {
+		return "", false
+	}
+	if _, danceable := current.gateways[method]; !danceable {
 		return "", false
 	}
 
 	return method, true
 }
 
-// WithDanceProviders records which registered providers can run the dance.
-func (p *Methods) WithDanceProviders(names []string) *Methods {
-	p.danceProviders = make(map[entity.AuthMethod]struct{}, len(names))
-	for _, name := range names {
-		p.danceProviders[entity.AuthMethod(name)] = struct{}{}
-	}
+// DanceGateway returns the confidential-client half serving a provider.
+//
+// It lives beside DanceProvider so both answers come from one snapshot: a
+// caller that established a provider is danceable must be able to obtain the
+// gateway that made it so, not one from a configuration that replaced it.
+func (p *Methods) DanceGateway(method entity.AuthMethod) (Gateway, bool) {
+	gateway, ok := p.snapshot().gateways[method]
 
-	return p
+	return gateway, ok
 }

@@ -67,7 +67,7 @@ type Service struct {
 
 // NewProvider creates a provider for the instance named name.
 //
-// It does not reach the network. Discovery is attempted by Warm at startup and,
+// It does not reach the network. Discovery is attempted on first use and,
 // failing that, on first use — so an IdP that is down when the process starts
 // costs that instance's sign-ins, not the boot.
 func NewProvider(name string, cfg config.OIDCProvider, discovery resolver) *Service {
@@ -85,17 +85,6 @@ func NewProvider(name string, cfg config.OIDCProvider, discovery resolver) *Serv
 
 func (s *Service) MethodID() entity.AuthMethod {
 	return s.name
-}
-
-// Warm resolves discovery ahead of first use.
-//
-// Startup calls this for every instance and ignores the error beyond logging
-// it: a provider whose IdP is unreachable must not stop the others, or the
-// process, from coming up.
-func (s *Service) Warm(ctx context.Context) error {
-	_, err := s.resolveVerifier(ctx)
-
-	return err
 }
 
 // verifier returns this instance's token verifier, building it on first use.

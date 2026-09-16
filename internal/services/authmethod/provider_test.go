@@ -1,4 +1,4 @@
-package authmethod_test
+package authmethod
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/authmethod"
 )
 
 // fakeProvider is a minimal AuthMethod stand-in. The registry only ever calls
@@ -46,9 +45,9 @@ func TestProvidersGet(t *testing.T) {
 		t.Parallel()
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, false),
-			[]authmethod.AuthMethod{google},
+			[]AuthMethod{google},
 		)
 
 		got, err := providers.Get(ctx, entity.AuthMethodGoogle)
@@ -64,9 +63,9 @@ func TestProvidersGet(t *testing.T) {
 		t.Parallel()
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.DevEnvironment, true),
-			[]authmethod.AuthMethod{google},
+			[]AuthMethod{google},
 		)
 
 		// The stub short-circuits every lookup in dev, including a request for a
@@ -80,9 +79,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("stub short-circuits even an unknown provider name in dev", func(t *testing.T) {
 		t.Parallel()
 
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.LocalEnvironment, true),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		// IsDev() is true for "local" too, so the stub gate opens there as well and
@@ -96,9 +95,9 @@ func TestProvidersGet(t *testing.T) {
 		t.Parallel()
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, true),
-			[]authmethod.AuthMethod{google},
+			[]AuthMethod{google},
 		)
 
 		// This is the security-relevant half of the AND at provider.go:46 — a stray
@@ -113,9 +112,9 @@ func TestProvidersGet(t *testing.T) {
 		t.Parallel()
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.DevEnvironment, false),
-			[]authmethod.AuthMethod{google},
+			[]AuthMethod{google},
 		)
 
 		// The other half of the AND: dev alone must not enable the stub.
@@ -127,9 +126,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("unknown provider is a wrapped ErrUnsupportedProvider", func(t *testing.T) {
 		t.Parallel()
 
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, false),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		got, err := providers.Get(ctx, entity.AuthMethodGithub)
@@ -149,9 +148,9 @@ func TestProvidersGet(t *testing.T) {
 		// AuthMethodBootstrap left this list once it gained an implementation;
 		// AuthMethodEmail is still vocabulary-only.
 		for _, method := range []entity.AuthMethod{entity.AuthMethodEmail} {
-			methods := authmethod.NewAuthMethods(
+			methods := NewAuthMethods(
 				newConfig(config.DevEnvironment, false),
-				[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+				[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 			)
 
 			got, err := methods.Get(ctx, method)
@@ -163,9 +162,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("unknown provider error names the provider that was requested", func(t *testing.T) {
 		t.Parallel()
 
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, false),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		_, err := providers.Get(ctx, entity.AuthMethodGithub)
@@ -182,9 +181,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("the stub is not registered outside dev", func(t *testing.T) {
 		t.Parallel()
 
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, false),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		// The stub accepts any token and mints an identity, so outside dev it must
@@ -199,9 +198,9 @@ func TestProvidersGet(t *testing.T) {
 	t.Run("the stub is unreachable in prod even when useStub is set", func(t *testing.T) {
 		t.Parallel()
 
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, true),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		// A stray use_stub=true in a prod config must not resurrect the stub by
@@ -216,9 +215,9 @@ func TestProvidersGet(t *testing.T) {
 		t.Parallel()
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, true),
-			[]authmethod.AuthMethod{google},
+			[]AuthMethod{google},
 		)
 
 		// Guards the failure mode the shared isDev exists to prevent: a useStub
@@ -235,9 +234,9 @@ func TestProvidersGet(t *testing.T) {
 
 		google := &fakeProvider{id: entity.AuthMethodGoogle}
 		github := &fakeProvider{id: entity.AuthMethodGithub}
-		providers := authmethod.NewAuthMethods(
+		providers := NewAuthMethods(
 			newConfig(config.ProdEnvironment, false),
-			[]authmethod.AuthMethod{google, github},
+			[]AuthMethod{google, github},
 		)
 
 		gotGoogle, err := providers.Get(ctx, entity.AuthMethodGoogle)
@@ -268,9 +267,9 @@ func TestProvidersGet_BootstrapBypassesTheStub(t *testing.T) {
 
 	bootstrap := &fakeProvider{id: entity.AuthMethodBootstrap}
 	stub := &fakeProvider{id: entity.AuthMethodStub}
-	methods := authmethod.NewAuthMethods(
+	methods := NewAuthMethods(
 		newConfig(config.DevEnvironment, true),
-		[]authmethod.AuthMethod{bootstrap, stub, &fakeProvider{id: entity.AuthMethodGoogle}},
+		[]AuthMethod{bootstrap, stub, &fakeProvider{id: entity.AuthMethodGoogle}},
 	)
 
 	got, err := methods.Get(ctx, entity.AuthMethodBootstrap)
@@ -294,9 +293,9 @@ func TestProvidersGet_BootstrapBypassesTheStub(t *testing.T) {
 func TestMethodsParse(t *testing.T) {
 	t.Parallel()
 
-	methods := authmethod.NewAuthMethods(
+	methods := NewAuthMethods(
 		newConfig(config.ProdEnvironment, false),
-		[]authmethod.AuthMethod{
+		[]AuthMethod{
 			&fakeProvider{id: entity.AuthMethodGoogle},
 			// A name that no compiled-in list ever knew about: this is the whole
 			// point of configuring providers instead of compiling them in.
@@ -344,9 +343,9 @@ func TestMethodsParse(t *testing.T) {
 	t.Run("refuses the stub where it is registered", func(t *testing.T) {
 		t.Parallel()
 
-		dev := authmethod.NewAuthMethods(
+		dev := NewAuthMethods(
 			newConfig(config.DevEnvironment, false),
-			[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+			[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 		)
 
 		_, ok := dev.Parse("stub")
@@ -373,13 +372,23 @@ func TestMethodsParse(t *testing.T) {
 func TestMethodsDanceProvider(t *testing.T) {
 	t.Parallel()
 
-	methods := authmethod.NewAuthMethods(
-		newConfig(config.ProdEnvironment, false),
-		[]authmethod.AuthMethod{
-			&fakeProvider{id: entity.AuthMethodGoogle},
-			&fakeProvider{id: entity.AuthMethod("acme")},
+	// Danceability now follows from having a gateway rather than from a
+	// separate name list: a provider can run the backend dance exactly when the
+	// confidential half was built for it, so the two can no longer disagree.
+	methods := NewAuthMethods(newConfig(config.ProdEnvironment, false), nil)
+	methods.installProviders([]providerInput{
+		{
+			ID:     entity.AuthMethodGoogle,
+			Method: &fakeProvider{id: entity.AuthMethodGoogle},
+			Health: entity.LoginProviderHealthOK,
 		},
-	).WithDanceProviders([]string{"acme"})
+		{
+			ID:      entity.AuthMethod("acme"),
+			Method:  &fakeProvider{id: entity.AuthMethod("acme")},
+			Gateway: noopGateway{},
+			Health:  entity.LoginProviderHealthOK,
+		},
+	})
 
 	t.Run("accepts a provider with dance credentials", func(t *testing.T) {
 		t.Parallel()
@@ -420,9 +429,9 @@ func TestStubSubstitutionYieldsVerifiedClaims(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	methods := authmethod.NewAuthMethods(
+	methods := NewAuthMethods(
 		newConfig(config.DevEnvironment, true),
-		[]authmethod.AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
+		[]AuthMethod{&fakeProvider{id: entity.AuthMethodGoogle}},
 	)
 
 	method, err := methods.Get(ctx, entity.AuthMethodGoogle)
