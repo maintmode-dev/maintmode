@@ -353,7 +353,13 @@ type ApimodelsCreateDraftMaintResponse struct {
 type ApimodelsCreateIntegrationRequest struct {
 	Config  *map[string]interface{} `json:"config,omitempty"`
 	Enabled *bool                   `json:"enabled,omitempty"`
-	Kind    *string                 `json:"kind,omitempty"`
+
+	// Kind Kind is the category: "notify" or "login".
+	Kind *string `json:"kind,omitempty"`
+
+	// Name Name is the system. REQUIRED. For a login provider it is the identity its
+	// users authenticate against, so it cannot be changed afterwards.
+	Name    *string                 `json:"name,omitempty"`
 	Secrets *map[string]interface{} `json:"secrets,omitempty"`
 }
 
@@ -371,12 +377,31 @@ type ApimodelsDeferredNotification struct {
 
 // ApimodelsIntegration defines model for apimodels.Integration.
 type ApimodelsIntegration struct {
-	Config     *map[string]interface{}                                                     `json:"config,omitempty"`
-	CreatedAt  *time.Time                                                                  `json:"created_at,omitempty"`
-	CreatedBy  *GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary `json:"created_by,omitempty"`
-	Enabled    *bool                                                                       `json:"enabled,omitempty"`
-	Id         *openapi_types.UUID                                                         `json:"id,omitempty"`
-	Kind       *string                                                                     `json:"kind,omitempty"`
+	Config    *map[string]interface{}                                                     `json:"config,omitempty"`
+	CreatedAt *time.Time                                                                  `json:"created_at,omitempty"`
+	CreatedBy *GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary `json:"created_by,omitempty"`
+	Enabled   *bool                                                                       `json:"enabled,omitempty"`
+
+	// Health Health is present for login providers only, and reports whether the
+	// provider can actually be used: "ok", "unresolved" (discovery has not
+	// answered, so it is listed but refuses sign-in), "disabled", or
+	// "unreadable" (its stored secret will not decrypt).
+	//
+	// The sign-in page deliberately does NOT use this -- it reports what is
+	// configured, not what is reachable, and probing every IdP to render a login
+	// form would be a self-inflicted outage. This is the admin-facing answer to
+	// "I saved it, why does it not work".
+	Health *string             `json:"health,omitempty"`
+	Id     *openapi_types.UUID `json:"id,omitempty"`
+
+	// Kind Kind is the CATEGORY the row belongs to: "notify" or "login".
+	Kind *string `json:"kind,omitempty"`
+
+	// Name Name is the SYSTEM it connects to: slack, telegram, email, google or
+	// custom. Together with Kind it is the row's identity AND the path that
+	// addresses it: clients build /api/v1/integrations/{kind}/{name} from these
+	// two fields rather than assembling an identifier of their own.
+	Name       *string                                                                     `json:"name,omitempty"`
 	SecretsSet *map[string]bool                                                            `json:"secrets_set,omitempty"`
 	UpdatedAt  *time.Time                                                                  `json:"updated_at,omitempty"`
 	UpdatedBy  *GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary `json:"updated_by,omitempty"`
@@ -955,14 +980,14 @@ type GetUiV1CalendarParamsStatuses string
 // PostApiV1IntegrationsJSONRequestBody defines body for PostApiV1Integrations for application/json ContentType.
 type PostApiV1IntegrationsJSONRequestBody = ApimodelsCreateIntegrationRequest
 
-// PostApiV1IntegrationsEmailTestJSONRequestBody defines body for PostApiV1IntegrationsEmailTest for application/json ContentType.
-type PostApiV1IntegrationsEmailTestJSONRequestBody = ApimodelsTestIntegrationRequest
+// PostApiV1IntegrationsNotifyEmailTestJSONRequestBody defines body for PostApiV1IntegrationsNotifyEmailTest for application/json ContentType.
+type PostApiV1IntegrationsNotifyEmailTestJSONRequestBody = ApimodelsTestIntegrationRequest
 
-// PatchApiV1IntegrationsKindJSONRequestBody defines body for PatchApiV1IntegrationsKind for application/json ContentType.
-type PatchApiV1IntegrationsKindJSONRequestBody = ApimodelsUpdateIntegrationRequest
+// PatchApiV1IntegrationsKindNameJSONRequestBody defines body for PatchApiV1IntegrationsKindName for application/json ContentType.
+type PatchApiV1IntegrationsKindNameJSONRequestBody = ApimodelsUpdateIntegrationRequest
 
-// PostApiV1IntegrationsKindToggleJSONRequestBody defines body for PostApiV1IntegrationsKindToggle for application/json ContentType.
-type PostApiV1IntegrationsKindToggleJSONRequestBody = ApimodelsToggleIntegrationRequest
+// PostApiV1IntegrationsKindNameToggleJSONRequestBody defines body for PostApiV1IntegrationsKindNameToggle for application/json ContentType.
+type PostApiV1IntegrationsKindNameToggleJSONRequestBody = ApimodelsToggleIntegrationRequest
 
 // PostApiV1MaintenancesCreateJSONRequestBody defines body for PostApiV1MaintenancesCreate for application/json ContentType.
 type PostApiV1MaintenancesCreateJSONRequestBody = ApimodelsCreateDraftMaintRequest
@@ -1069,23 +1094,26 @@ type ClientInterface interface {
 
 	PostApiV1Integrations(ctx context.Context, body PostApiV1IntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1IntegrationsEmailTestWithBody request with any body
-	PostApiV1IntegrationsEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1IntegrationsNotifyEmailTestWithBody request with any body
+	PostApiV1IntegrationsNotifyEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostApiV1IntegrationsEmailTest(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostApiV1IntegrationsNotifyEmailTest(ctx context.Context, body PostApiV1IntegrationsNotifyEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetApiV1IntegrationsKind request
-	GetApiV1IntegrationsKind(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteApiV1IntegrationsKindName request
+	DeleteApiV1IntegrationsKindName(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PatchApiV1IntegrationsKindWithBody request with any body
-	PatchApiV1IntegrationsKindWithBody(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetApiV1IntegrationsKindName request
+	GetApiV1IntegrationsKindName(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PatchApiV1IntegrationsKind(ctx context.Context, kind string, body PatchApiV1IntegrationsKindJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PatchApiV1IntegrationsKindNameWithBody request with any body
+	PatchApiV1IntegrationsKindNameWithBody(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1IntegrationsKindToggleWithBody request with any body
-	PostApiV1IntegrationsKindToggleWithBody(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PatchApiV1IntegrationsKindName(ctx context.Context, kind string, name string, body PatchApiV1IntegrationsKindNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostApiV1IntegrationsKindToggle(ctx context.Context, kind string, body PostApiV1IntegrationsKindToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1IntegrationsKindNameToggleWithBody request with any body
+	PostApiV1IntegrationsKindNameToggleWithBody(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1IntegrationsKindNameToggle(ctx context.Context, kind string, name string, body PostApiV1IntegrationsKindNameToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1MaintenancesCancelReasons request
 	GetApiV1MaintenancesCancelReasons(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1227,8 +1255,8 @@ func (c *Client) PostApiV1Integrations(ctx context.Context, body PostApiV1Integr
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1IntegrationsEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1IntegrationsEmailTestRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostApiV1IntegrationsNotifyEmailTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsNotifyEmailTestRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1239,8 +1267,8 @@ func (c *Client) PostApiV1IntegrationsEmailTestWithBody(ctx context.Context, con
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1IntegrationsEmailTest(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1IntegrationsEmailTestRequest(c.Server, body)
+func (c *Client) PostApiV1IntegrationsNotifyEmailTest(ctx context.Context, body PostApiV1IntegrationsNotifyEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsNotifyEmailTestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,8 +1279,8 @@ func (c *Client) PostApiV1IntegrationsEmailTest(ctx context.Context, body PostAp
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1IntegrationsKind(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1IntegrationsKindRequest(c.Server, kind)
+func (c *Client) DeleteApiV1IntegrationsKindName(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1IntegrationsKindNameRequest(c.Server, kind, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,8 +1291,8 @@ func (c *Client) GetApiV1IntegrationsKind(ctx context.Context, kind string, reqE
 	return c.Client.Do(req)
 }
 
-func (c *Client) PatchApiV1IntegrationsKindWithBody(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchApiV1IntegrationsKindRequestWithBody(c.Server, kind, contentType, body)
+func (c *Client) GetApiV1IntegrationsKindName(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1IntegrationsKindNameRequest(c.Server, kind, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1275,8 +1303,8 @@ func (c *Client) PatchApiV1IntegrationsKindWithBody(ctx context.Context, kind st
 	return c.Client.Do(req)
 }
 
-func (c *Client) PatchApiV1IntegrationsKind(ctx context.Context, kind string, body PatchApiV1IntegrationsKindJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchApiV1IntegrationsKindRequest(c.Server, kind, body)
+func (c *Client) PatchApiV1IntegrationsKindNameWithBody(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1IntegrationsKindNameRequestWithBody(c.Server, kind, name, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1287,8 +1315,8 @@ func (c *Client) PatchApiV1IntegrationsKind(ctx context.Context, kind string, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1IntegrationsKindToggleWithBody(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1IntegrationsKindToggleRequestWithBody(c.Server, kind, contentType, body)
+func (c *Client) PatchApiV1IntegrationsKindName(ctx context.Context, kind string, name string, body PatchApiV1IntegrationsKindNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1IntegrationsKindNameRequest(c.Server, kind, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1299,8 +1327,20 @@ func (c *Client) PostApiV1IntegrationsKindToggleWithBody(ctx context.Context, ki
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1IntegrationsKindToggle(ctx context.Context, kind string, body PostApiV1IntegrationsKindToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1IntegrationsKindToggleRequest(c.Server, kind, body)
+func (c *Client) PostApiV1IntegrationsKindNameToggleWithBody(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsKindNameToggleRequestWithBody(c.Server, kind, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1IntegrationsKindNameToggle(ctx context.Context, kind string, name string, body PostApiV1IntegrationsKindNameToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1IntegrationsKindNameToggleRequest(c.Server, kind, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1822,19 +1862,19 @@ func NewPostApiV1IntegrationsRequestWithBody(server string, contentType string, 
 	return req, nil
 }
 
-// NewPostApiV1IntegrationsEmailTestRequest calls the generic PostApiV1IntegrationsEmailTest builder with application/json body
-func NewPostApiV1IntegrationsEmailTestRequest(server string, body PostApiV1IntegrationsEmailTestJSONRequestBody) (*http.Request, error) {
+// NewPostApiV1IntegrationsNotifyEmailTestRequest calls the generic PostApiV1IntegrationsNotifyEmailTest builder with application/json body
+func NewPostApiV1IntegrationsNotifyEmailTestRequest(server string, body PostApiV1IntegrationsNotifyEmailTestJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostApiV1IntegrationsEmailTestRequestWithBody(server, "application/json", bodyReader)
+	return NewPostApiV1IntegrationsNotifyEmailTestRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewPostApiV1IntegrationsEmailTestRequestWithBody generates requests for PostApiV1IntegrationsEmailTest with any type of body
-func NewPostApiV1IntegrationsEmailTestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPostApiV1IntegrationsNotifyEmailTestRequestWithBody generates requests for PostApiV1IntegrationsNotifyEmailTest with any type of body
+func NewPostApiV1IntegrationsNotifyEmailTestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1842,7 +1882,7 @@ func NewPostApiV1IntegrationsEmailTestRequestWithBody(server string, contentType
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/integrations/email/test")
+	operationPath := fmt.Sprintf("/api/v1/integrations/notify/email/test")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1862,8 +1902,8 @@ func NewPostApiV1IntegrationsEmailTestRequestWithBody(server string, contentType
 	return req, nil
 }
 
-// NewGetApiV1IntegrationsKindRequest generates requests for GetApiV1IntegrationsKind
-func NewGetApiV1IntegrationsKindRequest(server string, kind string) (*http.Request, error) {
+// NewDeleteApiV1IntegrationsKindNameRequest generates requests for DeleteApiV1IntegrationsKindName
+func NewDeleteApiV1IntegrationsKindNameRequest(server string, kind string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1873,12 +1913,60 @@ func NewGetApiV1IntegrationsKindRequest(server string, kind string) (*http.Reque
 		return nil, err
 	}
 
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/integrations/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/integrations/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiV1IntegrationsKindNameRequest generates requests for GetApiV1IntegrationsKindName
+func NewGetApiV1IntegrationsKindNameRequest(server string, kind string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "kind", kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/integrations/%s/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1896,19 +1984,19 @@ func NewGetApiV1IntegrationsKindRequest(server string, kind string) (*http.Reque
 	return req, nil
 }
 
-// NewPatchApiV1IntegrationsKindRequest calls the generic PatchApiV1IntegrationsKind builder with application/json body
-func NewPatchApiV1IntegrationsKindRequest(server string, kind string, body PatchApiV1IntegrationsKindJSONRequestBody) (*http.Request, error) {
+// NewPatchApiV1IntegrationsKindNameRequest calls the generic PatchApiV1IntegrationsKindName builder with application/json body
+func NewPatchApiV1IntegrationsKindNameRequest(server string, kind string, name string, body PatchApiV1IntegrationsKindNameJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPatchApiV1IntegrationsKindRequestWithBody(server, kind, "application/json", bodyReader)
+	return NewPatchApiV1IntegrationsKindNameRequestWithBody(server, kind, name, "application/json", bodyReader)
 }
 
-// NewPatchApiV1IntegrationsKindRequestWithBody generates requests for PatchApiV1IntegrationsKind with any type of body
-func NewPatchApiV1IntegrationsKindRequestWithBody(server string, kind string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPatchApiV1IntegrationsKindNameRequestWithBody generates requests for PatchApiV1IntegrationsKindName with any type of body
+func NewPatchApiV1IntegrationsKindNameRequestWithBody(server string, kind string, name string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1918,12 +2006,19 @@ func NewPatchApiV1IntegrationsKindRequestWithBody(server string, kind string, co
 		return nil, err
 	}
 
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/integrations/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/integrations/%s/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1943,19 +2038,19 @@ func NewPatchApiV1IntegrationsKindRequestWithBody(server string, kind string, co
 	return req, nil
 }
 
-// NewPostApiV1IntegrationsKindToggleRequest calls the generic PostApiV1IntegrationsKindToggle builder with application/json body
-func NewPostApiV1IntegrationsKindToggleRequest(server string, kind string, body PostApiV1IntegrationsKindToggleJSONRequestBody) (*http.Request, error) {
+// NewPostApiV1IntegrationsKindNameToggleRequest calls the generic PostApiV1IntegrationsKindNameToggle builder with application/json body
+func NewPostApiV1IntegrationsKindNameToggleRequest(server string, kind string, name string, body PostApiV1IntegrationsKindNameToggleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostApiV1IntegrationsKindToggleRequestWithBody(server, kind, "application/json", bodyReader)
+	return NewPostApiV1IntegrationsKindNameToggleRequestWithBody(server, kind, name, "application/json", bodyReader)
 }
 
-// NewPostApiV1IntegrationsKindToggleRequestWithBody generates requests for PostApiV1IntegrationsKindToggle with any type of body
-func NewPostApiV1IntegrationsKindToggleRequestWithBody(server string, kind string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPostApiV1IntegrationsKindNameToggleRequestWithBody generates requests for PostApiV1IntegrationsKindNameToggle with any type of body
+func NewPostApiV1IntegrationsKindNameToggleRequestWithBody(server string, kind string, name string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1965,12 +2060,19 @@ func NewPostApiV1IntegrationsKindToggleRequestWithBody(server string, kind strin
 		return nil, err
 	}
 
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/integrations/%s/toggle", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/integrations/%s/%s/toggle", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3393,23 +3495,26 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1IntegrationsWithResponse(ctx context.Context, body PostApiV1IntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsResponse, error)
 
-	// PostApiV1IntegrationsEmailTestWithBodyWithResponse request with any body
-	PostApiV1IntegrationsEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error)
+	// PostApiV1IntegrationsNotifyEmailTestWithBodyWithResponse request with any body
+	PostApiV1IntegrationsNotifyEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsNotifyEmailTestResponse, error)
 
-	PostApiV1IntegrationsEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error)
+	PostApiV1IntegrationsNotifyEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsNotifyEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsNotifyEmailTestResponse, error)
 
-	// GetApiV1IntegrationsKindWithResponse request
-	GetApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindResponse, error)
+	// DeleteApiV1IntegrationsKindNameWithResponse request
+	DeleteApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*DeleteApiV1IntegrationsKindNameResponse, error)
 
-	// PatchApiV1IntegrationsKindWithBodyWithResponse request with any body
-	PatchApiV1IntegrationsKindWithBodyWithResponse(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindResponse, error)
+	// GetApiV1IntegrationsKindNameWithResponse request
+	GetApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindNameResponse, error)
 
-	PatchApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, body PatchApiV1IntegrationsKindJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindResponse, error)
+	// PatchApiV1IntegrationsKindNameWithBodyWithResponse request with any body
+	PatchApiV1IntegrationsKindNameWithBodyWithResponse(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindNameResponse, error)
 
-	// PostApiV1IntegrationsKindToggleWithBodyWithResponse request with any body
-	PostApiV1IntegrationsKindToggleWithBodyWithResponse(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindToggleResponse, error)
+	PatchApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, body PatchApiV1IntegrationsKindNameJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindNameResponse, error)
 
-	PostApiV1IntegrationsKindToggleWithResponse(ctx context.Context, kind string, body PostApiV1IntegrationsKindToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindToggleResponse, error)
+	// PostApiV1IntegrationsKindNameToggleWithBodyWithResponse request with any body
+	PostApiV1IntegrationsKindNameToggleWithBodyWithResponse(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindNameToggleResponse, error)
+
+	PostApiV1IntegrationsKindNameToggleWithResponse(ctx context.Context, kind string, name string, body PostApiV1IntegrationsKindNameToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindNameToggleResponse, error)
 
 	// GetApiV1MaintenancesCancelReasonsWithResponse request
 	GetApiV1MaintenancesCancelReasonsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1MaintenancesCancelReasonsResponse, error)
@@ -3579,7 +3684,7 @@ func (r PostApiV1IntegrationsResponse) ContentType() string {
 	return ""
 }
 
-type PostApiV1IntegrationsEmailTestResponse struct {
+type PostApiV1IntegrationsNotifyEmailTestResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *HttperrorsErrorResponse
@@ -3588,7 +3693,7 @@ type PostApiV1IntegrationsEmailTestResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1IntegrationsEmailTestResponse) Status() string {
+func (r PostApiV1IntegrationsNotifyEmailTestResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3596,7 +3701,7 @@ func (r PostApiV1IntegrationsEmailTestResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1IntegrationsEmailTestResponse) StatusCode() int {
+func (r PostApiV1IntegrationsNotifyEmailTestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3604,14 +3709,46 @@ func (r PostApiV1IntegrationsEmailTestResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PostApiV1IntegrationsEmailTestResponse) ContentType() string {
+func (r PostApiV1IntegrationsNotifyEmailTestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type GetApiV1IntegrationsKindResponse struct {
+type DeleteApiV1IntegrationsKindNameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+	JSON409      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiV1IntegrationsKindNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiV1IntegrationsKindNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiV1IntegrationsKindNameResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1IntegrationsKindNameResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ApimodelsIntegration
@@ -3620,7 +3757,7 @@ type GetApiV1IntegrationsKindResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetApiV1IntegrationsKindResponse) Status() string {
+func (r GetApiV1IntegrationsKindNameResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3628,7 +3765,7 @@ func (r GetApiV1IntegrationsKindResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetApiV1IntegrationsKindResponse) StatusCode() int {
+func (r GetApiV1IntegrationsKindNameResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3636,14 +3773,14 @@ func (r GetApiV1IntegrationsKindResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetApiV1IntegrationsKindResponse) ContentType() string {
+func (r GetApiV1IntegrationsKindNameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type PatchApiV1IntegrationsKindResponse struct {
+type PatchApiV1IntegrationsKindNameResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ApimodelsIntegration
@@ -3653,7 +3790,7 @@ type PatchApiV1IntegrationsKindResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PatchApiV1IntegrationsKindResponse) Status() string {
+func (r PatchApiV1IntegrationsKindNameResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3661,7 +3798,7 @@ func (r PatchApiV1IntegrationsKindResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PatchApiV1IntegrationsKindResponse) StatusCode() int {
+func (r PatchApiV1IntegrationsKindNameResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3669,14 +3806,14 @@ func (r PatchApiV1IntegrationsKindResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PatchApiV1IntegrationsKindResponse) ContentType() string {
+func (r PatchApiV1IntegrationsKindNameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type PostApiV1IntegrationsKindToggleResponse struct {
+type PostApiV1IntegrationsKindNameToggleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ApimodelsIntegration
@@ -3686,7 +3823,7 @@ type PostApiV1IntegrationsKindToggleResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1IntegrationsKindToggleResponse) Status() string {
+func (r PostApiV1IntegrationsKindNameToggleResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3694,7 +3831,7 @@ func (r PostApiV1IntegrationsKindToggleResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1IntegrationsKindToggleResponse) StatusCode() int {
+func (r PostApiV1IntegrationsKindNameToggleResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3702,7 +3839,7 @@ func (r PostApiV1IntegrationsKindToggleResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PostApiV1IntegrationsKindToggleResponse) ContentType() string {
+func (r PostApiV1IntegrationsKindNameToggleResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4748,64 +4885,73 @@ func (c *ClientWithResponses) PostApiV1IntegrationsWithResponse(ctx context.Cont
 	return ParsePostApiV1IntegrationsResponse(rsp)
 }
 
-// PostApiV1IntegrationsEmailTestWithBodyWithResponse request with arbitrary body returning *PostApiV1IntegrationsEmailTestResponse
-func (c *ClientWithResponses) PostApiV1IntegrationsEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error) {
-	rsp, err := c.PostApiV1IntegrationsEmailTestWithBody(ctx, contentType, body, reqEditors...)
+// PostApiV1IntegrationsNotifyEmailTestWithBodyWithResponse request with arbitrary body returning *PostApiV1IntegrationsNotifyEmailTestResponse
+func (c *ClientWithResponses) PostApiV1IntegrationsNotifyEmailTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsNotifyEmailTestResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsNotifyEmailTestWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1IntegrationsEmailTestResponse(rsp)
+	return ParsePostApiV1IntegrationsNotifyEmailTestResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostApiV1IntegrationsEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsEmailTestResponse, error) {
-	rsp, err := c.PostApiV1IntegrationsEmailTest(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostApiV1IntegrationsNotifyEmailTestWithResponse(ctx context.Context, body PostApiV1IntegrationsNotifyEmailTestJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsNotifyEmailTestResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsNotifyEmailTest(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1IntegrationsEmailTestResponse(rsp)
+	return ParsePostApiV1IntegrationsNotifyEmailTestResponse(rsp)
 }
 
-// GetApiV1IntegrationsKindWithResponse request returning *GetApiV1IntegrationsKindResponse
-func (c *ClientWithResponses) GetApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindResponse, error) {
-	rsp, err := c.GetApiV1IntegrationsKind(ctx, kind, reqEditors...)
+// DeleteApiV1IntegrationsKindNameWithResponse request returning *DeleteApiV1IntegrationsKindNameResponse
+func (c *ClientWithResponses) DeleteApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*DeleteApiV1IntegrationsKindNameResponse, error) {
+	rsp, err := c.DeleteApiV1IntegrationsKindName(ctx, kind, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetApiV1IntegrationsKindResponse(rsp)
+	return ParseDeleteApiV1IntegrationsKindNameResponse(rsp)
 }
 
-// PatchApiV1IntegrationsKindWithBodyWithResponse request with arbitrary body returning *PatchApiV1IntegrationsKindResponse
-func (c *ClientWithResponses) PatchApiV1IntegrationsKindWithBodyWithResponse(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindResponse, error) {
-	rsp, err := c.PatchApiV1IntegrationsKindWithBody(ctx, kind, contentType, body, reqEditors...)
+// GetApiV1IntegrationsKindNameWithResponse request returning *GetApiV1IntegrationsKindNameResponse
+func (c *ClientWithResponses) GetApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, reqEditors ...RequestEditorFn) (*GetApiV1IntegrationsKindNameResponse, error) {
+	rsp, err := c.GetApiV1IntegrationsKindName(ctx, kind, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePatchApiV1IntegrationsKindResponse(rsp)
+	return ParseGetApiV1IntegrationsKindNameResponse(rsp)
 }
 
-func (c *ClientWithResponses) PatchApiV1IntegrationsKindWithResponse(ctx context.Context, kind string, body PatchApiV1IntegrationsKindJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindResponse, error) {
-	rsp, err := c.PatchApiV1IntegrationsKind(ctx, kind, body, reqEditors...)
+// PatchApiV1IntegrationsKindNameWithBodyWithResponse request with arbitrary body returning *PatchApiV1IntegrationsKindNameResponse
+func (c *ClientWithResponses) PatchApiV1IntegrationsKindNameWithBodyWithResponse(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindNameResponse, error) {
+	rsp, err := c.PatchApiV1IntegrationsKindNameWithBody(ctx, kind, name, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePatchApiV1IntegrationsKindResponse(rsp)
+	return ParsePatchApiV1IntegrationsKindNameResponse(rsp)
 }
 
-// PostApiV1IntegrationsKindToggleWithBodyWithResponse request with arbitrary body returning *PostApiV1IntegrationsKindToggleResponse
-func (c *ClientWithResponses) PostApiV1IntegrationsKindToggleWithBodyWithResponse(ctx context.Context, kind string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindToggleResponse, error) {
-	rsp, err := c.PostApiV1IntegrationsKindToggleWithBody(ctx, kind, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PatchApiV1IntegrationsKindNameWithResponse(ctx context.Context, kind string, name string, body PatchApiV1IntegrationsKindNameJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1IntegrationsKindNameResponse, error) {
+	rsp, err := c.PatchApiV1IntegrationsKindName(ctx, kind, name, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1IntegrationsKindToggleResponse(rsp)
+	return ParsePatchApiV1IntegrationsKindNameResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostApiV1IntegrationsKindToggleWithResponse(ctx context.Context, kind string, body PostApiV1IntegrationsKindToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindToggleResponse, error) {
-	rsp, err := c.PostApiV1IntegrationsKindToggle(ctx, kind, body, reqEditors...)
+// PostApiV1IntegrationsKindNameToggleWithBodyWithResponse request with arbitrary body returning *PostApiV1IntegrationsKindNameToggleResponse
+func (c *ClientWithResponses) PostApiV1IntegrationsKindNameToggleWithBodyWithResponse(ctx context.Context, kind string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindNameToggleResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsKindNameToggleWithBody(ctx, kind, name, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1IntegrationsKindToggleResponse(rsp)
+	return ParsePostApiV1IntegrationsKindNameToggleResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1IntegrationsKindNameToggleWithResponse(ctx context.Context, kind string, name string, body PostApiV1IntegrationsKindNameToggleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1IntegrationsKindNameToggleResponse, error) {
+	rsp, err := c.PostApiV1IntegrationsKindNameToggle(ctx, kind, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1IntegrationsKindNameToggleResponse(rsp)
 }
 
 // GetApiV1MaintenancesCancelReasonsWithResponse request returning *GetApiV1MaintenancesCancelReasonsResponse
@@ -5213,15 +5359,15 @@ func ParsePostApiV1IntegrationsResponse(rsp *http.Response) (*PostApiV1Integrati
 	return response, nil
 }
 
-// ParsePostApiV1IntegrationsEmailTestResponse parses an HTTP response from a PostApiV1IntegrationsEmailTestWithResponse call
-func ParsePostApiV1IntegrationsEmailTestResponse(rsp *http.Response) (*PostApiV1IntegrationsEmailTestResponse, error) {
+// ParsePostApiV1IntegrationsNotifyEmailTestResponse parses an HTTP response from a PostApiV1IntegrationsNotifyEmailTestWithResponse call
+func ParsePostApiV1IntegrationsNotifyEmailTestResponse(rsp *http.Response) (*PostApiV1IntegrationsNotifyEmailTestResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1IntegrationsEmailTestResponse{
+	response := &PostApiV1IntegrationsNotifyEmailTestResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5253,15 +5399,55 @@ func ParsePostApiV1IntegrationsEmailTestResponse(rsp *http.Response) (*PostApiV1
 	return response, nil
 }
 
-// ParseGetApiV1IntegrationsKindResponse parses an HTTP response from a GetApiV1IntegrationsKindWithResponse call
-func ParseGetApiV1IntegrationsKindResponse(rsp *http.Response) (*GetApiV1IntegrationsKindResponse, error) {
+// ParseDeleteApiV1IntegrationsKindNameResponse parses an HTTP response from a DeleteApiV1IntegrationsKindNameWithResponse call
+func ParseDeleteApiV1IntegrationsKindNameResponse(rsp *http.Response) (*DeleteApiV1IntegrationsKindNameResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetApiV1IntegrationsKindResponse{
+	response := &DeleteApiV1IntegrationsKindNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1IntegrationsKindNameResponse parses an HTTP response from a GetApiV1IntegrationsKindNameWithResponse call
+func ParseGetApiV1IntegrationsKindNameResponse(rsp *http.Response) (*GetApiV1IntegrationsKindNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1IntegrationsKindNameResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5293,15 +5479,15 @@ func ParseGetApiV1IntegrationsKindResponse(rsp *http.Response) (*GetApiV1Integra
 	return response, nil
 }
 
-// ParsePatchApiV1IntegrationsKindResponse parses an HTTP response from a PatchApiV1IntegrationsKindWithResponse call
-func ParsePatchApiV1IntegrationsKindResponse(rsp *http.Response) (*PatchApiV1IntegrationsKindResponse, error) {
+// ParsePatchApiV1IntegrationsKindNameResponse parses an HTTP response from a PatchApiV1IntegrationsKindNameWithResponse call
+func ParsePatchApiV1IntegrationsKindNameResponse(rsp *http.Response) (*PatchApiV1IntegrationsKindNameResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PatchApiV1IntegrationsKindResponse{
+	response := &PatchApiV1IntegrationsKindNameResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5340,15 +5526,15 @@ func ParsePatchApiV1IntegrationsKindResponse(rsp *http.Response) (*PatchApiV1Int
 	return response, nil
 }
 
-// ParsePostApiV1IntegrationsKindToggleResponse parses an HTTP response from a PostApiV1IntegrationsKindToggleWithResponse call
-func ParsePostApiV1IntegrationsKindToggleResponse(rsp *http.Response) (*PostApiV1IntegrationsKindToggleResponse, error) {
+// ParsePostApiV1IntegrationsKindNameToggleResponse parses an HTTP response from a PostApiV1IntegrationsKindNameToggleWithResponse call
+func ParsePostApiV1IntegrationsKindNameToggleResponse(rsp *http.Response) (*PostApiV1IntegrationsKindNameToggleResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1IntegrationsKindToggleResponse{
+	response := &PostApiV1IntegrationsKindNameToggleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

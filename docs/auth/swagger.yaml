@@ -569,6 +569,7 @@ components:
                 - maintenance_step.canceled
                 - integration.created
                 - integration.updated
+                - integration.deleted
             type: string
             x-enum-varnames:
                 - AuditActionLoginSuccess
@@ -591,6 +592,7 @@ components:
                 - AuditActionMaintStepCanceled
                 - AuditActionIntegrationCreated
                 - AuditActionIntegrationUpdated
+                - AuditActionIntegrationDeleted
         entity.AuditEntityType:
             enum:
                 - user

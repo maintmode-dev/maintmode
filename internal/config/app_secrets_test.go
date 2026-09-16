@@ -23,22 +23,26 @@ func TestApplySecret(t *testing.T) {
 				Password: "<secret:valkey/password>",
 				DB:       0,
 			},
-			// The providers live in a map, so this covers the resolver's
-			// reflect.Map branch — a ref inside a map value must resolve, and a
-			// provider added by configuration must not silently keep its
-			// placeholder. Scopes is a []string one struct deeper, exercising
-			// the slice branch (refs element-by-element, literals untouched)
-			// and the recursive walk together.
+			// Two branches of the recursive walk at once. The preset catalog is
+			// the config's only map of structs, so it covers reflect.Map — a ref
+			// inside a map value must resolve rather than silently keeping its
+			// placeholder. AllowedHostedDomains below is a []string, covering
+			// the slice branch: refs resolve element by element and literals are
+			// left untouched.
+			//
+			// The catalog holds no credential and would never carry a real
+			// secret ref; it is used here because it is the config's only map of
+			// structs, and the branch has to be exercised by something.
 			OauthProviders: OauthProviders{
-				OIDC: map[string]OIDCProvider{
+				Presets: LoginPresets{
 					"google": {
-						ClientID: "<secret:oauth/google/client_id>",
-						Scopes: []string{
-							"openid",
-							"<secret:oauth/google/extra_scope>",
-						},
+						DisplayName: "<secret:oauth/google/display_name>",
+						IssuerURL:   "https://accounts.google.com",
 					},
 				},
+			},
+			JWTVerifier: JWTVerifierConfig{
+				AllowedHostedDomains: []string{"corp.example", "<secret:oauth/google/extra_domain>"},
 			},
 			JWT: JWT{
 				PrivateKey: "<secret:jwt/issuer_private_key>",
@@ -59,14 +63,14 @@ func TestApplySecret(t *testing.T) {
 		}
 
 		secrets := secretStore{
-			"db/dsn":                   "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
-			"valkey/password":          "strong-valkey-password",
-			"oauth/google/client_id":   "google-client-id",
-			"oauth/google/extra_scope": "profile",
-			"jwt/issuer_private_key":   "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
-			"jwt/issuer_kid":           "jwt-kid-1",
-			"crypto/kek/kek-1":         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-			"crypto/kek/kek-2":         "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+			"db/dsn":                    "postgres://maintmode:strong-password@db.internal:5432/maintmode?sslmode=require",
+			"valkey/password":           "strong-valkey-password",
+			"oauth/google/display_name": "Google",
+			"oauth/google/extra_domain": "partner.example",
+			"jwt/issuer_private_key":    "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",
+			"jwt/issuer_kid":            "jwt-kid-1",
+			"crypto/kek/kek-1":          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+			"crypto/kek/kek-2":          "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
 		}
 
 		err := cfg.applySecrets(secrets)
@@ -86,15 +90,15 @@ func TestApplySecret(t *testing.T) {
 				DB:       0,
 			},
 			OauthProviders: OauthProviders{
-				OIDC: map[string]OIDCProvider{
+				Presets: LoginPresets{
 					"google": {
-						ClientID: "google-client-id",
-						Scopes: []string{
-							"openid",
-							"profile",
-						},
+						DisplayName: "Google",
+						IssuerURL:   "https://accounts.google.com",
 					},
 				},
+			},
+			JWTVerifier: JWTVerifierConfig{
+				AllowedHostedDomains: []string{"corp.example", "partner.example"},
 			},
 			JWT: JWT{
 				PrivateKey: "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20",

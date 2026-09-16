@@ -164,38 +164,22 @@ valkey:
 
 oauth_providers:
   use_stub: true
-  # Providers are keyed by instance name. The KEY IS IDENTITY: it is written
-  # verbatim into user_identities.provider, so renaming one orphans every
-  # account linked through it. Use display_name to relabel a button instead.
+  # Catalog of well-known login providers: what this product already knows
+  # about them, so an operator configuring one supplies only their own OAuth
+  # client. It holds NO credential and creates NO provider -- a provider exists
+  # only when a row exists in the registry, and adding an entry here that the
+  # registry does not know is refused at create.
   #
-  # Adding a corporate IdP (Keycloak, Authentik, Okta, Azure AD) is a block like
-  # the one below with its own issuer_url and credentials -- no code, no release.
-  # Endpoints and the JWKS location are not configured: they come from the
-  # provider's discovery document at {issuer_url}/.well-known/openid-configuration.
-  oidc:
+  # These values are COPIED INTO THE ROW when a provider is created. Editing one
+  # therefore affects providers created afterwards and leaves existing ones
+  # alone: issuer_url is an input to the AAD of that provider's client_secret,
+  # so a live read would mean one edit here made every affected provider fail at
+  # the next sign-in.
+  presets:
     google:
       display_name: Google
       issuer_url: https://accounts.google.com
-      client_id: <secret:oauth/google/client_id>
-      # Backend-driven OAuth dance -- OFF by default.
-      #
-      # Uncommenting BOTH keys registers /login/oauth/{provider}/start,
-      # /callback and /code/exchange. Leaving them commented keeps the BFF path
-      # at /login/oauth/exchange/google as the only way in. A half-filled
-      # instance is a startup error, not a silently skipped one: with several
-      # providers, "quietly missing from the sign-in screen" is a failure only
-      # the user who cannot sign in ever discovers.
-      #
-      # Before uncommenting client_secret, make sure the key exists in the
-      # secret store this stand reads: the resolver hard-fails on a missing key,
-      # so the reference alone stops the instance booting.
-      #
-      # redirect_uri must be the EXTERNAL url -- Caddy serves this backend under
-      # `handle_path /auth/*` and strips the prefix, so the app sees /api/v1/...
-      # while the provider must be told /auth/api/v1/... Registering the
-      # internal form yields a redirect_uri_mismatch that never reaches our logs.
-      # client_secret: <secret:oauth/google/client_secret>
-      # redirect_uri: http://localhost:9000/auth/api/v1/login/oauth/google/callback
+
 jwt:
   issuer_name: oauth-service
   issuer_private_key: <secret:jwt/issuer_private_key>

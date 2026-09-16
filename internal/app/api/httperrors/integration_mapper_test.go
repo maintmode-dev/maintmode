@@ -23,6 +23,12 @@ func TestMapError_IntegrationSentinels(t *testing.T) {
 		{"not found", apperr.ErrIntegrationNotFound, http.StatusNotFound},
 		{"not found wrapped", fmt.Errorf("resolve %q: %w", "slack", apperr.ErrIntegrationNotFound), http.StatusNotFound},
 		{"conflict", apperr.ErrIntegrationConflict, http.StatusConflict},
+		// Three sentinels share 409 because they ask for three different
+		// remedies, and each needs an entry in BOTH the dispatch switch and the
+		// mapper. Miss either and the service refuses correctly while the
+		// operator sees a 500 -- "internal error" instead of "unlink the
+		// accounts first", with nothing failing to compile.
+		{"name reserved", apperr.ErrIntegrationNameReserved, http.StatusConflict},
 	}
 
 	for _, tc := range cases {

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"os"
 	"testing"
@@ -17,6 +18,9 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
+	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
@@ -61,8 +65,7 @@ func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
 
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
 	return New(authCfg, services.Auth, services.Token, services.User, services.OTP)
 }
@@ -80,4 +83,85 @@ func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *en
 	require.NoError(t, err)
 
 	return tokenPair
+}
+
+// newTestServices builds the real service graph and then points discovery at a
+// resolver that will dial loopback.
+//
+// These tests stand up stub IdPs on httptest servers, which listen on 127.0.0.1
+// -- the address the production resolver's dial guard exists to refuse. Without
+// this every dance test fails at discovery with "blocked address", which is the
+// guard working, not a bug.
+//
+// Only the dial POLICY is relaxed, and only for loopback: the substitute keeps
+// the same timeout, sanitizer and caches, and still refuses private,
+// link-local, metadata and reserved addresses. Nothing else about the graph is
+// faked, so what these tests exercise is still the wiring production runs.
+func newTestServices(t *testing.T, stores *bootstrap.Stores) *bootstrap.Services {
+	t.Helper()
+
+	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
+	require.NoError(t, err)
+
+	services.OIDCDiscovery = oidcdiscovery.NewAllowingLoopback(10 * time.Second)
+
+	return services
+}
+
+// installProviders puts a provider set into the live snapshot the way the
+// process does: through a reloader reading a registry.
+//
+// Tests used to call an installer on Methods directly, which meant that entry
+// point and its input type had to be exported for them alone -- nothing in the
+// running binary installs a provider except the reloader. Driving the reloader
+// instead keeps that surface closed AND exercises the real path: rows in, built
+// halves out.
+func installProviders(t *testing.T, methods *authmethod.Methods, providers ...testProvider) {
+	t.Helper()
+
+	rows := make([]entity.ConfiguredProvider, 0, len(providers))
+	for _, in := range providers {
+		rows = append(rows, entity.ConfiguredProvider{
+			Name:    string(in.ID),
+			Enabled: true,
+			Settings: integrationkinds.OIDCSettings{
+				DisplayName: in.DisplayName,
+				// Unreachable by default: building resolves nothing, so a test
+				// that only needs a live provider never waits on discovery. A
+				// test driving a real exchange points this at its own stub.
+				IssuerURL:    cmp.Or(in.IssuerURL, "https://127.0.0.1:1/nowhere"),
+				ClientID:     string(in.ID) + "-client-id",
+				ClientSecret: in.ClientSecret,
+				RedirectURI:  in.RedirectURI,
+			},
+		})
+	}
+
+	authmethod.NewReloader(
+		fixedRegistry{rows: rows},
+		methods,
+		oidcdiscovery.NewAllowingLoopback(10*time.Second),
+	).Run(t.Context())
+}
+
+// testProvider is one provider as a test wants it to land in the snapshot.
+type testProvider struct {
+	ID          entity.AuthMethod
+	DisplayName string
+	// IssuerURL points the built provider at a discovery stub; empty means an
+	// address that cannot answer.
+	IssuerURL string
+	// ClientSecret is needed only by a test that completes a real exchange.
+	ClientSecret string
+	// RedirectURI is optional; an http one is what clears Secure on the dance
+	// cookies, decided by the reloader exactly as it is in the process.
+	RedirectURI string
+}
+
+type fixedRegistry struct{ rows []entity.ConfiguredProvider }
+
+func (r fixedRegistry) ListLoginProviders(context.Context, string) (
+	[]entity.ConfiguredProvider, error,
+) {
+	return r.rows, nil
 }

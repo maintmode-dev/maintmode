@@ -27,7 +27,7 @@ import (
 // @Failure 403 {object} httperrors.ErrorResponse
 // @Failure 502 {object} httperrors.ErrorResponse
 // @Security BearerAuth
-// @Router /api/v1/integrations/email/test [post]
+// @Router /api/v1/integrations/notify/email/test [post]
 func (i *Implementation) TestEmail(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Integration.TestEmail")
 	defer span.End()
@@ -46,7 +46,7 @@ func (i *Implementation) TestEmail(c *echo.Context) error {
 	// The route is pinned to the email kind rather than parameterised: a live
 	// probe is defined for SMTP only, and the other kinds get no equivalent.
 	if err := i.integrationSrv.Probe(ctx, &entity.ProbeIntegrationCmd{
-		Kind:    integrationkinds.Email.Kind(),
+		Name:    integrationkinds.Email.Name(),
 		Config:  req.Config,
 		Secrets: req.Secrets,
 		To:      req.To,

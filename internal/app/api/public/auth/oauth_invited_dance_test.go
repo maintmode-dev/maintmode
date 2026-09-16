@@ -117,8 +117,7 @@ func inviteFor(t *testing.T, email string, roles ...entity.Role) string {
 	// invited_by_id carries a foreign key, so the row needs a real inviter.
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
 	inviter, err := services.User.GetOrCreateByAuthInfo(context.Background(), entity.AuthMethodGoogle,
 		&entity.OAuthProviderUserInfo{
@@ -173,8 +172,7 @@ func TestInvitedDanceCreatesTheUserWithItsRoles(t *testing.T) {
 	// deleted entirely -- a dance that signs people in and grants nothing.
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
 	user, err := services.User.GetByEmail(context.Background(), email)
 	require.NoError(t, err, "the invited person must exist afterwards")
@@ -223,8 +221,7 @@ func TestUninvitedDanceDoesNotGetInvitationRoles(t *testing.T) {
 
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
-	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
-	require.NoError(t, err)
+	services := newTestServices(t, stores)
 
 	user, err := services.User.GetByEmail(context.Background(), email)
 	require.NoError(t, err)

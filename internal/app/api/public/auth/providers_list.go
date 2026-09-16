@@ -7,6 +7,7 @@ import (
 	"github.com/ruko1202/xlog"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // ListAuthMethods godoc
@@ -64,9 +65,21 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 //
 //nolint:goconst
 func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
-	instances := i.oidcProviders.InstanceNames()
+	// The provider half comes from the live snapshot rather than a config copy
+	// pinned at construction: an operator adding a provider through the registry
+	// must see its button without a restart, which is the whole point of the
+	// work this endpoint's comment anticipated.
+	//
+	// No snapshot means no providers, not a panic: the built-in methods below
+	// are what makes a sign-in page usable at all, and an instance that cannot
+	// list its OIDC buttons must still offer the password form rather than
+	// answering 500.
+	var listing []entity.LoginMethodView
+	if i.authMethods != nil {
+		listing = i.authMethods.Listing()
+	}
 
-	methods := make([]apiauthmodels.AuthMethod, 0, 2+len(instances))
+	methods := make([]apiauthmodels.AuthMethod, 0, 2+len(listing))
 	methods = append(methods,
 		apiauthmodels.AuthMethod{
 			ID:          "email_password",
@@ -80,20 +93,20 @@ func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
 		},
 	)
 
-	// InstanceNames sorts, which matters twice: map iteration is randomized, so
-	// an unsorted list would reshuffle the buttons between requests and between
-	// replicas, and this endpoint's contract is that two callers get identical
-	// bytes.
+	// The snapshot sorts its listing, which matters twice: map iteration is
+	// randomized, so an unsorted list would reshuffle the buttons between
+	// requests and between replicas, and this endpoint's contract is that two
+	// callers get identical bytes.
 	//
 	// Only the name and the label go out. An instance that is configured but
 	// whose discovery has not resolved still appears: this reports what is
 	// configured, not what is reachable, and probing every IdP to render a login
 	// page would be a self-inflicted outage.
-	for _, name := range instances {
+	for _, view := range listing {
 		methods = append(methods, apiauthmodels.AuthMethod{
-			ID:          name,
+			ID:          string(view.ID),
 			Type:        apiauthmodels.AuthMethodTypeRedirect,
-			DisplayName: i.oidcProviders.OIDC[name].DisplayName,
+			DisplayName: view.DisplayName,
 		})
 	}
 

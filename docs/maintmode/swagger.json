@@ -306,6 +306,13 @@
                         "type": "boolean"
                     },
                     "kind": {
+                        "description": "Kind is the category: \"notify\" or \"login\".",
+                        "example": "notify",
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is the system. REQUIRED. For a login provider it is the identity its\nusers authenticate against, so it cannot be changed afterwards.",
+                        "example": "slack",
                         "type": "string"
                     },
                     "secrets": {
@@ -352,11 +359,22 @@
                     "enabled": {
                         "type": "boolean"
                     },
+                    "health": {
+                        "description": "Health is present for login providers only, and reports whether the\nprovider can actually be used: \"ok\", \"unresolved\" (discovery has not\nanswered, so it is listed but refuses sign-in), \"disabled\", or\n\"unreadable\" (its stored secret will not decrypt).\n\nThe sign-in page deliberately does NOT use this -- it reports what is\nconfigured, not what is reachable, and probing every IdP to render a login\nform would be a self-inflicted outage. This is the admin-facing answer to\n\"I saved it, why does it not work\".",
+                        "example": "ok",
+                        "type": "string"
+                    },
                     "id": {
                         "format": "uuid",
                         "type": "string"
                     },
                     "kind": {
+                        "description": "Kind is the CATEGORY the row belongs to: \"notify\" or \"login\".",
+                        "example": "notify",
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is the SYSTEM it connects to: slack, telegram, email, google or\ncustom. Together with Kind it is the row's identity AND the path that\naddresses it: clients build /api/v1/integrations/{kind}/{name} from these\ntwo fields rather than assembling an identifier of their own.",
                         "example": "slack",
                         "type": "string"
                     },
@@ -1579,7 +1597,7 @@
                 ]
             }
         },
-        "/api/v1/integrations/email/test": {
+        "/api/v1/integrations/notify/email/test": {
             "post": {
                 "description": "Sends a test message using the settings in the request body, without saving them or recording the result. Answers 204 when the server accepted the message, 502 with the far end's own error when it did not. Secrets must be supplied in the body: a stored password is never substituted. Admin only.",
                 "requestBody": {
@@ -1639,14 +1657,90 @@
                 ]
             }
         },
-        "/api/v1/integrations/{kind}": {
+        "/api/v1/integrations/{kind}/{name}": {
+            "delete": {
+                "description": "Removes an integration and its stored secrets. Refused with 409 while accounts still sign in through this provider name — unlink them first. Admin only.",
+                "parameters": [
+                    {
+                        "description": "Category: notify or login",
+                        "in": "path",
+                        "name": "kind",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "System within the category: slack, telegram, email, google or custom",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Conflict"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Delete an integration",
+                "tags": [
+                    "Integrations"
+                ]
+            },
             "get": {
                 "description": "Returns the masked integration for a kind. Admin only.",
                 "parameters": [
                     {
-                        "description": "Integration kind",
+                        "description": "Category: notify or login",
                         "in": "path",
                         "name": "kind",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "System within the category: slack, telegram, email, google or custom",
+                        "in": "path",
+                        "name": "name",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -1699,9 +1793,18 @@
                 "description": "Updates an integration's config and (partially) secrets. Admin only. A secret key omitted keeps its stored value.",
                 "parameters": [
                     {
-                        "description": "Integration kind",
+                        "description": "Category: notify or login",
                         "in": "path",
                         "name": "kind",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "System within the category: slack, telegram, email, google or custom",
+                        "in": "path",
+                        "name": "name",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -1772,14 +1875,23 @@
                 ]
             }
         },
-        "/api/v1/integrations/{kind}/toggle": {
+        "/api/v1/integrations/{kind}/{name}/toggle": {
             "post": {
                 "description": "Flips the enabled flag at runtime without resending settings. Admin only.",
                 "parameters": [
                     {
-                        "description": "Integration kind",
+                        "description": "Category: notify or login",
                         "in": "path",
                         "name": "kind",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "System within the category: slack, telegram, email, google or custom",
+                        "in": "path",
+                        "name": "name",
                         "required": true,
                         "schema": {
                             "type": "string"

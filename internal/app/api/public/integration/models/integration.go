@@ -22,10 +22,26 @@ type UserSummary struct {
 // verbatim; SecretsSet reports which secret keys are configured without ever
 // exposing their values.
 type Integration struct {
-	ID         uuid.UUID       `json:"id" format:"uuid"`
-	Kind       string          `json:"kind" example:"slack"`
-	Enabled    bool            `json:"enabled"`
-	Config     json.RawMessage `json:"config" swaggertype:"object"`
+	ID uuid.UUID `json:"id" format:"uuid"`
+	// Kind is the CATEGORY the row belongs to: "notify" or "login".
+	Kind string `json:"kind" example:"notify"`
+	// Name is the SYSTEM it connects to: slack, telegram, email, google or
+	// custom. Together with Kind it is the row's identity AND the path that
+	// addresses it: clients build /api/v1/integrations/{kind}/{name} from these
+	// two fields rather than assembling an identifier of their own.
+	Name    string          `json:"name" example:"slack"`
+	Enabled bool            `json:"enabled"`
+	Config  json.RawMessage `json:"config" swaggertype:"object"`
+	// Health is present for login providers only, and reports whether the
+	// provider can actually be used: "ok", "unresolved" (discovery has not
+	// answered, so it is listed but refuses sign-in), "disabled", or
+	// "unreadable" (its stored secret will not decrypt).
+	//
+	// The sign-in page deliberately does NOT use this -- it reports what is
+	// configured, not what is reachable, and probing every IdP to render a login
+	// form would be a self-inflicted outage. This is the admin-facing answer to
+	// "I saved it, why does it not work".
+	Health     string          `json:"health,omitempty" example:"ok"`
 	SecretsSet map[string]bool `json:"secrets_set"`
 	CreatedAt  time.Time       `json:"created_at" format:"date-time"`
 	CreatedBy  *UserSummary    `json:"created_by"`
@@ -38,11 +54,25 @@ type ListIntegrationsResponse struct {
 	Integrations []*Integration `json:"integrations"`
 }
 
-// CreateIntegrationRequest creates an integration of a kind. Secrets are the
-// plaintext secret values keyed by the kind's secret keys; the server encrypts
-// them before persisting and never echoes them back.
+// CreateIntegrationRequest creates an integration. Secrets are the plaintext
+// secret values keyed by the system's secret keys; the server encrypts them
+// before persisting and never echoes them back.
+//
+// (Kind, Name) must be one of the pairs the registry knows -- (notify, slack),
+// (notify, telegram), (notify, email), (login, google), (login, custom).
+// Anything else is refused: the name decides which implementation parses the
+// row, so it is a closed set rather than free text.
+//
+// For a preset system the server supplies what it already knows -- Google's
+// issuer and display name come from the deployment's catalog -- and sending
+// either of those fields is REFUSED rather than ignored. "custom" is the one
+// entry where the operator supplies everything, issuer included.
 type CreateIntegrationRequest struct {
-	Kind    string          `json:"kind"`
+	// Kind is the category: "notify" or "login".
+	Kind string `json:"kind" example:"notify"`
+	// Name is the system. REQUIRED. For a login provider it is the identity its
+	// users authenticate against, so it cannot be changed afterwards.
+	Name    string          `json:"name" example:"slack"`
 	Enabled *bool           `json:"enabled"`
 	Config  json.RawMessage `json:"config" swaggertype:"object"`
 	Secrets json.RawMessage `json:"secrets" swaggertype:"object"`
@@ -53,6 +83,9 @@ type CreateIntegrationRequest struct {
 // config: omitted keeps the stored config; an explicit object (including {})
 // replaces it wholesale. secrets, per key: omitted keeps the stored value, a
 // non-empty string replaces it, null clears it.
+// Name is deliberately absent: the instance name is immutable. For a login
+// provider it is written verbatim into user_identities.provider, so renaming
+// would orphan every account linked to it.
 type UpdateIntegrationRequest struct {
 	// Omitted → keep the current flag; true/false → set it.
 	Enabled *bool `json:"enabled"`

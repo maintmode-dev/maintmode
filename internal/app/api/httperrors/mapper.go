@@ -36,7 +36,8 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrMaintenanceHasUnfinishedSteps),
 		errors.Is(err, apperr.ErrInvalidRole),
 		errors.Is(err, apperr.ErrIntegrationNotFound),
-		errors.Is(err, apperr.ErrIntegrationConflict):
+		errors.Is(err, apperr.ErrIntegrationConflict),
+		errors.Is(err, apperr.ErrIntegrationNameReserved):
 		statusCode, errResp = mapError(err)
 	// auth domain errors
 	case errors.Is(err, apperr.ErrLockBusy),
@@ -131,7 +132,11 @@ func mapError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrIntegrationNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
-	case errors.Is(err, apperr.ErrIntegrationConflict):
+	// Three distinct 409s on this surface, deliberately not collapsed: they ask
+	// the operator for three different remedies -- pick another name, unlink the
+	// accounts first, or stop colliding with a configured provider.
+	case errors.Is(err, apperr.ErrIntegrationConflict),
+		errors.Is(err, apperr.ErrIntegrationNameReserved):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
 
 	case errors.Is(err, apperr.ErrForbiddenMaintStatusTransition):

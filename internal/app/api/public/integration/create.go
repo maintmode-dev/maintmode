@@ -42,8 +42,14 @@ func (i *Implementation) Create(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(fmt.Errorf("actor not found")))
 	}
 
+	// No normalisation here. "name omitted means default" was a rule of the HTTP
+	// contract while every single-instance kind carried a placeholder; with the
+	// placeholder gone an omitted name is simply an incomplete address, and the
+	// service refuses it. Filling one in at the boundary would mean a second
+	// caller reaching the store without the check.
 	masked, err := i.integrationSrv.Create(ctx, &entity.CreateIntegrationCmd{
 		Kind:    req.Kind,
+		Name:    req.Name,
 		Enabled: req.Enabled,
 		Config:  req.Config,
 		Secrets: req.Secrets,

@@ -53,6 +53,12 @@ var sensitiveQueryParams = map[string]struct{}{
 }
 
 // sensitiveBodyFields are masked in logged request and response bodies.
+//
+// client_secret and bot_token are integration credentials rather than session
+// ones, and they arrive here for the same reason the others do: an admin
+// creating an integration posts them in a request body. Body logging is
+// dev-only, but that is where fixtures are recorded, and a captured request
+// carrying a real OAuth client secret outlives the stand it came from.
 var sensitiveBodyFields = map[string]struct{}{
 	"access_token":  {},
 	"refresh_token": {},
@@ -60,6 +66,8 @@ var sensitiveBodyFields = map[string]struct{}{
 	"code":          {},
 	"password":      {},
 	"session_nonce": {},
+	"client_secret": {},
+	"bot_token":     {},
 }
 
 var _ sanitize.Sanitizer = RequestSanitizer{}
