@@ -230,11 +230,21 @@ func (r *Reloader) buildOne(
 		input.Health = entity.LoginProviderHealthDisabled
 
 	case !isOIDC:
-		// Reading the row is all this does, so reaching here means the stored
-		// settings are not the shape a login provider has -- a delivery row
-		// sitting in the login category, say. It is a per-provider failure:
-		// that one disables ITSELF and stays listed with its state, and every
-		// other provider in this rebuild is unaffected.
+		// OIDC is the only login shape this build knows how to assemble, so a
+		// row carrying anything else lands here: a delivery row filed under the
+		// login category today, and a non-OIDC provider -- GitHub's OAuth2 has
+		// no discovery document -- the day one is added.
+		//
+		// ADDING ONE STARTS HERE. The snapshot itself is shape-agnostic: it
+		// holds an AuthMethod and a Gateway, both interfaces, and nothing below
+		// this switch asks what produced them. What is OIDC-specific is this
+		// branch and the assembly under default. A second shape means matching
+		// its settings type here and building its two halves there; the
+		// registry, the reloader's lifecycle and every reader stay as they are.
+		//
+		// It is a per-provider failure either way: that one disables ITSELF and
+		// stays listed with its state, and every other provider in this rebuild
+		// is unaffected.
 		xlog.Error(ctx, "login provider did not build",
 			xfield.String("provider", row.Name),
 			xfield.String("settings_type", fmt.Sprintf("%T", row.Settings)))

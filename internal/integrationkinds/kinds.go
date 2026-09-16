@@ -58,5 +58,11 @@ const (
 	// on; before the rename each of them compared against the "oidc" kind,
 	// which stopped meaning "a login provider" the moment login rows could
 	// carry more than one system name.
+	//
+	// The category does NOT imply OIDC, even though both entries in it are OIDC
+	// today. A provider with no discovery document -- GitHub's OAuth2, say --
+	// belongs here too: what the category promises is "this row signs people
+	// in", and the one place that still assumes a shape is the reloader's
+	// buildOne, which says so and says what adding a second shape costs.
 	CategoryLogin = "login"
 )
