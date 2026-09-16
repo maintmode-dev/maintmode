@@ -10,6 +10,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -19,7 +20,8 @@ func TestResolver_BuildsAndCaches(t *testing.T) {
 	h := initResolver(t)
 
 	_, err := h.registry.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(true),
 		Secrets: secretsJSON(t, map[string]string{"token": "sekret"}),
 		Actor:   testActor(),
@@ -34,7 +36,7 @@ func TestResolver_BuildsAndCaches(t *testing.T) {
 
 	// A second resolve is a cache hit: deleting the row from under it must not
 	// change the result (the store is not consulted on a hit).
-	_, err = db.ExecContext(ctx, `DELETE FROM integration_settings WHERE kind = $1`, h.kind)
+	_, err = db.ExecContext(ctx, `DELETE FROM integration_settings WHERE name = $1`, h.kind)
 	require.NoError(t, err)
 	tr2, err := h.resolve(ctx, h.kind)
 	require.NoError(t, err, "cache hit must not hit the store")
@@ -47,7 +49,8 @@ func TestResolver_DropsWhenDisabled(t *testing.T) {
 	h := initResolver(t)
 
 	_, err := h.registry.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(false),
 		Secrets: secretsJSON(t, map[string]string{"token": "sekret"}),
 		Actor:   testActor(),
@@ -72,7 +75,8 @@ func TestResolver_WriteInvalidatesCache(t *testing.T) {
 	h := initResolver(t)
 
 	_, err := h.registry.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(true),
 		Secrets: secretsJSON(t, map[string]string{"token": "sekret"}),
 		Actor:   testActor(),
@@ -84,7 +88,7 @@ func TestResolver_WriteInvalidatesCache(t *testing.T) {
 
 	// Toggle off; the write must invalidate the cache so the next resolve drops.
 	_, err = h.registry.Toggle(ctx, &entity.ToggleIntegrationCmd{
-		Kind: h.kind, Enabled: lo.ToPtr(false), Actor: testActor(),
+		Kind: integrationkinds.CategoryNotify, Name: h.kind, Enabled: lo.ToPtr(false), Actor: testActor(),
 	})
 	require.NoError(t, err)
 
@@ -99,7 +103,8 @@ func TestResolver_RebuildsWithRotatedSecret(t *testing.T) {
 	h := initResolver(t)
 
 	_, err := h.registry.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(true),
 		Secrets: secretsJSON(t, map[string]string{"token": "old"}),
 		Actor:   testActor(),
@@ -114,7 +119,8 @@ func TestResolver_RebuildsWithRotatedSecret(t *testing.T) {
 	// rebuilds a transport bound to the NEW secret — the "rotate without restart"
 	// contract that justifies the runtime seam.
 	_, err = h.registry.Update(ctx, &entity.UpdateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(true),
 		Secrets: secretIntentsJSON(t, map[string]*string{"token": lo.ToPtr("new")}),
 		Actor:   testActor(),
@@ -133,7 +139,8 @@ func TestResolver_ReenableRebuilds(t *testing.T) {
 	h := initResolver(t)
 
 	_, err := h.registry.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    h.kind,
+		Kind:    integrationkinds.CategoryNotify,
+		Name:    h.kind,
 		Enabled: lo.ToPtr(true),
 		Secrets: secretsJSON(t, map[string]string{"token": "t"}),
 		Actor:   testActor(),
@@ -142,13 +149,13 @@ func TestResolver_ReenableRebuilds(t *testing.T) {
 	_, err = h.resolve(ctx, h.kind) // warm
 	require.NoError(t, err)
 
-	_, err = h.registry.Toggle(ctx, &entity.ToggleIntegrationCmd{Kind: h.kind, Enabled: lo.ToPtr(false), Actor: testActor()})
+	_, err = h.registry.Toggle(ctx, &entity.ToggleIntegrationCmd{Kind: integrationkinds.CategoryNotify, Name: h.kind, Enabled: lo.ToPtr(false), Actor: testActor()})
 	require.NoError(t, err)
 	_, err = h.resolve(ctx, h.kind)
 	require.ErrorIs(t, err, apperr.ErrIntegrationDisabled)
 
 	// Re-enable: the write invalidates and the next resolve builds successfully.
-	_, err = h.registry.Toggle(ctx, &entity.ToggleIntegrationCmd{Kind: h.kind, Enabled: lo.ToPtr(true), Actor: testActor()})
+	_, err = h.registry.Toggle(ctx, &entity.ToggleIntegrationCmd{Kind: integrationkinds.CategoryNotify, Name: h.kind, Enabled: lo.ToPtr(true), Actor: testActor()})
 	require.NoError(t, err)
 	tr, err := h.resolve(ctx, h.kind)
 	require.NoError(t, err)

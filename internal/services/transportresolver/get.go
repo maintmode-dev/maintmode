@@ -7,6 +7,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
 
 // Get implements notifytransport.TransportResolver. A missing/disabled
@@ -27,13 +28,18 @@ func (s *Service) Get(ctx context.Context, name entity.NotifyTransport) (notifyt
 		return nil, fmt.Errorf("%w: transport %q has no builder", apperr.ErrIntegrationDisabled, name)
 	}
 
-	// Domain junction: a channel's transport name doubles as the integration
-	// kind (messenger_channels.transport == integration_settings.kind). This is
-	// the one read-path point where the two string domains meet; a
-	// delivery-capable kind takes its name from entity.NotifyTransport by
-	// construction (see internal/integrationkinds), and the kind<->builder wiring is
-	// pinned by TestBuilders_AlignWithIntegrationKinds.
-	settings, err := s.source.Settings(ctx, string(name))
+	// Domain junction: a channel's transport name doubles as the integration's
+	// SYSTEM NAME (messenger_channels.transport == integration_settings.name).
+	// This is the one read-path point where the two string domains meet; a
+	// delivery-capable integration takes its name from entity.NotifyTransport by
+	// construction (see internal/integrationkinds), and the name<->builder wiring
+	// is pinned by TestBuilders_AlignWithIntegrationKinds.
+	//
+	// The category is always "notify" here -- that is what makes a row
+	// delivery-capable -- and the transport supplies the name. The junction moved
+	// column rather than value: the transport strings in messenger_channels are
+	// unchanged, they are simply matched against name instead of kind.
+	settings, err := s.source.Settings(ctx, integrationkinds.CategoryNotify, string(name))
 	if err != nil {
 		return nil, err
 	}
