@@ -1,6 +1,22 @@
 package entity
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// LinkIntent records what a link ticket parks: whose account an identity is
+// being attached to, and which provider the ticket was minted for.
+//
+// The provider is not redundant with the {provider} path segment -- it is what
+// makes them checkable against each other. A ticket minted for one provider and
+// presented on another's /start is refused, so a ticket cannot be diverted into
+// linking an identity its owner never asked for.
+type LinkIntent struct {
+	UserID   uuid.UUID
+	Provider AuthMethod
+}
 
 // DanceStart is what /start hands the browser.
 type DanceStart struct {
@@ -24,6 +40,25 @@ type DanceStart struct {
 	// It is opaque: it names an invitation only to whoever can redeem it against
 	// the store, which happens once.
 	InvitationHandle string
+	// LinkTicket is echoed back for the oauth_link cookie, empty on an ordinary
+	// sign-in. It travels unchanged rather than being re-parked behind a second
+	// secret: it already points at a server-side entry, so the browser learns
+	// nothing from holding it.
+	LinkTicket string
+}
+
+// DanceOutcome is what a completed dance produced.
+//
+// Two fields rather than one string because "no code" is ambiguous with a bug:
+// an empty Code could mean a link succeeded or that the sign-in path failed to
+// mint one. The handler chooses between ?code= and ?linked=1, so it needs the
+// intent stated rather than inferred.
+type DanceOutcome struct {
+	// Code is the one-time sign-in code, empty on a link.
+	Code string
+	// Linked reports that this dance attached an identity instead of signing a
+	// user in. No token pair was minted; the person already had a session.
+	Linked bool
 }
 
 // DanceCallback is what a browser brings back from the provider.
@@ -41,6 +76,11 @@ type DanceCallback struct {
 	Code           string
 	StateSignature string
 	Verifier       string
+	// LinkTicket arrives in the oauth_link cookie, empty on an ordinary sign-in.
+	// Attacker-controlled like every field here -- a claim to be checked against
+	// the store, never a fact. Its PRESENCE is the discriminator: once a browser
+	// has presented one, no redeem result may produce a sign-in.
+	LinkTicket string
 	// InvitationHandle is the opaque handle /start planted for an invited dance,
 	// empty for an ordinary one. Attacker-controlled like every field here: it
 	// comes from a cookie, so it is a claim to be checked, never a fact. What
