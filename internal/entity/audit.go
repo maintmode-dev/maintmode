@@ -22,6 +22,12 @@ const (
 	// rather than by proving the old one. It evicts every session.
 	AuditActionPasswordReset AuditAction = "password.reset"
 
+	// AuditActionProviderLinked records a sign-in provider being attached to an
+	// account. It is auth rather than a login: a link grants a new PERMANENT way
+	// into the account, so an unaudited one would later surface as an ordinary
+	// login.success for a provider the trail never recorded connecting.
+	AuditActionProviderLinked AuditAction = "provider.linked"
+
 	AuditActionRolesChanged AuditAction = "roles.changed"
 
 	AuditActionUserBlocked   AuditAction = "user.blocked"
@@ -56,6 +62,7 @@ const (
 func (a AuditAction) IsValid() bool {
 	switch a {
 	case AuditActionLoginSuccess,
+		AuditActionProviderLinked,
 		AuditActionLoginFailed,
 		AuditActionLogoutSuccess,
 		AuditActionRolesChanged,
@@ -190,7 +197,18 @@ const (
 	// An attempt that was refused is worth recording even when the reason is
 	// only "something below broke", because the alternative is a gap in the one
 	// record an operator reads after an incident.
-	AuditFailureUnknown AuditFailureReason = "unknown failure reason"
+	// AuditFailureLinkConflict marks an identity that could not be attached: it
+	// is already linked here, linked to someone else, or this account already
+	// holds a different identity for the provider.
+	//
+	// The three collapse to one reason at the browser but are distinguishable in
+	// the log line, which is the trade the redirect code documents.
+	AuditFailureLinkConflict AuditFailureReason = "provider link conflict"
+	// AuditFailureLinkUnusable marks a link that could not proceed at all: the
+	// ticket was unknown, expired or spent, or the account it names is gone or
+	// blocked.
+	AuditFailureLinkUnusable AuditFailureReason = "link ticket unusable"
+	AuditFailureUnknown      AuditFailureReason = "unknown failure reason"
 
 	// AuditFailurePasswordPolicy is a new password refused for its length.
 	//nolint:gosec // G101 false positive: this is an audit reason, not a credential.
@@ -237,6 +255,21 @@ const (
 	// proceed; this one is the back-channel call failing after the browser has
 	// already come back to us.
 	AuditFailureProviderUnavailable AuditFailureReason = "oauth provider unavailable"
+	// AuditFailureProviderRejected marks the provider answering correctly about
+	// an account this backend cannot accept: the exchange worked, the API
+	// answered, and what came back was an identity with no address we may trust
+	// or no usable subject.
+	//
+	// Separate from AuditFailureProviderUnavailable because they read as
+	// different incidents. A run of "unavailable" says something is broken --
+	// rotated credentials, an unreachable upstream -- and sends an operator
+	// looking for a fault. A run of this one says nothing is broken at all: the
+	// people involved fix it on the provider's side, by verifying the primary
+	// address on the account they signed in with.
+	//
+	// Both answer the browser identically, so this row is the only place the
+	// two are distinguishable.
+	AuditFailureProviderRejected AuditFailureReason = "oauth provider rejected the account"
 	// AuditFailureProviderDenied marks the provider ending the dance: the user
 	// declined consent, or the provider returned an OAuth error of its own.
 	//
@@ -397,6 +430,10 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	// changes, and they belong on the same FE chip as the logins they affect.
 	AuditActionPasswordChanged: AuditCategoryAuth,
 	AuditActionPasswordReset:   AuditCategoryAuth,
+	// Without this entry the row never renders at all: fillPayload looks the
+	// category up BEFORE dispatching and answers ErrUnsupportedEvent when it is
+	// missing, so the renderer arm is never reached.
+	AuditActionProviderLinked: AuditCategoryAuth,
 
 	// user.tags_changed rides the roles category on purpose. Categories are the
 	// FE filter chips (see AuditCategory) and are fanned out by a switch in
@@ -439,6 +476,9 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		AuditActionLogoutSuccess,
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
+		// Without this entry the row exists, renders, and is invisible under the
+		// auth filter -- this map is what the category filter reads.
+		AuditActionProviderLinked,
 	},
 	AuditCategoryRoles: {
 		AuditActionRolesChanged,
