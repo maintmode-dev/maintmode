@@ -25,9 +25,11 @@ import (
 // mints a session and knows nothing about tickets; this one mints nothing and
 // spends a ticket.
 //
-// The split is by reading order, not by boundary: nothing here is reachable
-// except through StartDance and CompleteDance next door, and moving it changed
-// no logic.
+// The split is by reading order, not by boundary: the only two entries from
+// outside are verifyLinkTicket, called by StartDance, and completeLink, called
+// by issueDanceCode -- which CompleteDance reaches, though it is worth naming
+// the actual caller rather than the endpoint. Everything else here is internal
+// to this file, and moving it changed no logic.
 
 // verifyLinkTicket checks that a presented ticket exists and was minted for this
 // provider, without spending it.

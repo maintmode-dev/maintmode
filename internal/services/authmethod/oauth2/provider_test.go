@@ -26,22 +26,14 @@ func newGateway(t *testing.T) *mock_oauth2.MockidentityGateway {
 	return mock_oauth2.NewMockidentityGateway(gomock.NewController(t))
 }
 
-func TestMethodID(t *testing.T) {
-	t.Parallel()
-
-	provider := oauth2.NewProvider("github", newGateway(t))
-
-	assert.Equal(t, entity.AuthMethodGithub, provider.MethodID())
-}
-
 // TestMethodIDIsTheInstanceName is the rule, and it replaces the opposite one.
 //
 // An earlier version returned a per-vendor CONSTANT here, on the reasoning that
 // the registry is keyed by method while user_identities.provider stores the
-// instance name. Those are not two values: authmethod.Methods builds its map as
-// methodsStore[item.MethodID()], and a dance callback looks an instance up by
-// the name in its URL path. So MethodID IS the registry key, the path segment
-// and the stored provider string, all at once.
+// instance name. Those are not two values: NewAuthMethods keys its map by
+// item.MethodID(), and a dance callback looks an instance up by the name in its
+// URL path. So MethodID IS the registry key, the path segment and the stored
+// provider string, all at once.
 //
 // A constant therefore collapsed every instance of one vendor onto a single key:
 // configure github.com and a GitHub Enterprise Server side by side, and whichever
