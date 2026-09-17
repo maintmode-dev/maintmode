@@ -80,7 +80,7 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		inv := mustCreate(ctx, t, svc, email, entity.RoleReviewer)
 		handle := armHandles(t, svc, inv)
 
-		got, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email})
+		got, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		assert.Equal(t, inv.ID, got.ID)
@@ -95,7 +95,34 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		inv := mustCreate(ctx, t, svc, uniqueEmail(t))
 		handle := armHandles(t, svc, inv)
 
-		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t)})
+		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
+		require.ErrorIs(t, err, apperr.ErrEmailMismatch)
+	})
+
+	// The other half of the anti-takeover guard, and the one that used to live
+	// only on the accept path.
+	//
+	// An issuer that lets a user self-assert an address would otherwise let that
+	// user claim someone else's invitation by typing it into a profile. Every
+	// provider registered today refuses an unverified address before claims are
+	// built, so this is defense in depth -- but it belongs at this boundary, and
+	// having it in one of the two invited paths and not the other is the split
+	// the guard's own comment warned about.
+	//
+	// The email MATCHES: the refusal is about verification alone, and it answers
+	// as a mismatch because a distinguishable "not verified" would tell a token
+	// holder that the invited address matched their own unverified one.
+	t.Run("an unverified email is refused even when it matches", func(t *testing.T) {
+		t.Parallel()
+		svc, _ := initService(t)
+		email := uniqueEmail(t)
+		inv := mustCreate(ctx, t, svc, email)
+		handle := armHandles(t, svc, inv)
+
+		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
+			Email:         email,
+			EmailVerified: false,
+		})
 		require.ErrorIs(t, err, apperr.ErrEmailMismatch)
 	})
 
@@ -110,7 +137,8 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		handle := armHandles(t, svc, inv)
 
 		got, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
-			Email: strings.ToUpper(email),
+			Email:         strings.ToUpper(email),
+			EmailVerified: true,
 		})
 		require.NoError(t, err)
 		assert.Equal(t, inv.ID, got.ID)
@@ -122,7 +150,8 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		svc.WithDanceHandles(newFakeDanceHandles())
 
 		_, err := svc.ResolveForIdentity(ctx, uuid.NewString(), &entity.OAuthIDTokenClaims{
-			Email: uniqueEmail(t),
+			Email:         uniqueEmail(t),
+			EmailVerified: true,
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
@@ -155,7 +184,7 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		handle := uuid.NewString()
 		handles.put(handle, expired.ID)
 
-		_, err = svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email})
+		_, err = svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 
@@ -172,7 +201,7 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		// Note the email MATCHES: the refusal is about status, and it must not
 		// be reported as a mismatch, which would tell the caller the address was
 		// right.
-		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email})
+		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 
@@ -185,7 +214,7 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		handles.err = errors.New("valkey is down")
 		svc.WithDanceHandles(handles)
 
-		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t)})
+		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 		require.Error(t, err)
 
 		// NOT ErrInvalidInvitation: that is the answer for a handle that named
@@ -202,7 +231,7 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		t.Parallel()
 		svc, _ := initService(t)
 
-		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t)})
+		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 }
@@ -268,7 +297,7 @@ func TestNilUUIDHandleNeverResolves(t *testing.T) {
 	handle := uuid.NewString()
 	handles.put(handle, uuid.Nil)
 
-	_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t)})
+	_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 	require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 
 	_, getErr := svc.store.GetByID(ctx, uuid.Nil)

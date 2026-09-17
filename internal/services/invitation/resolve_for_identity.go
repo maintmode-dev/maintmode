@@ -89,9 +89,31 @@ func (s *Service) ResolveForIdentity(
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	// Anti-takeover guard: the account signing in must be the invited address.
-	// Shared with the id_token accept path rather than reimplemented — a second
-	// copy is how this check once got disabled in one place and not the other.
+	// Anti-takeover guard, in two halves, and BOTH belong here.
+	//
+	// First: the address must be one the provider vouched for. An issuer that
+	// lets a user self-assert any address would otherwise let that user claim
+	// someone else's invitation by typing it into a profile. Every provider
+	// registered today refuses an unverified address before claims are built, so
+	// this is defense in depth rather than the only gate — but it is the gate
+	// that belongs at THIS boundary, and the accept path has enforced it all
+	// along. Having it in one of the two invited paths and not the other is
+	// exactly the split the note below warns about.
+	//
+	// Second: the address must be the invited one.
+	//
+	// Both halves are shared with the id_token accept path rather than
+	// reimplemented — a second copy is how this check once got disabled in one
+	// place and not the other. Both refusals answer identically: a
+	// distinguishable "not verified" would tell a token holder that the invited
+	// address MATCHED their own unverified one, which is what the no-detail
+	// contract hides.
+	if !claims.EmailVerified {
+		xlog.Warn(ctx, "resolve invitation: provider reports the email as unverified")
+
+		return nil, apperr.ErrEmailMismatch
+	}
+
 	if !emailMatchesIgnoreCase(ctx, claims.Email, inv.Email) {
 		xlog.Warn(ctx, "resolve invitation: provider email does not match invitation")
 
