@@ -69,6 +69,24 @@ var (
 	// one -- resolving unrelated GitHub accounts to a single user. Refused
 	// rather than defaulted for that reason.
 	ErrGithubIdentityUnusable = errors.New("github identity has no usable subject")
+	// ErrLinkTicketUnusable marks a link that cannot proceed: the ticket is
+	// unknown, expired or spent, or the account it names is gone or blocked.
+	//
+	// One sentinel for all of them, because telling them apart at the browser
+	// would confirm half a guess. It also exists to mark WHICH branch produced a
+	// failure: danceFailureCode is a free function over one error and cannot know
+	// otherwise, so the link branch wraps its refusals in this rather than
+	// letting ErrUserBlocked reach an arm that answers "you may not sign in" --
+	// which is not what happened.
+	//
+	// Wraps ErrValidation => HTTP 400 on /start, where a refusal is answered as
+	// JSON rather than a redirect. Without the wrap it fell to the mapper's
+	// default arm and reported a deliberate refusal as a 500 -- making it
+	// indistinguishable from an outage, for the operator and for the frontend
+	// alike, and collapsing the two /start outcomes the dance is careful to keep
+	// apart. A STORE failure stays unwrapped, so an actual outage still answers
+	// 500.
+	ErrLinkTicketUnusable = fmt.Errorf("%w: link ticket is not usable", ErrValidation)
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next

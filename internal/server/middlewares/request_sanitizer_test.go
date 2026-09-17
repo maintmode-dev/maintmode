@@ -64,6 +64,16 @@ func TestSanitizeURLMasksDanceCredentials(t *testing.T) {
 			mustNotHave: []string{"inv-live-token"},
 			mustHave:    []string{"/auth/api/v1/users/invitations/preview", "token="},
 		},
+		// The link ticket attaches a sign-in method to the account it was minted
+		// for. Short-lived and single-use, but inside its window a log line
+		// holding it is a standing grant -- and the endpoint that mints it puts
+		// it in a URL by construction, so it reaches a query string on every
+		// link.
+		"link ticket on the dance start": {
+			in:          "/auth/api/v1/login/oauth/github/start?link=lnk-live-ticket",
+			mustNotHave: []string{"lnk-live-ticket"},
+			mustHave:    []string{"/auth/api/v1/login/oauth/github/start", "link="},
+		},
 		"benign parameters survive untouched": {
 			in:       "/api/v1/users?limit=50&search=alice",
 			mustHave: []string{"limit=50", "search=alice"},

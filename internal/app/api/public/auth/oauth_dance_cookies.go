@@ -23,6 +23,12 @@ const (
 	// only an opaque handle leaves this backend and only in a cookie the
 	// provider never sees.
 	oauthInvitationCookie = "oauth_invitation"
+	// oauthLinkCookie carries the link ticket from /start to /callback.
+	//
+	// The ticket itself rather than a second handle: it is already an opaque
+	// pointer to a server-side entry, so the browser learns nothing from it and
+	// no extra secret enters the design.
+	oauthLinkCookie = "oauth_link"
 )
 
 // danceCookieValue reads one dance cookie, treating "absent" and "empty" as the
@@ -56,7 +62,9 @@ func (i *Implementation) setDanceCookie(c *echo.Context, name, value string, ttl
 // Set-Cookie at all, so this bounds nothing for them — the signature's deadline
 // and the provider burning the authorization code are what cover that case.
 func (i *Implementation) expireDanceCookies(c *echo.Context) {
-	for _, name := range []string{oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie} {
+	for _, name := range []string{
+		oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie,
+	} {
 		i.expireDanceCookie(c, name)
 	}
 }

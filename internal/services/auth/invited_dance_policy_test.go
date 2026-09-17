@@ -85,7 +85,7 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			AnyTimes()
 
 		// No handle, so resolveInvitation returns nil and the policy stays empty.
-		_, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", meta)
+		_, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "", meta)
 
 		require.ErrorIs(t, err, apperr.ErrSignupDisabled,
 			"an uninvited dance must not create an account on an invite-only instance")
@@ -114,10 +114,12 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			}, nil).
 			AnyTimes()
 
-		code, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "a-handle", meta)
+		outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "a-handle", meta)
 
 		require.NoError(t, err, "a resolved invitation must authorize creation")
-		assert.NotEmpty(t, code)
+		require.NotNil(t, outcome)
+		assert.NotEmpty(t, outcome.Code)
+		assert.False(t, outcome.Linked, "an invited sign-in is not a link")
 		assert.True(t, claimer.claimed, "phase 2 must spend the invitation")
 	})
 }

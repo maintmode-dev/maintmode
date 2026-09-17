@@ -18,6 +18,7 @@ import (
 // @Produce json
 // @Param provider path string true "Configured provider instance name, e.g. google"
 // @Param invitation query string false "Invitation token, when signing in from an invitation link"
+// @Param link query string false "Link ticket from POST /me/providers/{provider}/connect, to attach this provider to an existing account instead of signing in"
 // @Success 302 "Redirect to the provider's authorization endpoint"
 // @Failure 400 {object} httperrors.ErrorResponse "Unsupported provider"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
@@ -54,7 +55,11 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	// The invitation token, when this dance began from an invitation link, is
 	// read here and handed straight to the service: it never reaches the
 	// provider, the redirect, or a log line (the request sanitizer masks it).
-	dance, err := i.authSrv.StartDance(ctx, c.Param("provider"), c.QueryParam("invitation"))
+	// The link ticket is read and passed through untouched, exactly as the
+	// invitation token is: validation belongs to the service, which owns the
+	// store. It is masked in request logs by name (see the request sanitizer).
+	dance, err := i.authSrv.StartDance(ctx,
+		c.Param("provider"), c.QueryParam("invitation"), c.QueryParam(paramLink))
 	if err != nil {
 		xlog.Error(ctx, "failed to start the oauth dance", xfield.Error(err))
 		return httperrors.ToAPIError(c, op, err)
@@ -85,6 +90,15 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 		i.expireDanceCookie(c, oauthInvitationCookie)
 	} else {
 		i.setDanceCookie(c, oauthInvitationCookie, dance.InvitationHandle, dance.TTL)
+	}
+
+	// The link cookie follows the same discipline, and for the same reason: an
+	// abandoned link left alive would attach itself to the next ordinary
+	// sign-in, turning a login the person did start into a link they did not.
+	if dance.LinkTicket == "" {
+		i.expireDanceCookie(c, oauthLinkCookie)
+	} else {
+		i.setDanceCookie(c, oauthLinkCookie, dance.LinkTicket, dance.TTL)
 	}
 
 	return c.Redirect(http.StatusFound, dance.AuthorizationURL)

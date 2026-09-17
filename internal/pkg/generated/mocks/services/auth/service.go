@@ -16,6 +16,7 @@ import (
 	uuid "github.com/google/uuid"
 	audit "github.com/ruko1202/maintmode/internal/audit"
 	entity "github.com/ruko1202/maintmode/internal/entity"
+	authmethod "github.com/ruko1202/maintmode/internal/services/authmethod"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -411,6 +412,84 @@ func (c *MockDanceCodeStoreConsumeInvitationHandleCall) DoAndReturn(f func(conte
 	return c
 }
 
+// ConsumeLinkTicket mocks base method.
+func (m *MockDanceCodeStore) ConsumeLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsumeLinkTicket", ctx, ticket)
+	ret0, _ := ret[0].(*entity.LinkIntent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConsumeLinkTicket indicates an expected call of ConsumeLinkTicket.
+func (mr *MockDanceCodeStoreMockRecorder) ConsumeLinkTicket(ctx, ticket any) *MockDanceCodeStoreConsumeLinkTicketCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeLinkTicket", reflect.TypeOf((*MockDanceCodeStore)(nil).ConsumeLinkTicket), ctx, ticket)
+	return &MockDanceCodeStoreConsumeLinkTicketCall{Call: call}
+}
+
+// MockDanceCodeStoreConsumeLinkTicketCall wrap *gomock.Call
+type MockDanceCodeStoreConsumeLinkTicketCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStoreConsumeLinkTicketCall) Return(arg0 *entity.LinkIntent, arg1 error) *MockDanceCodeStoreConsumeLinkTicketCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStoreConsumeLinkTicketCall) Do(f func(context.Context, string) (*entity.LinkIntent, error)) *MockDanceCodeStoreConsumeLinkTicketCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStoreConsumeLinkTicketCall) DoAndReturn(f func(context.Context, string) (*entity.LinkIntent, error)) *MockDanceCodeStoreConsumeLinkTicketCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PeekLinkTicket mocks base method.
+func (m *MockDanceCodeStore) PeekLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PeekLinkTicket", ctx, ticket)
+	ret0, _ := ret[0].(*entity.LinkIntent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PeekLinkTicket indicates an expected call of PeekLinkTicket.
+func (mr *MockDanceCodeStoreMockRecorder) PeekLinkTicket(ctx, ticket any) *MockDanceCodeStorePeekLinkTicketCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PeekLinkTicket", reflect.TypeOf((*MockDanceCodeStore)(nil).PeekLinkTicket), ctx, ticket)
+	return &MockDanceCodeStorePeekLinkTicketCall{Call: call}
+}
+
+// MockDanceCodeStorePeekLinkTicketCall wrap *gomock.Call
+type MockDanceCodeStorePeekLinkTicketCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStorePeekLinkTicketCall) Return(arg0 *entity.LinkIntent, arg1 error) *MockDanceCodeStorePeekLinkTicketCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStorePeekLinkTicketCall) Do(f func(context.Context, string) (*entity.LinkIntent, error)) *MockDanceCodeStorePeekLinkTicketCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStorePeekLinkTicketCall) DoAndReturn(f func(context.Context, string) (*entity.LinkIntent, error)) *MockDanceCodeStorePeekLinkTicketCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // PutCode mocks base method.
 func (m *MockDanceCodeStore) PutCode(ctx context.Context, code string, pair *entity.TokenPair) error {
 	m.ctrl.T.Helper()
@@ -483,6 +562,44 @@ func (c *MockDanceCodeStorePutInvitationHandleCall) Do(f func(context.Context, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDanceCodeStorePutInvitationHandleCall) DoAndReturn(f func(context.Context, string, uuid.UUID) error) *MockDanceCodeStorePutInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PutLinkTicket mocks base method.
+func (m *MockDanceCodeStore) PutLinkTicket(ctx context.Context, ticket string, intent entity.LinkIntent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutLinkTicket", ctx, ticket, intent)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutLinkTicket indicates an expected call of PutLinkTicket.
+func (mr *MockDanceCodeStoreMockRecorder) PutLinkTicket(ctx, ticket, intent any) *MockDanceCodeStorePutLinkTicketCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutLinkTicket", reflect.TypeOf((*MockDanceCodeStore)(nil).PutLinkTicket), ctx, ticket, intent)
+	return &MockDanceCodeStorePutLinkTicketCall{Call: call}
+}
+
+// MockDanceCodeStorePutLinkTicketCall wrap *gomock.Call
+type MockDanceCodeStorePutLinkTicketCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStorePutLinkTicketCall) Return(arg0 error) *MockDanceCodeStorePutLinkTicketCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStorePutLinkTicketCall) Do(f func(context.Context, string, entity.LinkIntent) error) *MockDanceCodeStorePutLinkTicketCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStorePutLinkTicketCall) DoAndReturn(f func(context.Context, string, entity.LinkIntent) error) *MockDanceCodeStorePutLinkTicketCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -724,6 +841,186 @@ func (c *MockDanceGatewayExchangeCall) Do(f func(context.Context, string, string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDanceGatewayExchangeCall) DoAndReturn(f func(context.Context, string, string) (string, error)) *MockDanceGatewayExchangeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockAuthMethods is a mock of AuthMethods interface.
+type MockAuthMethods struct {
+	ctrl     *gomock.Controller
+	recorder *MockAuthMethodsMockRecorder
+	isgomock struct{}
+}
+
+// MockAuthMethodsMockRecorder is the mock recorder for MockAuthMethods.
+type MockAuthMethodsMockRecorder struct {
+	mock *MockAuthMethods
+}
+
+// NewMockAuthMethods creates a new mock instance.
+func NewMockAuthMethods(ctrl *gomock.Controller) *MockAuthMethods {
+	mock := &MockAuthMethods{ctrl: ctrl}
+	mock.recorder = &MockAuthMethodsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAuthMethods) EXPECT() *MockAuthMethodsMockRecorder {
+	return m.recorder
+}
+
+// DanceGateway mocks base method.
+func (m *MockAuthMethods) DanceGateway(method entity.AuthMethod) (authmethod.Gateway, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DanceGateway", method)
+	ret0, _ := ret[0].(authmethod.Gateway)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// DanceGateway indicates an expected call of DanceGateway.
+func (mr *MockAuthMethodsMockRecorder) DanceGateway(method any) *MockAuthMethodsDanceGatewayCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DanceGateway", reflect.TypeOf((*MockAuthMethods)(nil).DanceGateway), method)
+	return &MockAuthMethodsDanceGatewayCall{Call: call}
+}
+
+// MockAuthMethodsDanceGatewayCall wrap *gomock.Call
+type MockAuthMethodsDanceGatewayCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodsDanceGatewayCall) Return(arg0 authmethod.Gateway, arg1 bool) *MockAuthMethodsDanceGatewayCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodsDanceGatewayCall) Do(f func(entity.AuthMethod) (authmethod.Gateway, bool)) *MockAuthMethodsDanceGatewayCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodsDanceGatewayCall) DoAndReturn(f func(entity.AuthMethod) (authmethod.Gateway, bool)) *MockAuthMethodsDanceGatewayCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DanceProvider mocks base method.
+func (m *MockAuthMethods) DanceProvider(segment string) (entity.AuthMethod, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DanceProvider", segment)
+	ret0, _ := ret[0].(entity.AuthMethod)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// DanceProvider indicates an expected call of DanceProvider.
+func (mr *MockAuthMethodsMockRecorder) DanceProvider(segment any) *MockAuthMethodsDanceProviderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DanceProvider", reflect.TypeOf((*MockAuthMethods)(nil).DanceProvider), segment)
+	return &MockAuthMethodsDanceProviderCall{Call: call}
+}
+
+// MockAuthMethodsDanceProviderCall wrap *gomock.Call
+type MockAuthMethodsDanceProviderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodsDanceProviderCall) Return(arg0 entity.AuthMethod, arg1 bool) *MockAuthMethodsDanceProviderCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodsDanceProviderCall) Do(f func(string) (entity.AuthMethod, bool)) *MockAuthMethodsDanceProviderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodsDanceProviderCall) DoAndReturn(f func(string) (entity.AuthMethod, bool)) *MockAuthMethodsDanceProviderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Get mocks base method.
+func (m *MockAuthMethods) Get(ctx context.Context, methodID entity.AuthMethod) (authmethod.AuthMethod, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx, methodID)
+	ret0, _ := ret[0].(authmethod.AuthMethod)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockAuthMethodsMockRecorder) Get(ctx, methodID any) *MockAuthMethodsGetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAuthMethods)(nil).Get), ctx, methodID)
+	return &MockAuthMethodsGetCall{Call: call}
+}
+
+// MockAuthMethodsGetCall wrap *gomock.Call
+type MockAuthMethodsGetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodsGetCall) Return(arg0 authmethod.AuthMethod, arg1 error) *MockAuthMethodsGetCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodsGetCall) Do(f func(context.Context, entity.AuthMethod) (authmethod.AuthMethod, error)) *MockAuthMethodsGetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodsGetCall) DoAndReturn(f func(context.Context, entity.AuthMethod) (authmethod.AuthMethod, error)) *MockAuthMethodsGetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Parse mocks base method.
+func (m *MockAuthMethods) Parse(name string) (entity.AuthMethod, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Parse", name)
+	ret0, _ := ret[0].(entity.AuthMethod)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// Parse indicates an expected call of Parse.
+func (mr *MockAuthMethodsMockRecorder) Parse(name any) *MockAuthMethodsParseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Parse", reflect.TypeOf((*MockAuthMethods)(nil).Parse), name)
+	return &MockAuthMethodsParseCall{Call: call}
+}
+
+// MockAuthMethodsParseCall wrap *gomock.Call
+type MockAuthMethodsParseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodsParseCall) Return(arg0 entity.AuthMethod, arg1 bool) *MockAuthMethodsParseCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodsParseCall) Do(f func(string) (entity.AuthMethod, bool)) *MockAuthMethodsParseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodsParseCall) DoAndReturn(f func(string) (entity.AuthMethod, bool)) *MockAuthMethodsParseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

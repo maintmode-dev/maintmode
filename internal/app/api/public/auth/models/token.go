@@ -15,11 +15,41 @@ type ExchangeIDTokenRequest struct {
 	IDToken string `json:"id_token"`
 }
 
-// ConnectProviderRequest carries the upstream provider's signed JWT obtained by
-// the frontend OAuth flow; the backend verifies it and links the identity to
-// the authenticated user.
+// ConnectProviderRequest asks to attach an additional sign-in provider to the
+// authenticated user, in one of two ways.
+//
+// Exactly one field must be set, and they are not interchangeable:
+//
+//   - IDToken is the BFF flow. The frontend ran the provider's dance itself and
+//     posts the resulting ID token here.
+//   - Mode "dance" asks the BACKEND to run the dance instead, and answers with a
+//     link_url rather than linking anything on this request. It exists because a
+//     provider with no id_token -- GitHub -- has nothing the frontend could post.
 type ConnectProviderRequest struct {
 	IDToken string `json:"id_token"`
+	// Mode selects the backend-driven flow. The only accepted value is "dance";
+	// anything else is refused rather than ignored, so a typo does not silently
+	// fall back to the other branch.
+	Mode string `json:"mode"`
+}
+
+// ConnectProviderDanceMode is the only value Mode accepts.
+const ConnectProviderDanceMode = "dance"
+
+// ConnectProviderDanceResponse answers a dance-mode connect.
+//
+// LinkURL is RELATIVE -- a path, with no origin. Nothing in configuration names
+// this backend's own external base: frontend_url is the frontend, and a
+// provider's redirect_uri is the callback. Deriving one by string surgery, or
+// trusting the Host header, both break behind a proxy that strips a path
+// prefix. The caller already knows the origin it just called, so it resolves the
+// path against that.
+//
+// It must be followed by a TOP-LEVEL navigation, not fetch or XHR: the dance
+// cookies are SameSite=Lax, so a background request drops the Set-Cookie and the
+// dance dies as a 302 that reads as success in every access log.
+type ConnectProviderDanceResponse struct {
+	LinkURL string `json:"link_url"`
 }
 
 // LoginWithPasswordRequest is a sign-in with a password rather than an upstream

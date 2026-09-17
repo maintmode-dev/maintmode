@@ -23,6 +23,28 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 	defer span.End()
 
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
+		// The account is re-resolved INSIDE the transaction, not before it. A
+		// dance-driven link presents a ticket that may be a full dance-state TTL
+		// old, so the account can have been blocked in the meantime; as two
+		// calls, a user blocked between them would still be linked.
+		//
+		// GetForUpdateByID answers ErrUserNotFound for a deleted account but says
+		// nothing about blocking -- UnlinkIdentity calls it purely as a lock and
+		// discards the row -- so the IsBlocked check has to be explicit.
+		//
+		// This also applies to the BFF connect path, which shares this method,
+		// and that is intended: refusing a blocked account a NEW permanent way in
+		// is correct on both. Putting the check only in the dance branch would
+		// leave one path able to do what the other refuses.
+		owner, err := s.usersStore.GetForUpdateByID(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("lock user: %w", err)
+		}
+
+		if owner.IsBlocked() {
+			return apperr.ErrUserBlocked
+		}
+
 		// Reject if this provider subject is already linked anywhere.
 		bySubject, err := s.identitiesStore.GetByProviderSubject(ctx, provider, claims.Subject)
 		switch {

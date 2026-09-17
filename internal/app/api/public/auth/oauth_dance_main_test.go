@@ -82,7 +82,7 @@ func danceCookies(t *testing.T, rec *httptest.ResponseRecorder) map[string]*http
 
 	for _, cookie := range rec.Result().Cookies() {
 		switch cookie.Name {
-		case oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie:
+		case oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie:
 		default:
 			continue
 		}
