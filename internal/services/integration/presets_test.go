@@ -95,9 +95,11 @@ func TestApplyPreset_MissingCatalogEntryIsRefused(t *testing.T) {
 // carrying provider='google', pointed at an IdP they run. The create-time
 // refusal buys nothing if the field is writable one request later.
 //
-// refuseRepointingLinkedProvider does NOT close this: it fires only once an
-// account is linked, and the window before the first sign-in is exactly when an
-// operator is setting the provider up.
+// Nothing else closes this. The linked-account check that once refused a name
+// identities already carried is gone -- create.go says why, and it would not
+// have helped regardless: it fired only once an account was linked, and the
+// window before the first sign-in is exactly when an operator is setting the
+// provider up.
 func TestEnforcePreset_RefusesAnUpdateThatRewritesAPresetField(t *testing.T) {
 	t.Parallel()
 
