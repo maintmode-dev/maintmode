@@ -19,6 +19,24 @@ type LoginPreset struct {
 	// this file changes the AAD of every secret sealed under it, and every
 	// affected provider fails at the next sign-in.
 	IssuerURL string `mapstructure:"issuer_url"`
+	// AuthorizeURL, TokenURL and APIBaseURL are the endpoints of a provider
+	// that publishes no discovery document, so they cannot be fetched the way an
+	// OIDC issuer's are. They are the same KIND of fact as IssuerURL -- an
+	// address of the outside world an operator should not have to look up -- and
+	// live here for the same reason: moving a vendor to a different host, or
+	// pointing a stand at a fake one, is then a config edit rather than a
+	// release.
+	//
+	// Empty for an OIDC preset, which has no use for them. Fields omits what is
+	// empty, so an unset field is neither written into a row nor compared
+	// against one.
+	AuthorizeURL string `mapstructure:"authorize_url"`
+	TokenURL     string `mapstructure:"token_url"`
+	// APIBaseURL is the API ROOT, and sub-resources are joined onto it as paths.
+	// Grafana's equivalent expects a URL already pointing at /user and
+	// concatenates "/emails" onto it, which is a documented source of
+	// misconfiguration; this is the other choice deliberately.
+	APIBaseURL string `mapstructure:"api_base_url"`
 }
 
 // LoginPresets is the catalog, keyed by the registry's system name.
@@ -40,11 +58,27 @@ type LoginPresets map[string]LoginPreset
 // names, adding a third preset field would have to be remembered in two places,
 // and forgetting it in the comparison is exactly the account-takeover hole the
 // comparison exists to close.
+// Empty values are OMITTED rather than fixed to "". A preset fixes only the
+// fields it actually knows: an OIDC entry has no authorize_url, and writing an
+// empty one into the row would both fail that kind's validation and make the
+// comparison demand a field the settings type does not carry.
 func (p LoginPreset) Fields() map[string]string {
-	return map[string]string{
-		"issuer_url":   p.IssuerURL,
-		"display_name": p.DisplayName,
+	candidates := map[string]string{
+		"issuer_url":    p.IssuerURL,
+		"display_name":  p.DisplayName,
+		"authorize_url": p.AuthorizeURL,
+		"token_url":     p.TokenURL,
+		"api_base_url":  p.APIBaseURL,
 	}
+
+	fields := make(map[string]string, len(candidates))
+	for key, value := range candidates {
+		if value != "" {
+			fields[key] = value
+		}
+	}
+
+	return fields
 }
 
 // For returns the preset for a system name, and whether one exists.
