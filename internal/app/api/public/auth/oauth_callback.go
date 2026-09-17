@@ -12,7 +12,8 @@ import (
 
 // OAuthDanceCallback godoc
 // @Summary Complete the backend-driven OAuth dance
-// @Description Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. Both cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.
+// @Description Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. All dance cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.
+// @Description An oauth_link cookie switches this to LINK mode: the identity is attached to the account the ticket names and the redirect carries linked=1 instead of a code, with no session minted. Once that cookie is present no outcome yields a sign-in -- a spent or unknown ticket is refused, never downgraded.
 // @Tags Auth
 // @Produce json
 // @Param provider path string true "Configured provider instance name, e.g. google"
@@ -42,16 +43,18 @@ func (i *Implementation) OAuthDanceCallback(c *echo.Context) error {
 	signature := danceCookieValue(c, oauthStateCookie)
 	verifier := danceCookieValue(c, oauthVerifierCookie)
 	invitationHandle := danceCookieValue(c, oauthInvitationCookie)
+	linkTicket := danceCookieValue(c, oauthLinkCookie)
 
 	i.expireDanceCookies(c)
 
-	code, err := i.authSrv.CompleteDance(ctx, entity.DanceCallback{
+	outcome, err := i.authSrv.CompleteDance(ctx, entity.DanceCallback{
 		Provider:         c.Param("provider"),
 		ProviderError:    c.QueryParam(paramError),
 		State:            c.QueryParam(paramState),
 		Code:             c.QueryParam(paramCode),
 		StateSignature:   signature,
 		Verifier:         verifier,
+		LinkTicket:       linkTicket,
 		InvitationHandle: invitationHandle,
 	}, meta)
 	if err != nil {
@@ -59,5 +62,13 @@ func (i *Implementation) OAuthDanceCallback(c *echo.Context) error {
 		return i.redirectFailure(c, danceFailureCode(err))
 	}
 
-	return i.redirectHome(c, url.Values{paramCode: {code}})
+	// Branching on the OUTCOME rather than on whether a link cookie arrived: a
+	// presented ticket can redeem to nothing, and only the service knows whether
+	// the link actually happened. An empty Code alone would be ambiguous with a
+	// bug, which is why the flag is explicit.
+	if outcome.Linked {
+		return i.redirectHome(c, url.Values{paramLinked: {"1"}})
+	}
+
+	return i.redirectHome(c, url.Values{paramCode: {outcome.Code}})
 }

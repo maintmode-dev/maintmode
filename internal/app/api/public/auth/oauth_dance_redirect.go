@@ -16,6 +16,14 @@ const (
 	paramCode  = "code"
 	paramState = "state"
 	paramError = "error"
+	// paramLink carries the link ticket into /start. It is masked in request
+	// logs (see the request sanitizer): the ticket attaches a sign-in method to
+	// an account, so a log line holding one is a standing grant.
+	paramLink = "link"
+	// paramLinked reports a completed link on the frontend redirect. Named apart
+	// from paramLink on purpose: same origin, and one carries a secret while the
+	// other carries a flag.
+	paramLinked = "linked"
 )
 
 // Redirect codes the frontend renders: a closed, stable set that RUK-292 maps
@@ -39,8 +47,17 @@ const (
 	// already answers a mismatch distinctly, for the same reason.
 	errCodeEmailMismatch = "email_mismatch"
 	errCodeStateInvalid  = "state_invalid"
-	errCodeProvider      = "provider_error"
-	errCodeInternal      = "internal_error"
+	// errCodeLinkConflict says the identity cannot be attached to this account:
+	// it is already linked here, linked to someone else, or this account already
+	// holds a different identity for the provider.
+	//
+	// The three collapse onto one code deliberately. Telling them apart would
+	// report whether a given provider account is registered on this instance, to
+	// a caller who only proved they control it moments ago -- and the audit row
+	// keeps the distinction where an operator can read it.
+	errCodeLinkConflict = "link_conflict"
+	errCodeProvider     = "provider_error"
+	errCodeInternal     = "internal_error"
 )
 
 // danceFailureCode maps a failed dance to the code the browser is sent home
@@ -58,6 +75,20 @@ func danceFailureCode(err error) string {
 	switch {
 	case errors.Is(err, apperr.ErrOAuthProviderDenied):
 		return providerErrorCode(err)
+	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
+		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
+		// ABOVE the ErrUserBlocked arm below, and that ordering is the
+		// requirement -- not merely "before it in the file". Neither sentinel
+		// wraps anything, so a single arm would let one of the three conflict
+		// cases fall through to internal_error.
+		return errCodeLinkConflict
+	case errors.Is(err, apperr.ErrLinkTicketUnusable):
+		// The link branch wraps its own refusals in this, including a gone or
+		// blocked user. A free function over one error cannot know which branch
+		// produced it, so the branch marks them: on a link the condition is
+		// "this ticket is no longer usable", not "you may not sign in", which is
+		// what the ErrUserBlocked arm would otherwise answer.
+		return errCodeStateInvalid
 	case errors.Is(err, apperr.ErrEmailMismatch):
 		// Before the ErrValidation-bearing invitation errors below: both wrap
 		// ErrValidation, so a generic validation arm added above this one would

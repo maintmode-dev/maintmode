@@ -100,3 +100,57 @@ type OAuthIDTokenClaims struct {
 	// reporting the address unverified.
 	EmailVerified bool
 }
+
+// OAuth2Identity is what an OAuth 2.0 access token resolves to.
+//
+// The shape the auth method needs and nothing more: no access token, no vendor
+// handle beyond the display name, no group or org list. What is absent is
+// deliberate -- the token never leaves the request that obtained it, so it is
+// not carried here where a caller could be tempted to persist it.
+//
+// It is NOT OAuthProviderUserInfo, whose ID is a provider's user id as the user
+// service wants it. Subject here is the value written to
+// user_identities.subject, and naming it so is what keeps the two from being
+// assigned across without anyone noticing the meaning changed.
+type OAuth2Identity struct {
+	// Subject is the vendor's STABLE account key. Never a renameable handle:
+	// a login, once renamed, is claimable by someone else, so an account keyed
+	// on one could be inherited.
+	Subject string
+	// Email is the account's primary AND verified address. Any other address is
+	// refused by the vendor -- this field never carries an unvouched one.
+	Email string
+	Name  string
+}
+
+// OAuth2Credentials is the OAuth app a gateway acts as, and where it talks.
+//
+// The endpoints travel WITH the credentials because a plain OAuth 2.0 provider
+// publishes no discovery document: there is nothing to fetch them from, so they
+// are configuration like the client id is. They reach a row from the deployment
+// catalog rather than from an operator -- see config.LoginPreset -- which is
+// what stops anyone pointing a known provider name at a host they control.
+type OAuth2Credentials struct {
+	// DisplayName labels log lines and spans. It is not part of the exchange.
+	DisplayName string
+	ClientID    string
+	// ClientSecret authenticates the app at the token endpoint. Required for
+	// every vendor: a plain OAuth 2.0 identity cannot be established without
+	// spending it.
+	ClientSecret string
+	// RedirectURI must be the EXTERNAL callback URL, matching what is
+	// registered at the provider.
+	RedirectURI string
+	// AuthorizeURL is where the browser is sent to consent, and TokenURL is
+	// where the authorization code is exchanged. Both are the GRANT's, which is
+	// why they are here: the grant is what this struct configures, and both go
+	// straight into oauth2.Endpoint.
+	//
+	// The identity API's base is deliberately NOT here. It configures the reads
+	// a vendor makes, not the grant, so it reaches the vendor directly -- see
+	// the Vendor contract.
+	AuthorizeURL string
+	// TokenURL is where the client secret travels, which is why it is validated
+	// as https upstream.
+	TokenURL string
+}

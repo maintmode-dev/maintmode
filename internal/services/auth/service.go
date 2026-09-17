@@ -95,6 +95,19 @@ type DanceCodeStore interface {
 	// fault: /start stores a handle whenever the parameter is present, without
 	// first resolving the token, which is what keeps it from being an oracle.
 	ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error)
+	// PutLinkTicket parks a link intent behind an opaque ticket, minted on the
+	// authenticated connect endpoint.
+	PutLinkTicket(ctx context.Context, ticket string, intent entity.LinkIntent) error
+	// PeekLinkTicket reads a ticket WITHOUT spending it, for /start: the ticket
+	// has to be validated before the browser leaves, but the spend belongs at the
+	// callback, where the link actually happens.
+	//
+	// A nil intent with no error is a clean miss. It is deliberately distinct
+	// from an error, and the two must stay apart: reading a store failure as "no
+	// ticket" is what would turn an outage into a sign-in nobody asked for.
+	PeekLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error)
+	// ConsumeLinkTicket redeems a ticket, and is the only spend in the link flow.
+	ConsumeLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error)
 }
 
 // InvitationClaimer is the invitation side of an invited dance.
@@ -284,16 +297,25 @@ func (s *Service) publishLoginFailure(
 	meta *entity.AuditMetadata,
 	reason entity.AuditFailureReason,
 ) {
-	// Copied rather than written in place: callers reuse one metadata value
-	// across several branches, and mutating it would leak one branch's reason
-	// into another's record.
-	failed := entity.AuditMetadata{FailureReason: reason}
+	s.publishAudit(ctx, audit.LoginFailed{User: actor, Meta: metaWithReason(meta, reason)})
+}
+
+// metaWithReason stamps a failure reason onto a COPY of the caller's metadata.
+//
+// Copied rather than written in place: callers reuse one metadata value across
+// several branches, and mutating it would leak one branch's reason into
+// another's record.
+func metaWithReason(
+	meta *entity.AuditMetadata,
+	reason entity.AuditFailureReason,
+) *entity.AuditMetadata {
+	stamped := entity.AuditMetadata{FailureReason: reason}
 	if meta != nil {
-		failed = *meta
-		failed.FailureReason = reason
+		stamped = *meta
+		stamped.FailureReason = reason
 	}
 
-	s.publishAudit(ctx, audit.LoginFailed{User: actor, Meta: &failed})
+	return &stamped
 }
 
 // publishAudit publishes an audited action to the durable outbox. A failed

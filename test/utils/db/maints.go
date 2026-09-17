@@ -3,8 +3,10 @@ package testdbutils
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -130,5 +132,60 @@ func MakeMaint(
 		created.Steps = steps
 	}
 
+	closeActualPeriodOnCleanup(ctx, t, maintStore, created.ID)
+
 	return created
+}
+
+// closeActualPeriodOnCleanup bounds a fixture's actual period once its test is
+// done, so the row stops matching every future window.
+//
+// An open actual period is `[start, ∞)`, and `&&` reports it as overlapping ANY
+// range — including every isolated window a later test claims. Nothing deletes
+// fixtures from the shared database, so each run that started a maintenance and
+// never finished it left behind a row that conflicts with everything, forever.
+// Thousands had accumulated before this was added.
+//
+// That is invisible until a query has a LIMIT: ActualConflictedMaints caps at
+// ActualConflictsLimit and orders by overlap start, so once enough of these
+// accumulated they filled the page and pushed out the neighbor a test had just
+// created — TestConflictScopeMatrix failed on rows it never created, and only
+// in its global-scope cases, since resource-scoped ones were filtered out by
+// their fresh resource ids.
+//
+// Time-based isolation cannot fix this. An unbounded range overlaps every
+// window by definition, however far out the window is placed.
+//
+// The row is CLOSED rather than deleted: a test may legitimately assert that
+// its fixture still exists, and a bounded period is what the maintenance would
+// have carried had it been completed. The state is read back from the database
+// rather than taken from the fixture, because the period is usually opened by
+// the service under test (see services/maint/start_maint.go) long after this
+// helper returned.
+//
+// Deliberately NOT reported as a failure: cleanup runs after the test's own
+// assertions, and a janitorial write that could not land must not turn a
+// passing test red.
+func closeActualPeriodOnCleanup(
+	ctx context.Context,
+	t *testing.T,
+	maintStore *maintenances.Store,
+	maintID uuid.UUID,
+) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		maint, err := maintStore.GetMaint(ctx, maintID)
+		if err != nil || maint == nil || maint.ActualPeriod == nil || !maint.ActualPeriod.IsOpen() {
+			return
+		}
+
+		// One hour, so the closed range stays inside the slot stride that
+		// IsolatedPeriodBounds hands out and cannot reach a neighboring window.
+		maint.ActualPeriod = lo.ToPtr(
+			entity.NewPeriod(maint.ActualPeriod.Start, maint.ActualPeriod.Start.Add(time.Hour)),
+		)
+
+		_ = maintStore.UpdateMaint(ctx, maint)
+	})
 }

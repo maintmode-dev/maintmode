@@ -18,9 +18,12 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	oauth2gw "github.com/ruko1202/maintmode/internal/gateways/oauth2"
+	githubvendor "github.com/ruko1202/maintmode/internal/gateways/oauth2/github"
 	oidcgw "github.com/ruko1202/maintmode/internal/gateways/oidc"
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
+	oauth2method "github.com/ruko1202/maintmode/internal/services/authmethod/oauth2"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/oidc"
 )
 
@@ -215,8 +218,6 @@ func (r *Reloader) buildOne(
 ) providerInput {
 	input := providerInput{ID: id, DisplayName: row.Name}
 
-	stored, isOIDC := row.Settings.(integrationkinds.OIDCSettings)
-
 	switch {
 	case row.Unreadable:
 		// Not logged again here: ListLoginProviders already reported it where it
@@ -229,62 +230,87 @@ func (r *Reloader) buildOne(
 		// not merely stop being listed.
 		input.Health = entity.LoginProviderHealthDisabled
 
-	case !isOIDC:
-		// OIDC is the only login shape this build knows how to assemble, so a
-		// row carrying anything else lands here: a delivery row filed under the
-		// login category today, and a non-OIDC provider -- GitHub's OAuth2 has
-		// no discovery document -- the day one is added.
-		//
-		// ADDING ONE STARTS HERE. The snapshot itself is shape-agnostic: it
-		// holds an AuthMethod and a Gateway, both interfaces, and nothing below
-		// this switch asks what produced them. What is OIDC-specific is this
-		// branch and the assembly under default. A second shape means matching
-		// its settings type here and building its two halves there; the
-		// registry, the reloader's lifecycle and every reader stay as they are.
-		//
-		// It is a per-provider failure either way: that one disables ITSELF and
-		// stays listed with its state, and every other provider in this rebuild
-		// is unaffected.
-		xlog.Error(ctx, "login provider did not build",
-			xfield.String("provider", row.Name),
-			xfield.String("settings_type", fmt.Sprintf("%T", row.Settings)))
-		input.Health = entity.LoginProviderHealthUnreadable
-
 	default:
-		// A fresh *oidc.Service per rebuild, never a reused one: its verifier is
-		// cached for the life of the object under the issuer, and the client id
-		// it was built with is the audience it checks. Reusing one across a
-		// client_id change would keep accepting tokens minted for the previous
-		// registration.
+		// One arm per login SHAPE, matched on the settings type the registry
+		// parsed. The snapshot itself is shape-agnostic -- it holds an
+		// AuthMethod and a Gateway, both interfaces, and nothing below this
+		// switch asks what produced them -- so a shape costs exactly one arm
+		// here and nothing anywhere else.
 		//
-		// No discovery here. This reads the stored row and nothing else, so a
-		// rebuild cannot block on an IdP or fail because one is down -- the
-		// snapshot is the configuration, not a probe of the world it names. The
-		// verifier resolves lazily on first use instead: the resolver caches per
-		// issuer, so the first sign-in pays for the fetch and every later one is
-		// served warm.
-		provider := config.OIDCProvider{
-			DisplayName:  stored.DisplayName,
-			IssuerURL:    stored.IssuerURL,
-			ClientID:     stored.ClientID,
-			ClientSecret: stored.ClientSecret,
-			RedirectURI:  stored.RedirectURI,
-			Scopes:       stored.Scopes,
-			JWTVerify: config.JWTVerifierConfig{
-				// The only provider-facing field of that block the OIDC path
-				// reads, and an authorization control: an empty list means no
-				// domain restriction, so losing it here fails OPEN.
-				AllowedHostedDomains: stored.JWTVerify.AllowedHostedDomains,
-			},
-		}
+		// A row matching no arm is a per-provider failure: it disables ITSELF
+		// and stays listed with its state, while every other provider in this
+		// rebuild is unaffected. That covers a delivery row mis-filed under the
+		// login category, and a login shape whose arm has not been written.
+		switch stored := row.Settings.(type) {
+		case integrationkinds.OIDCSettings:
+			// A fresh *oidc.Service per rebuild, never a reused one: its verifier is
+			// cached for the life of the object under the issuer, and the client id
+			// it was built with is the audience it checks. Reusing one across a
+			// client_id change would keep accepting tokens minted for the previous
+			// registration.
+			//
+			// No discovery here. This reads the stored row and nothing else, so a
+			// rebuild cannot block on an IdP or fail because one is down -- the
+			// snapshot is the configuration, not a probe of the world it names. The
+			// verifier resolves lazily on first use instead: the resolver caches per
+			// issuer, so the first sign-in pays for the fetch and every later one is
+			// served warm.
+			provider := config.OIDCProvider{
+				DisplayName:  stored.DisplayName,
+				IssuerURL:    stored.IssuerURL,
+				ClientID:     stored.ClientID,
+				ClientSecret: stored.ClientSecret,
+				RedirectURI:  stored.RedirectURI,
+				Scopes:       stored.Scopes,
+				JWTVerify: config.JWTVerifierConfig{
+					// The only provider-facing field of that block the OIDC path
+					// reads, and an authorization control: an empty list means no
+					// domain restriction, so losing it here fails OPEN.
+					AllowedHostedDomains: stored.JWTVerify.AllowedHostedDomains,
+				},
+			}
 
-		input.Method = oidc.NewProvider(row.Name, provider, r.discovery)
-		input.Gateway = oidcgw.NewClient(provider, r.discovery)
-		// The operator's label, falling back to the instance name so a button is
-		// never blank.
-		input.DisplayName = cmp.Or(stored.DisplayName, row.Name)
-		input.RedirectURI = stored.RedirectURI
-		input.Health = entity.LoginProviderHealthOK
+			input.Method = oidc.NewProvider(row.Name, provider, r.discovery)
+			input.Gateway = oidcgw.NewClient(provider, r.discovery)
+			// The operator's label, falling back to the instance name so a button is
+			// never blank.
+			input.DisplayName = cmp.Or(stored.DisplayName, row.Name)
+			input.RedirectURI = stored.RedirectURI
+			input.Health = entity.LoginProviderHealthOK
+
+		case integrationkinds.OAuth2Settings:
+			credentials := entity.OAuth2Credentials{
+				DisplayName:  stored.DisplayName,
+				ClientID:     stored.ClientID,
+				ClientSecret: stored.ClientSecret,
+				RedirectURI:  stored.RedirectURI,
+				AuthorizeURL: stored.AuthorizeURL,
+				TokenURL:     stored.TokenURL,
+			}
+
+			// The API base goes to the VENDOR, not into the credentials: it configures
+			// the identity reads, which are the vendor's, while the two grant endpoints
+			// above configure the exchange, which is the protocol layer's. Splitting
+			// them by consumer is what keeps either side from carrying a field it never
+			// reads.
+			gateway := oauth2gw.NewClient(credentials, githubvendor.New(stored.APIBaseURL))
+
+			// The gateway serves BOTH halves here, unlike the OIDC arm where they are
+			// two objects. That is the protocol's asymmetry, not a shortcut: a plain
+			// access token is opaque, so establishing the identity IS an authenticated
+			// call, and the thing that can make it is the thing holding the secret.
+			input.Method = oauth2method.NewProvider(row.Name, gateway)
+			input.Gateway = gateway
+			input.DisplayName = cmp.Or(stored.DisplayName, row.Name)
+			input.RedirectURI = stored.RedirectURI
+			input.Health = entity.LoginProviderHealthOK
+
+		default:
+			xlog.Error(ctx, "login provider did not build",
+				xfield.String("provider", row.Name),
+				xfield.String("settings_type", fmt.Sprintf("%T", row.Settings)))
+			input.Health = entity.LoginProviderHealthUnreadable
+		}
 	}
 
 	return input

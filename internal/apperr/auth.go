@@ -47,6 +47,46 @@ var (
 	// issuer that lets a user self-assert any address would otherwise let that
 	// user reach someone else's.
 	ErrEmailNotVerified = errors.New("email not verified")
+	// ErrGithubEmailUnusable marks a GitHub account carrying no address this
+	// backend may trust: /user/emails returned no record that is both primary
+	// and verified.
+	//
+	// Separate from ErrEmailNotVerified, which is already mapped to a 400
+	// email_not_verified on the BFF exchange path; widening that sentinel would
+	// change an endpoint this ticket does not touch. It also covers a case the
+	// OIDC one cannot state -- "verified, but not the account's primary address"
+	// -- and primary is half the rule, because a person controls several
+	// verified addresses and only one of them identifies the account.
+	//
+	// The person fixes this on GitHub, so it must never be reported as a
+	// provider outage.
+	ErrGithubEmailUnusable = errors.New("github account has no verified primary email")
+	// ErrGithubIdentityUnusable marks a /user response carrying no usable numeric
+	// id.
+	//
+	// The id is the subject written to user_identities, and an empty one would
+	// collide in the (provider, subject) unique index with every other empty
+	// one -- resolving unrelated GitHub accounts to a single user. Refused
+	// rather than defaulted for that reason.
+	ErrGithubIdentityUnusable = errors.New("github identity has no usable subject")
+	// ErrLinkTicketUnusable marks a link that cannot proceed: the ticket is
+	// unknown, expired or spent, or the account it names is gone or blocked.
+	//
+	// One sentinel for all of them, because telling them apart at the browser
+	// would confirm half a guess. It also exists to mark WHICH branch produced a
+	// failure: danceFailureCode is a free function over one error and cannot know
+	// otherwise, so the link branch wraps its refusals in this rather than
+	// letting ErrUserBlocked reach an arm that answers "you may not sign in" --
+	// which is not what happened.
+	//
+	// Wraps ErrValidation => HTTP 400 on /start, where a refusal is answered as
+	// JSON rather than a redirect. Without the wrap it fell to the mapper's
+	// default arm and reported a deliberate refusal as a 500 -- making it
+	// indistinguishable from an outage, for the operator and for the frontend
+	// alike, and collapsing the two /start outcomes the dance is careful to keep
+	// apart. A STORE failure stays unwrapped, so an actual outage still answers
+	// 500.
+	ErrLinkTicketUnusable = fmt.Errorf("%w: link ticket is not usable", ErrValidation)
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next

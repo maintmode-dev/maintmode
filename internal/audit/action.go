@@ -37,6 +37,22 @@ type LoginFailed struct {
 
 func (LoginFailed) auditAction() entity.AuditAction { return entity.AuditActionLoginFailed }
 
+// ProviderLinked records a sign-in provider being attached to an account, or a
+// refusal to attach one.
+//
+// Its own action rather than a LoginFailed with a different reason: filing a
+// link under login.* would corrupt the login facet, where a run of failures is
+// read as someone guessing credentials. A link refusal is nothing of the kind.
+//
+// User may carry only an id when the account could not be resolved -- a ticket
+// naming a deleted user still deserves a row.
+type ProviderLinked struct {
+	User *entity.User
+	Meta *entity.AuditMetadata
+}
+
+func (ProviderLinked) auditAction() entity.AuditAction { return entity.AuditActionProviderLinked }
+
 // LogoutSuccess records a manual logout.
 type LogoutSuccess struct {
 	User      *entity.User

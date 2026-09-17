@@ -70,6 +70,19 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 	}
 }
 
+// providerLinkDetails describes a link row.
+//
+// Success and refusal share one action, because both are the same event from an
+// operator's side: someone tried to attach a sign-in method. The failure reason
+// is what separates them, and it is already a whitelist-safe vocabulary.
+func providerLinkDetails(meta *entity.AuditMetadata) string {
+	if meta != nil && meta.FailureReason != "" {
+		return fmt.Sprintf("provider link refused: %s", meta.FailureReason)
+	}
+
+	return "provider linked"
+}
+
 func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case LoginSuccess:
@@ -81,6 +94,11 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 		setActor(payload, a.User)
 		payload.EntityID = failedLoginEntityID(a.User)
 		payload.Details = failedLoginDetails(a.User)
+		payload.Metadata = sanitizeMetadata(a.Meta)
+	case ProviderLinked:
+		setActor(payload, a.User)
+		payload.EntityID = a.User.ID.String()
+		payload.Details = providerLinkDetails(a.Meta)
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LogoutSuccess:
 		setActor(payload, a.User)

@@ -20,7 +20,7 @@ func (s *Store) PutInvitationHandle(ctx context.Context, handle string, invitati
 	ctx, span := xlog.WithOperationSpan(ctx, "store.OAuthDance.PutInvitationHandle")
 	defer span.End()
 
-	if err := s.db.Set(ctx, invitationKey(handle), invitationID.String(), s.invitationTTL).Err(); err != nil {
+	if err := s.db.Set(ctx, invitationKey(handle), invitationID.String(), s.handleTTL).Err(); err != nil {
 		return fmt.Errorf("put invitation handle: %w", err)
 	}
 

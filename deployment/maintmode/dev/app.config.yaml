@@ -179,6 +179,17 @@ oauth_providers:
     google:
       display_name: Google
       issuer_url: https://accounts.google.com
+    # GitHub publishes no discovery document, so its endpoints cannot be
+    # fetched the way an OIDC issuer's are -- they are configuration. Fixed by
+    # the preset rather than asked of an operator: a provider name that already
+    # has accounts behind it must not be re-pointable at a host someone else
+    # controls. Editing them here is a deploy-time act, which is what makes a
+    # GitHub Enterprise Server or a test double possible without a rebuild.
+    github:
+      display_name: GitHub
+      authorize_url: https://github.com/login/oauth/authorize
+      token_url: https://github.com/login/oauth/access_token
+      api_base_url: https://api.github.com
 
 jwt:
   issuer_name: oauth-service

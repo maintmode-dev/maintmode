@@ -14,11 +14,18 @@ import (
 func presetSvc(t *testing.T) *Service {
 	t.Helper()
 
-	registry, err := NewRegistry(integrationkinds.Google, integrationkinds.Custom)
+	registry, err := NewRegistry(
+		integrationkinds.Google, integrationkinds.Custom, integrationkinds.GitHub)
 	require.NoError(t, err)
 
 	return (&Service{registry: registry}).WithLoginPresets(config.LoginPresets{
 		"google": {DisplayName: "Google", IssuerURL: "https://accounts.google.com"},
+		"github": {
+			DisplayName:  "GitHub",
+			AuthorizeURL: "https://github.com/login/oauth/authorize",
+			TokenURL:     "https://github.com/login/oauth/access_token",
+			APIBaseURL:   "https://api.github.com",
+		},
 	})
 }
 
@@ -88,9 +95,11 @@ func TestApplyPreset_MissingCatalogEntryIsRefused(t *testing.T) {
 // carrying provider='google', pointed at an IdP they run. The create-time
 // refusal buys nothing if the field is writable one request later.
 //
-// refuseRepointingLinkedProvider does NOT close this: it fires only once an
-// account is linked, and the window before the first sign-in is exactly when an
-// operator is setting the provider up.
+// Nothing else closes this. The linked-account check that once refused a name
+// identities already carried is gone -- create.go says why, and it would not
+// have helped regardless: it fired only once an account was linked, and the
+// window before the first sign-in is exactly when an operator is setting the
+// provider up.
 func TestEnforcePreset_RefusesAnUpdateThatRewritesAPresetField(t *testing.T) {
 	t.Parallel()
 
@@ -139,4 +148,41 @@ func TestEnforcePreset_MissingCatalogEntryIsRefused(t *testing.T) {
 		`{"issuer_url":"https://attacker.example","client_id":"c"}`))
 	require.ErrorIs(t, err, apperr.ErrValidation,
 		"a preset name with no catalog entry must be refused, not waved through")
+}
+
+// The plain OAuth 2.0 entries are preset-backed for a sharper reason than the
+// OIDC ones, and this is the test that holds it.
+//
+// An OIDC row pointed at a hostile issuer still has to produce an id_token that
+// verifies against that issuer's JWKS. A plain OAuth 2.0 row has no such check:
+// whoever owns the endpoints owns the identity, because the identity is
+// whatever the API answers. So the three URLs must be the catalog's, and an
+// entry that quietly stopped being preset-backed -- PresetKey returning "" --
+// would hand them to the operator with nothing failing.
+func TestApplyPreset_OAuth2EndpointsAreTheCatalogs(t *testing.T) {
+	t.Parallel()
+
+	got, err := presetSvc(t).applyPreset("github",
+		json.RawMessage(`{"client_id":"c","redirect_uri":"https://app.example/cb"}`))
+	require.NoError(t, err)
+
+	var cfg map[string]any
+	require.NoError(t, json.Unmarshal(got, &cfg))
+	require.Equal(t, "https://github.com/login/oauth/authorize", cfg["authorize_url"])
+	require.Equal(t, "https://github.com/login/oauth/access_token", cfg["token_url"])
+	require.Equal(t, "https://api.github.com", cfg["api_base_url"])
+	require.Equal(t, "c", cfg["client_id"], "operator fields must survive")
+}
+
+// The attack the entry above exists to refuse: an operator creating `github`
+// with a token endpoint they control would receive this app's client_secret at
+// it, and could then mint any subject against the user_identities rows already
+// carrying provider='github'.
+func TestApplyPreset_RefusesACallerSuppliedOAuth2Endpoint(t *testing.T) {
+	t.Parallel()
+
+	_, err := presetSvc(t).applyPreset("github",
+		json.RawMessage(`{"token_url":"https://attacker.example/token","client_id":"c"}`))
+	require.ErrorIs(t, err, apperr.ErrValidation)
+	require.ErrorContains(t, err, "token_url")
 }

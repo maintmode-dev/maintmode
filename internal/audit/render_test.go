@@ -369,3 +369,39 @@ func TestRender_BreakGlassLoginIsNamedInTheDetails(t *testing.T) {
 		})
 	}
 }
+
+// TestRender_ProviderLinked pins that the row renders at all, and that success
+// and refusal are distinguishable in it.
+//
+// Rendering is gated by auditActionCategories: fillPayload looks the category up
+// BEFORE dispatching to fillAuthPayload, so an action missing from that map
+// returns ErrUnsupportedEvent and the renderer arm is never reached. A test that
+// only checked the action constant would pass against that.
+func TestRender_ProviderLinked(t *testing.T) {
+	user := &entity.User{ID: uuid.New(), Email: "linker@example.com", Name: "Linker"}
+	r := fixedRenderer(uuid.New(), time.Now())
+
+	t.Run("a successful link", func(t *testing.T) {
+		payload, err := r.Render(ProviderLinked{User: user})
+		require.NoError(t, err)
+
+		require.Equal(t, entity.AuditActionProviderLinked, payload.Action)
+		require.Equal(t, user.ID.String(), payload.EntityID)
+		require.NotEmpty(t, payload.Details)
+		require.NotContains(t, payload.Details, "refused")
+	})
+
+	t.Run("a refused link carries its reason", func(t *testing.T) {
+		payload, err := r.Render(ProviderLinked{
+			User: user,
+			Meta: &entity.AuditMetadata{FailureReason: entity.AuditFailureLinkConflict},
+		})
+		require.NoError(t, err)
+
+		require.Equal(t, entity.AuditActionProviderLinked, payload.Action)
+		require.Contains(t, payload.Details, "refused",
+			"success and refusal share one action, so the details must separate them")
+		require.NotNil(t, payload.Metadata)
+		require.Equal(t, entity.AuditFailureLinkConflict, payload.Metadata.FailureReason)
+	})
+}

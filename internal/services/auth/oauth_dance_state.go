@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,8 +20,10 @@ func (s *Service) StartDance(
 	ctx context.Context,
 	providerSegment string,
 	invitationToken string,
+	linkTicket string,
 ) (*entity.DanceStart, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance",
+		xfield.String("provider", providerSegment))
 	defer span.End()
 
 	// The allow-list runs FIRST, before any secret is minted or stored: an
@@ -28,6 +31,21 @@ func (s *Service) StartDance(
 	provider, ok := s.authMethods.DanceProvider(providerSegment)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, providerSegment)
+	}
+
+	// Both at once is refused rather than resolved in favor of one. Link mode
+	// skips the invitation phases entirely, so accepting the pair would mint and
+	// then silently drop a single-use invitation handle -- burning an invitation
+	// the person could still have used.
+	if linkTicket != "" && invitationToken != "" {
+		return nil, fmt.Errorf("%w: an invitation cannot be combined with a link", apperr.ErrValidation)
+	}
+
+	// Validated BEFORE anything is minted, for the same reason the provider
+	// allow-list runs first: a refusal must cost nothing. Read, not consumed --
+	// the spend belongs at the callback, where the link actually happens.
+	if err := s.verifyLinkTicket(ctx, linkTicket, provider); err != nil {
+		return nil, err
 	}
 
 	state, err := newDanceSecret()
@@ -65,6 +83,7 @@ func (s *Service) StartDance(
 		AuthorizationURL: authorizationURL,
 		TTL:              s.danceStateTTL,
 		InvitationHandle: invitationHandle,
+		LinkTicket:       linkTicket,
 	}, nil
 }
 
@@ -133,7 +152,7 @@ func (s *Service) CompleteDance(
 	ctx context.Context,
 	callback entity.DanceCallback,
 	meta *entity.AuditMetadata,
-) (string, error) {
+) (*entity.DanceOutcome, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.CompleteDance")
 	defer span.End()
 
@@ -145,30 +164,30 @@ func (s *Service) CompleteDance(
 			xfield.String("provider_error", callback.ProviderError))
 		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderDenied)
 
-		return "", fmt.Errorf("%w: %s", apperr.ErrOAuthProviderDenied, callback.ProviderError)
+		return nil, fmt.Errorf("%w: %s", apperr.ErrOAuthProviderDenied, callback.ProviderError)
 	}
 
 	provider, err := s.verifyDanceOrigin(ctx, callback, meta)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	gateway, err := s.danceGatewayFor(provider)
 	if err != nil {
 		xlog.Error(ctx, "no gateway for dance provider", xfield.Error(err))
 
-		return "", err
+		return nil, err
 	}
 
-	idToken, err := gateway.Exchange(ctx, callback.Code, callback.Verifier)
+	credential, err := gateway.Exchange(ctx, callback.Code, callback.Verifier)
 	if err != nil {
 		xlog.Error(ctx, "oauth code exchange failed", xfield.Error(err))
 		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderUnavailable)
 
-		return "", fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
+		return nil, fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
 	}
 
-	return s.issueDanceCode(ctx, provider, idToken, callback.InvitationHandle, meta)
+	return s.issueDanceCode(ctx, provider, credential, callback.LinkTicket, callback.InvitationHandle, meta)
 }
 
 // verifyDanceOrigin decides whether this callback belongs to a dance this
@@ -267,17 +286,38 @@ func (s *Service) refuseDance(
 func (s *Service) issueDanceCode(
 	ctx context.Context,
 	provider entity.AuthMethod,
-	idToken string,
+	credential string,
+	linkTicket string,
 	invitationHandle string,
 	meta *entity.AuditMetadata,
-) (string, error) {
+) (*entity.DanceOutcome, error) {
 	// The SAME verifier the BFF path uses: a second one would be a second place
 	// for the audience and issuer checks to drift.
-	claims, err := s.verifyProviderIDToken(ctx, provider, idToken)
+	claims, err := s.verifyProviderCredential(ctx, provider, credential)
 	if err != nil {
-		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderUnavailable)
+		s.publishLoginFailure(ctx, &entity.User{}, meta, credentialFailureReason(err))
 
-		return "", fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
+		// The wrap is UNCHANGED, and deliberately so. Every failure here keeps
+		// reaching danceFailureCode's ErrOAuthExchangeFailed arm and keeps
+		// answering the browser with provider_error. A dedicated redirect code
+		// for the account-side failures would be unreachable -- that arm matches
+		// first -- so the distinction lives in the audit reason above, where
+		// something can actually act on it.
+		return nil, fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
+	}
+
+	// The LINK branch sits here: after the provider has vouched for the identity,
+	// and BEFORE phase 0. Everything below -- the invitation resolution, user
+	// creation, the one-time code -- belongs to signing in, and a link runs none
+	// of it. Redeeming later would create a user and grant invitation roles
+	// before discovering the dance was a link at all.
+	//
+	// The PRESENCE of the ticket is the discriminator, not what redeeming it
+	// yields. Once a browser has presented one, the person asked to link, and no
+	// redeem result may turn that back into a sign-in -- a spent or unknown
+	// ticket is a refusal, not an absent one.
+	if linkTicket != "" {
+		return s.completeLink(ctx, provider, linkTicket, claims, meta)
 	}
 
 	// PHASE 0, before anything is written: resolve the invitation and enforce
@@ -285,7 +325,7 @@ func (s *Service) issueDanceCode(
 	// issued, which is the whole reason it precedes sign-in.
 	invitation, err := s.resolveInvitation(ctx, invitationHandle, claims, meta)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// An invitation is what authorizes creating this account. Without one the
@@ -298,7 +338,7 @@ func (s *Service) issueDanceCode(
 	// a clean connection and cannot be nested.
 	pair, user, err := s.SignInWithVerifiedClaims(ctx, provider, claims, policy, meta)
 	if err != nil {
-		return "", fmt.Errorf("sign in with verified claims: %w", err)
+		return nil, fmt.Errorf("sign in with verified claims: %w", err)
 	}
 
 	// PHASE 2: spend the invitation and grant its roles, atomically.
@@ -310,23 +350,42 @@ func (s *Service) issueDanceCode(
 	// safer one: the alternative burns an invitation for a session nobody got.
 	if invitation != nil {
 		if err := s.invitations.ClaimForUser(ctx, invitation, user.ID); err != nil {
-			return "", fmt.Errorf("claim invitation: %w", err)
+			return nil, fmt.Errorf("claim invitation: %w", err)
 		}
 	}
 
 	code, err := newDanceSecret()
 	if err != nil {
-		return "", fmt.Errorf("mint one-time dance code: %w", err)
+		return nil, fmt.Errorf("mint one-time dance code: %w", err)
 	}
 
 	// Minting and storing stay in one function: the code is worthless without
 	// the entry and the entry unreachable without the code, so a caller able to
 	// do one without the other could only get it wrong.
 	if err := s.danceCodes.PutCode(ctx, code, pair); err != nil {
-		return "", fmt.Errorf("store one-time dance code: %w", err)
+		return nil, fmt.Errorf("store one-time dance code: %w", err)
 	}
 
-	return code, nil
+	return &entity.DanceOutcome{Code: code}, nil
+}
+
+// credentialFailureReason decides which incident a failed credential
+// verification was.
+//
+// The two GitHub sentinels mean the provider answered correctly about an account
+// this backend cannot accept: nothing is broken, and the person fixes it on
+// GitHub. Everything else -- a refused token, an unreachable API, an id_token
+// that will not verify -- means something IS broken, and an operator should go
+// looking.
+//
+// Filing the first kind as the second is what would send that operator chasing a
+// fault that does not exist, on a signal the trail is the only source of.
+func credentialFailureReason(err error) entity.AuditFailureReason {
+	if errors.Is(err, apperr.ErrGithubEmailUnusable) || errors.Is(err, apperr.ErrGithubIdentityUnusable) {
+		return entity.AuditFailureProviderRejected
+	}
+
+	return entity.AuditFailureProviderUnavailable
 }
 
 // resolveInvitation runs phase 0 for an invited dance, returning nil for an

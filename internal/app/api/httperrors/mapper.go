@@ -132,9 +132,16 @@ func mapError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrIntegrationNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
-	// Three distinct 409s on this surface, deliberately not collapsed: they ask
-	// the operator for three different remedies -- pick another name, unlink the
-	// accounts first, or stop colliding with a configured provider.
+	// Two distinct 409s on this surface, deliberately not collapsed: they ask
+	// the operator for different remedies -- pick another name, or stop
+	// colliding with a configured provider.
+	//
+	// There is deliberately no third one for "accounts are still linked".
+	// Deleting a login provider does not refuse in that case: it unlinks the
+	// identities in the same transaction and proceeds, logging how many. The
+	// guard that once refused is gone with the free-text provider name it
+	// existed to protect -- the closed set of pairs is what keeps a name from
+	// being reused for something else.
 	case errors.Is(err, apperr.ErrIntegrationConflict),
 		errors.Is(err, apperr.ErrIntegrationNameReserved):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())

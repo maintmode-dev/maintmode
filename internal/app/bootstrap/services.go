@@ -495,6 +495,7 @@ func newIntegrationService(
 		// second list of them to drift out of sync with this one.
 		integrationkinds.Google,
 		integrationkinds.Custom,
+		integrationkinds.GitHub,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("build integration registry: %w", err)

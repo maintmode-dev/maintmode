@@ -50,6 +50,12 @@ var sensitiveQueryParams = map[string]struct{}{
 	// Predates the dance and was logged in the clear until this entry; masking
 	// the start parameter while leaving its twin readable would fix nothing.
 	"token": {},
+	// The link ticket on /login/oauth/{provider}/start. Single-use and
+	// short-lived, but within its window it is a standing grant: whoever reads it
+	// from a log can attach their own provider identity to the account it was
+	// minted for. The endpoint that mints it answers with the ticket in a URL, so
+	// it reaches a query string by construction rather than by accident.
+	"link": {},
 }
 
 // sensitiveBodyFields are masked in logged request and response bodies.

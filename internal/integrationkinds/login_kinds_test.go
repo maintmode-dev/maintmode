@@ -222,10 +222,16 @@ func TestLoginEntries_ShareOneImplementationUnderTwoNames(t *testing.T) {
 // SecurityRelevant has to be INJECTIVE: two different configurations must never
 // render the same string.
 //
-// It feeds refuseRepointingLinkedProvider, which compares the rendering
-// wholesale against the stored one and treats equality as "nothing
-// security-relevant changed". A collision therefore means a real re-point is
-// waved through on a provider that accounts already sign in with.
+// Nothing compares the rendering today. It reaches aadBindingOf, which stores it
+// on aadBinding.security, and checkAADBindingStable then compares only
+// aadInputs() -- the issuer and the client id. The consumer that compared this
+// string wholesale, and treated equality as "nothing security-relevant changed",
+// no longer exists -- it went the way of the linked-account check create.go
+// describes, which the closed set of login names made unnecessary.
+//
+// The property is pinned anyway, because the field is still rendered and still
+// carried: whoever wires a comparison back onto it inherits a collision as a
+// re-point waved through, and would have no reason to suspect the rendering.
 //
 // allowed_hosted_domains has no element-level validation, so a separator byte
 // survives into the field -- which is exactly how a joined-with-a-separator
