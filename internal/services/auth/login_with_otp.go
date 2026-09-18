@@ -8,6 +8,7 @@ import (
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
@@ -29,6 +30,20 @@ import (
 func (s *Service) LoginWithOTP(ctx context.Context, cmd *entity.VerifyOTPCmd) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.LoginWithOTP")
 	defer span.End()
+
+	// Gated on the verify side as well as the request side, because the two are
+	// independently reachable: a code already in flight when the method is
+	// turned off would otherwise stay redeemable until it expired, which makes
+	// the switch take effect on the code's TTL rather than on the admin's
+	// action.
+	//
+	// Verify, not Request, is also the only one of the two that mints a session,
+	// so this is the gate that actually stops a sign-in.
+	if !s.methodOffered(ctx, entity.AuthMethodNameEmailOTP, cmd.ClientIP) {
+		s.publishOTPLoginFailure(ctx, cmd, nil, entity.AuditFailureMethodDisabled)
+
+		return nil, apperr.ErrInvalidCredentials
+	}
 
 	user, reason, err := s.otpVerifier.Verify(ctx, cmd)
 	if err != nil {

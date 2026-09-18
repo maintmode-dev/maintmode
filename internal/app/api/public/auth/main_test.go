@@ -23,6 +23,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
+	authflags "github.com/ruko1202/maintmode/test/utils/mocks/authflags"
 )
 
 var (
@@ -67,7 +68,23 @@ func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 
 	services := newTestServices(t, stores)
 
-	return New(authCfg, services.Auth, services.Token, services.User, services.OTP)
+	// Every built-in offered unless a test says otherwise: a nil source now
+	// refuses, so the handler tests that are not about the flags need an
+	// explicit permissive one, and the tests that ARE about them override it.
+	//
+	// It goes on BOTH halves, and that is not belt-and-braces. The handler gate
+	// and the service gate are separate reads (§4.3): the handler's decides
+	// whether a code is issued, the service's whether one is accepted. Wiring
+	// only the handler leaves the service reading the LIVE table, so every test
+	// that verifies a code passes or fails according to what the migration
+	// happens to seed -- which is how a seed change turns into a red test in a
+	// file that has nothing to do with the flags. Tests that override the
+	// handler's source deliberately leave the service permissive: they assert
+	// on the listing and the 202, never on a redeemed code.
+	services.Auth.WithMethodFlags(authflags.NewAllEnabled())
+
+	return New(authCfg, services.Auth, services.Token, services.User, services.OTP).
+		WithAuthSettings(authflags.NewAllEnabled())
 }
 
 func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *entity.TokenPair {

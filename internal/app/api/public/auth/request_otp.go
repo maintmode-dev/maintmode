@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 	"github.com/ruko1202/maintmode/internal/utils/xemail"
 )
@@ -60,6 +61,22 @@ func (i *Implementation) RequestOTP(c *echo.Context) error {
 
 	if err := validateRequestOTP(ctx, body); err != nil {
 		return i.rejected(ctx, c, start, "invalid request", err)
+	}
+
+	// Gated HERE, in the handler, and deliberately not at the top of
+	// otp.Service.Request. That function has two callers -- this endpoint and
+	// password reset -- so a gate inside it would disable password RECOVERY
+	// whenever email codes are turned off, which is a different feature and
+	// nobody's intent.
+	//
+	// The refusal answers exactly as a silent no-op already does: same 202, same
+	// nonce, same floor. The uniformity is this endpoint's whole design, and the
+	// caller can already read which methods are offered from /auth/providers, so
+	// nothing is concealed from them that they could not look up. What must not
+	// happen is a code being issued, and that is what the log and the tests
+	// pin.
+	if !i.builtInOffered(ctx, entity.AuthMethodNameEmailOTP, c.RealIP()) {
+		return i.rejected(ctx, c, start, "method disabled", nil)
 	}
 
 	nonce, err := i.otpSrv.Request(ctx, body.Email)

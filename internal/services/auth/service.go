@@ -29,6 +29,19 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
+// AuthMethodFlags reports whether a built-in sign-in method is currently
+// offered.
+//
+// Consumer-side and one method wide: this service needs the flag and nothing
+// else about the settings that carry it.
+//
+// A nil source refuses every built-in rather than allowing it: bootstrap wires
+// the settings service into every binary that serves these paths, so a nil is a
+// dropped line, and a dropped line must not re-open a method an admin closed.
+type AuthMethodFlags interface {
+	Enabled(ctx context.Context, method entity.AuthMethodName) (bool, error)
+}
+
 // OTPRequester issues a one-time code. The reset flow reuses the sign-in code
 // mechanism unchanged rather than growing a second one.
 type OTPRequester interface {
@@ -54,11 +67,14 @@ type PasswordCredentials interface {
 }
 
 type Service struct {
-	cfg            *config.JWT
-	txManager      *dbtx.TxManager
-	usersSrv       *user.Service
-	tokenSrv       *token.Service
-	authMethods    AuthMethods
+	cfg         *config.JWT
+	txManager   *dbtx.TxManager
+	usersSrv    *user.Service
+	tokenSrv    *token.Service
+	authMethods AuthMethods
+	// methodFlags answers whether a built-in method is offered. Nil REFUSES
+	// every built-in -- see AuthMethodFlags above for why that direction.
+	methodFlags    AuthMethodFlags
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
 	auditPublisher AuditPublisher
@@ -216,6 +232,13 @@ func (s *Service) WithDance(
 // part of a gateway a discovery stub cannot stand in for.
 func (s *Service) WithAuthMethods(methods AuthMethods) *Service {
 	s.authMethods = methods
+
+	return s
+}
+
+// WithMethodFlags attaches the built-in method flags the sign-in gates read.
+func (s *Service) WithMethodFlags(flags AuthMethodFlags) *Service {
+	s.methodFlags = flags
 
 	return s
 }

@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"context"
 	"time"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
@@ -17,6 +19,13 @@ type Implementation struct {
 	// read from its snapshot per request rather than from a config copy pinned
 	// here, so a provider configured at runtime appears without a restart.
 	authMethods *authmethod.Methods
+
+	// authSettings answers which BUILT-IN methods this instance offers. Nil
+	// lists NOTHING rather than everything: the sign-in gates refuse those same
+	// methods, so listing them would advertise credentials that will not work.
+	// Every binary that serves this endpoint wires it in bootstrap, so a nil is
+	// a dropped wiring line rather than a configuration.
+	authSettings AuthSettings
 
 	authSrv  *auth.Service
 	tokenSrv *token.Service
@@ -68,6 +77,27 @@ func New(
 		otpSrv:           otpSrv,
 		otpResponseFloor: otpResponseFloorFrom(cfg),
 	}
+}
+
+// AuthSettings reports whether a built-in sign-in method is currently offered.
+//
+// Declared consumer-side, one method wide: this layer needs the flag and
+// nothing else, and the service that answers it also owns a guard and an audit
+// trail that the listing has no business reaching.
+type AuthSettings interface {
+	// List is what the listing reads: one call for every built-in, rather than
+	// one call per method on the login page's first request.
+	List(ctx context.Context) ([]*entity.AuthMethodSetting, error)
+	// Enabled answers a single method, which is the shape the sign-in gates
+	// need -- each of them asks about exactly one.
+	Enabled(ctx context.Context, method entity.AuthMethodName) (bool, error)
+}
+
+// WithAuthSettings attaches the built-in method flags the listing reads.
+func (i *Implementation) WithAuthSettings(settings AuthSettings) *Implementation {
+	i.authSettings = settings
+
+	return i
 }
 
 // WithAuthMethods attaches the live login configuration, from which the
