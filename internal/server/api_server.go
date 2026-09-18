@@ -12,6 +12,7 @@ import (
 
 	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
 	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	authsettingsapi "github.com/ruko1202/maintmode/internal/app/api/public/authsettings"
 	integrationapi "github.com/ruko1202/maintmode/internal/app/api/public/integration"
 	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
@@ -48,11 +49,12 @@ type APIServerHandlers struct {
 	UserPicker    *userpickerapi.Implementation
 
 	// Auth-module handlers.
-	Auth        *apiauth.Implementation
-	Roles       *apiroles.Implementation
-	Users       *apiusers.Implementation
-	Invitations *apiinvitations.Implementation
-	Audit       *apiaudit.Implementation
+	Auth         *apiauth.Implementation
+	AuthSettings *authsettingsapi.Implementation
+	Roles        *apiroles.Implementation
+	Users        *apiusers.Implementation
+	Invitations  *apiinvitations.Implementation
+	Audit        *apiaudit.Implementation
 }
 
 // APIServerSecurity holds the security primitives wired into middleware
@@ -406,6 +408,27 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		// this shadows neither /:kind/:name nor /:kind/:name/toggle -- with three
 		// segments that preference now decides at two positions.
 		integrationAPI.Add(http.MethodPost, "/notify/email/test", s.handlers.Integrations.TestEmail,
+			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
+	}
+
+	// Built-in sign-in methods: which of email_otp / email_password this
+	// instance offers.
+	//
+	// Guarded by the INTEGRATION scenarios, which reads oddly and is deliberate.
+	// There is no auth.settings.* pair, and adding one would be a role-model
+	// change: the role->scenario mapping lives in policy.csv, a file loaded at
+	// runtime and carried per stand, so a new scenario string means the binary
+	// asks the authorizer about a line an un-updated stand does not have and
+	// answers 403 to admins until every copy is edited by hand. Both integration
+	// scenarios are already admin-only and nothing else holds them, so reusing
+	// them grants exactly the same people and needs no policy change. If a role
+	// ever needs to configure integrations without touching sign-in, that is the
+	// point to introduce auth.settings.* -- additively, with no data migration.
+	{
+		authSettingsAPI := gr.Group("/auth/settings", requireToken)
+		authSettingsAPI.Add(http.MethodGet, "", s.handlers.AuthSettings.List,
+			s.scenarioMW(entity.AuthzScenarioIntegrationRead))
+		authSettingsAPI.Add(http.MethodPatch, "/:method", s.handlers.AuthSettings.SetEnabled,
 			s.scenarioMW(entity.AuthzScenarioIntegrationManage))
 	}
 

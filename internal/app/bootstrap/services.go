@@ -22,6 +22,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
+	"github.com/ruko1202/maintmode/internal/services/authsettings"
 	"github.com/ruko1202/maintmode/internal/services/authz"
 	"github.com/ruko1202/maintmode/internal/services/calendar"
 	conflictsSvr "github.com/ruko1202/maintmode/internal/services/conflicts"
@@ -61,6 +62,8 @@ type Services struct {
 	UserPicker    *userpicker.Service
 	UserSummary   *usersummary.Service
 	Integration   *integration.Service
+	// AuthSettings owns which built-in sign-in methods this instance offers.
+	AuthSettings *authsettings.Service
 	// TransportResolver is the runtime delivery seam: it resolves a live transport
 	// per send from the integration registry (dev keeps the stub). The async
 	// send processor uses it in place of the static config-built registry.
@@ -153,6 +156,12 @@ func NewServices(ctx context.Context,
 
 	authMethods := initAuthMethods(cfg)
 
+	authSettingsSrv := authsettings.NewService(
+		stores.TxManager,
+		stores.AuthSettings,
+		auditPublisher,
+	)
+
 	// Auditor is both read-side (api/public/audit reads logs through it) and
 	// write-side (the audit-write goque processor writes the log after commit).
 	auditorSrv := auditor.NewAuditor(stores.Audit)
@@ -200,7 +209,14 @@ func NewServices(ctx context.Context,
 		otpSrv,
 		otpSrv,
 		stores.AuthCredentials,
-	)
+	).
+		// Attached HERE rather than at the call site that builds the API, so the
+		// gates cannot be left unwired by a binary that assembles this service
+		// and forgets one chained call. A nil source refuses every built-in, so
+		// the failure mode of forgetting is a locked-out instance rather than a
+		// silently re-opened one -- loud, but the wrong kind of loud to discover
+		// in production.
+		WithMethodFlags(authSettingsSrv)
 
 	invitationSrv := invitation.NewService(
 		cfg,
@@ -280,6 +296,7 @@ func NewServices(ctx context.Context,
 		UserPicker:        userpicker.NewService(userSrv),
 		UserSummary:       userSummarySrv,
 		Integration:       integrationSrv,
+		AuthSettings:      authSettingsSrv,
 		TransportResolver: transportResolver,
 
 		OIDCDiscovery:    discovery,
