@@ -11,6 +11,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
 	"github.com/ruko1202/maintmode/internal/storages/authcredentials"
+	authsettingsstore "github.com/ruko1202/maintmode/internal/storages/authsettings"
 	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	conflictsnapshots "github.com/ruko1202/maintmode/internal/storages/conflict_snapshots"
 	"github.com/ruko1202/maintmode/internal/storages/conflicts"
@@ -46,6 +47,7 @@ type Stores struct {
 	// Integration registry stores: the settings catalog and the wrapped
 	// data-encryption keys that protect its secrets at rest.
 	Integrations *integrationstore.Store
+	AuthSettings *authsettingsstore.Store
 	DataKeys     *datakey.Store
 
 	// LicenseCache holds the last successful Console heartbeat response
@@ -94,6 +96,7 @@ func NewStores(
 		ChannelCatalog:        notifychannel.NewStore(db),
 
 		Integrations: integrationstore.NewStore(db),
+		AuthSettings: authsettingsstore.NewStore(db),
 		DataKeys:     datakey.NewStore(db),
 		LicenseCache: licensecache.NewStore(db),
 

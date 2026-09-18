@@ -111,6 +111,7 @@ func (e ApimodelsRole) Valid() bool {
 
 // Defines values for EntityAuditAction.
 const (
+	AuditActionAuthMethodToggled  EntityAuditAction = "auth_method.toggled"
 	AuditActionIntegrationCreated EntityAuditAction = "integration.created"
 	AuditActionIntegrationDeleted EntityAuditAction = "integration.deleted"
 	AuditActionIntegrationUpdated EntityAuditAction = "integration.updated"
@@ -128,6 +129,7 @@ const (
 	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
 	AuditActionPasswordChanged    EntityAuditAction = "password.changed"
 	AuditActionPasswordReset      EntityAuditAction = "password.reset"
+	AuditActionProviderLinked     EntityAuditAction = "provider.linked"
 	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
 	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
 	AuditActionUserTagsChanged    EntityAuditAction = "user.tags_changed"
@@ -137,6 +139,8 @@ const (
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
 func (e EntityAuditAction) Valid() bool {
 	switch e {
+	case AuditActionAuthMethodToggled:
+		return true
 	case AuditActionIntegrationCreated:
 		return true
 	case AuditActionIntegrationDeleted:
@@ -171,6 +175,8 @@ func (e EntityAuditAction) Valid() bool {
 		return true
 	case AuditActionPasswordReset:
 		return true
+	case AuditActionProviderLinked:
+		return true
 	case AuditActionRolesChanged:
 		return true
 	case AuditActionUserBlocked:
@@ -186,6 +192,7 @@ func (e EntityAuditAction) Valid() bool {
 
 // Defines values for EntityAuditEntityType.
 const (
+	AuditEntityTypeAuthSetting EntityAuditEntityType = "auth_setting"
 	AuditEntityTypeIntegration EntityAuditEntityType = "integration"
 	AuditEntityTypeMaintenance EntityAuditEntityType = "maintenance"
 	AuditEntityTypeUser        EntityAuditEntityType = "user"
@@ -194,6 +201,8 @@ const (
 // Valid indicates whether the value is a known member of the EntityAuditEntityType enum.
 func (e EntityAuditEntityType) Valid() bool {
 	switch e {
+	case AuditEntityTypeAuthSetting:
+		return true
 	case AuditEntityTypeIntegration:
 		return true
 	case AuditEntityTypeMaintenance:
@@ -372,9 +381,19 @@ type ApiauthmodelsChangePasswordRequest struct {
 	RefreshToken    *string `json:"refresh_token,omitempty"`
 }
 
+// ApiauthmodelsConnectProviderDanceResponse defines model for apiauthmodels.ConnectProviderDanceResponse.
+type ApiauthmodelsConnectProviderDanceResponse struct {
+	LinkUrl *string `json:"link_url,omitempty"`
+}
+
 // ApiauthmodelsConnectProviderRequest defines model for apiauthmodels.ConnectProviderRequest.
 type ApiauthmodelsConnectProviderRequest struct {
 	IdToken *string `json:"id_token,omitempty"`
+
+	// Mode Mode selects the backend-driven flow. The only accepted value is "dance";
+	// anything else is refused rather than ignored, so a typo does not silently
+	// fall back to the other branch.
+	Mode *string `json:"mode,omitempty"`
 }
 
 // ApiauthmodelsExchangeIDTokenRequest defines model for apiauthmodels.ExchangeIDTokenRequest.
@@ -648,6 +667,23 @@ type HttperrorsErrorResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// ModelsAuthMethodSetting defines model for models.AuthMethodSetting.
+type ModelsAuthMethodSetting struct {
+	Enabled   *bool   `json:"enabled,omitempty"`
+	Method    *string `json:"method,omitempty"`
+	UpdatedAt *string `json:"updated_at,omitempty"`
+}
+
+// ModelsAuthMethodSettingsResponse defines model for models.AuthMethodSettingsResponse.
+type ModelsAuthMethodSettingsResponse struct {
+	Methods *[]ModelsAuthMethodSetting `json:"methods,omitempty"`
+}
+
+// ModelsSetAuthMethodEnabledRequest defines model for models.SetAuthMethodEnabledRequest.
+type ModelsSetAuthMethodEnabledRequest struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
 
@@ -691,6 +727,9 @@ type GetApiV1LoginOauthProviderCallbackParams struct {
 type GetApiV1LoginOauthProviderStartParams struct {
 	// Invitation Invitation token, when signing in from an invitation link
 	Invitation *string `form:"invitation,omitempty" json:"invitation,omitempty"`
+
+	// Link Link ticket from POST /me/providers/{provider}/connect, to attach this provider to an existing account instead of signing in
+	Link *string `form:"link,omitempty" json:"link,omitempty"`
 }
 
 // PostApiV1LogoutParams defines parameters for PostApiV1Logout.
@@ -740,6 +779,9 @@ type GetApiV1UsersListParams struct {
 	// Active When true, hide blocked users
 	Active *bool `form:"active,omitempty" json:"active,omitempty"`
 }
+
+// PatchApiV1AuthSettingsMethodJSONRequestBody defines body for PatchApiV1AuthSettingsMethod for application/json ContentType.
+type PatchApiV1AuthSettingsMethodJSONRequestBody = ModelsSetAuthMethodEnabledRequest
 
 // PostApiV1LoginOauthCodeExchangeJSONRequestBody defines body for PostApiV1LoginOauthCodeExchange for application/json ContentType.
 type PostApiV1LoginOauthCodeExchangeJSONRequestBody = ApiauthmodelsExchangeOAuthCodeRequest
@@ -873,6 +915,14 @@ type ClientInterface interface {
 
 	// GetApiV1AuthProviders request
 	GetApiV1AuthProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1AuthSettings request
+	GetApiV1AuthSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiV1AuthSettingsMethodWithBody request with any body
+	PatchApiV1AuthSettingsMethodWithBody(ctx context.Context, method string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchApiV1AuthSettingsMethod(ctx context.Context, method string, body PatchApiV1AuthSettingsMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1LicenseSeats request
 	GetApiV1LicenseSeats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1031,6 +1081,42 @@ func (c *Client) GetApiV1AuditLog(ctx context.Context, params *GetApiV1AuditLogP
 
 func (c *Client) GetApiV1AuthProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1AuthProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1AuthSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1AuthSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1AuthSettingsMethodWithBody(ctx context.Context, method string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1AuthSettingsMethodRequestWithBody(c.Server, method, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiV1AuthSettingsMethod(ctx context.Context, method string, body PatchApiV1AuthSettingsMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiV1AuthSettingsMethodRequest(c.Server, method, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1797,6 +1883,80 @@ func NewGetApiV1AuthProvidersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetApiV1AuthSettingsRequest generates requests for GetApiV1AuthSettings
+func NewGetApiV1AuthSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/auth/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPatchApiV1AuthSettingsMethodRequest calls the generic PatchApiV1AuthSettingsMethod builder with application/json body
+func NewPatchApiV1AuthSettingsMethodRequest(server string, method string, body PatchApiV1AuthSettingsMethodJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiV1AuthSettingsMethodRequestWithBody(server, method, "application/json", bodyReader)
+}
+
+// NewPatchApiV1AuthSettingsMethodRequestWithBody generates requests for PatchApiV1AuthSettingsMethod with any type of body
+func NewPatchApiV1AuthSettingsMethodRequestWithBody(server string, method string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "method", method, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/auth/settings/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiV1LicenseSeatsRequest generates requests for GetApiV1LicenseSeats
 func NewGetApiV1LicenseSeatsRequest(server string) (*http.Request, error) {
 	var err error
@@ -2027,6 +2187,18 @@ func NewGetApiV1LoginOauthProviderStartRequest(server string, provider string, p
 		if params.Invitation != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "invitation", *params.Invitation, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Link != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "link", *params.Link, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -3248,6 +3420,14 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1AuthProvidersWithResponse request
 	GetApiV1AuthProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AuthProvidersResponse, error)
 
+	// GetApiV1AuthSettingsWithResponse request
+	GetApiV1AuthSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AuthSettingsResponse, error)
+
+	// PatchApiV1AuthSettingsMethodWithBodyWithResponse request with any body
+	PatchApiV1AuthSettingsMethodWithBodyWithResponse(ctx context.Context, method string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1AuthSettingsMethodResponse, error)
+
+	PatchApiV1AuthSettingsMethodWithResponse(ctx context.Context, method string, body PatchApiV1AuthSettingsMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1AuthSettingsMethodResponse, error)
+
 	// GetApiV1LicenseSeatsWithResponse request
 	GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error)
 
@@ -3468,6 +3648,70 @@ func (r GetApiV1AuthProvidersResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetApiV1AuthProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetApiV1AuthSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelsAuthMethodSettingsResponse
+	JSON403      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1AuthSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1AuthSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiV1AuthSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PatchApiV1AuthSettingsMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelsAuthMethodSetting
+	JSON400      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON404      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiV1AuthSettingsMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiV1AuthSettingsMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PatchApiV1AuthSettingsMethodResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3894,6 +4138,7 @@ func (r PostApiV1MePasswordResponse) ContentType() string {
 type PostApiV1MeProvidersProviderConnectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsConnectProviderDanceResponse
 	JSON400      *HttperrorsErrorResponse
 	JSON401      *HttperrorsErrorResponse
 	JSON409      *HttperrorsErrorResponse
@@ -4548,6 +4793,32 @@ func (c *ClientWithResponses) GetApiV1AuthProvidersWithResponse(ctx context.Cont
 	return ParseGetApiV1AuthProvidersResponse(rsp)
 }
 
+// GetApiV1AuthSettingsWithResponse request returning *GetApiV1AuthSettingsResponse
+func (c *ClientWithResponses) GetApiV1AuthSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AuthSettingsResponse, error) {
+	rsp, err := c.GetApiV1AuthSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1AuthSettingsResponse(rsp)
+}
+
+// PatchApiV1AuthSettingsMethodWithBodyWithResponse request with arbitrary body returning *PatchApiV1AuthSettingsMethodResponse
+func (c *ClientWithResponses) PatchApiV1AuthSettingsMethodWithBodyWithResponse(ctx context.Context, method string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiV1AuthSettingsMethodResponse, error) {
+	rsp, err := c.PatchApiV1AuthSettingsMethodWithBody(ctx, method, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1AuthSettingsMethodResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchApiV1AuthSettingsMethodWithResponse(ctx context.Context, method string, body PatchApiV1AuthSettingsMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiV1AuthSettingsMethodResponse, error) {
+	rsp, err := c.PatchApiV1AuthSettingsMethod(ctx, method, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiV1AuthSettingsMethodResponse(rsp)
+}
+
 // GetApiV1LicenseSeatsWithResponse request returning *GetApiV1LicenseSeatsResponse
 func (c *ClientWithResponses) GetApiV1LicenseSeatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1LicenseSeatsResponse, error) {
 	rsp, err := c.GetApiV1LicenseSeats(ctx, reqEditors...)
@@ -5079,6 +5350,86 @@ func ParseGetApiV1AuthProvidersResponse(rsp *http.Response) (*GetApiV1AuthProvid
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1AuthSettingsResponse parses an HTTP response from a GetApiV1AuthSettingsWithResponse call
+func ParseGetApiV1AuthSettingsResponse(rsp *http.Response) (*GetApiV1AuthSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1AuthSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelsAuthMethodSettingsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiV1AuthSettingsMethodResponse parses an HTTP response from a PatchApiV1AuthSettingsMethodWithResponse call
+func ParsePatchApiV1AuthSettingsMethodResponse(rsp *http.Response) (*PatchApiV1AuthSettingsMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiV1AuthSettingsMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelsAuthMethodSetting
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -5626,6 +5977,13 @@ func ParsePostApiV1MeProvidersProviderConnectResponse(rsp *http.Response) (*Post
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsConnectProviderDanceResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest HttperrorsErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

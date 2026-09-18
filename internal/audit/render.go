@@ -118,6 +118,11 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 		payload.EntityID = a.User.ID.String()
 		payload.Details = fmt.Sprintf("password reset for %s", a.User.Email)
 		payload.Metadata = sanitizeMetadata(a.Meta)
+	case AuthMethodToggled:
+		// Sets EntityType itself -- see fillAuthMethodToggledPayload. Every arm
+		// above inherits the "user" default from Render, which is wrong here:
+		// the entity acted upon is the method, not the actor.
+		fillAuthMethodToggledPayload(payload, a)
 	default:
 		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
 	}

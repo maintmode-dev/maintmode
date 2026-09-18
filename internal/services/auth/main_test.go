@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
+	authflags "github.com/ruko1202/maintmode/test/utils/mocks/authflags"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -198,7 +199,11 @@ func initServiceWithMethodsSignup(
 		mocks.otpVerifier,
 		mocks.otpRequester,
 		authcredentials.NewStore(db),
-	), mocks
+		// Every built-in method offered, the same way license.NewNoop above
+		// stands in for the seat cap: these tests exercise sign-in flows, not the
+		// settings table, and a nil source now REFUSES rather than defaulting to
+		// enabled. Tests that are about the flags override this with their own.
+	).WithMethodFlags(authflags.NewAllEnabled()), mocks
 }
 
 // newTestAuditPublisher builds the audit publisher backed by the test DB's goque

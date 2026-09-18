@@ -231,9 +231,21 @@
                 ],
                 "type": "object"
             },
+            "apiauthmodels.ConnectProviderDanceResponse": {
+                "properties": {
+                    "link_url": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "apiauthmodels.ConnectProviderRequest": {
                 "properties": {
                     "id_token": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "description": "Mode selects the backend-driven flow. The only accepted value is \"dance\";\nanything else is refused rather than ignored, so a typo does not silently\nfall back to the other branch.",
                         "type": "string"
                     }
                 },
@@ -725,6 +737,7 @@
                     "logout.success",
                     "password.changed",
                     "password.reset",
+                    "provider.linked",
                     "roles.changed",
                     "user.blocked",
                     "user.unblocked",
@@ -740,7 +753,8 @@
                     "maintenance_step.canceled",
                     "integration.created",
                     "integration.updated",
-                    "integration.deleted"
+                    "integration.deleted",
+                    "auth_method.toggled"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
@@ -749,6 +763,7 @@
                     "AuditActionLogoutSuccess",
                     "AuditActionPasswordChanged",
                     "AuditActionPasswordReset",
+                    "AuditActionProviderLinked",
                     "AuditActionRolesChanged",
                     "AuditActionUserBlocked",
                     "AuditActionUserUnblocked",
@@ -764,20 +779,23 @@
                     "AuditActionMaintStepCanceled",
                     "AuditActionIntegrationCreated",
                     "AuditActionIntegrationUpdated",
-                    "AuditActionIntegrationDeleted"
+                    "AuditActionIntegrationDeleted",
+                    "AuditActionAuthMethodToggled"
                 ]
             },
             "entity.AuditEntityType": {
                 "enum": [
                     "user",
                     "maintenance",
-                    "integration"
+                    "integration",
+                    "auth_setting"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
                     "AuditEntityTypeUser",
                     "AuditEntityTypeMaintenance",
-                    "AuditEntityTypeIntegration"
+                    "AuditEntityTypeIntegration",
+                    "AuditEntityTypeAuthSetting"
                 ]
             },
             "entity.JWK": {
@@ -830,6 +848,43 @@
                     "message": {
                         "example": "error message",
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "models.AuthMethodSetting": {
+                "properties": {
+                    "enabled": {
+                        "example": true,
+                        "type": "boolean"
+                    },
+                    "method": {
+                        "example": "email_otp",
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "models.AuthMethodSettingsResponse": {
+                "properties": {
+                    "methods": {
+                        "items": {
+                            "$ref": "#/components/schemas/models.AuthMethodSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "type": "object"
+            },
+            "models.SetAuthMethodEnabledRequest": {
+                "properties": {
+                    "enabled": {
+                        "example": false,
+                        "type": "boolean"
                     }
                 },
                 "type": "object"
@@ -1049,6 +1104,120 @@
                 ]
             }
         },
+        "/api/v1/auth/settings": {
+            "get": {
+                "description": "Returns one entry per built-in method (email_otp, email_password) with its on/off flag. Login providers are not listed here -- they are configured through the integration registry and carry their own enabled flag. Admin only.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/models.AuthMethodSettingsResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "List the built-in sign-in methods and whether they are enabled",
+                "tags": [
+                    "Auth"
+                ]
+            }
+        },
+        "/api/v1/auth/settings/{method}": {
+            "patch": {
+                "description": "Sets whether a built-in method is offered on the login page and accepted at sign-in. Disabling every method is allowed: it is what an SSO-only instance looks like, existing sessions are not ended, and break-glass still answers. Admin only.",
+                "parameters": [
+                    {
+                        "description": "Built-in method: email_otp or email_password",
+                        "in": "path",
+                        "name": "method",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/models.SetAuthMethodEnabledRequest"
+                            }
+                        }
+                    },
+                    "description": "Target state",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/models.AuthMethodSetting"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "No such built-in method"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "Enable or disable a built-in sign-in method",
+                "tags": [
+                    "Auth"
+                ]
+            }
+        },
         "/api/v1/license/seats": {
             "get": {
                 "description": "Returns how many licensed seats are taken and how many were purchased, so an admin can see the limit before an invite runs into it. Requires admin privileges.\nseats_occupied (seats_used + seats_pending) is the number the seat cap is checked against: once it reaches seats_purchased, inviting into a seat role is rejected with seats_limit_exceeded.\nA pending invitation to a seat role holds a seat from the moment it is sent; revoking or expiring it releases the seat. Guests never hold a seat.\nunlimited is true on a self-hosted instance or before a ceiling has been reported, and seats_purchased is then null. Before a ceiling is reported the counters are still real; on a self-hosted instance no seats are tracked at all and every counter is zero, so render \"unlimited\" rather than \"0 of unlimited\". seats_occupied may exceed seats_purchased and is reported as is.",
@@ -1230,7 +1399,7 @@
         },
         "/api/v1/login/oauth/{provider}/callback": {
             "get": {
-                "description": "Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. Both cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.",
+                "description": "Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. All dance cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.\nAn oauth_link cookie switches this to LINK mode: the identity is attached to the account the ticket names and the redirect carries linked=1 instead of a code, with no session minted. Once that cookie is present no outcome yields a sign-in -- a spent or unknown ticket is refused, never downgraded.",
                 "parameters": [
                     {
                         "description": "Configured provider instance name, e.g. google",
@@ -1304,6 +1473,14 @@
                         "description": "Invitation token, when signing in from an invitation link",
                         "in": "query",
                         "name": "invitation",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Link ticket from POST /me/providers/{provider}/connect, to attach this provider to an existing account instead of signing in",
+                        "in": "query",
+                        "name": "link",
                         "schema": {
                             "type": "string"
                         }
@@ -1795,7 +1972,7 @@
         },
         "/api/v1/me/providers/{provider}/connect": {
             "post": {
-                "description": "Links an additional sign-in provider to the authenticated user.\nThe frontend completes the OAuth flow and posts the provider's ID token here.",
+                "description": "Attaches an additional sign-in provider to the authenticated user, in one of two ways.\nPosting an id_token is the BFF flow: the frontend ran the provider's dance itself, and this links the identity immediately (204).\nPosting {\"mode\":\"dance\"} asks the backend to run the dance instead, and answers 200 with a RELATIVE link_url to follow (nothing is linked on this request).\nExactly one of the two must be present. The link_url must be followed by a top-level browser navigation, not fetch: the dance cookies are SameSite=Lax.",
                 "parameters": [
                     {
                         "description": "Configured provider instance name, e.g. google",
@@ -1815,10 +1992,20 @@
                             }
                         }
                     },
-                    "description": "Provider ID token",
+                    "description": "Provider ID token, or dance mode",
                     "required": true
                 },
                 "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apiauthmodels.ConnectProviderDanceResponse"
+                                }
+                            }
+                        },
+                        "description": "Link ticket minted; follow link_url"
+                    },
                     "204": {
                         "description": "Provider connected"
                     },

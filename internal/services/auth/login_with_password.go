@@ -101,7 +101,26 @@ func (s *Service) loginWithPassword(
 		return nil, nil, "", fmt.Errorf("look up user: %w", err)
 	}
 
-	if user != nil {
+	// The gate guards ENTRY to step 1 rather than living inside it, and the
+	// placement is what keeps break-glass alive.
+	//
+	// Step 1 owns the outcome once entered: a refusal in there would terminate
+	// the request, and the break-glass admin normally HAS a stored personal
+	// password -- the comment above says so, "the personal credential wins as
+	// soon as it exists, even though the break-glass credential itself is never
+	// retired". Refusing inside would lock the one account that exists to
+	// recover the instance out of it.
+	//
+	// Skipping step 1 instead costs exactly one argon2id, because loginWithSeed
+	// burns its decoy for every address that is not the break-glass one -- the
+	// same cost as every other refusal here. Refusing AFTER the verification
+	// would have cost two, making a disabled-method attempt against an address
+	// that has a password measurably slower than any other failure.
+	//
+	// It also means no stored hash is ever compared while the method is off, so
+	// the outcome is identical for a right and a wrong password in response, in
+	// timing, and in the audit record.
+	if user != nil && s.methodOffered(ctx, entity.AuthMethodNameEmailPassword, cmd.ClientIP) {
 		pair, u, handled, credErr := s.loginWithStoredPassword(ctx, cmd, user)
 		if handled {
 			return pair, u, entity.AuditLoginMethodPassword, credErr
@@ -170,6 +189,16 @@ func (s *Service) loginWithStoredPassword(
 // nothing here is seeded or spent, and the break-glass credential answers every
 // time it is offered. Kept only because renaming an unexported function is
 // churn against every open branch that touches this file.
+// Both publish sites below carry the SAME audit reason, unconditionally, and
+// that uniformity is the property to preserve. They publish identically so
+// nobody reading the audit log can sort failures by reason and learn which
+// address the break-glass credential answers for. Anything that made the pair
+// differ would have that address as its differing bit.
+//
+// This is why a refusal for a disabled method is not recorded here as such: it
+// would either have to vary the two lines or vary them together, and the first
+// breaks the property while the second just relabels ordinary break-glass
+// traffic. The disabled case is reported on the caller's log line instead.
 func (s *Service) loginWithSeed(
 	ctx context.Context,
 	cmd *entity.LoginWithPasswordCmd,

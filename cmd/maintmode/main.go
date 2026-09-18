@@ -27,6 +27,7 @@ import (
 
 	apiaudit "github.com/ruko1202/maintmode/internal/app/api/public/audit"
 	apiauth "github.com/ruko1202/maintmode/internal/app/api/public/auth"
+	authsettingsapi "github.com/ruko1202/maintmode/internal/app/api/public/authsettings"
 	integrationapi "github.com/ruko1202/maintmode/internal/app/api/public/integration"
 	apiinvitations "github.com/ruko1202/maintmode/internal/app/api/public/invitations"
 	apimaint "github.com/ruko1202/maintmode/internal/app/api/public/maint"
@@ -70,7 +71,8 @@ func newAuthHandlers(
 		services.Token,
 		services.User,
 		services.OTP,
-	).WithAuthMethods(services.AuthMethods)
+	).WithAuthMethods(services.AuthMethods).
+		WithAuthSettings(services.AuthSettings)
 
 	// The dance is armed unconditionally, and that is a change in kind from
 	// what the early return here used to do.
@@ -213,11 +215,12 @@ func startAPIServer(
 			// registered either, so nothing here is ever read — but wiring a
 			// gateway holding an empty client secret would be a live object
 			// waiting for a routing mistake.
-			Auth:        newAuthHandlers(ctx, cfg, services, valkeyClient),
-			Roles:       apiroles.New(services.User),
-			Users:       apiusers.New(services.User, services.License),
-			Invitations: apiinvitations.New(services.Invitation),
-			Audit:       apiaudit.New(services.Audit),
+			Auth:         newAuthHandlers(ctx, cfg, services, valkeyClient),
+			AuthSettings: authsettingsapi.New(services.AuthSettings),
+			Roles:        apiroles.New(services.User),
+			Users:        apiusers.New(services.User, services.License),
+			Invitations:  apiinvitations.New(services.Invitation),
+			Audit:        apiaudit.New(services.Audit),
 		},
 		server.APIServerSecurity{
 			TokenVerifier: services.JWTVerifier,

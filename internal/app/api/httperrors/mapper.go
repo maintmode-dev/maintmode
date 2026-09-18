@@ -10,6 +10,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 )
 
+// ToAPIError writes the HTTP response for a domain error.
+//
+// The two long errors.Is lists below look alike to dupl and are not
+// interchangeable: one routes domain errors through mapError, the other routes
+// auth errors through mapAuthError, and collapsing them would merge two
+// vocabularies whose statuses are decided by different rules. The similarity is
+// the switch's shape, not repeated logic.
+//
+//nolint:dupl
 func ToAPIError(c *echo.Context, operation string, err error) error {
 	var (
 		statusCode int
@@ -37,7 +46,8 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrInvalidRole),
 		errors.Is(err, apperr.ErrIntegrationNotFound),
 		errors.Is(err, apperr.ErrIntegrationConflict),
-		errors.Is(err, apperr.ErrIntegrationNameReserved):
+		errors.Is(err, apperr.ErrIntegrationNameReserved),
+		errors.Is(err, apperr.ErrAuthMethodNotFound):
 		statusCode, errResp = mapError(err)
 	// auth domain errors
 	case errors.Is(err, apperr.ErrLockBusy),
@@ -118,6 +128,14 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 
 // mapError maps domain errors to HTTP responses
 // Returns the HTTP status code and ErrorResponse for the given error
+//
+// One flat switch over sentinels, so gocyclo counts every arm. Splitting it to
+// satisfy the threshold would scatter the status decisions across helpers and
+// make "which status does this error get" a search instead of a read -- the
+// opposite of what the metric is for. It grows by one arm per sentinel, which
+// is the honest cost of a central mapping.
+//
+//nolint:gocyclo
 func mapError(err error) (int, *ErrorResponse) {
 	if err == nil {
 		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "unknown error")
@@ -145,6 +163,9 @@ func mapError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrIntegrationConflict),
 		errors.Is(err, apperr.ErrIntegrationNameReserved):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
+
+	case errors.Is(err, apperr.ErrAuthMethodNotFound):
+		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
 	case errors.Is(err, apperr.ErrForbiddenMaintStatusTransition):
 		return http.StatusConflict, NewErrorResponse(ErrForbiddenStatusTransition, err.Error())
