@@ -59,12 +59,25 @@ const (
 	AuditActionIntegrationDeleted AuditAction = "integration.deleted"
 )
 
+// IsValid reports whether the action is one this deployment writes.
+//
+// It gates the audit READ filter (app/api/public/audit/audit_log.go), so an
+// action missing here is written, renders correctly, and is then rejected by the
+// filter that names it -- the rows become unfindable by the one query that would
+// look for them. That is the same silent-failure shape the two category maps
+// below carry warnings about, and it is the THIRD hand-maintained list of
+// actions: password.changed and password.reset were in both maps and absent
+// here until someone went looking.
+//
+// TestEveryAuditAction_IsValidAndCategorized checks all three together.
 func (a AuditAction) IsValid() bool {
 	switch a {
 	case AuditActionLoginSuccess,
 		AuditActionProviderLinked,
 		AuditActionLoginFailed,
 		AuditActionLogoutSuccess,
+		AuditActionPasswordChanged,
+		AuditActionPasswordReset,
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
 		AuditActionUserUnblocked,

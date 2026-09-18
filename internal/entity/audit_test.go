@@ -105,3 +105,74 @@ func TestAuditCategoryMapsAgree(t *testing.T) {
 		}
 	}
 }
+
+// allAuditActions is every action this package declares.
+//
+// Hand-maintained, like the three lists it exists to check, and that is the
+// point: a new action is not covered until someone adds it here, and the
+// neighboring TestAuditActionWireValues fails the same way. Two lists that
+// must be edited together are worth more than one list that silently skips
+// what it does not know about -- a reflected or derived list would grow
+// automatically and assert nothing about the entry it just grew.
+func allAuditActions() []AuditAction {
+	return []AuditAction{
+		AuditActionLoginSuccess,
+		AuditActionLoginFailed,
+		AuditActionLogoutSuccess,
+		AuditActionPasswordChanged,
+		AuditActionPasswordReset,
+		AuditActionProviderLinked,
+		AuditActionRolesChanged,
+		AuditActionUserBlocked,
+		AuditActionUserUnblocked,
+		AuditActionUserTagsChanged,
+		AuditActionMaintCreated,
+		AuditActionMaintUpdated,
+		AuditActionMaintApproved,
+		AuditActionMaintStarted,
+		AuditActionMaintCompleted,
+		AuditActionMaintCanceled,
+		AuditActionMaintStepStarted,
+		AuditActionMaintStepCompleted,
+		AuditActionMaintStepCanceled,
+		AuditActionIntegrationCreated,
+		AuditActionIntegrationUpdated,
+		AuditActionIntegrationDeleted,
+	}
+}
+
+// TestEveryAuditAction_IsValidAndCategorized checks all three hand-maintained
+// lists at once, for every action.
+//
+// The per-action tests below came one at a time, each written after a specific
+// action was found missing from a specific list. This one exists because that
+// happened three times: the category maps carry comments warning that a missing
+// entry fails silently, IsValid carries none, and password.changed and
+// password.reset were in both maps and absent from IsValid -- written, rendered,
+// and rejected by the read filter that names them.
+//
+// Each list fails differently, which is why all three are asserted together:
+//   - IsValid: the row exists and renders, and the filter refuses the action
+//     name (app/api/public/audit/audit_log.go).
+//   - action -> category: fillPayload looks the category up BEFORE dispatching,
+//     so the row never renders at all.
+//   - category -> actions: the row renders and is invisible under its chip.
+func TestEveryAuditAction_IsValidAndCategorized(t *testing.T) {
+	t.Parallel()
+
+	for _, action := range allAuditActions() {
+		t.Run(string(action), func(t *testing.T) {
+			t.Parallel()
+
+			require.Truef(t, action.IsValid(),
+				"%q is not in the IsValid allow-list, so the read filter rejects it", action)
+
+			category, ok := AuditActionCategory(action)
+			require.Truef(t, ok, "%q has no category, so it never renders", action)
+
+			require.Containsf(t, AuditCategoryAction(category), action,
+				"%q is missing from the %q action list, so it is invisible under that chip",
+				action, category)
+		})
+	}
+}
