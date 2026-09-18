@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -19,10 +21,20 @@ import (
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
 // @Router /api/v1/auth/providers [get]
 func (i *Implementation) ListAuthMethods(c *echo.Context) error {
-	_, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.ListAuthMethods")
+	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.ListAuthMethods")
 	defer span.End()
 
-	return c.JSON(http.StatusOK, apiauthmodels.AuthMethodsResponse{Methods: i.availableAuthMethods()})
+	methods := i.availableAuthMethods(ctx)
+
+	// An empty list is the clearest signal an instance has locked itself out:
+	// the login page renders no way in. It would otherwise pass through the
+	// server silently, so it is logged once here -- Warn, because the usual
+	// cause is a configuration an admin chose rather than a fault.
+	if len(methods) == 0 {
+		xlog.Warn(ctx, "no sign-in methods are available: the login page has no way in")
+	}
+
+	return c.JSON(http.StatusOK, apiauthmodels.AuthMethodsResponse{Methods: methods})
 }
 
 // availableAuthMethods assembles the list.
@@ -64,7 +76,7 @@ func (i *Implementation) ListAuthMethods(c *echo.Context) error {
 // two independent spellings of the wire format is exactly the point.
 //
 //nolint:goconst
-func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
+func (i *Implementation) availableAuthMethods(ctx context.Context) []apiauthmodels.AuthMethod {
 	// The provider half comes from the live snapshot rather than a config copy
 	// pinned at construction: an operator adding a provider through the registry
 	// must see its button without a restart, which is the whole point of the
@@ -80,18 +92,28 @@ func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
 	}
 
 	methods := make([]apiauthmodels.AuthMethod, 0, 2+len(listing))
-	methods = append(methods,
-		apiauthmodels.AuthMethod{
+
+	// One read for both built-ins rather than one each. At two rows the
+	// difference is nothing, but this is the login page's first request from
+	// every visitor and the only affected endpoint that does no hashing and no
+	// IdP call, so the per-method shape is the one worth not establishing.
+	offered := i.offeredBuiltIns(ctx)
+
+	if offered[entity.AuthMethodNameEmailPassword] {
+		methods = append(methods, apiauthmodels.AuthMethod{
 			ID:          "email_password",
 			Type:        apiauthmodels.AuthMethodTypePassword,
 			DisplayName: "Password",
-		},
-		apiauthmodels.AuthMethod{
+		})
+	}
+
+	if offered[entity.AuthMethodNameEmailOTP] {
+		methods = append(methods, apiauthmodels.AuthMethod{
 			ID:          "email_otp",
 			Type:        apiauthmodels.AuthMethodTypeCode,
 			DisplayName: "Email code",
-		},
-	)
+		})
+	}
 
 	// The snapshot sorts its listing, which matters twice: map iteration is
 	// randomized, so an unsorted list would reshuffle the buttons between
@@ -111,4 +133,45 @@ func (i *Implementation) availableAuthMethods() []apiauthmodels.AuthMethod {
 	}
 
 	return methods
+}
+
+// offeredBuiltIns answers, in one read, which built-ins the login page should
+// show.
+//
+// The listing DEGRADES rather than failing: a method whose flag cannot be read
+// drops out and the rest of the response still renders. That is deliberately
+// the opposite of what the sign-in gate does with the same error, and the
+// asymmetry is the point -- this endpoint grants nothing, so hiding a button is
+// the cheap direction to be wrong in, while answering 500 would leave the login
+// page unable to render at all. A caller who then guesses a hidden method still
+// meets the gate, which failed closed, so the listing may understate what works
+// and can never overstate it.
+//
+// A binary wired without the flags shows NOTHING rather than everything: the
+// gate refuses those methods too, so listing them would advertise credentials
+// that will not work.
+func (i *Implementation) offeredBuiltIns(ctx context.Context) map[entity.AuthMethodName]bool {
+	offered := make(map[entity.AuthMethodName]bool, 2)
+
+	if i.authSettings == nil {
+		return offered
+	}
+
+	settings, err := i.authSettings.List(ctx)
+	if err != nil {
+		// Error, not Warn: per the severity split this is the database failing
+		// to answer, not an instance configured this way, and it is refusing
+		// sign-ins that should have succeeded.
+		xlog.Error(ctx, "auth method flags unreadable, omitting every built-in from the listing",
+			xfield.Error(err),
+		)
+
+		return offered
+	}
+
+	for _, s := range settings {
+		offered[s.Method] = s.Enabled
+	}
+
+	return offered
 }
