@@ -138,6 +138,7 @@ func allAuditActions() []AuditAction {
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
 		AuditActionIntegrationDeleted,
+		AuditActionAuthMethodToggled,
 	}
 }
 

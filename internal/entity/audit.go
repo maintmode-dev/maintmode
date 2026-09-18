@@ -57,6 +57,12 @@ const (
 	AuditActionIntegrationCreated AuditAction = "integration.created"
 	AuditActionIntegrationUpdated AuditAction = "integration.updated"
 	AuditActionIntegrationDeleted AuditAction = "integration.deleted"
+
+	// AuditActionAuthMethodToggled records an admin enabling or disabling a
+	// built-in sign-in method. Changing which ways in an instance offers is a
+	// security event, and it is the one record that survives a rollback of the
+	// table itself.
+	AuditActionAuthMethodToggled AuditAction = "auth_method.toggled"
 )
 
 // IsValid reports whether the action is one this deployment writes.
@@ -93,7 +99,8 @@ func (a AuditAction) IsValid() bool {
 		AuditActionMaintStepCanceled,
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
-		AuditActionIntegrationDeleted:
+		AuditActionIntegrationDeleted,
+		AuditActionAuthMethodToggled:
 		return true
 	default:
 		return false
@@ -106,6 +113,11 @@ const (
 	AuditEntityTypeUser        AuditEntityType = "user"
 	AuditEntityTypeMaintenance AuditEntityType = "maintenance"
 	AuditEntityTypeIntegration AuditEntityType = "integration"
+	// AuditEntityTypeAuthSetting is a built-in sign-in method's flag. Its own
+	// value rather than "user": the entity acted upon is the method, and filing
+	// the row against the admin who threw the switch would make "what happened
+	// to this instance's sign-in configuration" unanswerable by entity.
+	AuditEntityTypeAuthSetting AuditEntityType = "auth_setting"
 )
 
 // AuditEntry represents a structured audit log record.
@@ -161,6 +173,21 @@ const (
 	// tellable from a refused or blocked account.
 	//nolint:gosec // G101 false positive: a human-readable failure reason, not a credential
 	AuditFailureInvalidCredentials AuditFailureReason = "invalid credentials"
+	// AuditFailureMethodDisabled marks a sign-in refused because an admin turned
+	// that method off, not because the credential was wrong.
+	//
+	// Its own value rather than reusing invalid-credentials, and the reason is
+	// operational as much as tidy: a sustained rate of invalid-credentials feeds
+	// the PasswordLoginFailing alert, so an admin who disables password sign-in
+	// would page themselves, and the page would say "credential stuffing". The
+	// precedent is AuditFailureSignupDisabled above -- a policy refusal gets its
+	// own reason.
+	//
+	// It discloses nothing about the account. The value is a function of the
+	// instance's configuration, which GET /auth/providers already publishes, and
+	// the gate that sets it never compares a stored password -- so it cannot
+	// partition addresses into "has a valid password" and "does not".
+	AuditFailureMethodDisabled AuditFailureReason = "method disabled"
 
 	// The one-time-code reasons below are all PRE-identification in the same
 	// sense as AuditFailureInvalidCredentials: the verify endpoint answers every
@@ -448,6 +475,11 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	// missing, so the renderer arm is never reached.
 	AuditActionProviderLinked: AuditCategoryAuth,
 
+	// Toggling a sign-in method is an auth event: it changes which credentials
+	// the instance accepts, so it belongs on the same chip as the sign-ins it
+	// governs.
+	AuditActionAuthMethodToggled: AuditCategoryAuth,
+
 	// user.tags_changed rides the roles category on purpose. Categories are the
 	// FE filter chips (see AuditCategory) and are fanned out by a switch in
 	// services/auditor/get_logs.go; a new category would need both that switch
@@ -492,6 +524,7 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		// Without this entry the row exists, renders, and is invisible under the
 		// auth filter -- this map is what the category filter reads.
 		AuditActionProviderLinked,
+		AuditActionAuthMethodToggled,
 	},
 	AuditCategoryRoles: {
 		AuditActionRolesChanged,
