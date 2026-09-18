@@ -12,6 +12,7 @@ package table
 func UseSchema(schema string) {
 	AuditLog = AuditLog.FromSchema(schema)
 	AuthCredentials = AuthCredentials.FromSchema(schema)
+	AuthSettings = AuthSettings.FromSchema(schema)
 	DataKeys = DataKeys.FromSchema(schema)
 	GooseDbVersion = GooseDbVersion.FromSchema(schema)
 	GoqueTask = GoqueTask.FromSchema(schema)
