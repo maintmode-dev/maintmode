@@ -75,9 +75,7 @@ type Service struct {
 	auditPublisher  AuditPublisher
 	tokenRevoker    TokenRevoker
 	seatGuard       SeatGuard
-	// providers resolves a login provider name to its registry row id. Wired by
-	// WithLoginProviderResolver rather than taken as a constructor argument:
-	// NewServices builds this service before the integration service exists.
+	// providers resolves a login provider name to its registry row id.
 	providers LoginProviderResolver
 	// allowOpenSignup lets an unknown, uninvited user self-register as guest on
 	// OAuth login (cfg.Auth.AllowOpenSignup, read once at wiring time).
@@ -92,6 +90,7 @@ func NewService(
 	tokenRevoker TokenRevoker,
 	seatGuard SeatGuard,
 	allowOpenSignup bool,
+	providers LoginProviderResolver,
 ) *Service {
 	return &Service{
 		auditPublisher:  auditPublisher,
@@ -101,16 +100,8 @@ func NewService(
 		tokenRevoker:    tokenRevoker,
 		seatGuard:       seatGuard,
 		allowOpenSignup: allowOpenSignup,
+		providers:       providers,
 	}
-}
-
-// WithLoginProviderResolver wires the registry lookup the sign-in and link
-// paths need. A setter rather than a constructor argument because NewServices
-// builds this service before the integration service that implements it.
-func (s *Service) WithLoginProviderResolver(providers LoginProviderResolver) *Service {
-	s.providers = providers
-
-	return s
 }
 
 // methodRef addresses a sign-in method for the store: a built-in method by
@@ -123,13 +114,6 @@ func (s *Service) WithLoginProviderResolver(providers LoginProviderResolver) *Se
 func (s *Service) methodRef(ctx context.Context, method entity.AuthMethod) (entity.SignInMethodRef, error) {
 	if method.IsBuiltin() {
 		return entity.SignInByBuiltin(method), nil
-	}
-
-	if s.providers == nil {
-		// Misconfiguration, not a runtime condition: a binary that signs people
-		// in through registry providers was wired without the resolver. Said
-		// loudly here rather than degrading to the built-in branch.
-		return entity.SignInMethodRef{}, fmt.Errorf("%w: login provider resolver is not wired", apperr.ErrUnsupportedProvider)
 	}
 
 	id, err := s.providers.ResolveID(ctx, method)

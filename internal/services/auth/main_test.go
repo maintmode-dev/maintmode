@@ -195,7 +195,8 @@ func initServiceWithMethodsSignup(
 			// no invitation. Invited-dance tests pass false to get the production
 			// shape, where AllowCreate is what decides.
 			allowOpenSignup,
-		).WithLoginProviderResolver(loginProviders),
+			loginProviders,
+		),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{method}),

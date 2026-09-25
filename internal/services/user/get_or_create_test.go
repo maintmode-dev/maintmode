@@ -60,7 +60,8 @@ func initPolicyService(t *testing.T, store UsersStore, allowOpenSignup bool) (*S
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		allowOpenSignup,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 	return srv, rec
 }
 

@@ -142,7 +142,8 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			mocks.tokenRevoker,
 			mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
 			false,           // allowOpenSignup: the accept flow must authorize creation itself
-		).WithLoginProviderResolver(loginProviders),
+			loginProviders,
+		),
 		mocks.tokenIssuer,
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		mocks.sender,

@@ -140,7 +140,22 @@ func NewServices(ctx context.Context,
 	// client in SaaS mode, Noop otherwise.
 	enforcement, heartbeatSrv := newLicenseService(cfg, stores)
 
-	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher, enforcement)
+	// One keyring for the process. A second one would repeat the startup DEK
+	// re-wrap newIntegrationService performs.
+	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
+	if err != nil {
+		return nil, fmt.Errorf("init keyring: %w", err)
+	}
+
+	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher, keyring)
+	if err != nil {
+		return nil, err
+	}
+
+	// The sign-in paths store a reference to the provider's registry row, not
+	// its name, so the user service resolves one into the other through the
+	// integration service -- which is why that one is built first.
+	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher, enforcement, integrationSrv)
 
 	// authorizer is the single RBAC authorizer shared by the core (scenario
 	// middleware) and the auth admin routes.
@@ -166,26 +181,9 @@ func NewServices(ctx context.Context,
 	// write-side (the audit-write goque processor writes the log after commit).
 	auditorSrv := auditor.NewAuditor(stores.Audit)
 
-	// One keyring and one scheduler for the process. A second keyring would
-	// repeat the startup DEK re-wrap newIntegrationService performs; a second
-	// scheduler would split the queue plumbing that owns tx-joined enqueue.
-	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
-	if err != nil {
-		return nil, fmt.Errorf("init keyring: %w", err)
-	}
-
-	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher, keyring)
-	if err != nil {
-		return nil, err
-	}
-
-	// The sign-in paths store a reference to the provider's registry row, not
-	// its name, so the user service needs a way to resolve one into the other.
-	// Wired here rather than through user.NewService because that call happens
-	// above, before the integration service exists.
-	userSrv.WithLoginProviderResolver(integrationSrv)
-
 	transportResolver := initTransportResolver(cfg, integrationSrv)
+	// One scheduler for the process: a second would split the queue plumbing
+	// that owns tx-joined enqueue.
 	queueScheduler := scheduler.NewService(queue)
 	messageSender := messagesender.NewService(transportResolver, queueScheduler)
 
@@ -330,6 +328,7 @@ func newTokenAndUserServices(
 	stores *Stores,
 	auditPublisher *auditpublisher.Publisher,
 	seatGuard user.SeatGuard,
+	loginProviders user.LoginProviderResolver,
 ) (tokenSvc *token.Service, userSvc *user.Service) {
 	tokenSrv := token.NewService(
 		stores.TxManager,
@@ -347,6 +346,7 @@ func newTokenAndUserServices(
 		tokenSrv,
 		seatGuard,
 		cfg.Auth.AllowOpenSignup,
+		loginProviders,
 	)
 
 	return tokenSrv, userSrv

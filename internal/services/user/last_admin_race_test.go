@@ -108,7 +108,8 @@ func TestRevokeRole_LastAdminRace(t *testing.T) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 
 	const racers = 2
 	results := make(chan error, racers)
