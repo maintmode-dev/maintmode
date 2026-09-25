@@ -15,29 +15,34 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-func (s *Store) GetByProviderSubject(ctx context.Context, provider entity.AuthMethod, subject string) (*entity.UserIdentity, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByProviderSubject")
+// GetByMethodSubject resolves the identity a method's subject belongs to.
+//
+// This is the lookup every sign-in makes: the subject comes from the provider,
+// and the row it matches decides which user is being signed in.
+func (s *Store) GetByMethodSubject(ctx context.Context, ref entity.SignInMethodRef, subject string) (*entity.UserIdentity, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByMethodSubject")
 	defer span.End()
 
 	stmt := table.UserIdentities.
 		SELECT(table.UserIdentities.AllColumns).
 		WHERE(
-			table.UserIdentities.Provider.EQ(postgres.String(string(provider))).
+			methodFilter(ref).
 				AND(table.UserIdentities.Subject.EQ(postgres.String(subject))),
 		)
 
 	return s.get(ctx, stmt)
 }
 
-func (s *Store) GetByUserAndProvider(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod) (*entity.UserIdentity, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByUserAndProvider")
+// GetByUserAndMethod returns the identity linking userID to one method.
+func (s *Store) GetByUserAndMethod(ctx context.Context, userID uuid.UUID, ref entity.SignInMethodRef) (*entity.UserIdentity, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByUserAndMethod")
 	defer span.End()
 
 	stmt := table.UserIdentities.
 		SELECT(table.UserIdentities.AllColumns).
 		WHERE(
 			table.UserIdentities.UserID.EQ(postgres.UUID(userID)).
-				AND(table.UserIdentities.Provider.EQ(postgres.String(string(provider)))),
+				AND(methodFilter(ref)),
 		)
 
 	return s.get(ctx, stmt)
