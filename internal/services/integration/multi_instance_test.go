@@ -315,13 +315,21 @@ func TestDelete_ProviderWithLinkedAccountsCascades(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// The row's own id, read before the delete: the cascade must address THIS
+	// row, and asserting against a value the test did not fetch would pass just
+	// as well against any other.
+	created, err := svc.GetByKindName(ctx, kinds.login, kinds.oidc)
+	require.NoError(t, err)
+
 	mocks.identities.linked = 7
 
 	require.NoError(t, svc.Delete(ctx, kinds.login, kinds.oidc, actor),
 		"an admin removing a provider has decided something; there is no question left to ask")
 
-	// Addressed by NAME. By category it would take every login provider's rows.
-	require.Equal(t, entity.AuthMethod(kinds.oidc), mocks.identities.unlinkedFrom)
+	// Addressed by the registry row's ID. By category it would take every login
+	// provider's rows; by name it would follow a name that can be re-created
+	// against a different IdP, which is the whole reason the column changed.
+	require.Equal(t, created.ID, mocks.identities.unlinkedFrom)
 	require.Zero(t, mocks.identities.linked, "the identities must be gone, not merely counted")
 
 	// And the row itself went with them.
@@ -541,7 +549,7 @@ func TestUpdate_PresetFieldCannotBeRewritten(t *testing.T) {
 
 // Create trims the name instead of refusing a padded one.
 //
-// The name is the row's IMMUTABLE key -- it goes into user_identities.provider,
+// The name is the row's IMMUTABLE key -- it seals the client_secret's AAD,
 // into the secret's AAD and into every URL that addresses the row -- so the
 // question was never "trim or refuse" alone: it was whether an operator who
 // typed " google " should get a row they then cannot find under that name.

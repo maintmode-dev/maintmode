@@ -21,10 +21,12 @@ import (
 // constant subject (there is no upstream provider to issue one) and an email
 // that comes from configuration.
 //
-// The subject is parameterised for tests only. In production it is the single
-// constant entity.BootstrapSubject, which — with the global unique index on
-// (provider, subject) — is exactly what limits an instance to ONE break-glass
-// identity and makes a repeat login resolve the same user. These tests share
+// The subject is parameterized for tests only. In production it is the single
+// constant entity.BootstrapSubject, which — with the partial unique index on
+// (builtin_method, subject) — is exactly what limits an instance to ONE
+// break-glass identity and makes a repeat login resolve the same user. The
+// index is partial because the column is nullable, and a full one would stop
+// holding without saying so: NULL never equals NULL. These tests share
 // one database and `make tloc` runs them twice, so a literal constant here
 // would make every case after the first resolve the first case's user. Each
 // test therefore gets its own subject, standing in for a separate instance.
@@ -253,7 +255,7 @@ func TestGetOrCreateByAuthInfo_BootstrapDoesNotUnblockAUser(t *testing.T) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	subject, _ := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(
@@ -321,7 +323,7 @@ func TestGetOrCreateByAuthInfo_BootstrapPublishesRolesChanged(t *testing.T) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	subject, email := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(
@@ -399,7 +401,7 @@ func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstanceIgnoresTheSeatCap(t *te
 		&fakeTokenRevoker{},
 		guard,
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	subject, email := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(

@@ -25,6 +25,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
@@ -33,6 +34,9 @@ var db *sqlx.DB
 func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(config.LoadAppConfig())
 	closer.Add(db.Close)
+
+	loginProviders = testdbutils.MustSeedLoginProviders(context.Background(), db,
+		"user-suite-kek", entity.AuthMethodGoogle, entity.AuthMethodGithub)
 
 	code := m.Run()
 
@@ -95,7 +99,7 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 		revoker,
 		license.NewNoop(), // default: seat cap disabled (self-hosted-like)
 		false,             // allowOpenSignup: tests authorize creation per call via the policy
-	)
+	).WithLoginProviderResolver(loginProviders)
 	return srv, revoker
 }
 
@@ -127,7 +131,7 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 }
 
 // fakeSeatGuard is a controllable SeatGuard: it returns err from
@@ -172,7 +176,7 @@ func initServiceWithSeatGuard(t *testing.T, guard SeatGuard) *Service {
 		&fakeTokenRevoker{},
 		guard,
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 }
 
 func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.Role) *entity.User {
@@ -199,3 +203,7 @@ func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.R
 
 	return user
 }
+
+// loginProviders resolves the provider names this suite signs in with. See
+// testdbutils.SeedLoginProviders for why the rows have to exist at all.
+var loginProviders *testdbutils.LoginProviders
