@@ -118,6 +118,16 @@ var (
 	// to an HTTP status), so disconnect stays idempotent.
 	ErrProviderNotConnected         = errors.New("provider not connected")
 	ErrCannotDisconnectLastProvider = errors.New("cannot disconnect the only sign-in method")
+	// ErrCannotDisconnectBuiltinMethod is returned when a user tries to detach a
+	// built-in sign-in method.
+	//
+	// Break-glass is a property of the DEPLOYMENT, not a link the account owns:
+	// it exists so an operator can get in when the configured providers cannot,
+	// its credential lives in the instance secrets, and it is turned off by
+	// emptying that secret. Letting a user detach it would neither revoke it nor
+	// keep it away -- the next break-glass sign-in simply writes the row again --
+	// so the request can only mislead whoever made it.
+	ErrCannotDisconnectBuiltinMethod = errors.New("cannot disconnect a built-in sign-in method")
 )
 
 var (

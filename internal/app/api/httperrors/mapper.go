@@ -46,6 +46,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrInvalidRole),
 		errors.Is(err, apperr.ErrIntegrationNotFound),
 		errors.Is(err, apperr.ErrIntegrationConflict),
+		errors.Is(err, apperr.ErrIntegrationInUse),
 		errors.Is(err, apperr.ErrIntegrationNameReserved),
 		errors.Is(err, apperr.ErrAuthMethodNotFound):
 		statusCode, errResp = mapError(err)
@@ -64,6 +65,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrCannotDisconnectBuiltinMethod),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
@@ -156,11 +158,12 @@ func mapError(err error) (int, *ErrorResponse) {
 	//
 	// There is deliberately no third one for "accounts are still linked".
 	// Deleting a login provider does not refuse in that case: it unlinks the
-	// identities in the same transaction and proceeds, logging how many. The
-	// guard that once refused is gone with the free-text provider name it
-	// existed to protect -- the closed set of pairs is what keeps a name from
-	// being reused for something else.
+	// identities in the same transaction and proceeds, logging how many. What
+	// once made the refusal necessary -- a free-text provider name an orphaned
+	// row could wait to see reused -- is gone: identities reference the row by
+	// id, and the foreign key will not let one outlive its provider.
 	case errors.Is(err, apperr.ErrIntegrationConflict),
+		errors.Is(err, apperr.ErrIntegrationInUse),
 		errors.Is(err, apperr.ErrIntegrationNameReserved):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
 
@@ -236,7 +239,8 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
 
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
+		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrCannotDisconnectBuiltinMethod):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
