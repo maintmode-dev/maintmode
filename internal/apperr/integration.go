@@ -12,6 +12,18 @@ var (
 	// ErrIntegrationConflict is returned when creating an integration whose
 	// (kind, name) already exists (UNIQUE(kind, name)).
 	ErrIntegrationConflict = errors.New("integration already exists for this kind and name")
+	// ErrIntegrationInUse is returned when a login provider could not be deleted
+	// because identities still reference it.
+	//
+	// It means a sign-in committed inside this delete's window: the cascade ran,
+	// and an identity arrived between the cascade and the row delete. The
+	// foreign key refuses rather than orphaning it, which is the whole point --
+	// but the admin did nothing wrong, and repeating the delete succeeds because
+	// the second pass cascades whatever committed in between.
+	//
+	// Distinct from ErrIntegrationConflict, whose message speaks of a row that
+	// already exists and would misdescribe this entirely.
+	ErrIntegrationInUse = errors.New("integration still has linked accounts; retry the delete")
 	// ErrIntegrationNameReserved is returned when a create collides with a
 	// provider configured in the config file. Config wins, so the row is refused
 	// rather than stored and shadowed -- a shadowed row would silently become
