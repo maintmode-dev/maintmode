@@ -167,6 +167,9 @@ type serviceDeps struct {
 	inviteOnly bool
 	// codes is the dance code store. Nil for tests that never reach the dance.
 	codes DanceCodeStore
+	// invitations is the invitation side of an invited dance. Nil for tests
+	// whose dances carry no invitation handle.
+	invitations InvitationClaimer
 }
 
 func initServiceWithDeps(
@@ -235,6 +238,7 @@ func initServiceWithDeps(
 		authcredentials.NewStore(db),
 		deps.codes,
 		config.Auth{}.DanceStateTTL(),
+		deps.invitations,
 		// Every built-in method offered, the same way license.NewNoop above
 		// stands in for the seat cap: these tests exercise sign-in flows, not the
 		// settings table, and a nil source now REFUSES rather than defaulting to

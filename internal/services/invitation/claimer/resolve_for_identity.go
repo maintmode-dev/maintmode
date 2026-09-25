@@ -1,4 +1,4 @@
-package invitation
+package claimer
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/metrics"
+	"github.com/ruko1202/maintmode/internal/utils/xemail"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
@@ -37,22 +38,15 @@ import (
 // invitation was created, and ListPendingRoles counts live pending invitations
 // as occupied — so re-checking at accept time would count this invitee twice
 // and, at exactly the cap, refuse them the seat that is already theirs.
-func (s *Service) ResolveForIdentity(
+func (c *Claimer) ResolveForIdentity(
 	ctx context.Context,
 	handle string,
 	claims *entity.OAuthIDTokenClaims,
 ) (*entity.ResolvedInvitation, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Invitation.ResolveForIdentity")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.InvitationClaimer.ResolveForIdentity")
 	defer span.End()
 
-	// No handle store means no dance is configured on this instance, so there is
-	// nothing an invited dance could resolve. Refusing is the fail-closed
-	// answer; the alternative is a nil dereference on a public route.
-	if s.danceHandles == nil {
-		return nil, apperr.ErrInvalidInvitation
-	}
-
-	invitationID, err := s.danceHandles.ConsumeInvitationHandle(ctx, handle)
+	invitationID, err := c.danceHandles.ConsumeInvitationHandle(ctx, handle)
 	if err != nil {
 		// A store that cannot answer must not fall through to "no invitation":
 		// the caller reads that as an uninvited dance and refuses, which is the
@@ -72,7 +66,7 @@ func (s *Service) ResolveForIdentity(
 		return nil, apperr.ErrInvalidInvitation
 	}
 
-	inv, err := s.store.GetByID(ctx, *invitationID)
+	inv, err := c.store.GetByID(ctx, *invitationID)
 	if err != nil {
 		if errors.Is(err, apperr.ErrInvitationNotFound) {
 			return nil, apperr.ErrInvalidInvitation
@@ -114,7 +108,7 @@ func (s *Service) ResolveForIdentity(
 		return nil, apperr.ErrEmailMismatch
 	}
 
-	if !emailMatchesIgnoreCase(ctx, claims.Email, inv.Email) {
+	if !xemail.EqualIgnoreCase(claims.Email, inv.Email) {
 		xlog.Warn(ctx, "resolve invitation: provider email does not match invitation")
 
 		return nil, apperr.ErrEmailMismatch

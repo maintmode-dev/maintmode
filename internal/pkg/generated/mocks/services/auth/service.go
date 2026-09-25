@@ -82,6 +82,69 @@ func (c *MockAuditPublisherPublishCall) DoAndReturn(f func(context.Context, audi
 	return c
 }
 
+// MockAuthMethodFlags is a mock of AuthMethodFlags interface.
+type MockAuthMethodFlags struct {
+	ctrl     *gomock.Controller
+	recorder *MockAuthMethodFlagsMockRecorder
+	isgomock struct{}
+}
+
+// MockAuthMethodFlagsMockRecorder is the mock recorder for MockAuthMethodFlags.
+type MockAuthMethodFlagsMockRecorder struct {
+	mock *MockAuthMethodFlags
+}
+
+// NewMockAuthMethodFlags creates a new mock instance.
+func NewMockAuthMethodFlags(ctrl *gomock.Controller) *MockAuthMethodFlags {
+	mock := &MockAuthMethodFlags{ctrl: ctrl}
+	mock.recorder = &MockAuthMethodFlagsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAuthMethodFlags) EXPECT() *MockAuthMethodFlagsMockRecorder {
+	return m.recorder
+}
+
+// Enabled mocks base method.
+func (m *MockAuthMethodFlags) Enabled(ctx context.Context, method entity.AuthMethodName) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enabled", ctx, method)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Enabled indicates an expected call of Enabled.
+func (mr *MockAuthMethodFlagsMockRecorder) Enabled(ctx, method any) *MockAuthMethodFlagsEnabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enabled", reflect.TypeOf((*MockAuthMethodFlags)(nil).Enabled), ctx, method)
+	return &MockAuthMethodFlagsEnabledCall{Call: call}
+}
+
+// MockAuthMethodFlagsEnabledCall wrap *gomock.Call
+type MockAuthMethodFlagsEnabledCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthMethodFlagsEnabledCall) Return(arg0 bool, arg1 error) *MockAuthMethodFlagsEnabledCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthMethodFlagsEnabledCall) Do(f func(context.Context, entity.AuthMethodName) (bool, error)) *MockAuthMethodFlagsEnabledCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthMethodFlagsEnabledCall) DoAndReturn(f func(context.Context, entity.AuthMethodName) (bool, error)) *MockAuthMethodFlagsEnabledCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockOTPRequester is a mock of OTPRequester interface.
 type MockOTPRequester struct {
 	ctrl     *gomock.Controller
@@ -629,11 +692,12 @@ func (m *MockInvitationClaimer) EXPECT() *MockInvitationClaimerMockRecorder {
 }
 
 // ClaimForUser mocks base method.
-func (m *MockInvitationClaimer) ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) error {
+func (m *MockInvitationClaimer) ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClaimForUser", ctx, inv, userID)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*entity.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ClaimForUser indicates an expected call of ClaimForUser.
@@ -649,19 +713,19 @@ type MockInvitationClaimerClaimForUserCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockInvitationClaimerClaimForUserCall) Return(arg0 error) *MockInvitationClaimerClaimForUserCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockInvitationClaimerClaimForUserCall) Return(arg0 *entity.User, arg1 error) *MockInvitationClaimerClaimForUserCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInvitationClaimerClaimForUserCall) Do(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) error) *MockInvitationClaimerClaimForUserCall {
+func (c *MockInvitationClaimerClaimForUserCall) Do(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) (*entity.User, error)) *MockInvitationClaimerClaimForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInvitationClaimerClaimForUserCall) DoAndReturn(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) error) *MockInvitationClaimerClaimForUserCall {
+func (c *MockInvitationClaimerClaimForUserCall) DoAndReturn(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) (*entity.User, error)) *MockInvitationClaimerClaimForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

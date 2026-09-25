@@ -29,6 +29,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/integration"
 	"github.com/ruko1202/maintmode/internal/services/invitation"
+	"github.com/ruko1202/maintmode/internal/services/invitation/claimer"
 	"github.com/ruko1202/maintmode/internal/services/jwtverifier"
 	licensesvc "github.com/ruko1202/maintmode/internal/services/license"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
@@ -81,7 +82,11 @@ type Services struct {
 	Token      *token.Service
 	User       *user.Service
 	Invitation *invitation.Service
-	Audit      *auditor.Auditor
+	// InvitationClaimer is the instance the auth service was built with. Exposed
+	// so a test that rebuilds the auth service from this graph hands it the
+	// same claimer rather than assembling a second one.
+	InvitationClaimer *claimer.Claimer
+	Audit             *auditor.Auditor
 	// AuditPublisher enqueues audit events to the durable goque outbox; the
 	// audit-write processor drains them after commit. There are no in-process
 	// goroutines to drain, so no Stop is needed on shutdown — the goque runtime
@@ -201,6 +206,22 @@ func NewServices(ctx context.Context,
 		queueScheduler,
 	)
 
+	// The invitation half of an invited dance, built before the auth service
+	// that calls it. It needs no token issuer, which is what breaks the cycle:
+	// the invitation service below takes authSrv as its TokenIssuer, and the
+	// auth service takes this, not that. Built from the same tx manager, store
+	// and user service as the invitation service -- see claimer.New.
+	//
+	// The same dance store on both sides, exactly as the invitation flow needs
+	// it: the auth service parks and redeems the one-time code, the claimer
+	// redeems the handle that carries the invitation through the dance.
+	invitationClaimer := claimer.New(
+		stores.TxManager,
+		stores.UserInvitations,
+		userSrv,
+		stores.OAuthDance,
+	)
+
 	authSrv := auth.NewService(
 		&cfg.JWT,
 		stores.TxManager,
@@ -215,6 +236,7 @@ func NewServices(ctx context.Context,
 		stores.AuthCredentials,
 		stores.OAuthDance,
 		cfg.Auth.DanceStateTTL(),
+		invitationClaimer,
 	).
 		// Attached HERE rather than at the call site that builds the API, so the
 		// gates cannot be left unwired by a binary that assembles this service
@@ -233,20 +255,8 @@ func NewServices(ctx context.Context,
 		authMethods,
 		messageSender,
 		enforcement,
+		invitationClaimer,
 	)
-
-	// The back edge, closed after both services exist.
-	//
-	// It cannot be a constructor argument in either direction: the invitation
-	// service takes authSrv as its TokenIssuer above, so auth cannot take the
-	// invitation service in turn without a cycle the compiler rejects. The
-	// setter is how the dance reaches the invitation guard.
-	authSrv.WithInvitations(invitationSrv)
-
-	// The same store on both sides, exactly as the invitation flow needs it: the
-	// auth service parks and redeems the one-time code, the invitation service
-	// redeems the handle that carries the invitation through the dance.
-	invitationSrv.WithDanceHandles(stores.OAuthDance)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue)
 	if err != nil {
@@ -310,20 +320,21 @@ func NewServices(ctx context.Context,
 		AuthSettings:      authSettingsSrv,
 		TransportResolver: transportResolver,
 
-		OIDCDiscovery:    discovery,
-		AuthMethods:      authMethods,
-		Auth:             authSrv,
-		Token:            tokenSrv,
-		User:             userSrv,
-		Invitation:       invitationSrv,
-		Audit:            auditorSrv,
-		AuditPublisher:   auditPublisher,
-		TokenChecker:     authSrv,
-		MessageSender:    messageSender,
-		Keyring:          keyring,
-		OTP:              otpSrv,
-		License:          enforcement,
-		licenseHeartbeat: heartbeatSrv,
+		OIDCDiscovery:     discovery,
+		AuthMethods:       authMethods,
+		Auth:              authSrv,
+		Token:             tokenSrv,
+		User:              userSrv,
+		Invitation:        invitationSrv,
+		InvitationClaimer: invitationClaimer,
+		Audit:             auditorSrv,
+		AuditPublisher:    auditPublisher,
+		TokenChecker:      authSrv,
+		MessageSender:     messageSender,
+		Keyring:           keyring,
+		OTP:               otpSrv,
+		License:           enforcement,
+		licenseHeartbeat:  heartbeatSrv,
 	}, nil
 }
 

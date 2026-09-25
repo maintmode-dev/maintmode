@@ -101,8 +101,8 @@ func (s *Service) StartDance(
 // lookup and the store write. The auth service never learns which invitation a
 // handle names, and never holds the raw token beyond this call.
 func (s *Service) mintInvitationHandle(ctx context.Context, invitationToken string) (string, error) {
-	// No token, or an instance with no invitation side wired: an ordinary dance.
-	if invitationToken == "" || s.invitations == nil {
+	// No token: an ordinary dance.
+	if invitationToken == "" {
 		return "", nil
 	}
 
@@ -349,7 +349,7 @@ func (s *Service) issueDanceCode(
 	// stays usable — the same direction the id_token accept path chose, and the
 	// safer one: the alternative burns an invitation for a session nobody got.
 	if invitation != nil {
-		if err := s.invitations.ClaimForUser(ctx, invitation, user.ID); err != nil {
+		if _, err := s.invitations.ClaimForUser(ctx, invitation, user.ID); err != nil {
 			return nil, fmt.Errorf("claim invitation: %w", err)
 		}
 	}
@@ -404,7 +404,7 @@ func (s *Service) resolveInvitation(
 	claims *entity.OAuthIDTokenClaims,
 	meta *entity.AuditMetadata,
 ) (*entity.ResolvedInvitation, error) {
-	if handle == "" || s.invitations == nil {
+	if handle == "" {
 		return nil, nil //nolint:nilnil // "not an invited dance" is the ordinary case, not an error.
 	}
 

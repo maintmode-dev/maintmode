@@ -86,10 +86,7 @@ type Service struct {
 	danceSigner   danceStateSigner
 	danceCodes    DanceCodeStore
 	danceStateTTL time.Duration
-	// invitations is zero until WithInvitations is called. A nil claimer means
-	// this instance completes no invited dances: every handle is refused, which
-	// is the fail-closed direction — never a panic, and never a dance that
-	// creates an account because the claimer was missing.
+	// invitations is the invitation side of an invited dance.
 	invitations InvitationClaimer
 }
 
@@ -132,11 +129,11 @@ type DanceCodeStore interface {
 // roles can only be granted AFTER the user has an id. One combined call cannot
 // be in both places.
 //
-// It is an interface here, on the consumer side, rather than a direct
-// dependency on the invitation service, because that dependency cannot exist:
-// invitation.NewService already takes auth.Service as its TokenIssuer, so an
-// import in this direction closes a cycle the compiler enforces. WithInvitations
-// wires the real implementation after both services are constructed.
+// It is an interface here, on the consumer side, rather than a dependency on
+// the invitation packages. Production passes claimer.Claimer, which is built
+// before this service precisely because it needs no token issuer:
+// invitation.Service takes this service as its TokenIssuer, so depending on
+// that one instead would make the two impossible to construct in order.
 type InvitationClaimer interface {
 	// PrepareHandle runs at /start. It parks the invitation the raw token names
 	// behind the opaque handle, so the token itself never travels further.
@@ -159,8 +156,9 @@ type InvitationClaimer interface {
 	ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)
 	// ClaimForUser runs AFTER the user exists. It flips pending→accepted and
 	// assigns the invitation's roles in ONE transaction, so an accepted
-	// invitation never leaves a user without its roles.
-	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) error
+	// invitation never leaves a user without its roles. The updated user it
+	// returns is not needed here: the dance issued its pair in phase 1.
+	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error)
 }
 
 // DanceGateway is the provider side of the dance: where /start sends the
@@ -204,6 +202,7 @@ func NewService(
 	passwords PasswordCredentials,
 	danceCodes DanceCodeStore,
 	danceStateTTL time.Duration,
+	invitations InvitationClaimer,
 ) *Service {
 	return &Service{
 		cfg:            cfg,
@@ -225,13 +224,13 @@ func NewService(
 		// expiring mid-consent while states stayed valid -- reads as a flaky
 		// provider rather than a config bug.
 		danceStateTTL: danceStateTTL,
+		invitations:   invitations,
 	}
 }
 
 // WithAuthMethods swaps the login configuration this service reads.
 //
-// A setter in the same family as WithDance and WithInvitations: the service is
-// constructed once in bootstrap and specialised afterwards. The dance tests use
+// The service is constructed once in bootstrap and specialised afterwards. The dance tests use
 // it to serve one provider's Exchange from their own object, which is the only
 // part of a gateway a discovery stub cannot stand in for.
 func (s *Service) WithAuthMethods(methods AuthMethods) *Service {
@@ -243,22 +242,6 @@ func (s *Service) WithAuthMethods(methods AuthMethods) *Service {
 // WithMethodFlags attaches the built-in method flags the sign-in gates read.
 func (s *Service) WithMethodFlags(flags AuthMethodFlags) *Service {
 	s.methodFlags = flags
-
-	return s
-}
-
-// WithInvitations enables invited dances.
-//
-// A separate step from WithDance, and from the constructor, for a reason the
-// compiler enforces rather than a stylistic one: invitation.NewService takes
-// this service as its TokenIssuer, so the invitation service cannot exist when
-// this one is built. The wiring calls this once both do.
-//
-// Leaving it unset is safe and is the fail-closed default: CompleteDance
-// refuses every handle it is given, so an instance that forgot this call
-// declines invited sign-ins rather than completing them unguarded.
-func (s *Service) WithInvitations(claimer InvitationClaimer) *Service {
-	s.invitations = claimer
 
 	return s
 }

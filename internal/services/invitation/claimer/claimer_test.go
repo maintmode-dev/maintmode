@@ -1,4 +1,4 @@
-package invitation
+package claimer
 
 import (
 	"context"
@@ -14,9 +14,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xhash"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 // fakeDanceHandles maps handles to invitation ids, and forgets a handle once it
@@ -55,13 +53,10 @@ func (f *fakeDanceHandles) ConsumeInvitationHandle(_ context.Context, handle str
 
 func (f *fakeDanceHandles) put(handle string, id uuid.UUID) { f.ids[handle] = id }
 
-// armHandles wires a fake handle store and returns a handle already pointing at
-// inv.
-func armHandles(t *testing.T, svc *Service, inv *entity.Invitation) string {
+// parkHandle parks a handle pointing at inv in the claimer's fake handle store
+// and returns it.
+func parkHandle(t *testing.T, handles *fakeDanceHandles, inv *entity.Invitation) string {
 	t.Helper()
-
-	handles := newFakeDanceHandles()
-	svc.WithDanceHandles(handles)
 
 	handle := uuid.NewString()
 	handles.put(handle, inv.ID)
@@ -75,12 +70,12 @@ func TestResolveForIdentityGuards(t *testing.T) {
 
 	t.Run("matching email resolves to the invitation and its roles", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
+		h := initHarness(t)
 		email := uniqueEmail(t)
-		inv := mustCreate(ctx, t, svc, email, entity.RoleReviewer)
-		handle := armHandles(t, svc, inv)
+		inv := createPendingInvitation(ctx, t, h, email, entity.RoleReviewer)
+		handle := parkHandle(t, h.handles, inv)
 
-		got, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
+		got, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		assert.Equal(t, inv.ID, got.ID)
@@ -91,11 +86,11 @@ func TestResolveForIdentityGuards(t *testing.T) {
 	// with any account they control.
 	t.Run("a different email is refused as a mismatch", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
-		inv := mustCreate(ctx, t, svc, uniqueEmail(t))
-		handle := armHandles(t, svc, inv)
+		h := initHarness(t)
+		inv := createPendingInvitation(ctx, t, h, uniqueEmail(t))
+		handle := parkHandle(t, h.handles, inv)
 
-		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
+		_, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrEmailMismatch)
 	})
 
@@ -114,12 +109,12 @@ func TestResolveForIdentityGuards(t *testing.T) {
 	// holder that the invited address matched their own unverified one.
 	t.Run("an unverified email is refused even when it matches", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
+		h := initHarness(t)
 		email := uniqueEmail(t)
-		inv := mustCreate(ctx, t, svc, email)
-		handle := armHandles(t, svc, inv)
+		inv := createPendingInvitation(ctx, t, h, email)
+		handle := parkHandle(t, h.handles, inv)
 
-		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
+		_, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
 			Email:         email,
 			EmailVerified: false,
 		})
@@ -131,12 +126,12 @@ func TestResolveForIdentityGuards(t *testing.T) {
 	// person, not an attacker.
 	t.Run("case differences still match", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
+		h := initHarness(t)
 		email := uniqueEmail(t)
-		inv := mustCreate(ctx, t, svc, email)
-		handle := armHandles(t, svc, inv)
+		inv := createPendingInvitation(ctx, t, h, email)
+		handle := parkHandle(t, h.handles, inv)
 
-		got, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
+		got, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{
 			Email:         strings.ToUpper(email),
 			EmailVerified: true,
 		})
@@ -146,10 +141,9 @@ func TestResolveForIdentityGuards(t *testing.T) {
 
 	t.Run("an unknown handle is invalid", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
-		svc.WithDanceHandles(newFakeDanceHandles())
+		h := initHarness(t)
 
-		_, err := svc.ResolveForIdentity(ctx, uuid.NewString(), &entity.OAuthIDTokenClaims{
+		_, err := h.claimer.ResolveForIdentity(ctx, uuid.NewString(), &entity.OAuthIDTokenClaims{
 			Email:         uniqueEmail(t),
 			EmailVerified: true,
 		})
@@ -163,45 +157,31 @@ func TestResolveForIdentityGuards(t *testing.T) {
 	// pins the status branch rather than the mismatch branch.
 	t.Run("an expired invitation is invalid", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
+		h := initHarness(t)
 		email := uniqueEmail(t)
 
-		expired, err := svc.store.Create(ctx, &entity.Invitation{
-			Email:       email,
-			Roles:       []entity.Role{entity.RoleEditor},
-			TokenHash:   xhash.HashSha256([]byte(xuuid.NewString())),
-			Status:      entity.InvitationStatusPending,
-			ExpiresAt:   xtime.UTCNow().Add(-time.Hour),
-			SentAt:      xtime.UTCNow().Add(-2 * time.Hour),
-			InvitedByID: makeAdmin(ctx, t, svc).ID,
-		})
-		require.NoError(t, err)
+		expired := createInvitation(ctx, t, h, email, xtime.UTCNow().Add(-time.Hour))
 		require.Equal(t, entity.InvitationStatusPending, expired.Status,
 			"the stored column must still say pending, or this tests nothing")
 
-		handles := newFakeDanceHandles()
-		svc.WithDanceHandles(handles)
-		handle := uuid.NewString()
-		handles.put(handle, expired.ID)
+		handle := parkHandle(t, h.handles, expired)
 
-		_, err = svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
+		_, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 
 	t.Run("a revoked invitation is invalid", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
+		h := initHarness(t)
 		email := uniqueEmail(t)
-		inv := mustCreate(ctx, t, svc, email)
-		require.NoError(t, svc.Revoke(ctx, &entity.RevokeInvitationCmd{
-			Actor: makeAdmin(ctx, t, svc), ID: inv.ID,
-		}))
-		handle := armHandles(t, svc, inv)
+		inv := createPendingInvitation(ctx, t, h, email)
+		require.NoError(t, h.store.SetRevoked(ctx, inv.ID, xtime.UTCNow()))
+		handle := parkHandle(t, h.handles, inv)
 
 		// Note the email MATCHES: the refusal is about status, and it must not
 		// be reported as a mismatch, which would tell the caller the address was
 		// right.
-		_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
+		_, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: email, EmailVerified: true})
 		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 
@@ -209,12 +189,10 @@ func TestResolveForIdentityGuards(t *testing.T) {
 	// and carry on", but it must also never be mistaken for a valid one.
 	t.Run("a store failure propagates rather than resolving", func(t *testing.T) {
 		t.Parallel()
-		svc, _ := initService(t)
-		handles := newFakeDanceHandles()
-		handles.err = errors.New("valkey is down")
-		svc.WithDanceHandles(handles)
+		h := initHarness(t)
+		h.handles.err = errors.New("valkey is down")
 
-		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
+		_, err := h.claimer.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 		require.Error(t, err)
 
 		// NOT ErrInvalidInvitation: that is the answer for a handle that named
@@ -223,16 +201,6 @@ func TestResolveForIdentityGuards(t *testing.T) {
 		// costing the metric that makes it visible. Asserting NotErrorIs on the
 		// mismatch instead would be a tautology; the fake never returns one.
 		assert.NotErrorIs(t, err, apperr.ErrInvalidInvitation)
-	})
-
-	// An instance with no dance configured has no handle store at all. It must
-	// refuse rather than panic on a public route.
-	t.Run("no handle store refuses instead of panicking", func(t *testing.T) {
-		t.Parallel()
-		svc, _ := initService(t)
-
-		_, err := svc.ResolveForIdentity(ctx, "h", &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
-		require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 	})
 }
 
@@ -255,24 +223,25 @@ func TestClaimForUser(t *testing.T) {
 	// instead proves nothing -- the transaction rolls back under either order.
 	t.Run("the invitation is already spent when the seats guard counts", func(t *testing.T) {
 		t.Parallel()
-		svc, mocks := initService(t)
-		inv := mustCreate(ctx, t, svc, uniqueEmail(t), entity.RoleEditor)
-		user := makeAdmin(ctx, t, svc)
+		h := initHarness(t)
+		inv := createPendingInvitation(ctx, t, h, uniqueEmail(t), entity.RoleEditor)
+		user := makeUser(ctx, t, h)
 
 		// Read the invitation's status from inside the guard, on the claim's own
 		// transaction -- exactly where the real guard's ListPendingRoles reads it.
 		var statusWhenGuardRan entity.InvitationStatus
-		mocks.seatGuard.onCall = func(ctx context.Context) {
-			stored, err := svc.store.GetByID(ctx, inv.ID)
+		h.seatGuard.onCall = func(ctx context.Context) {
+			stored, err := h.store.GetByID(ctx, inv.ID)
 			require.NoError(t, err)
 			statusWhenGuardRan = stored.Status
 		}
 
-		require.NoError(t, svc.ClaimForUser(ctx, &entity.ResolvedInvitation{
+		_, err := h.claimer.ClaimForUser(ctx, &entity.ResolvedInvitation{
 			ID: inv.ID, Roles: inv.Roles,
-		}, user.ID))
+		}, user.ID)
+		require.NoError(t, err)
 
-		require.Positive(t, mocks.seatGuard.called, "the seats guard must have run")
+		require.Positive(t, h.seatGuard.called, "the seats guard must have run")
 		assert.Equal(t, entity.InvitationStatusAccepted, statusWhenGuardRan,
 			"MarkAccepted must precede AssignRoles: the guard has to count a world "+
 				"where this invitation no longer holds a pending seat, or it charges "+
@@ -290,17 +259,15 @@ func TestClaimForUser(t *testing.T) {
 func TestNilUUIDHandleNeverResolves(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	svc, _ := initService(t)
+	h := initHarness(t)
 
-	handles := newFakeDanceHandles()
-	svc.WithDanceHandles(handles)
 	handle := uuid.NewString()
-	handles.put(handle, uuid.Nil)
+	h.handles.put(handle, uuid.Nil)
 
-	_, err := svc.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
+	_, err := h.claimer.ResolveForIdentity(ctx, handle, &entity.OAuthIDTokenClaims{Email: uniqueEmail(t), EmailVerified: true})
 	require.ErrorIs(t, err, apperr.ErrInvalidInvitation)
 
-	_, getErr := svc.store.GetByID(ctx, uuid.Nil)
+	_, getErr := h.store.GetByID(ctx, uuid.Nil)
 	assert.ErrorIs(t, getErr, apperr.ErrInvitationNotFound,
 		"no invitation row may be addressable by uuid.Nil")
 }
@@ -322,12 +289,12 @@ func TestClaimForUserConcurrent(t *testing.T) {
 	const rounds = 10
 
 	for range rounds {
-		svc, _ := initService(t)
-		inv := mustCreate(ctx, t, svc, uniqueEmail(t), entity.RoleEditor)
+		h := initHarness(t)
+		inv := createPendingInvitation(ctx, t, h, uniqueEmail(t), entity.RoleEditor)
 		resolved := &entity.ResolvedInvitation{ID: inv.ID, Roles: inv.Roles}
 
-		userA := makeAdmin(ctx, t, svc)
-		userB := makeAdmin(ctx, t, svc)
+		userA := makeUser(ctx, t, h)
+		userB := makeUser(ctx, t, h)
 
 		start := make(chan struct{})
 		results := make(chan error, 2)
@@ -338,7 +305,8 @@ func TestClaimForUserConcurrent(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				<-start
-				results <- svc.ClaimForUser(ctx, resolved, userID)
+				_, err := h.claimer.ClaimForUser(ctx, resolved, userID)
+				results <- err
 			}()
 		}
 

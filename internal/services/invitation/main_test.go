@@ -23,6 +23,7 @@ import (
 	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
+	"github.com/ruko1202/maintmode/internal/services/invitation/claimer"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
@@ -130,25 +131,33 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		}).
 		AnyTimes()
 
-	return NewService(
+	store := userinvitations.NewStore(db)
+	userSrv := user.NewService(
+		txManager,
+		users.NewStore(db),
+		useridentities.NewStore(db),
+		newTestAuditPublisher(t),
+		mocks.tokenRevoker,
+		mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
+		false,           // allowOpenSignup: the accept flow must authorize creation itself
+		loginProviders,
+	)
+	svc := NewService(
 		cfg,
 		txManager,
-		userinvitations.NewStore(db),
-		user.NewService(
-			txManager,
-			users.NewStore(db),
-			useridentities.NewStore(db),
-			newTestAuditPublisher(t),
-			mocks.tokenRevoker,
-			mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
-			false,           // allowOpenSignup: the accept flow must authorize creation itself
-			loginProviders,
-		),
+		store,
+		userSrv,
 		mocks.tokenIssuer,
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		mocks.sender,
 		mocks.seatGuard, // Create runs the guard directly
-	), mocks
+		// Built from the same tx manager, store and user service, as
+		// claimer.New requires; Accept never reaches the dance, so no handle
+		// store.
+		claimer.New(txManager, store, userSrv, nil),
+	)
+
+	return svc, mocks
 }
 
 // newTestAuditPublisher builds the audit publisher backed by the test DB's goque
