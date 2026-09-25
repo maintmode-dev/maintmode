@@ -9,18 +9,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
 
-// WithLoginPresets records the catalog of well-known login providers.
-//
-// Absent (nil), every login name behaves like `custom`: the operator supplies
-// everything. That is the right degenerate behavior for a binary with no
-// config -- tests, mostly -- because a preset only ever REMOVES fields from
-// what the operator has to type.
-func (s *Service) WithLoginPresets(presets config.LoginPresets) *Service {
-	s.loginPresets = presets
-
-	return s
-}
-
 // applyPreset merges a catalog entry into a create's config.
 //
 // Three rules, and each exists for a reason worth stating:

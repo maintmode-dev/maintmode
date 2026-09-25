@@ -524,9 +524,9 @@ func newIntegrationService(
 		return nil, fmt.Errorf("build integration registry: %w", err)
 	}
 
-	// The identities store arrives through a setter, not the constructor: it
-	// belongs to the auth module, and the registry reaches it only through the
-	// one-method consumer interface the module boundaries require.
+	// The identities store belongs to the auth module; the registry reaches it
+	// only through the one-method consumer interface the module boundaries
+	// require, with bootstrap supplying the concrete store.
 	return integration.NewService(
 		stores.TxManager,
 		stores.Integrations,
@@ -535,8 +535,9 @@ func newIntegrationService(
 		keyring,
 		secrets.NewAESCipher(),
 		auditPublisher,
-	).WithIdentities(stores.UserIdentities).
-		WithLoginPresets(cfg.OauthProviders.Presets), nil
+		stores.UserIdentities,
+		cfg.OauthProviders.Presets,
+	), nil
 }
 
 // cacheInvalidator is the half of the transport resolver the change hook needs.

@@ -18,7 +18,7 @@ func presetSvc(t *testing.T) *Service {
 		integrationkinds.Google, integrationkinds.Custom, integrationkinds.GitHub)
 	require.NoError(t, err)
 
-	return (&Service{registry: registry}).WithLoginPresets(config.LoginPresets{
+	return &Service{registry: registry, loginPresets: config.LoginPresets{
 		"google": {DisplayName: "Google", IssuerURL: "https://accounts.google.com"},
 		"github": {
 			DisplayName:  "GitHub",
@@ -26,7 +26,7 @@ func presetSvc(t *testing.T) *Service {
 			TokenURL:     "https://github.com/login/oauth/access_token",
 			APIBaseURL:   "https://api.github.com",
 		},
-	})
+	}}
 }
 
 // A preset supplies what is knowable in advance, and the operator supplies the
@@ -81,7 +81,7 @@ func TestApplyPreset_MissingCatalogEntryIsRefused(t *testing.T) {
 
 	registry, err := NewRegistry(integrationkinds.Google, integrationkinds.Custom)
 	require.NoError(t, err)
-	svc := (&Service{registry: registry}).WithLoginPresets(config.LoginPresets{})
+	svc := &Service{registry: registry, loginPresets: config.LoginPresets{}}
 
 	_, err = svc.applyPreset("google", json.RawMessage(`{"client_id":"c"}`))
 	require.ErrorIs(t, err, apperr.ErrValidation)
@@ -142,7 +142,7 @@ func TestEnforcePreset_MissingCatalogEntryIsRefused(t *testing.T) {
 	require.NoError(t, err)
 
 	// A deployment whose catalog lost the entry -- or never had it.
-	svc := (&Service{registry: registry}).WithLoginPresets(config.LoginPresets{})
+	svc := &Service{registry: registry, loginPresets: config.LoginPresets{}}
 
 	err = svc.enforcePreset("google", json.RawMessage(
 		`{"issuer_url":"https://attacker.example","client_id":"c"}`))

@@ -193,13 +193,14 @@ func initServiceWith(
 		keyring,
 		testCipher,
 		mocks.audit,
-	).WithIdentities(identities).
+		identities,
 		// The fixture's login name carries the per-test suffix so parallel runs
 		// stay off each other's rows, which makes it a PRESET name rather than
 		// "custom" -- so it needs a catalog entry to be creatable at all.
-		WithLoginPresets(config.LoginPresets{
+		config.LoginPresets{
 			integrationkinds.Google.Name(): {DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
-		})
+		},
+	)
 	// Each test's rows use unique NAMES; drop them at the end so the shared table
 	// does not accumulate across a package run.
 	//

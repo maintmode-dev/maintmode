@@ -85,6 +85,10 @@ func initResolver(t *testing.T) harness {
 		keyring,
 		secrets.NewAESCipher(),
 		publishermock.New(t),
+		// No login kind in this registry, so neither the delete cascade nor
+		// the preset catalog is ever reached.
+		nil,
+		nil,
 	)
 
 	builders := transportresolver.Builders()
