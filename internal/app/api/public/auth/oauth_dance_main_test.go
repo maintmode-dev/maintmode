@@ -234,13 +234,15 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	// means wrapping the configuration it reads -- not reaching into the
 	// snapshot. Everything but this provider's Exchange still comes from the
 	// real thing.
-	services.Auth = services.Auth.WithAuthMethods(
+	// The flags stay the real settings service, as they were before this
+	// helper rebuilt the auth service rather than patching it. The dance store
+	// and the invitation claimer come from the real graph, which shares one
+	// store between them exactly as the process does.
+	authSrv := newAuthService(stores, services, services.AuthSettings,
 		gatewayOverride{AuthMethods: services.AuthMethods, id: entity.AuthMethodGoogle, gateway: gateway},
 	)
 
-	// The real graph already shares one dance store between the auth service
-	// and the invitation side (stores.OAuthDance), exactly as the process does.
-	impl := New(cfg.Auth, services.Auth, services.Token, services.User, services.OTP)
+	impl := New(cfg.Auth, authSrv, services.Token, services.User, services.OTP)
 
 	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
 		FrontendURL:       testFrontendURL,

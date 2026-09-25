@@ -22,11 +22,6 @@ import (
 // to it, so an outage refuses ordinary sign-ins and leaves the emergency
 // entrance open.
 //
-// A nil source refuses for the same reason. Bootstrap wires the settings
-// service into every binary that serves these paths, so a nil is a dropped
-// wiring line rather than a configuration -- and a dropped line must not
-// silently re-open every method an admin closed.
-//
 // The reason is LOGGED HERE rather than returned, because here is the only
 // place it is known and the only thing anyone does with it. Callers cannot act
 // on it: the response is uniform by design, and so is the audit record (see
@@ -37,15 +32,6 @@ func (s *Service) methodOffered(
 	method entity.AuthMethodName,
 	clientIP string,
 ) bool {
-	if s.methodFlags == nil {
-		xlog.Error(ctx, "sign-in refused: no auth method flag source is wired",
-			xfield.String("method", string(method)),
-			xfield.String("client_ip", clientIP),
-		)
-
-		return false
-	}
-
 	enabled, err := s.methodFlags.Enabled(ctx, method)
 	if err != nil {
 		xlog.Error(ctx, "sign-in refused: method flag is unreadable",

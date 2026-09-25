@@ -234,17 +234,11 @@ func NewServices(ctx context.Context,
 		otpSrv,
 		otpSrv,
 		stores.AuthCredentials,
+		authSettingsSrv,
 		stores.OAuthDance,
 		cfg.Auth.DanceStateTTL(),
 		invitationClaimer,
-	).
-		// Attached HERE rather than at the call site that builds the API, so the
-		// gates cannot be left unwired by a binary that assembles this service
-		// and forgets one chained call. A nil source refuses every built-in, so
-		// the failure mode of forgetting is a locked-out instance rather than a
-		// silently re-opened one -- loud, but the wrong kind of loud to discover
-		// in production.
-		WithMethodFlags(authSettingsSrv)
+	)
 
 	invitationSrv := invitation.NewService(
 		cfg,

@@ -102,7 +102,7 @@ func initServiceForMethod(t *testing.T, methodID entity.AuthMethod) (*Service, *
 func initServiceWith(t *testing.T, methodID entity.AuthMethod, allowOpenSignup bool) (*Service, *serviceMocks) {
 	t.Helper()
 
-	return initServiceWithMethodsSignup(t, methodID, nil, allowOpenSignup)
+	return initServiceWithDeps(t, methodID, serviceDeps{inviteOnly: !allowOpenSignup})
 }
 
 // initServiceWithBootstrap builds the service around a REAL break-glass
@@ -115,8 +115,20 @@ func initServiceWith(t *testing.T, methodID entity.AuthMethod, allowOpenSignup b
 func initServiceWithBootstrap(t *testing.T, email, password string) (*Service, *serviceMocks) {
 	t.Helper()
 
-	return initServiceWithMethods(t, entity.AuthMethodBootstrap,
-		bootstrapauth.NewService(config.BootstrapConfig{Email: email}, password))
+	return initServiceWithBootstrapFlags(t, email, password, nil)
+}
+
+// initServiceWithBootstrapFlags is initServiceWithBootstrap with the built-in
+// method flags the sign-in gates read. Nil means every built-in is offered.
+func initServiceWithBootstrapFlags(
+	t *testing.T, email, password string, flags AuthMethodFlags,
+) (*Service, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWithDeps(t, entity.AuthMethodBootstrap, serviceDeps{
+		concrete: bootstrapauth.NewService(config.BootstrapConfig{Email: email}, password),
+		flags:    flags,
+	})
 }
 
 // initServiceWithUnrelatedBootstrap builds the service for a test that exercises
@@ -127,31 +139,15 @@ func initServiceWithBootstrap(t *testing.T, email, password string) (*Service, *
 func initServiceWithUnrelatedBootstrap(t *testing.T) (*Service, *serviceMocks) {
 	t.Helper()
 
-	return initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+	return initServiceWithUnrelatedBootstrapFlags(t, nil)
 }
 
-func initServiceWithMethods(
-	t *testing.T,
-	methodID entity.AuthMethod,
-	concrete authmethod.AuthMethod,
-) (*Service, *serviceMocks) {
+// initServiceWithUnrelatedBootstrapFlags is initServiceWithUnrelatedBootstrap
+// with the built-in method flags the sign-in gates read.
+func initServiceWithUnrelatedBootstrapFlags(t *testing.T, flags AuthMethodFlags) (*Service, *serviceMocks) {
 	t.Helper()
 
-	return initServiceWithMethodsSignup(t, methodID, concrete, true)
-}
-
-func initServiceWithMethodsSignup(
-	t *testing.T,
-	methodID entity.AuthMethod,
-	concrete authmethod.AuthMethod,
-	allowOpenSignup bool,
-) (*Service, *serviceMocks) {
-	t.Helper()
-
-	return initServiceWithDeps(t, methodID, serviceDeps{
-		concrete:   concrete,
-		inviteOnly: !allowOpenSignup,
-	})
+	return initServiceWithBootstrapFlags(t, bootstrapAddress(), "unrelated-"+xuuid.NewString(), flags)
 }
 
 // serviceDeps are the constructor arguments a test may replace. A zero field
@@ -170,6 +166,15 @@ type serviceDeps struct {
 	// invitations is the invitation side of an invited dance. Nil for tests
 	// whose dances carry no invitation handle.
 	invitations InvitationClaimer
+	// flags answers whether a built-in method is offered. Nil means every
+	// built-in is, the same way license.NewNoop stands in for the seat cap:
+	// most tests exercise sign-in flows, not the settings table. Tests that are
+	// about the flags pass their own.
+	flags AuthMethodFlags
+	// wrapMethods, when set, receives the helper's login configuration and
+	// returns the one the service reads -- for a test that overrides one answer
+	// of the real configuration and defers the rest to it.
+	wrapMethods func(AuthMethods) AuthMethods
 }
 
 func initServiceWithDeps(
@@ -211,6 +216,16 @@ func initServiceWithDeps(
 	// would race under -race.
 	jwtCfg := cfg.JWT
 
+	flags := deps.flags
+	if flags == nil {
+		flags = authflags.NewAllEnabled()
+	}
+
+	var methods AuthMethods = authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{method})
+	if deps.wrapMethods != nil {
+		methods = deps.wrapMethods(methods)
+	}
+
 	return NewService(
 		&jwtCfg,
 		txManager,
@@ -230,20 +245,18 @@ func initServiceWithDeps(
 		),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),
-		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{method}),
+		methods,
 		tokenSrv,
 		newTestAuditPublisher(t),
 		mocks.otpVerifier,
 		mocks.otpRequester,
 		authcredentials.NewStore(db),
+		flags,
 		deps.codes,
-		config.Auth{}.DanceStateTTL(),
+		// The same lifetime the dance stores in this package are built with.
+		cfg.Auth.DanceStateTTL(),
 		deps.invitations,
-		// Every built-in method offered, the same way license.NewNoop above
-		// stands in for the seat cap: these tests exercise sign-in flows, not the
-		// settings table, and a nil source now REFUSES rather than defaulting to
-		// enabled. Tests that are about the flags override this with their own.
-	).WithMethodFlags(authflags.NewAllEnabled()), mocks
+	), mocks
 }
 
 // newTestAuditPublisher builds the audit publisher backed by the test DB's goque

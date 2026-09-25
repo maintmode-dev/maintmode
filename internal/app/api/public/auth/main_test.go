@@ -20,6 +20,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
+	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
@@ -69,9 +70,9 @@ func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 
 	services := newTestServices(t, stores)
 
-	// Every built-in offered unless a test says otherwise: a nil source now
-	// refuses, so the handler tests that are not about the flags need an
-	// explicit permissive one, and the tests that ARE about them override it.
+	// Every built-in offered unless a test says otherwise, so the handler tests
+	// that are not about the flags need an explicit permissive source, and the
+	// tests that ARE about them override it.
 	//
 	// It goes on BOTH halves, and that is not belt-and-braces. The handler gate
 	// and the service gate are separate reads (§4.3): the handler's decides
@@ -82,10 +83,44 @@ func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 	// file that has nothing to do with the flags. Tests that override the
 	// handler's source deliberately leave the service permissive: they assert
 	// on the listing and the 202, never on a redeemed code.
-	services.Auth.WithMethodFlags(authflags.NewAllEnabled())
+	authSrv := newAuthService(stores, services, authflags.NewAllEnabled(), services.AuthMethods)
 
-	return New(authCfg, services.Auth, services.Token, services.User, services.OTP).
+	return New(authCfg, authSrv, services.Token, services.User, services.OTP).
 		WithAuthSettings(authflags.NewAllEnabled())
+}
+
+// newAuthService rebuilds the auth service from the real graph, the way
+// bootstrap assembles it, replacing only the method flags and the login
+// configuration it reads.
+//
+// Rebuilt rather than patched because the service has no setters: what it
+// reads is fixed at construction. The rebuilt service is what the handler
+// under test talks to; the rest of the graph keeps the bootstrap instance,
+// which is harmless here because neither issuing a token pair nor checking one
+// reads the flags or the login configuration.
+func newAuthService(
+	stores *bootstrap.Stores,
+	services *bootstrap.Services,
+	flags auth.AuthMethodFlags,
+	methods auth.AuthMethods,
+) *auth.Service {
+	return auth.NewService(
+		&cfg.JWT,
+		stores.TxManager,
+		services.User,
+		stores.Locker,
+		stores.TokenBlackList,
+		methods,
+		services.Token,
+		services.AuditPublisher,
+		services.OTP,
+		services.OTP,
+		stores.AuthCredentials,
+		flags,
+		stores.OAuthDance,
+		cfg.Auth.DanceStateTTL(),
+		services.InvitationClaimer,
+	)
 }
 
 func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *entity.TokenPair {

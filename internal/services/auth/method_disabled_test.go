@@ -17,7 +17,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
-	authflags "github.com/ruko1202/maintmode/test/utils/mocks/authflags"
 )
 
 // stubMethodFlags answers the built-in flags from a fixed map, or fails, to
@@ -48,13 +47,11 @@ func flagsWith(enabled map[entity.AuthMethodName]bool) stubMethodFlags {
 func TestLoginWithPassword_RefusedWhenMethodDisabled(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, _ := initServiceWithUnrelatedBootstrap(t)
-	password := "correct-horse-" + xuuid.NewString()
-	user := makePasswordUser(ctx, t, srv, password)
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, _ := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailPassword: false,
 	}))
+	password := "correct-horse-" + xuuid.NewString()
+	user := makePasswordUser(ctx, t, srv, password)
 
 	_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
 		Email:    user.Email,
@@ -90,9 +87,7 @@ func TestLoginWithPassword_BreakGlassSurvivesMethodDisabled(t *testing.T) {
 	email := seedStoredPasswordFor(ctx, t, seeder, personal)
 
 	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrap(t, email, breakGlass)
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailPassword: false,
 	}))
 
@@ -127,9 +122,7 @@ func TestLoginWithPassword_UnreadableFlagFailsClosedButKeepsBreakGlass(t *testin
 	email := seedStoredPasswordFor(ctx, t, seeder, personal)
 
 	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrap(t, email, breakGlass)
-
-	srv.WithMethodFlags(stubMethodFlags{fail: true})
+	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, stubMethodFlags{fail: true})
 
 	_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
 		Email:    email,
@@ -156,13 +149,12 @@ func TestLoginWithPassword_UnreadableFlagFailsClosedButKeepsBreakGlass(t *testin
 func TestLoginWithPassword_DisabledRefusalDoesNotRevealThePassword(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, _ := initServiceWithUnrelatedBootstrap(t)
+	srv, _ := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: false,
+	}))
 	password := "correct-horse-" + xuuid.NewString()
 	user := makePasswordUser(ctx, t, srv, password)
 
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailPassword: false,
-	}))
 	spy := spyOnFailures(srv)
 	counter := countCredentialReads(srv)
 
@@ -273,16 +265,14 @@ func seedStoredPasswordFor(ctx context.Context, t *testing.T, srv *Service, pass
 func TestChangePassword_SurvivesMethodDisabled(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, _ := initServiceWithUnrelatedBootstrap(t)
+	srv, _ := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: false,
+	}))
 	current := "current-" + xuuid.NewString()
 	user := makePasswordUser(ctx, t, srv, current)
 
 	pair, err := srv.IssueTokenPair(ctx, user, "10.0.0.1")
 	require.NoError(t, err)
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailPassword: false,
-	}))
 
 	require.NoError(t, srv.ChangePassword(ctx, &entity.ChangePasswordCmd{
 		UserID:          user.ID,
@@ -301,16 +291,20 @@ func TestChangePassword_SurvivesMethodDisabled(t *testing.T) {
 func TestDisablingAMethod_DoesNotEndExistingSessions(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, _ := initServiceWithUnrelatedBootstrap(t)
+	// The flag source is the admin's switch: both methods on while the session
+	// opens, both off afterwards -- the same table flip the settings API makes.
+	switched := map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: true,
+		entity.AuthMethodNameEmailOTP:      true,
+	}
+	srv, _ := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(switched))
 	user := makePasswordUser(ctx, t, srv, "pw-"+xuuid.NewString())
 
 	pair, err := srv.IssueTokenPair(ctx, user, "10.0.0.1")
 	require.NoError(t, err)
 
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailPassword: false,
-		entity.AuthMethodNameEmailOTP:      false,
-	}))
+	switched[entity.AuthMethodNameEmailPassword] = false
+	switched[entity.AuthMethodNameEmailOTP] = false
 
 	// The token issued before the change still authenticates afterwards.
 	require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken),
@@ -333,9 +327,7 @@ func TestBreakGlass_SurvivesEverythingDisabled(t *testing.T) {
 	email := seedStoredPasswordFor(ctx, t, seeder, personal)
 
 	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrap(t, email, breakGlass)
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailPassword: false,
 		entity.AuthMethodNameEmailOTP:      false,
 	}))
@@ -394,8 +386,7 @@ func TestLoginWithPassword_DisabledRefusalIsUniformAcrossPublishSites(t *testing
 	seeder, _ := initServiceWithUnrelatedBootstrap(t)
 	email := seedStoredPasswordFor(ctx, t, seeder, "personal-"+xuuid.NewString())
 
-	srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, _ := initServiceWithBootstrapFlags(t, email, "the-break-glass-"+xuuid.NewString(), flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailPassword: false,
 	}))
 	spy := spyOnFailures(srv)
@@ -420,45 +411,6 @@ func TestLoginWithPassword_DisabledRefusalIsUniformAcrossPublishSites(t *testing
 	require.Equal(t, entity.AuditFailureInvalidCredentials, spy.reasons[0])
 }
 
-// A service with NO flag source refuses every built-in rather than allowing it.
-//
-// This is the wiring-regression guard. The permissive answer used to be the nil
-// default, which meant a dropped WithMethodFlags line -- or a second binary that
-// assembled this service and forgot it -- silently re-opened every method an
-// admin had closed, with no log line and no failing test. That is the
-// "button hidden, credential still works" outcome the whole feature exists to
-// prevent, reached by omission rather than by a bug.
-//
-// A process that genuinely has no settings table says so with
-// authflags.AllEnabled, which is the feature's one deliberate fail-open path.
-func TestLoginWithPassword_NoFlagSourceRefuses(t *testing.T) {
-	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	srv, _ := initServiceWithUnrelatedBootstrap(t)
-	password := "correct-horse-" + xuuid.NewString()
-	user := makePasswordUser(ctx, t, srv, password)
-
-	srv.WithMethodFlags(nil)
-
-	_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    user.Email,
-		Password: password,
-	})
-	require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
-		"an unwired gate must refuse, not wave everything through")
-
-	// And the explicit permissive source restores the old behavior, so a
-	// process that wants it has a way to say so.
-	srv.WithMethodFlags(authflags.NewAllEnabled())
-
-	pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    user.Email,
-		Password: password,
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, pair.AccessToken)
-}
-
 // A password installed through RESET is still refused when email_password is
 // off.
 //
@@ -475,15 +427,13 @@ func TestLoginWithPassword_NoFlagSourceRefuses(t *testing.T) {
 func TestLoginWithPassword_ResetInstalledPasswordIsStillRefused(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, mocks := initServiceWithUnrelatedBootstrap(t)
-	user := makePasswordUser(ctx, t, srv, "old-"+xuuid.NewString())
-
-	// Recovery still works with email codes off, which is the point of 4.4.
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, mocks := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailOTP:      false,
 		entity.AuthMethodNameEmailPassword: false,
 	}))
+	user := makePasswordUser(ctx, t, srv, "old-"+xuuid.NewString())
 
+	// Recovery still works with email codes off, which is the point of 4.4.
 	mocks.otpVerifier.EXPECT().
 		Verify(gomock.Any(), gomock.Any()).
 		Return(user, entity.AuditFailureReason(""), nil).

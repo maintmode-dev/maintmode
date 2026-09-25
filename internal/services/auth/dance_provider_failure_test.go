@@ -118,10 +118,11 @@ func TestStartDanceRefusesOnALinkTicketStoreFailure(t *testing.T) {
 	t.Parallel()
 
 	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
-	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
-	srv = srv.WithAuthMethods(danceableMethods{
-		inner:  srv.authMethods,
-		method: entity.AuthMethodGithub,
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{
+		codes: codes,
+		wrapMethods: func(inner AuthMethods) AuthMethods {
+			return danceableMethods{inner: inner, method: entity.AuthMethodGithub}
+		},
 	})
 
 	codes.EXPECT().
@@ -408,9 +409,9 @@ func TestCompleteLinkRefusesASecondGithubIdentity(t *testing.T) {
 // danceableMethods makes one provider danceable without a registry row.
 //
 // Danceability is no longer a list read at boot: it is having a gateway in the
-// live snapshot, which a unit test has no reloader to install. So the seam the
-// service already exposes for this is used instead -- WithAuthMethods -- and
-// only the two answers StartDance consults are overridden.
+// live snapshot, which a unit test has no reloader to install. So the test
+// wraps the configuration the service is built with, and only the two answers
+// StartDance consults are overridden.
 //
 // The gateway is nil on purpose. These tests refuse BEFORE the gateway is
 // touched, and a nil one is what proves it: were the refusal to move after the

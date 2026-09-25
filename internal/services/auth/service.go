@@ -34,10 +34,6 @@ type AuditPublisher interface {
 //
 // Consumer-side and one method wide: this service needs the flag and nothing
 // else about the settings that carry it.
-//
-// A nil source refuses every built-in rather than allowing it: bootstrap wires
-// the settings service into every binary that serves these paths, so a nil is a
-// dropped line, and a dropped line must not re-open a method an admin closed.
 type AuthMethodFlags interface {
 	Enabled(ctx context.Context, method entity.AuthMethodName) (bool, error)
 }
@@ -72,8 +68,7 @@ type Service struct {
 	usersSrv    *user.Service
 	tokenSrv    *token.Service
 	authMethods AuthMethods
-	// methodFlags answers whether a built-in method is offered. Nil REFUSES
-	// every built-in -- see AuthMethodFlags above for why that direction.
+	// methodFlags answers whether a built-in method is offered.
 	methodFlags    AuthMethodFlags
 	locker         *distributedlock.Store
 	blacklistStore *blacklisttoken.Store
@@ -200,6 +195,7 @@ func NewService(
 	otpVerifier OTPVerifier,
 	otpRequester OTPRequester,
 	passwords PasswordCredentials,
+	methodFlags AuthMethodFlags,
 	danceCodes DanceCodeStore,
 	danceStateTTL time.Duration,
 	invitations InvitationClaimer,
@@ -216,6 +212,7 @@ func NewService(
 		otpVerifier:    otpVerifier,
 		otpRequester:   otpRequester,
 		passwords:      passwords,
+		methodFlags:    methodFlags,
 		danceSigner:    newDanceStateSigner(cfg.PrivateKey),
 		danceCodes:     danceCodes,
 		// config.Auth.DanceStateTTL owns the fallback, and the wiring passes the
@@ -226,24 +223,6 @@ func NewService(
 		danceStateTTL: danceStateTTL,
 		invitations:   invitations,
 	}
-}
-
-// WithAuthMethods swaps the login configuration this service reads.
-//
-// The service is constructed once in bootstrap and specialised afterwards. The dance tests use
-// it to serve one provider's Exchange from their own object, which is the only
-// part of a gateway a discovery stub cannot stand in for.
-func (s *Service) WithAuthMethods(methods AuthMethods) *Service {
-	s.authMethods = methods
-
-	return s
-}
-
-// WithMethodFlags attaches the built-in method flags the sign-in gates read.
-func (s *Service) WithMethodFlags(flags AuthMethodFlags) *Service {
-	s.methodFlags = flags
-
-	return s
 }
 
 // danceGatewayFor resolves the gateway serving provider, from the live snapshot
