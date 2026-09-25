@@ -79,7 +79,12 @@ func (s *Service) GetOrCreateByAuthInfo(ctx context.Context, provider entity.Aut
 // it as-is (no role changes). Used both on the ordinary login lookup and to
 // recover the winner after a concurrent same-subject race.
 func (s *Service) getUserByIdentity(ctx context.Context, provider entity.AuthMethod, subject string) (*entity.User, error) {
-	identity, err := s.identitiesStore.GetByProviderSubject(ctx, provider, subject)
+	method, err := s.methodRef(ctx, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	identity, err := s.identitiesStore.GetByMethodSubject(ctx, method, subject)
 	if err != nil {
 		return nil, fmt.Errorf("get identity after race: %w", err)
 	}
@@ -152,13 +157,7 @@ func (s *Service) createWithIdentity(ctx context.Context, provider entity.AuthMe
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	_, err = s.identitiesStore.Create(ctx, &entity.UserIdentity{
-		UserID:   user.ID,
-		Provider: provider,
-		Subject:  info.ID,
-		Email:    info.Email,
-	})
-	if err != nil {
+	if err := s.createIdentity(ctx, user.ID, provider, info.ID, info.Email); err != nil {
 		return nil, fmt.Errorf("create identity: %w", err)
 	}
 
@@ -213,13 +212,7 @@ func (s *Service) linkBootstrapToExistingUser(ctx context.Context, info *entity.
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
-	_, err = s.identitiesStore.Create(ctx, &entity.UserIdentity{
-		UserID:   user.ID,
-		Provider: entity.AuthMethodBootstrap,
-		Subject:  info.ID,
-		Email:    info.Email,
-	})
-	if err != nil {
+	if err := s.createIdentity(ctx, user.ID, entity.AuthMethodBootstrap, info.ID, info.Email); err != nil {
 		return nil, fmt.Errorf("create bootstrap identity: %w", err)
 	}
 
@@ -284,4 +277,31 @@ func (s *Service) grantRolesUnguarded(ctx context.Context, userID uuid.UUID, rol
 	})
 
 	return user, nil
+}
+
+// createIdentity writes one identity, resolving the method to whichever column
+// identifies it. Shared by the three write paths so the branch is decided in
+// one place: a caller assembling the struct itself could set neither column and
+// be refused by the CHECK, or set the wrong one and link the account to another
+// provider entirely.
+func (s *Service) createIdentity(
+	ctx context.Context, userID uuid.UUID, provider entity.AuthMethod, subject, email string,
+) error {
+	method, err := s.methodRef(ctx, provider)
+	if err != nil {
+		return err
+	}
+
+	identity := &entity.UserIdentity{
+		UserID:  userID,
+		Subject: subject,
+		Email:   email,
+	}
+	method.Apply(identity)
+
+	if _, err := s.identitiesStore.Create(ctx, identity); err != nil {
+		return err
+	}
+
+	return nil
 }
