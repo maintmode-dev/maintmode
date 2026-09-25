@@ -21,53 +21,6 @@ type identityMethodRow struct {
 	model.IntegrationSettings
 }
 
-// listMethods returns the sign-in providers of every user matching where, keyed
-// by user and sorted by name.
-//
-// Registry-backed providers only. Break-glass is left out on purpose: it is
-// the deployment's way in -- first sign-in on a fresh instance, or an operator
-// locked out of the configured providers -- not a method an account links, and
-// these lists are what the UI renders as the user's connected sign-in methods.
-// The INNER join is what drops it: a built-in identity has no integration_id to
-// join on.
-//
-// The sort is a contract, not presentation: entity.PrimaryAuthMethod takes the
-// first element to fill the oauth_provider field, so an unstable order would
-// change what a user is told their primary method is.
-//
-// No dedupe: a user holds at most one identity per registry row (the partial
-// unique index), and integration_settings is unique on (kind, name).
-func (s *Store) listMethods(ctx context.Context, where postgres.BoolExpression) (map[uuid.UUID][]entity.AuthMethod, error) {
-	stmt := postgres.
-		SELECT(
-			table.UserIdentities.UserID,
-			table.IntegrationSettings.Name,
-		).
-		FROM(table.UserIdentities.
-			INNER_JOIN(
-				table.IntegrationSettings,
-				table.IntegrationSettings.ID.EQ(table.UserIdentities.IntegrationID),
-			),
-		).
-		WHERE(where)
-
-	var rows []*identityMethodRow
-	if err := stmt.QueryContext(ctx, s.db.Executor(ctx), &rows); err != nil {
-		return nil, err
-	}
-
-	result := make(map[uuid.UUID][]entity.AuthMethod)
-	for _, row := range rows {
-		result[row.UserID] = append(result[row.UserID], entity.AuthMethod(row.Name))
-	}
-
-	for _, methods := range result {
-		slices.Sort(methods)
-	}
-
-	return result, nil
-}
-
 // ListMethodsByUserID returns the sign-in providers linked to userID, ordered
 // by name ASC. Break-glass is not among them; see listMethods.
 func (s *Store) ListMethodsByUserID(ctx context.Context, userID uuid.UUID) ([]entity.AuthMethod, error) {
@@ -127,4 +80,51 @@ func (s *Store) CountProvidersByUserID(ctx context.Context, userID uuid.UUID) (i
 	}
 
 	return dest.Count, nil
+}
+
+// listMethods returns the sign-in providers of every user matching where, keyed
+// by user and sorted by name.
+//
+// Registry-backed providers only. Break-glass is left out on purpose: it is
+// the deployment's way in -- first sign-in on a fresh instance, or an operator
+// locked out of the configured providers -- not a method an account links, and
+// these lists are what the UI renders as the user's connected sign-in methods.
+// The INNER join is what drops it: a built-in identity has no integration_id to
+// join on.
+//
+// The sort is a contract, not presentation: entity.PrimaryAuthMethod takes the
+// first element to fill the oauth_provider field, so an unstable order would
+// change what a user is told their primary method is.
+//
+// No dedupe: a user holds at most one identity per registry row (the partial
+// unique index), and integration_settings is unique on (kind, name).
+func (s *Store) listMethods(ctx context.Context, where postgres.BoolExpression) (map[uuid.UUID][]entity.AuthMethod, error) {
+	stmt := postgres.
+		SELECT(
+			table.UserIdentities.UserID,
+			table.IntegrationSettings.Name,
+		).
+		FROM(table.UserIdentities.
+			INNER_JOIN(
+				table.IntegrationSettings,
+				table.IntegrationSettings.ID.EQ(table.UserIdentities.IntegrationID),
+			),
+		).
+		WHERE(where)
+
+	var rows []*identityMethodRow
+	if err := stmt.QueryContext(ctx, s.db.Executor(ctx), &rows); err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID][]entity.AuthMethod)
+	for _, row := range rows {
+		result[row.UserID] = append(result[row.UserID], entity.AuthMethod(row.Name))
+	}
+
+	for _, methods := range result {
+		slices.Sort(methods)
+	}
+
+	return result, nil
 }

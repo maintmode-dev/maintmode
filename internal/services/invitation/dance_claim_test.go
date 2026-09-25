@@ -30,8 +30,6 @@ func newFakeDanceHandles() *fakeDanceHandles {
 	return &fakeDanceHandles{ids: map[string]uuid.UUID{}}
 }
 
-func (f *fakeDanceHandles) put(handle string, id uuid.UUID) { f.ids[handle] = id }
-
 func (f *fakeDanceHandles) PutInvitationHandle(_ context.Context, handle string, id uuid.UUID) error {
 	if f.err != nil {
 		return f.err
@@ -54,6 +52,8 @@ func (f *fakeDanceHandles) ConsumeInvitationHandle(_ context.Context, handle str
 
 	return &id, nil
 }
+
+func (f *fakeDanceHandles) put(handle string, id uuid.UUID) { f.ids[handle] = id }
 
 // armHandles wires a fake handle store and returns a handle already pointing at
 // inv.

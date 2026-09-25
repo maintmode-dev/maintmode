@@ -112,16 +112,6 @@ func NewService(
 // reloader -- must not be installable only where the first happens to be.
 func (s *Service) AddOnChange(fn func(kind, name string)) { s.onChange = append(s.onChange, fn) }
 
-// notifyChanged tells the listener (if any) that kind's stored state changed.
-// Deliberately after commit, not inside the tx: invalidating inside the tx
-// could evict-then-repopulate from another connection's pre-commit read.
-// Cross-replica correctness rests on the resolver's cache TTL, not on this call.
-func (s *Service) notifyChanged(kind, name string) {
-	for _, fn := range s.onChange {
-		fn(kind, name)
-	}
-}
-
 // WithIdentities wires the delete cascade's reach into the auth module. A
 // setter rather than a constructor argument for the same reason WithDance is
 // one: it keeps the module boundary that forbids this module from importing
@@ -130,4 +120,14 @@ func (s *Service) WithIdentities(identities IdentitiesStore) *Service {
 	s.identities = identities
 
 	return s
+}
+
+// notifyChanged tells the listener (if any) that kind's stored state changed.
+// Deliberately after commit, not inside the tx: invalidating inside the tx
+// could evict-then-repopulate from another connection's pre-commit read.
+// Cross-replica correctness rests on the resolver's cache TTL, not on this call.
+func (s *Service) notifyChanged(kind, name string) {
+	for _, fn := range s.onChange {
+		fn(kind, name)
+	}
 }

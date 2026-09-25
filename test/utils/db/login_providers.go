@@ -25,22 +25,6 @@ type LoginProviders struct {
 	byName map[entity.AuthMethod]uuid.UUID
 }
 
-// ResolveID implements the resolver the user service depends on.
-func (p *LoginProviders) ResolveID(_ context.Context, name entity.AuthMethod) (uuid.UUID, error) {
-	id, ok := p.byName[name]
-	if !ok {
-		return uuid.Nil, apperr.ErrIntegrationNotFound
-	}
-
-	return id, nil
-}
-
-// ID returns the seeded row id for one name, for assertions that need to
-// address an identity directly.
-func (p *LoginProviders) ID(name entity.AuthMethod) uuid.UUID {
-	return p.byName[name]
-}
-
 // SeedLoginProviders inserts one registry row per name and returns a resolver
 // over them.
 //
@@ -96,4 +80,20 @@ func MustSeedLoginProviders(
 	}
 
 	return providers
+}
+
+// ResolveID implements the resolver the user service depends on.
+func (p *LoginProviders) ResolveID(_ context.Context, name entity.AuthMethod) (uuid.UUID, error) {
+	id, ok := p.byName[name]
+	if !ok {
+		return uuid.Nil, apperr.ErrIntegrationNotFound
+	}
+
+	return id, nil
+}
+
+// ID returns the seeded row id for one name, for assertions that need to
+// address an identity directly.
+func (p *LoginProviders) ID(name entity.AuthMethod) uuid.UUID {
+	return p.byName[name]
 }
