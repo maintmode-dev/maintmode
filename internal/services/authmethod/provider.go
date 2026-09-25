@@ -108,6 +108,13 @@ func NewAuthMethods(
 		methodsMap[entity.AuthMethodStub] = stuboauth.NewService()
 	}
 
+	// The substitution stays INSIDE Get: the caller keeps the name it asked for,
+	// and that is the name an identity is written under. So a use_stub stand
+	// still needs the provider to exist in the registry -- the stub decides who
+	// the person is, not which row their account hangs off. A stand where
+	// nobody created the provider cannot sign anyone in through it, stub or no
+	// stub.
+	//
 	// useStub keeps its own meaning — "substitute the stub for ANY method" —
 	// and is a separate decision from whether the stub exists at all. It stays
 	// derived from the same isDev so the two can never disagree: a true useStub

@@ -196,7 +196,7 @@ func TestNewProvider(t *testing.T) {
 	ctx := xlog.ContextWithLogger(t.Context(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	// The method id is the configured instance name, which is what reaches
-	// user_identities.provider. Nothing about the provider is Google-specific
+	// the registry. Nothing about the provider is Google-specific
 	// any more.
 	t.Run("provider id is the instance name", func(t *testing.T) {
 		t.Parallel()

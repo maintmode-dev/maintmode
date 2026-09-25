@@ -27,8 +27,8 @@ import (
 // codebase. An earlier version left the success record to each caller on the
 // theory that the two paths differed; they did not, and the two records were
 // identical down to the SessionID.
-// provider resolves the user's identity and is written to
-// user_identities.provider. The audit label does not follow it: every upstream
+// provider resolves the user's identity: the user service turns it into the
+// registry row the identity references, or stores it as a built-in method. The audit label does not follow it: every upstream
 // instance records as oidc, so there is nothing to pass in. See
 // entity.AuditLoginMethodOIDC for what that does and does not distinguish.
 func (s *Service) SignInWithVerifiedClaims(

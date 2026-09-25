@@ -39,7 +39,8 @@ type identityGateway interface {
 type Service struct {
 	// name is the configured INSTANCE name, and it is the method id: it keys
 	// this instance in the registry, is what a request names in the provider
-	// path segment, and is what reaches user_identities.provider.
+	// path segment, and is what the identity write resolves against the
+	// registry.
 	name    entity.AuthMethod
 	gateway identityGateway
 }
@@ -61,8 +62,8 @@ func NewProvider(name string, gateway identityGateway) *Service {
 // github.com app and a GitHub Enterprise Server one -- collapsing onto one key,
 // where whichever was built last silently replaces the other.
 //
-// It is also what reaches user_identities.provider, which is why an instance
-// named "github" writes exactly the string it always wrote.
+// It is also the name an identity write resolves against the registry, which is
+// why an instance named "github" finds exactly the row it always found.
 func (s *Service) MethodID() entity.AuthMethod {
 	return s.name
 }
