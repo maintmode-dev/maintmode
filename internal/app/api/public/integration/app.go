@@ -20,9 +20,7 @@ import (
 // LoginHealth reports whether a configured login provider can actually be used.
 //
 // Declared consumer-side over the live snapshot: this handler asks about one
-// provider and must not reach into the auth module for anything more. Nil is
-// legal -- an instance with no login providers has nothing to report -- and
-// then the field is simply absent from the response.
+// provider and must not reach into the auth module for anything more.
 type LoginHealth interface {
 	ProviderHealth(name string) string
 }
@@ -33,18 +31,17 @@ type Implementation struct {
 	loginHealth    LoginHealth
 }
 
-// WithLoginHealth attaches the live provider health, which the read paths
-// surface for login kinds.
-func (i *Implementation) WithLoginHealth(health LoginHealth) *Implementation {
-	i.loginHealth = health
-
-	return i
-}
-
-func New(integrationSrv *integrationsvc.Service, userSummarySrv *usersummary.Service) *Implementation {
+// New builds the handler. loginHealth is the live provider health the read
+// paths surface for login kinds.
+func New(
+	integrationSrv *integrationsvc.Service,
+	userSummarySrv *usersummary.Service,
+	loginHealth LoginHealth,
+) *Implementation {
 	return &Implementation{
 		integrationSrv: integrationSrv,
 		userSummarySrv: userSummarySrv,
+		loginHealth:    loginHealth,
 	}
 }
 
@@ -64,7 +61,7 @@ func (i *Implementation) toAPIWithAuthorship(ctx context.Context, m *entity.Mask
 // Read from the snapshot rather than probed here: probing on an admin GET would
 // hand the operator a request that waits out a discovery timeout.
 func (i *Implementation) healthOf(m *entity.MaskedIntegration) string {
-	if i.loginHealth == nil || m.Kind != integrationkinds.CategoryLogin {
+	if m.Kind != integrationkinds.CategoryLogin {
 		return ""
 	}
 

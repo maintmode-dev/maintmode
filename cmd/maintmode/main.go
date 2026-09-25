@@ -207,7 +207,7 @@ func startAPIServer(
 			Calendar:      uicalendar.New(services.Calendar, services.RBAC, services.UserSummary),
 			Approvals:     uiapprovals.New(services.Calendar, services.UserSummary),
 			Notifications: apinotifications.New(services.NotifyTargets, services.UserSummary, services.TransportResolver),
-			Integrations:  integrationapi.New(services.Integration, services.UserSummary).WithLoginHealth(services.AuthMethods),
+			Integrations:  integrationapi.New(services.Integration, services.UserSummary, services.AuthMethods),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
 			// The dance dependencies attach only when the feature is
