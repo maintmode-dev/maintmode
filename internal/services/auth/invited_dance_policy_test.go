@@ -93,7 +93,11 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 
 	t.Run("resolved invitation: the dance creates the account and claims it", func(t *testing.T) {
 		t.Parallel()
-		svc, mocks := initInviteOnlyService(t)
+		// The success path parks a one-time code, so the store must be armed.
+		svc, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{
+			inviteOnly: true,
+			codes:      oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()),
+		})
 		seedAdmin(ctx, t, svc)
 
 		claimer := &stubClaimer{resolved: &entity.ResolvedInvitation{
@@ -101,9 +105,6 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			Roles: []entity.Role{entity.RoleEditor},
 		}}
 		svc.WithInvitations(claimer)
-
-		// The success path parks a one-time code, so the store must be armed.
-		svc.danceCodes = oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).

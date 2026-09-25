@@ -64,7 +64,7 @@ func initImplWithOTPFloor(t *testing.T, floor time.Duration) *Implementation {
 func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 	t.Helper()
 
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 
 	services := newTestServices(t, stores)

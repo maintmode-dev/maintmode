@@ -20,10 +20,11 @@ import (
 // (user/auth in-process), and the active-token / locker / blacklist stores are
 // Valkey-backed.
 func InitStores(
+	cfg *config.AppConfig,
 	db *sqlx.DB,
 	valkey *valkeyDB.Client,
 ) *bootstrap.Stores {
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +48,7 @@ func InitServicesT(
 
 	SeedLoginProvidersT(ctx, t, db)
 
-	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, valkey))
+	services, err := bootstrap.NewServices(ctx, cfg, InitStores(cfg, db, valkey))
 	require.NoError(t, err)
 
 	return services

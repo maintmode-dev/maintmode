@@ -147,6 +147,34 @@ func initServiceWithMethodsSignup(
 	allowOpenSignup bool,
 ) (*Service, *serviceMocks) {
 	t.Helper()
+
+	return initServiceWithDeps(t, methodID, serviceDeps{
+		concrete:   concrete,
+		inviteOnly: !allowOpenSignup,
+	})
+}
+
+// serviceDeps are the constructor arguments a test may replace. A zero field
+// takes the helper's default, so a test names only what it is about.
+//
+// They are handed in BEFORE construction on purpose: writing them onto a built
+// service would be a setter by another name, and the service has none.
+type serviceDeps struct {
+	// concrete replaces the mock auth method registered under methodID.
+	concrete authmethod.AuthMethod
+	// inviteOnly disables open signup -- the production shape, where
+	// AllowCreate is what decides.
+	inviteOnly bool
+	// codes is the dance code store. Nil for tests that never reach the dance.
+	codes DanceCodeStore
+}
+
+func initServiceWithDeps(
+	t *testing.T,
+	methodID entity.AuthMethod,
+	deps serviceDeps,
+) (*Service, *serviceMocks) {
+	t.Helper()
 	ctrl := gomock.NewController(t)
 	mocks := &serviceMocks{
 		authMethod:   mock_authmethod.NewMockAuthMethod(ctrl),
@@ -159,8 +187,8 @@ func initServiceWithMethodsSignup(
 		AnyTimes()
 
 	method := authmethod.AuthMethod(mocks.authMethod)
-	if concrete != nil {
-		method = concrete
+	if deps.concrete != nil {
+		method = deps.concrete
 	}
 
 	txManager := dbtx.NewTxManager(db)
@@ -194,7 +222,7 @@ func initServiceWithMethodsSignup(
 			// exchange of an unknown user provisions a guest, so login tests need
 			// no invitation. Invited-dance tests pass false to get the production
 			// shape, where AllowCreate is what decides.
-			allowOpenSignup,
+			!deps.inviteOnly,
 			loginProviders,
 		),
 		distributedlock.NewStore(valkey),
@@ -205,6 +233,8 @@ func initServiceWithMethodsSignup(
 		mocks.otpVerifier,
 		mocks.otpRequester,
 		authcredentials.NewStore(db),
+		deps.codes,
+		config.Auth{}.DanceStateTTL(),
 		// Every built-in method offered, the same way license.NewNoop above
 		// stands in for the seat cap: these tests exercise sign-in flows, not the
 		// settings table, and a nil source now REFUSES rather than defaulting to

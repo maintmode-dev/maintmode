@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 
 	testbootstraputils.SeedLoginProvidersT(t.Context(), t, db)

@@ -19,7 +19,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
 	"github.com/ruko1202/maintmode/internal/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
-	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -212,7 +211,7 @@ func danceProviderConfig(t *testing.T) config.OIDCProvider {
 func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGateway) *Implementation {
 	t.Helper()
 
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 
 	services := newTestServices(t, stores)
@@ -224,12 +223,6 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 	// more: danceability is having a gateway, and the cookie's Secure flag is
 	// aggregated over the snapshot's providers rather than read off config.
 
-	// The same store on both sides, exactly as main.go arms it: the auth service
-	// parks and redeems the one-time code, the invitation service redeems the
-	// handle. Arming only one leaves invited dances silently unable to resolve.
-	danceStore := oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
-	services.Invitation.WithDanceHandles(danceStore)
-
 	installProviders(t, services.AuthMethods, testProvider{
 		ID:          entity.AuthMethodGoogle,
 		DisplayName: provider.DisplayName,
@@ -237,8 +230,6 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 		RedirectURI: redirectURI,
 	})
 
-	// The signer lives on the service now, so the dance is armed in two places:
-	// the service gets the signing key, the handler gets the providers.
 	// The service reads its gateway from the live snapshot, so standing one in
 	// means wrapping the configuration it reads -- not reaching into the
 	// snapshot. Everything but this provider's Exchange still comes from the
@@ -247,9 +238,9 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 		gatewayOverride{AuthMethods: services.AuthMethods, id: entity.AuthMethodGoogle, gateway: gateway},
 	)
 
-	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, danceStore),
-		services.Token, services.User, services.OTP)
+	// The real graph already shares one dance store between the auth service
+	// and the invitation side (stores.OAuthDance), exactly as the process does.
+	impl := New(cfg.Auth, services.Auth, services.Token, services.User, services.OTP)
 
 	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
 		FrontendURL:       testFrontendURL,
@@ -294,7 +285,7 @@ func initMultiInstanceDance(t *testing.T) *Implementation {
 		testSecondProvider:              "https://sso.acme.example/authorize",
 	}
 
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 
 	services := newTestServices(t, stores)
@@ -318,9 +309,7 @@ func initMultiInstanceDance(t *testing.T) *Implementation {
 	}
 	installProviders(t, services.AuthMethods, built...)
 
-	impl := New(cfg.Auth,
-		services.Auth.WithDance(cfg.Auth, oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())),
-		services.Token, services.User, services.OTP)
+	impl := New(cfg.Auth, services.Auth, services.Token, services.User, services.OTP)
 
 	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
 		FrontendURL:       testFrontendURL,

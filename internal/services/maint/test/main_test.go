@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 	valkey = testdbconnutils.NewValkeyClient(cfg)
 	closer.Add(valkey.Close)
 
-	stores := testbootstraputils.InitStores(db, valkey)
+	stores := testbootstraputils.InitStores(cfg, db, valkey)
 	resourcesStore = stores.Resources
 	maintStore = stores.Maintenances
 

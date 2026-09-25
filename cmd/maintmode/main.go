@@ -47,7 +47,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 )
 
 // newAuthHandlers builds the auth API component, attaching the backend OAuth
@@ -61,7 +60,6 @@ func newAuthHandlers(
 	ctx context.Context,
 	cfg *config.AppConfig,
 	services *bootstrap.Services,
-	valkeyClient *valkeylib.Client,
 ) *apiauth.Implementation {
 	// The provider list is attached before the dance gate: an instance
 	// reachable only through the BFF path still needs its sign-in button.
@@ -73,24 +71,6 @@ func newAuthHandlers(
 		services.OTP,
 	).WithAuthMethods(services.AuthMethods).
 		WithAuthSettings(services.AuthSettings)
-
-	// The dance is armed unconditionally, and that is a change in kind from
-	// what the early return here used to do.
-	//
-	// It used to skip everything below when no YAML provider carried dance
-	// credentials -- which also skipped the signer and the handle store, so an
-	// instance whose providers arrive from the registry instead would have had a
-	// nil signer and no way to redeem an invitation handle. Neither depends on a
-	// provider existing: the signer needs the JWT key, the store needs Valkey.
-	danceStateTTL := cfg.Auth.DanceStateTTL()
-	danceStore := oauthdance.NewStore(valkeyClient, danceStateTTL)
-
-	services.Auth.WithDance(cfg.Auth, danceStore)
-
-	// The same store on both sides, exactly as the invitation flow needs it: the
-	// auth service parks and redeems the one-time code, the invitation service
-	// redeems the handle that carries the invitation through the dance.
-	services.Invitation.WithDanceHandles(danceStore)
 
 	// The reloader owns the login snapshot from here on. There is no second
 	// source any more: providers used to also come from the config file, and
@@ -154,7 +134,7 @@ func main() {
 	closer.Add(valkeyClient.Close)
 
 	// Bootstrap application layers
-	stores, err := bootstrap.NewStores(db, valkeyClient)
+	stores, err := bootstrap.NewStores(cfg, db, valkeyClient)
 	if err != nil {
 		xlog.Panic(ctx, "failed to init storages", xfield.Error(err))
 	}
@@ -215,7 +195,7 @@ func startAPIServer(
 			// registered either, so nothing here is ever read — but wiring a
 			// gateway holding an empty client secret would be a live object
 			// waiting for a routing mistake.
-			Auth:         newAuthHandlers(ctx, cfg, services, valkeyClient),
+			Auth:         newAuthHandlers(ctx, cfg, services),
 			AuthSettings: authsettingsapi.New(services.AuthSettings),
 			Roles:        apiroles.New(services.User),
 			Users:        apiusers.New(services.User, services.License),

@@ -213,6 +213,8 @@ func NewServices(ctx context.Context,
 		otpSrv,
 		otpSrv,
 		stores.AuthCredentials,
+		stores.OAuthDance,
+		cfg.Auth.DanceStateTTL(),
 	).
 		// Attached HERE rather than at the call site that builds the API, so the
 		// gates cannot be left unwired by a binary that assembles this service
@@ -240,6 +242,11 @@ func NewServices(ctx context.Context,
 	// invitation service in turn without a cycle the compiler rejects. The
 	// setter is how the dance reaches the invitation guard.
 	authSrv.WithInvitations(invitationSrv)
+
+	// The same store on both sides, exactly as the invitation flow needs it: the
+	// auth service parks and redeems the one-time code, the invitation service
+	// redeems the handle that carries the invitation through the dance.
+	invitationSrv.WithDanceHandles(stores.OAuthDance)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue)
 	if err != nil {

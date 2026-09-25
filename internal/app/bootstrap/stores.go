@@ -7,6 +7,7 @@ import (
 	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/goque"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/storages/notifychannel"
 
 	"github.com/ruko1202/maintmode/internal/storages/audit"
@@ -22,6 +23,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/storages/licensecache"
 	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/storages/notifytargets"
+	"github.com/ruko1202/maintmode/internal/storages/oauthdance"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
 	"github.com/ruko1202/maintmode/internal/storages/resources"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -67,6 +69,10 @@ type Stores struct {
 	TokenBlackList  *blacklisttoken.Store
 	Locker          *distributedlock.Store
 	Audit           *audit.Store
+	// OAuthDance is the Valkey half of the backend-driven dance. One instance
+	// on purpose: the auth service parks and redeems one-time codes in it, the
+	// invitation side redeems the handles that carry an invitation through it.
+	OAuthDance *oauthdance.Store
 
 	// taskStorage backs the single goque outbox shared by every module: messaging,
 	// reminders, auto-cancel, invitation emails, audit writes and audit prune all
@@ -75,9 +81,14 @@ type Stores struct {
 }
 
 // NewStores creates and initializes all storage layer dependencies. The Valkey
-// client backs the token blacklist and the distributed locker; everything else
-// is Postgres-backed.
+// client backs the token blacklist, the distributed locker and the OAuth dance
+// store; everything else is Postgres-backed.
+//
+// The dance store's lifetime is read from the same cfg.Auth.DanceStateTTL()
+// NewServices signs dance states with: an invitation handle has to outlive the
+// consent screen exactly as long as the state does.
 func NewStores(
+	cfg *config.AppConfig,
 	db *sqlx.DB,
 	valkeyDB *valkeylib.Client,
 ) (*Stores, error) {
@@ -108,6 +119,7 @@ func NewStores(
 		TokenBlackList:  blacklisttoken.NewStore(valkeyDB),
 		Locker:          distributedlock.NewStore(valkeyDB),
 		Audit:           audit.NewStore(db),
+		OAuthDance:      oauthdance.NewStore(valkeyDB, cfg.Auth.DanceStateTTL()),
 
 		taskStorage: taskStorage,
 	}, nil

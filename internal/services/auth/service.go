@@ -81,9 +81,8 @@ type Service struct {
 	otpVerifier    OTPVerifier
 	otpRequester   OTPRequester
 	passwords      PasswordCredentials
-	// danceSigner and danceCodes are zero until WithDance is called, which only
-	// happens when the backend-driven OAuth dance is configured. Every dance
-	// route is behind the same config gate, so neither is ever reached unset.
+	// danceSigner signs the dance state with a key derived from the JWT issuer
+	// key; danceCodes parks the token pair behind a one-time code.
 	danceSigner   danceStateSigner
 	danceCodes    DanceCodeStore
 	danceStateTTL time.Duration
@@ -203,6 +202,8 @@ func NewService(
 	otpVerifier OTPVerifier,
 	otpRequester OTPRequester,
 	passwords PasswordCredentials,
+	danceCodes DanceCodeStore,
+	danceStateTTL time.Duration,
 ) *Service {
 	return &Service{
 		cfg:            cfg,
@@ -216,40 +217,15 @@ func NewService(
 		otpVerifier:    otpVerifier,
 		otpRequester:   otpRequester,
 		passwords:      passwords,
+		danceSigner:    newDanceStateSigner(cfg.PrivateKey),
+		danceCodes:     danceCodes,
+		// config.Auth.DanceStateTTL owns the fallback, and the wiring passes the
+		// same value to the store that holds invitation handles. Two sources
+		// would drift the instant one was tuned, and the symptom -- handles
+		// expiring mid-consent while states stayed valid -- reads as a flaky
+		// provider rather than a config bug.
+		danceStateTTL: danceStateTTL,
 	}
-}
-
-// WithDance enables the backend-driven OAuth dance.
-//
-// It is a separate step rather than more constructor parameters because the
-// dance is optional: an instance that configures no provider never registers
-// its routes, and every existing caller of NewService keeps working unchanged.
-//
-// gateways is keyed by instance name. The provider a callback names is looked
-// up here rather than carried in the request, so a callback cannot nominate a
-// gateway of its own choosing.
-// WithDance arms the backend-driven dance: the signing key and the one-time
-// code store.
-//
-// It no longer takes the gateways. They live in the auth-method snapshot, which
-// is replaced at runtime when an operator reconfigures a provider — a map
-// captured here would have frozen the providers at boot, which is the thing
-// this work exists to undo. A parameter nobody read would have been worse than
-// the changed signature.
-func (s *Service) WithDance(
-	authCfg config.Auth,
-	codes DanceCodeStore,
-) *Service {
-	s.danceSigner = newDanceStateSigner(s.cfg.PrivateKey)
-	s.danceCodes = codes
-	// config.Auth owns the fallback so the wiring, which must give the
-	// invitation-handle store the SAME lifetime, resolves it from one place. Two
-	// copies would drift the instant one was tuned, and the symptom — handles
-	// expiring mid-consent while states stayed valid — reads as a flaky provider
-	// rather than a config bug.
-	s.danceStateTTL = authCfg.DanceStateTTL()
-
-	return s
 }
 
 // WithAuthMethods swaps the login configuration this service reads.

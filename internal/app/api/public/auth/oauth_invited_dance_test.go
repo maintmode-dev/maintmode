@@ -115,7 +115,7 @@ func inviteFor(t *testing.T, email string, roles ...entity.Role) string {
 	raw := xuuid.NewString()
 
 	// invited_by_id carries a foreign key, so the row needs a real inviter.
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 	services := newTestServices(t, stores)
 
@@ -170,7 +170,7 @@ func TestInvitedDanceCreatesTheUserWithItsRoles(t *testing.T) {
 	// worth having: the account exists and carries the invitation's roles, and
 	// the invitation is spent. Without them the test passes even with phase 2
 	// deleted entirely -- a dance that signs people in and grants nothing.
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 	services := newTestServices(t, stores)
 
@@ -219,7 +219,7 @@ func TestUninvitedDanceDoesNotGetInvitationRoles(t *testing.T) {
 	run := invitedRun{danceRun: runStart(t, impl)}
 	require.Empty(t, redirectError(t, completeInvited(t, impl, run)))
 
-	stores, err := bootstrap.NewStores(db, valkey)
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
 	require.NoError(t, err)
 	services := newTestServices(t, stores)
 
