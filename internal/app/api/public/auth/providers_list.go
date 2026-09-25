@@ -81,15 +81,7 @@ func (i *Implementation) availableAuthMethods(ctx context.Context) []apiauthmode
 	// pinned at construction: an operator adding a provider through the registry
 	// must see its button without a restart, which is the whole point of the
 	// work this endpoint's comment anticipated.
-	//
-	// No snapshot means no providers, not a panic: the built-in methods below
-	// are what makes a sign-in page usable at all, and an instance that cannot
-	// list its OIDC buttons must still offer the password form rather than
-	// answering 500.
-	var listing []entity.LoginMethodView
-	if i.authMethods != nil {
-		listing = i.authMethods.Listing()
-	}
+	listing := i.authMethods.Listing()
 
 	methods := make([]apiauthmodels.AuthMethod, 0, 2+len(listing))
 
@@ -146,16 +138,8 @@ func (i *Implementation) availableAuthMethods(ctx context.Context) []apiauthmode
 // page unable to render at all. A caller who then guesses a hidden method still
 // meets the gate, which failed closed, so the listing may understate what works
 // and can never overstate it.
-//
-// A binary wired without the flags shows NOTHING rather than everything: the
-// gate refuses those methods too, so listing them would advertise credentials
-// that will not work.
 func (i *Implementation) offeredBuiltIns(ctx context.Context) map[entity.AuthMethodName]bool {
 	offered := make(map[entity.AuthMethodName]bool, 2)
-
-	if i.authSettings == nil {
-		return offered
-	}
 
 	settings, err := i.authSettings.List(ctx)
 	if err != nil {

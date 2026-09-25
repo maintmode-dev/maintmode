@@ -17,11 +17,10 @@ import (
 func TestListAuthMethods_OmitsADisabledBuiltIn(t *testing.T) {
 	t.Parallel()
 
-	impl := initImpl(t).
-		WithAuthSettings(stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
-			entity.AuthMethodNameEmailPassword: true,
-			entity.AuthMethodNameEmailOTP:      false,
-		}})
+	impl := initImplWithSettings(t, stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: true,
+		entity.AuthMethodNameEmailOTP:      false,
+	}})
 
 	resp := doListAuthMethods(t, impl)
 
@@ -31,11 +30,10 @@ func TestListAuthMethods_OmitsADisabledBuiltIn(t *testing.T) {
 func TestListAuthMethods_OmitsBothWhenBothAreDisabled(t *testing.T) {
 	t.Parallel()
 
-	impl := initImpl(t).
-		WithAuthSettings(stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
-			entity.AuthMethodNameEmailPassword: false,
-			entity.AuthMethodNameEmailOTP:      false,
-		}})
+	impl := initImplWithSettings(t, stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: false,
+		entity.AuthMethodNameEmailOTP:      false,
+	}})
 
 	resp := doListAuthMethods(t, impl)
 
@@ -61,8 +59,7 @@ func TestListAuthMethods_DegradesWhenTheFlagsAreUnreadable(t *testing.T) {
 	// No enabled map: List fails before reading it, and setting one would imply
 	// this test checks that email_password survives while email_otp fails. It
 	// does not -- both drop, because the read failed for both.
-	impl := initImpl(t).
-		WithAuthSettings(stubAuthSettings{unreadable: true})
+	impl := initImplWithSettings(t, stubAuthSettings{unreadable: true})
 
 	resp := doListAuthMethods(t, impl)
 
@@ -80,16 +77,16 @@ func TestListAuthMethods_DegradesWhenTheFlagsAreUnreadable(t *testing.T) {
 func TestListAuthMethods_UnchangedWhenBothEnabled(t *testing.T) {
 	t.Parallel()
 
-	withSettings := initImpl(t).
-		WithAuthSettings(stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
-			entity.AuthMethodNameEmailPassword: true,
-			entity.AuthMethodNameEmailOTP:      true,
-		}})
-	// A binary wired without the flags at all -- the pre-change shape.
-	withoutSettings := initImpl(t)
+	withSettings := initImplWithSettings(t, stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: true,
+		entity.AuthMethodNameEmailOTP:      true,
+	}})
+	// The permissive source every other handler test runs with, which offers
+	// every built-in unconditionally -- the listing before the table existed.
+	allOffered := initImpl(t)
 
 	require.Equal(t,
-		doListAuthMethods(t, withoutSettings).body,
+		doListAuthMethods(t, allOffered).body,
 		doListAuthMethods(t, withSettings).body,
 	)
 }
@@ -100,11 +97,10 @@ func TestListAuthMethods_UnchangedWhenBothEnabled(t *testing.T) {
 func TestListAuthMethods_NeverListsBootstrap(t *testing.T) {
 	t.Parallel()
 
-	impl := initImpl(t).
-		WithAuthSettings(stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
-			entity.AuthMethodNameEmailPassword: false,
-			entity.AuthMethodNameEmailOTP:      false,
-		}})
+	impl := initImplWithSettings(t, stubAuthSettings{enabled: map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailPassword: false,
+		entity.AuthMethodNameEmailOTP:      false,
+	}})
 
 	require.NotContains(t, doListAuthMethods(t, impl).body, "bootstrap")
 }

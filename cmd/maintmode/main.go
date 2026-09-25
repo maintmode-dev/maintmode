@@ -49,28 +49,23 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 )
 
-// newAuthHandlers builds the auth API component, attaching the backend OAuth
-// dance only when it is configured.
-//
-// The gate is checked here as well as at route registration, and the redundancy
-// is deliberate: registration decides whether the endpoints exist, this decides
-// whether a token-exchange client holding a client secret is constructed at all.
-// An unconfigured instance ends up with neither.
+// newAuthHandlers builds the auth API component and starts the reloader that
+// keeps its login snapshot current.
 func newAuthHandlers(
 	ctx context.Context,
 	cfg *config.AppConfig,
 	services *bootstrap.Services,
 ) *apiauth.Implementation {
-	// The provider list is attached before the dance gate: an instance
-	// reachable only through the BFF path still needs its sign-in button.
 	impl := apiauth.New(
 		cfg.Auth,
 		services.Auth,
 		services.Token,
 		services.User,
 		services.OTP,
-	).WithAuthMethods(services.AuthMethods).
-		WithAuthSettings(services.AuthSettings)
+		services.AuthMethods,
+		services.AuthSettings,
+		cfg.App,
+	)
 
 	// The reloader owns the login snapshot from here on. There is no second
 	// source any more: providers used to also come from the config file, and
@@ -94,7 +89,7 @@ func newAuthHandlers(
 	// with no providers.
 	reloader.Run(ctx)
 
-	return impl.WithOAuthDance(cfg.App)
+	return impl
 }
 
 func main() {
@@ -190,11 +185,6 @@ func startAPIServer(
 			Integrations:  integrationapi.New(services.Integration, services.UserSummary, services.AuthMethods),
 			UserPicker:    userpickerapi.New(services.UserPicker),
 
-			// The dance dependencies attach only when the feature is
-			// configured. On an unconfigured instance the routes are never
-			// registered either, so nothing here is ever read — but wiring a
-			// gateway holding an empty client secret would be a live object
-			// waiting for a routing mistake.
 			Auth:         newAuthHandlers(ctx, cfg, services),
 			AuthSettings: authsettingsapi.New(services.AuthSettings),
 			Roles:        apiroles.New(services.User),

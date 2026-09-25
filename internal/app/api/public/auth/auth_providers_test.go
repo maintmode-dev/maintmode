@@ -125,7 +125,7 @@ func TestListAuthMethods_ListsConfiguredOIDCInstances(t *testing.T) {
 		testProvider{ID: "google", DisplayName: "Google"},
 	)
 
-	impl := initImpl(t).WithAuthMethods(methods)
+	impl := initImplWithMethods(t, methods)
 
 	resp := doListAuthMethods(t, impl)
 	require.Equal(t, http.StatusOK, resp.status)

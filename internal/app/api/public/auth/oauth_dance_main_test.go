@@ -242,13 +242,14 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 		gatewayOverride{AuthMethods: services.AuthMethods, id: entity.AuthMethodGoogle, gateway: gateway},
 	)
 
-	impl := New(cfg.Auth, authSrv, services.Token, services.User, services.OTP)
-
-	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
-		FrontendURL:       testFrontendURL,
-		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
-		OAuthCookiePath:   testCookiePath,
-	})
+	// No built-in flags source: the dance never reaches the listing or the OTP
+	// gate, so the handler has nothing to ask it.
+	return New(cfg.Auth, authSrv, services.Token, services.User, services.OTP,
+		services.AuthMethods, nil, config.App{
+			FrontendURL:       testFrontendURL,
+			OAuthCallbackPath: cfg.App.OAuthCallbackPath,
+			OAuthCookiePath:   testCookiePath,
+		})
 }
 
 // newDiscoveryStubFor serves a well-known document naming authURL as the
@@ -311,13 +312,14 @@ func initMultiInstanceDance(t *testing.T) *Implementation {
 	}
 	installProviders(t, services.AuthMethods, built...)
 
-	impl := New(cfg.Auth, services.Auth, services.Token, services.User, services.OTP)
-
-	return impl.WithAuthMethods(services.AuthMethods).WithOAuthDance(config.App{
-		FrontendURL:       testFrontendURL,
-		OAuthCallbackPath: cfg.App.OAuthCallbackPath,
-		OAuthCookiePath:   testCookiePath,
-	})
+	// Nothing on the auth service is overridden here, so it is the bootstrap
+	// instance as built. No built-in flags source: see initDanceImplWith.
+	return New(cfg.Auth, services.Auth, services.Token, services.User, services.OTP,
+		services.AuthMethods, nil, config.App{
+			FrontendURL:       testFrontendURL,
+			OAuthCallbackPath: cfg.App.OAuthCallbackPath,
+			OAuthCookiePath:   testCookiePath,
+		})
 }
 
 // gatewayOverride serves one provider's confidential half from a test's own

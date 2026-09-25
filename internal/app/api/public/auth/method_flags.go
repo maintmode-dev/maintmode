@@ -17,10 +17,6 @@ import (
 // would hand out credentials for a method an admin turned off every time the
 // database hiccups.
 //
-// A nil source refuses on the same reasoning: bootstrap wires the settings
-// service into every binary serving this route, so a nil is a dropped wiring
-// line rather than a configuration.
-//
 // The reason is LOGGED HERE rather than returned. This endpoint answers every
 // outcome identically -- that is its whole design, so a caller could not act on
 // the reason if it had one -- which makes this line the only place a disabled
@@ -30,15 +26,6 @@ func (i *Implementation) builtInOffered(
 	method entity.AuthMethodName,
 	clientIP string,
 ) bool {
-	if i.authSettings == nil {
-		xlog.Error(ctx, "otp code not issued: no auth method flag source is wired",
-			xfield.String("method", string(method)),
-			xfield.String("client_ip", clientIP),
-		)
-
-		return false
-	}
-
 	enabled, err := i.authSettings.Enabled(ctx, method)
 	if err != nil {
 		xlog.Error(ctx, "otp code not issued: method flag is unreadable",

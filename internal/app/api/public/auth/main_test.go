@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 func initImpl(t *testing.T) *Implementation {
 	t.Helper()
 
-	return newImpl(t, cfg.Auth)
+	return newImpl(t, cfg.Auth, nil, nil)
 }
 
 // initImplWithOTPFloor builds the handler with an explicit response floor, so a
@@ -59,10 +59,37 @@ func initImpl(t *testing.T) *Implementation {
 func initImplWithOTPFloor(t *testing.T, floor time.Duration) *Implementation {
 	t.Helper()
 
-	return newImpl(t, config.Auth{OTPResponseFloor: floor})
+	return newImpl(t, config.Auth{OTPResponseFloor: floor}, nil, nil)
 }
 
-func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
+// initImplWithSettings builds the handler with its own built-in method flags,
+// for the tests about the listing and the OTP gate.
+func initImplWithSettings(t *testing.T, settings AuthSettings) *Implementation {
+	t.Helper()
+
+	return newImpl(t, cfg.Auth, settings, nil)
+}
+
+// initImplWithMethods builds the handler over a login configuration the test
+// controls, for the tests about the sign-in button list.
+func initImplWithMethods(t *testing.T, methods *authmethod.Methods) *Implementation {
+	t.Helper()
+
+	return newImpl(t, cfg.Auth, nil, methods)
+}
+
+// newImpl builds the handler over the real graph. A nil settings source
+// means every built-in is offered; nil methods means the graph's own login
+// configuration, which no reloader has filled, so it lists no providers.
+//
+// The dance's frontend half is left unconfigured, as it is for every handler
+// test that is not about the dance: /start refuses at its config gate.
+func newImpl(
+	t *testing.T,
+	authCfg config.Auth,
+	settings AuthSettings,
+	methods *authmethod.Methods,
+) *Implementation {
 	t.Helper()
 
 	stores, err := bootstrap.NewStores(cfg, db, valkey)
@@ -85,8 +112,15 @@ func newImpl(t *testing.T, authCfg config.Auth) *Implementation {
 	// on the listing and the 202, never on a redeemed code.
 	authSrv := newAuthService(stores, services, authflags.NewAllEnabled(), services.AuthMethods)
 
-	return New(authCfg, authSrv, services.Token, services.User, services.OTP).
-		WithAuthSettings(authflags.NewAllEnabled())
+	if settings == nil {
+		settings = authflags.NewAllEnabled()
+	}
+	if methods == nil {
+		methods = services.AuthMethods
+	}
+
+	return New(authCfg, authSrv, services.Token, services.User, services.OTP,
+		methods, settings, config.App{})
 }
 
 // newAuthService rebuilds the auth service from the real graph, the way
