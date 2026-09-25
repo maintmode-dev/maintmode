@@ -29,7 +29,7 @@ func (s *Service) ListUsers(ctx context.Context, cmd *entity.ListUsersCmd) (*ent
 	}
 
 	userIDs := lo.Map(users, func(u *entity.User, _ int) uuid.UUID { return u.ID })
-	providersByUser, err := s.identitiesStore.ListProvidersByUserIDs(ctx, userIDs)
+	providersByUser, err := s.identitiesStore.ListMethodsByUserIDs(ctx, userIDs)
 	if err != nil {
 		xlog.Error(ctx, "failed to list connected providers for users", xfield.Error(err))
 		return nil, err

@@ -179,6 +179,12 @@ func NewServices(ctx context.Context,
 		return nil, err
 	}
 
+	// The sign-in paths store a reference to the provider's registry row, not
+	// its name, so the user service needs a way to resolve one into the other.
+	// Wired here rather than through user.NewService because that call happens
+	// above, before the integration service exists.
+	userSrv.WithLoginProviderResolver(integrationSrv)
+
 	transportResolver := initTransportResolver(cfg, integrationSrv)
 	queueScheduler := scheduler.NewService(queue)
 	messageSender := messagesender.NewService(transportResolver, queueScheduler)

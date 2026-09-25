@@ -13,7 +13,7 @@ import (
 
 const (
 	// nameGithub is the registry key of the first OAuth 2.0 entry, and it is
-	// also what reaches user_identities.provider for every account linked
+	// also what an identity write resolves against the registry for every account linked
 	// through it. Renaming it would orphan those rows, which is why the name is
 	// fixed here rather than derived from anything an operator can edit.
 	nameGithub = "github"

@@ -3,9 +3,10 @@ package integration
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
-	"github.com/ruko1202/maintmode/internal/entity"
 	datakeystore "github.com/ruko1202/maintmode/internal/storages/datakey"
 	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -18,24 +19,19 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
-// IdentitiesStore removes the accounts that authenticate through a provider
-// name. Declared consumer-side, and it has to be: the module boundaries forbid
-// this module from importing the auth storages directly, so bootstrap injects
-// the concrete store behind this one method.
+// IdentitiesStore removes the accounts that authenticate through a provider.
+// Declared consumer-side, and it has to be: the module boundaries forbid this
+// module from importing the auth storages directly, so bootstrap injects the
+// concrete store behind this one method.
 //
-// One method, and it used to be two: a count sat beside it, feeding guards that
-// refused creating or deleting a name identities carried. The closed set
-// retired them -- there are two login names, one of which cannot be aimed
-// anywhere and the other of which is an admin's to re-point -- and what remains
-// is the cascade.
-//
-// The argument is the instance NAME (google, keycloak), never the category --
-// user_identities.provider holds names, so passing a category would delete
-// nothing, or, worse, another provider's rows.
+// The argument is the registry row's ID. It used to be the instance NAME, and
+// the change is the point of RUK-303 rather than a refactor: a name can be
+// deleted and created again against a different IdP, so identities addressed by
+// one could outlive the provider they were written for. An id cannot be reused.
 type IdentitiesStore interface {
-	// DeleteByProvider removes every identity on a provider name, returning how
-	// many went. Used by the delete cascade.
-	DeleteByProvider(ctx context.Context, provider entity.AuthMethod) (int64, error)
+	// DeleteByIntegrationID removes every identity authenticating through one
+	// registry row, returning how many went. Used by the delete cascade.
+	DeleteByIntegrationID(ctx context.Context, integrationID uuid.UUID) (int64, error)
 }
 
 // cipher is the subset of secrets.SecretCipher the service uses to seal/open
@@ -63,9 +59,14 @@ type Service struct {
 	keyring        keyring
 	cipher         cipher
 	auditPublisher AuditPublisher
-	// identities counts accounts linked to a provider name. Nil means no auth
-	// storage on this binary, and therefore no identities to protect, so the
-	// guard passes rather than refusing everything.
+	// identities removes the accounts linked to a provider when it is deleted,
+	// addressed by the registry row's id.
+	//
+	// Nil is NOT tolerated on the delete path any more. It once meant "no auth
+	// storage on this binary, so nothing to protect" and the cascade quietly
+	// skipped; under ON DELETE RESTRICT a skipped cascade makes the delete fail
+	// on the children it left behind, so a binary that deletes login providers
+	// without this wired is misconfigured and says so.
 	identities IdentitiesStore
 	// loginPresets is the credential-free catalog of well-known providers,
 	// copied into a row at create. Nil means every login name behaves like
@@ -111,6 +112,16 @@ func NewService(
 // reloader -- must not be installable only where the first happens to be.
 func (s *Service) AddOnChange(fn func(kind, name string)) { s.onChange = append(s.onChange, fn) }
 
+// WithIdentities wires the delete cascade's reach into the auth module. A
+// setter rather than a constructor argument for the same reason WithDance is
+// one: it keeps the module boundary that forbids this module from importing
+// the auth storages, with bootstrap supplying the concrete store.
+func (s *Service) WithIdentities(identities IdentitiesStore) *Service {
+	s.identities = identities
+
+	return s
+}
+
 // notifyChanged tells the listener (if any) that kind's stored state changed.
 // Deliberately after commit, not inside the tx: invalidating inside the tx
 // could evict-then-repopulate from another connection's pre-commit read.
@@ -119,14 +130,4 @@ func (s *Service) notifyChanged(kind, name string) {
 	for _, fn := range s.onChange {
 		fn(kind, name)
 	}
-}
-
-// WithIdentities wires the linked-account guard. A setter rather than a
-// constructor argument for the same reason WithDance is one: the auth storages
-// are built after this service, and threading them through the constructor
-// would invert that order.
-func (s *Service) WithIdentities(identities IdentitiesStore) *Service {
-	s.identities = identities
-
-	return s
 }

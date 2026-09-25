@@ -145,7 +145,7 @@ func TestAssignRoles_SeatCapRace(t *testing.T) {
 		&fakeTokenRevoker{},
 		licenseSrv,
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	const racers = 2
 	results := make(chan error, racers)

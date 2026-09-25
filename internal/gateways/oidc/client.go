@@ -82,27 +82,6 @@ func NewClient(provider config.OIDCProvider, discovery resolver) *Client {
 	}
 }
 
-// oauthConfig assembles the library config for this instance, resolving the
-// endpoints from discovery.
-//
-// Per call rather than per construction because discovery may not have answered
-// yet when the process starts, and an instance that resolves later must work
-// without a restart.
-func (c *Client) oauthConfig(ctx context.Context) (oauth2.Config, error) {
-	provider, err := c.discovery.Resolve(ctx, c.provider.IssuerURL)
-	if err != nil {
-		return oauth2.Config{}, fmt.Errorf("%w: %w", apperr.ErrAuthUnavailable, err)
-	}
-
-	return oauth2.Config{
-		ClientID:     c.provider.ClientID,
-		ClientSecret: c.provider.ClientSecret,
-		RedirectURL:  c.provider.RedirectURI,
-		Endpoint:     provider.OIDC.Endpoint(),
-		Scopes:       c.scopes,
-	}, nil
-}
-
 // AuthCodeURL builds the provider redirect /start sends the browser to.
 //
 // It lives here rather than in the handler because oauth2.Config already holds
@@ -127,4 +106,25 @@ func (c *Client) AuthCodeURL(ctx context.Context, state, verifier string) (strin
 		oauth2.AccessTypeOnline,
 		oauth2.S256ChallengeOption(verifier),
 	), nil
+}
+
+// oauthConfig assembles the library config for this instance, resolving the
+// endpoints from discovery.
+//
+// Per call rather than per construction because discovery may not have answered
+// yet when the process starts, and an instance that resolves later must work
+// without a restart.
+func (c *Client) oauthConfig(ctx context.Context) (oauth2.Config, error) {
+	provider, err := c.discovery.Resolve(ctx, c.provider.IssuerURL)
+	if err != nil {
+		return oauth2.Config{}, fmt.Errorf("%w: %w", apperr.ErrAuthUnavailable, err)
+	}
+
+	return oauth2.Config{
+		ClientID:     c.provider.ClientID,
+		ClientSecret: c.provider.ClientSecret,
+		RedirectURL:  c.provider.RedirectURI,
+		Endpoint:     provider.OIDC.Endpoint(),
+		Scopes:       c.scopes,
+	}, nil
 }

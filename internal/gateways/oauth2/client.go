@@ -113,24 +113,6 @@ func NewClient(provider entity.OAuth2Credentials, vendor Vendor) *Client {
 	}
 }
 
-// oauthConfig assembles the library config for this instance.
-//
-// Built per call rather than held on the struct only because it is cheap and
-// keeps the endpoint resolution in one place; unlike the OIDC gateway there is
-// no late-resolving discovery to wait for.
-func (c *Client) oauthConfig() oauth2.Config {
-	return oauth2.Config{
-		ClientID:     c.provider.ClientID,
-		ClientSecret: c.provider.ClientSecret,
-		RedirectURL:  c.provider.RedirectURI,
-		Scopes:       c.vendor.DefaultScopes(),
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  c.provider.AuthorizeURL,
-			TokenURL: c.provider.TokenURL,
-		},
-	}
-}
-
 // AuthCodeURL builds the provider redirect /start sends the browser to.
 //
 // It returns an error to satisfy the DanceGateway contract the OIDC gateway
@@ -201,4 +183,22 @@ func (c *Client) FetchIdentity(ctx context.Context, accessToken string) (*entity
 	defer cancel()
 
 	return c.vendor.ResolveIdentity(ctx, accessToken)
+}
+
+// oauthConfig assembles the library config for this instance.
+//
+// Built per call rather than held on the struct only because it is cheap and
+// keeps the endpoint resolution in one place; unlike the OIDC gateway there is
+// no late-resolving discovery to wait for.
+func (c *Client) oauthConfig() oauth2.Config {
+	return oauth2.Config{
+		ClientID:     c.provider.ClientID,
+		ClientSecret: c.provider.ClientSecret,
+		RedirectURL:  c.provider.RedirectURI,
+		Scopes:       c.vendor.DefaultScopes(),
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  c.provider.AuthorizeURL,
+			TokenURL: c.provider.TokenURL,
+		},
+	}
 }

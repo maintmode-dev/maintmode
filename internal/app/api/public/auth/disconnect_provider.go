@@ -16,14 +16,16 @@ import (
 // DisconnectProvider godoc
 // @Summary Disconnect an OAuth provider from the current user
 // @Description Unlinks a sign-in provider from the authenticated user. The last
-// @Description remaining provider cannot be removed (lockout protection).
+// @Description remaining provider cannot be removed (lockout protection), and
+// @Description neither can a built-in method such as break-glass: it belongs to
+// @Description the deployment, not the account.
 // @Description Disconnecting a provider the user is not linked to is a no-op (204).
 // @Tags Auth
 // @Produce json
 // @Security BearerAuth
 // @Param provider path string true "Configured provider instance name, e.g. google"
 // @Success 204 "Provider disconnected"
-// @Failure 400 {object} httperrors.ErrorResponse "Cannot disconnect the only sign-in method"
+// @Failure 400 {object} httperrors.ErrorResponse "Cannot disconnect the only sign-in method, or a built-in one"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/me/providers/{provider}/disconnect [delete]

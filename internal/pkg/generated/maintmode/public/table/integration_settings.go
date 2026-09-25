@@ -18,8 +18,7 @@ type integrationSettingsTable struct {
 
 	// Columns
 	ID              postgres.ColumnString
-	Kind            postgres.ColumnString // Integration type: telegram | slack | smtp | jira | ... — matches messenger_channels.transport for user-subscribable kinds.
-	Name            postgres.ColumnString // Instance name within a kind. For login providers it is the identity users authenticate against and is written verbatim into user_identities.provider, so it is immutable: renaming orphans every linked account. Single-instance kinds carry 'default'.
+	Kind            postgres.ColumnString // Category the row belongs to: 'notify' (delivery) or 'login' (sign-in provider).
 	Enabled         postgres.ColumnBool   // Runtime on/off toggle read by the transport resolver; a disabled integration drops delivery best-effort.
 	Config          postgres.ColumnString // Non-secret settings as plaintext jsonb (host, port, from, tls_policy, api_url, timeout, ...).
 	Secrets         postgres.ColumnString // Secret fields only, each value base64(Tink AEAD envelope) encrypted with the DEK at dek_id. Never plaintext.
@@ -28,6 +27,7 @@ type integrationSettingsTable struct {
 	CreatedByUserID postgres.ColumnString
 	UpdatedAt       postgres.ColumnTimestampz
 	UpdatedByUserID postgres.ColumnString
+	Name            postgres.ColumnString // System the row connects to -- slack, telegram, email, google, custom -- and the registry key that decides which implementation parses it. Immutable: it is an input to the AAD of this row's client_secret, so renaming would make the secret undecryptable. Linked accounts are NOT at risk -- user_identities references this row by id.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -71,7 +71,6 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 	var (
 		IDColumn              = postgres.StringColumn("id")
 		KindColumn            = postgres.StringColumn("kind")
-		NameColumn            = postgres.StringColumn("name")
 		EnabledColumn         = postgres.BoolColumn("enabled")
 		ConfigColumn          = postgres.StringColumn("config")
 		SecretsColumn         = postgres.StringColumn("secrets")
@@ -80,9 +79,10 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 		CreatedByUserIDColumn = postgres.StringColumn("created_by_user_id")
 		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
 		UpdatedByUserIDColumn = postgres.StringColumn("updated_by_user_id")
-		allColumns            = postgres.ColumnList{IDColumn, KindColumn, NameColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn}
-		mutableColumns        = postgres.ColumnList{KindColumn, NameColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn}
-		defaultColumns        = postgres.ColumnList{IDColumn, NameColumn, ConfigColumn, SecretsColumn, CreatedAtColumn, UpdatedAtColumn}
+		NameColumn            = postgres.StringColumn("name")
+		allColumns            = postgres.ColumnList{IDColumn, KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn}
+		mutableColumns        = postgres.ColumnList{KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn}
+		defaultColumns        = postgres.ColumnList{IDColumn, ConfigColumn, SecretsColumn, CreatedAtColumn, UpdatedAtColumn}
 	)
 
 	return integrationSettingsTable{
@@ -91,7 +91,6 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 		//Columns
 		ID:              IDColumn,
 		Kind:            KindColumn,
-		Name:            NameColumn,
 		Enabled:         EnabledColumn,
 		Config:          ConfigColumn,
 		Secrets:         SecretsColumn,
@@ -100,6 +99,7 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 		CreatedByUserID: CreatedByUserIDColumn,
 		UpdatedAt:       UpdatedAtColumn,
 		UpdatedByUserID: UpdatedByUserIDColumn,
+		Name:            NameColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

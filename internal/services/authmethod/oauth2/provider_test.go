@@ -29,7 +29,7 @@ func newGateway(t *testing.T) *mock_oauth2.MockidentityGateway {
 // TestMethodIDIsTheInstanceName is the rule, and it replaces the opposite one.
 //
 // An earlier version returned a per-vendor CONSTANT here, on the reasoning that
-// the registry is keyed by method while user_identities.provider stores the
+// the registry is keyed by method while an identity resolves against the
 // instance name. Those are not two values: NewAuthMethods keys its map by
 // item.MethodID(), and a dance callback looks an instance up by the name in its
 // URL path. So MethodID IS the registry key, the path segment and the stored

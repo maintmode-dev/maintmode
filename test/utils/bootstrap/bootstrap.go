@@ -12,6 +12,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/bootstrap"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 )
 
 // InitStores builds the store set against a real Postgres and Valkey. Valkey is
@@ -44,10 +45,28 @@ func InitServicesT(
 ) *bootstrap.Services {
 	t.Helper()
 
+	SeedLoginProvidersT(ctx, t, db)
+
 	services, err := bootstrap.NewServices(ctx, cfg, InitStores(db, valkey))
 	require.NoError(t, err)
 
 	return services
+}
+
+// SeedLoginProvidersT makes sure the registry holds the login providers these
+// suites sign in through. Every suite that builds the real services must call
+// it before a sign-in: identities reference a registry row, and on a fresh
+// database -- CI, or a stack just recreated -- there is none, so a sign-in
+// through `google` fails with "unsupported provider".
+//
+// A shared database hides this. Rows left by an earlier run make the suite pass
+// locally while the same commit fails in CI.
+func SeedLoginProvidersT(ctx context.Context, t *testing.T, db *sqlx.DB) {
+	t.Helper()
+
+	_, err := testdbutils.SeedLoginProviders(ctx, db, "services-suite-kek",
+		entity.AuthMethodGoogle, entity.AuthMethodGithub)
+	require.NoError(t, err)
 }
 
 // SeedEligibleApprover provisions a real, persisted, approver-eligible user via

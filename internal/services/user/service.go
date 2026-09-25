@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -43,6 +44,21 @@ type AuditPublisher interface {
 	Publish(ctx context.Context, action audit.Action) error
 }
 
+// LoginProviderResolver turns a login provider's system name into the id of the
+// integration_settings row behind it.
+//
+// Declared consumer-side, and it has to be: the module boundaries forbid this
+// module from importing the integration storages directly (see .golangci.yaml,
+// module-auth-stores), so bootstrap injects the integration service behind this
+// one method -- the mirror of how that module reaches this one's store.
+//
+// A name that resolves to nothing is an error, never a fallback to the built-in
+// branch: quietly demoting an unresolvable provider would create an account
+// outside any provider at all.
+type LoginProviderResolver interface {
+	ResolveID(ctx context.Context, name entity.AuthMethod) (uuid.UUID, error)
+}
+
 // SeatGuard is the seats-cap guard the role-granting paths call inside their
 // mutation tx before persisting. Defined consumer-side (a subset of
 // license.Enforcement) so the user service depends only on the guard and can be
@@ -59,6 +75,10 @@ type Service struct {
 	auditPublisher  AuditPublisher
 	tokenRevoker    TokenRevoker
 	seatGuard       SeatGuard
+	// providers resolves a login provider name to its registry row id. Wired by
+	// WithLoginProviderResolver rather than taken as a constructor argument:
+	// NewServices builds this service before the integration service exists.
+	providers LoginProviderResolver
 	// allowOpenSignup lets an unknown, uninvited user self-register as guest on
 	// OAuth login (cfg.Auth.AllowOpenSignup, read once at wiring time).
 	allowOpenSignup bool
@@ -82,6 +102,57 @@ func NewService(
 		seatGuard:       seatGuard,
 		allowOpenSignup: allowOpenSignup,
 	}
+}
+
+// WithLoginProviderResolver wires the registry lookup the sign-in and link
+// paths need. A setter rather than a constructor argument because NewServices
+// builds this service before the integration service that implements it.
+func (s *Service) WithLoginProviderResolver(providers LoginProviderResolver) *Service {
+	s.providers = providers
+
+	return s
+}
+
+// methodRef addresses a sign-in method for the store: a built-in method by
+// name, anything else by the id of the registry row that vouches for it.
+//
+// The branch is decided from the method itself, never from a failed lookup. A
+// registry name that resolves to nothing is an error the caller must see -- the
+// alternative, treating it as built-in, would write an identity that no
+// provider stands behind.
+func (s *Service) methodRef(ctx context.Context, method entity.AuthMethod) (entity.SignInMethodRef, error) {
+	if method.IsBuiltin() {
+		return entity.SignInByBuiltin(method), nil
+	}
+
+	if s.providers == nil {
+		// Misconfiguration, not a runtime condition: a binary that signs people
+		// in through registry providers was wired without the resolver. Said
+		// loudly here rather than degrading to the built-in branch.
+		return entity.SignInMethodRef{}, fmt.Errorf("%w: login provider resolver is not wired", apperr.ErrUnsupportedProvider)
+	}
+
+	id, err := s.providers.ResolveID(ctx, method)
+	if errors.Is(err, apperr.ErrIntegrationNotFound) {
+		// The method is registered in the auth snapshot but its registry row is
+		// gone. That is a normal window rather than a corrupt state: the
+		// reloader rebuilds asynchronously, and it deliberately keeps the
+		// previous snapshot live when a rebuild fails -- so a deleted provider
+		// can stay listed for a while.
+		//
+		// Reported as "unsupported provider" (400), NOT as the underlying
+		// ErrIntegrationNotFound. That one maps to 404, which would tell the
+		// person signing in that the thing they asked for does not exist --
+		// while what they named was a provider the instance was still
+		// advertising. The 404 is addressed to an admin reading about an
+		// integration; the caller here is a user holding a login button.
+		return entity.SignInMethodRef{}, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, method)
+	}
+	if err != nil {
+		return entity.SignInMethodRef{}, fmt.Errorf("resolve login provider %q: %w", method, err)
+	}
+
+	return entity.SignInByIntegration(id), nil
 }
 
 // publishAudit publishes an audited action to the durable outbox. A failed

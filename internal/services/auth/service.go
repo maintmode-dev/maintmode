@@ -191,6 +191,34 @@ type AuthMethods interface {
 	DanceGateway(method entity.AuthMethod) (authmethod.Gateway, bool)
 }
 
+func NewService(
+	cfg *config.JWT,
+	txManager *dbtx.TxManager,
+	usersSrv *user.Service,
+	locker *distributedlock.Store,
+	blacklistStore *blacklisttoken.Store,
+	authMethods AuthMethods,
+	tokenSvc *token.Service,
+	auditPublisher AuditPublisher,
+	otpVerifier OTPVerifier,
+	otpRequester OTPRequester,
+	passwords PasswordCredentials,
+) *Service {
+	return &Service{
+		cfg:            cfg,
+		txManager:      txManager,
+		usersSrv:       usersSrv,
+		locker:         locker,
+		blacklistStore: blacklistStore,
+		authMethods:    authMethods,
+		tokenSrv:       tokenSvc,
+		auditPublisher: auditPublisher,
+		otpVerifier:    otpVerifier,
+		otpRequester:   otpRequester,
+		passwords:      passwords,
+	}
+}
+
 // WithDance enables the backend-driven OAuth dance.
 //
 // It is a separate step rather than more constructor parameters because the
@@ -273,34 +301,6 @@ func (s *Service) danceGatewayFor(provider entity.AuthMethod) (DanceGateway, err
 	}
 
 	return gateway, nil
-}
-
-func NewService(
-	cfg *config.JWT,
-	txManager *dbtx.TxManager,
-	usersSrv *user.Service,
-	locker *distributedlock.Store,
-	blacklistStore *blacklisttoken.Store,
-	authMethods AuthMethods,
-	tokenSvc *token.Service,
-	auditPublisher AuditPublisher,
-	otpVerifier OTPVerifier,
-	otpRequester OTPRequester,
-	passwords PasswordCredentials,
-) *Service {
-	return &Service{
-		cfg:            cfg,
-		txManager:      txManager,
-		usersSrv:       usersSrv,
-		locker:         locker,
-		blacklistStore: blacklistStore,
-		authMethods:    authMethods,
-		tokenSrv:       tokenSvc,
-		auditPublisher: auditPublisher,
-		otpVerifier:    otpVerifier,
-		otpRequester:   otpRequester,
-		passwords:      passwords,
-	}
 }
 
 // publishLoginFailure records a login that failed, with whatever attribution the

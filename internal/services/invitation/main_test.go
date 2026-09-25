@@ -30,6 +30,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
@@ -45,9 +46,16 @@ func TestMain(m *testing.M) {
 	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
 
+	loginProviders = testdbutils.MustSeedLoginProviders(context.Background(), db,
+		"invitation-suite-kek", entity.AuthMethodGoogle, entity.AuthMethodGithub)
+
 	code := m.Run()
 	os.Exit(code)
 }
+
+// loginProviders resolves the provider names these tests sign in with. See
+// testdbutils.SeedLoginProviders for why the rows have to exist at all.
+var loginProviders *testdbutils.LoginProviders
 
 type serviceMocks struct {
 	authMethod   *mock_authmethod.MockAuthMethod
@@ -134,7 +142,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 			mocks.tokenRevoker,
 			mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
 			false,           // allowOpenSignup: the accept flow must authorize creation itself
-		),
+		).WithLoginProviderResolver(loginProviders),
 		mocks.tokenIssuer,
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		mocks.sender,

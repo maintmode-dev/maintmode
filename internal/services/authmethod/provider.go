@@ -50,46 +50,6 @@ type Methods struct {
 	current atomic.Pointer[snapshot]
 }
 
-// snapshot returns the live configuration. Callers that need more than one
-// answer about the same request MUST hold the returned pointer rather than
-// calling this repeatedly, or a reload between calls could answer two questions
-// from two different worlds.
-//
-// Unexported, along with the type it returns: handing the snapshot out made it
-// nameable by every caller, purely so another layer could reach one answer
-// through it. Callers outside get that answer directly, from the wrappers
-// below.
-func (p *Methods) snapshot() *snapshot {
-	return p.current.Load()
-}
-
-// DanceCookieSecure reports whether the OAuth dance cookies carry Secure.
-//
-// Read from the LIVE snapshot rather than captured once at handler
-// construction. It used to come from the config file, which was correct while
-// providers could only be read at boot; once they can be added at runtime, a
-// captured value freezes -- and with no providers in config it freezes at
-// "secure", which on a plain-http local stand means the browser withholds the
-// cookie and every sign-in fails as a 302 that reads as success.
-func (p *Methods) DanceCookieSecure() bool {
-	return p.snapshot().danceCookieSecure
-}
-
-// Listing returns the sign-in methods to render, in stable order.
-func (p *Methods) Listing() []entity.LoginMethodView {
-	return p.snapshot().listing
-}
-
-// Replace swaps in a new configuration. Only a fully built snapshot may be
-// passed: a partial one would be exactly the torn state the pointer exists to
-// prevent, so a failed rebuild keeps the previous snapshot live instead.
-func (p *Methods) replace(next *snapshot) {
-	if next == nil {
-		return
-	}
-	p.current.Store(next)
-}
-
 func NewAuthMethods(
 	cfg *config.AppConfig,
 	methods []AuthMethod,
@@ -108,6 +68,13 @@ func NewAuthMethods(
 		methodsMap[entity.AuthMethodStub] = stuboauth.NewService()
 	}
 
+	// The substitution stays INSIDE Get: the caller keeps the name it asked for,
+	// and that is the name an identity is written under. So a use_stub stand
+	// still needs the provider to exist in the registry -- the stub decides who
+	// the person is, not which row their account hangs off. A stand where
+	// nobody created the provider cannot sign anyone in through it, stub or no
+	// stub.
+	//
 	// useStub keeps its own meaning — "substitute the stub for ANY method" —
 	// and is a separate decision from whether the stub exists at all. It stays
 	// derived from the same isDev so the two can never disagree: a true useStub
@@ -119,6 +86,23 @@ func NewAuthMethods(
 	m.replace(newSnapshot(methodsMap, nil))
 
 	return m
+}
+
+// DanceCookieSecure reports whether the OAuth dance cookies carry Secure.
+//
+// Read from the LIVE snapshot rather than captured once at handler
+// construction. It used to come from the config file, which was correct while
+// providers could only be read at boot; once they can be added at runtime, a
+// captured value freezes -- and with no providers in config it freezes at
+// "secure", which on a plain-http local stand means the browser withholds the
+// cookie and every sign-in fails as a 302 that reads as success.
+func (p *Methods) DanceCookieSecure() bool {
+	return p.snapshot().danceCookieSecure
+}
+
+// Listing returns the sign-in methods to render, in stable order.
+func (p *Methods) Listing() []entity.LoginMethodView {
+	return p.snapshot().listing
 }
 
 func (p *Methods) Get(ctx context.Context, methodID entity.AuthMethod) (AuthMethod, error) {
@@ -214,4 +198,27 @@ func (p *Methods) DanceGateway(method entity.AuthMethod) (Gateway, bool) {
 	gateway, ok := p.snapshot().gateways[method]
 
 	return gateway, ok
+}
+
+// snapshot returns the live configuration. Callers that need more than one
+// answer about the same request MUST hold the returned pointer rather than
+// calling this repeatedly, or a reload between calls could answer two questions
+// from two different worlds.
+//
+// Unexported, along with the type it returns: handing the snapshot out made it
+// nameable by every caller, purely so another layer could reach one answer
+// through it. Callers outside get that answer directly, from the wrappers
+// below.
+func (p *Methods) snapshot() *snapshot {
+	return p.current.Load()
+}
+
+// Replace swaps in a new configuration. Only a fully built snapshot may be
+// passed: a partial one would be exactly the torn state the pointer exists to
+// prevent, so a failed rebuild keeps the previous snapshot live instead.
+func (p *Methods) replace(next *snapshot) {
+	if next == nil {
+		return
+	}
+	p.current.Store(next)
 }

@@ -49,7 +49,7 @@ func initServiceWithAuditRecorder(t *testing.T) (*Service, *[]audit.Action) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	return srv, &published
 }

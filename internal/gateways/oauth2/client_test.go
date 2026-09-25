@@ -333,7 +333,7 @@ func TestFetchIdentityRefusesUnusableEmail(t *testing.T) {
 // TestFetchIdentityRefusesUnusableSubject guards the identity key.
 //
 // An identity with no subject would collide in
-// user_identities(provider, subject) with every other such identity -- so a
+// the same (provider, subject) space as every other such identity -- so a
 // missing or zero id is refused rather than allowed to default to "".
 func TestFetchIdentityRefusesUnusableSubject(t *testing.T) {
 	t.Parallel()

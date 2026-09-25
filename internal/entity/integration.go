@@ -21,8 +21,9 @@ type IntegrationSetting struct {
 	// the category it belongs to, "notify" or "login"; (Kind, Name) is the row's
 	// identity and its REST address.
 	//
-	// Immutable after create: for a login provider it is written verbatim into
-	// user_identities.provider, so renaming orphans every account linked to it.
+	// Immutable after create: it is an input to the AAD of this row's
+	// client_secret, so renaming would leave the secret undecryptable. Linked
+	// accounts are no longer the reason -- they reference this row by ID.
 	Name    string
 	Enabled bool
 	// Config is the non-secret settings as a raw JSON object, opaque to the

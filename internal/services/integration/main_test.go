@@ -22,6 +22,7 @@ import (
 	integrationsvc "github.com/ruko1202/maintmode/internal/services/integration"
 	datakeystore "github.com/ruko1202/maintmode/internal/storages/datakey"
 	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
+	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -82,19 +83,21 @@ type serviceMocks struct {
 	identities *fakeIdentities
 }
 
-// fakeIdentities stands in for the auth module's identity store. Linked is what
-// CountByProvider reports; a test sets it to make a provider look "in use".
+// fakeIdentities stands in for the auth module's identity store. linked is how
+// many identities the cascade will report removing; a test sets it to make a
+// provider look "in use".
 type fakeIdentities struct {
 	linked int64
-	// unlinkedFrom is the provider the cascade deleted by, recorded so a test
-	// can prove the delete addressed the NAME and not the category.
-	unlinkedFrom entity.AuthMethod
+	// unlinkedFrom is the registry row id the cascade deleted by, recorded so a
+	// test can prove the delete addressed the row rather than the category --
+	// and, since the id is the row's, that it addressed the RIGHT row.
+	unlinkedFrom uuid.UUID
 }
 
-// DeleteByProvider stands in for the cascade: it reports what it would have
-// removed and records the name, so a test can assert both.
-func (f *fakeIdentities) DeleteByProvider(_ context.Context, provider entity.AuthMethod) (int64, error) {
-	f.unlinkedFrom = provider
+// DeleteByIntegrationID stands in for the cascade: it reports what it would
+// have removed and records the id, so a test can assert both.
+func (f *fakeIdentities) DeleteByIntegrationID(_ context.Context, integrationID uuid.UUID) (int64, error) {
+	f.unlinkedFrom = integrationID
 	removed := f.linked
 	f.linked = 0
 
@@ -134,6 +137,28 @@ type testKinds struct {
 func initService(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMocks) {
 	t.Helper()
 
+	return initServiceWith(t, nil)
+}
+
+// initServiceWithRealIdentities wires the REAL identity store instead of the
+// fake, so the foreign key is in the path.
+//
+// Only the delete-order test needs this. The fake has no database and therefore
+// cannot refuse anything, which is exactly what hides a cascade running after
+// the row it was supposed to clear.
+func initServiceWithRealIdentities(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMocks) {
+	t.Helper()
+
+	return initServiceWith(t, useridentities.NewStore(db))
+}
+
+// initServiceWith builds the service, using identities when given and the
+// recording fake otherwise.
+func initServiceWith(
+	t *testing.T, identities integrationsvc.IdentitiesStore,
+) (*integrationsvc.Service, testKinds, *serviceMocks) {
+	t.Helper()
+
 	suffix := "-" + xuuid.NewString()
 	kinds := testKinds{
 		slack:     integrationkinds.Slack.Name() + suffix,
@@ -156,6 +181,10 @@ func initService(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMock
 
 	mocks := &serviceMocks{audit: publishermock.New(t), identities: &fakeIdentities{}}
 
+	if identities == nil {
+		identities = mocks.identities
+	}
+
 	svc := integrationsvc.NewService(
 		dbtx.NewTxManager(db),
 		integrationstore.NewStore(db),
@@ -164,7 +193,7 @@ func initService(t *testing.T) (*integrationsvc.Service, testKinds, *serviceMock
 		keyring,
 		testCipher,
 		mocks.audit,
-	).WithIdentities(mocks.identities).
+	).WithIdentities(identities).
 		// The fixture's login name carries the per-test suffix so parallel runs
 		// stay off each other's rows, which makes it a PRESET name rather than
 		// "custom" -- so it needs a catalog entry to be creatable at all.

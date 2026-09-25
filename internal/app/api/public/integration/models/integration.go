@@ -83,9 +83,10 @@ type CreateIntegrationRequest struct {
 // config: omitted keeps the stored config; an explicit object (including {})
 // replaces it wholesale. secrets, per key: omitted keeps the stored value, a
 // non-empty string replaces it, null clears it.
-// Name is deliberately absent: the instance name is immutable. For a login
-// provider it is written verbatim into user_identities.provider, so renaming
-// would orphan every account linked to it.
+// Name is deliberately absent: the instance name is immutable, because it is an
+// input to the AAD of a login provider's client_secret and renaming would make
+// that secret undecryptable. Linked accounts survive a rename -- they reference
+// the row by ID -- so they are no longer what forbids it.
 type UpdateIntegrationRequest struct {
 	// Omitted → keep the current flag; true/false → set it.
 	Enabled *bool `json:"enabled"`

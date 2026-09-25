@@ -69,6 +69,7 @@ linters:
     - nestif         # Report deeply nested if statements
 
     # Code patterns
+    - funcorder      # Constructors after the type, exported methods before unexported ones
     - goconst        # Find repeated strings that could be replaced by constants
     - unconvert      # Remove unnecessary type conversions
     - unparam        # Report unused function parameters

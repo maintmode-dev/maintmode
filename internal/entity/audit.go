@@ -353,10 +353,10 @@ const (
 // AuditLoginMethod names the credential that answered for a sign-in.
 //
 // Deliberately NOT entity.AuthMethod, which looks like the obvious fit and is
-// not: those values are DATA matched against user_identities.provider, and a
-// password or one-time-code sign-in writes no identity row, so tagging one with
-// a provider value would put a string into the trail that names nothing in
-// user_identities. AuthMethodEmail is additionally pinned by a test as
+// not: those values are DATA, resolved to a registry row or matched against
+// user_identities.builtin_method, and a password or one-time-code sign-in
+// writes no identity row -- so tagging one with a provider value would put a
+// string into the trail that names nothing in user_identities. AuthMethodEmail is additionally pinned by a test as
 // vocabulary-only, and there is no member for one-time codes at all. This is a
 // narrow vocabulary owned by the audit trail, like AuditLogoutKind above.
 //

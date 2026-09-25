@@ -16,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
@@ -62,6 +63,8 @@ func initImpl(t *testing.T) *Implementation {
 
 	stores, err := bootstrap.NewStores(db, valkey)
 	require.NoError(t, err)
+
+	testbootstraputils.SeedLoginProvidersT(t.Context(), t, db)
 
 	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)

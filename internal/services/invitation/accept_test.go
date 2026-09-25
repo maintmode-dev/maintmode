@@ -343,7 +343,7 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 		mock_user.NewMockTokenRevoker(ctrl),
 		licenseSrv, // Accept → AssignRoles runs the real seat guard
 		false,
-	)
+	).WithLoginProviderResolver(loginProviders)
 
 	svc := NewService(
 		cfg,

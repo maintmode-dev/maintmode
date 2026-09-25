@@ -26,9 +26,13 @@ func (s *Store) Create(ctx context.Context, identity *entity.UserIdentity) (*ent
 
 	err := stmt.QueryContext(ctx, s.db.Executor(ctx), row)
 	if err != nil {
-		// Either unique index (provider, subject) or (user_id, provider) was
-		// violated — the identity is already linked. Translate to a domain
-		// error so callers don't depend on the pq driver.
+		// One of the four partial unique indexes was violated -- by subject
+		// (user_identities_integration_subject_uidx,
+		// user_identities_builtin_subject_uidx) or by user and method
+		// (user_identities_user_integration_uidx,
+		// user_identities_user_builtin_uidx). All four say the same thing here:
+		// the identity is already linked. Translate to a domain error so callers
+		// don't depend on the pq driver.
 		if dbtx.ErrorIs(err, dbtx.ErrPGUniqueViolation) {
 			return nil, apperr.ErrProviderAlreadyConnected
 		}

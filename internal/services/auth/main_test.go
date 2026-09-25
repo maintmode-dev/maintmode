@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -39,6 +40,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 )
 
@@ -59,6 +61,9 @@ func TestMain(m *testing.M) {
 
 	valkey = testdbconnutils.NewValkeyClient(cfg)
 	closer.Add(valkey.Close)
+
+	loginProviders = testdbutils.MustSeedLoginProviders(context.Background(), db,
+		"auth-suite-kek", entity.AuthMethodGoogle, entity.AuthMethodGithub)
 
 	code := m.Run()
 
@@ -190,7 +195,7 @@ func initServiceWithMethodsSignup(
 			// no invitation. Invited-dance tests pass false to get the production
 			// shape, where AllowCreate is what decides.
 			allowOpenSignup,
-		),
+		).WithLoginProviderResolver(loginProviders),
 		distributedlock.NewStore(valkey),
 		blacklisttoken.NewStore(valkey),
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{method}),
@@ -238,3 +243,7 @@ func exchangeIDTokenMock(mocks *serviceMocks, times int) *entity.OAuthProviderUs
 
 	return oauthUser
 }
+
+// loginProviders resolves the provider names these tests sign in with. See
+// testdbutils.SeedLoginProviders for why the rows have to exist at all.
+var loginProviders *testdbutils.LoginProviders
