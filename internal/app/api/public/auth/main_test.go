@@ -22,6 +22,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
+	testbootstraputils "github.com/ruko1202/maintmode/test/utils/bootstrap"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 	authflags "github.com/ruko1202/maintmode/test/utils/mocks/authflags"
 )
@@ -116,6 +117,8 @@ func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *en
 // faked, so what these tests exercise is still the wiring production runs.
 func newTestServices(t *testing.T, stores *bootstrap.Stores) *bootstrap.Services {
 	t.Helper()
+
+	testbootstraputils.SeedLoginProvidersT(t.Context(), t, db)
 
 	services, err := bootstrap.NewServices(t.Context(), cfg, stores)
 	require.NoError(t, err)

@@ -2,6 +2,8 @@ package testdbutils
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -25,40 +27,30 @@ type LoginProviders struct {
 	byName map[entity.AuthMethod]uuid.UUID
 }
 
-// SeedLoginProviders inserts one registry row per name and returns a resolver
-// over them.
+// SeedLoginProviders makes sure a login registry row exists for each name and
+// returns a resolver over them.
 //
 // Written with raw SQL rather than through the integration service: that
 // service belongs to another module, and importing its store from an auth-side
 // test is forbidden (see .golangci.yaml, module-auth-stores). What a test needs
 // here is a parent row, not the registry's behavior.
 //
-// Rows are keyed by the fixed names the suites sign in with and upserted, so a
-// second -count run reuses them instead of colliding on UNIQUE (kind, name).
+// Rows are keyed by the fixed names the suites sign in with, and an existing row
+// is reused, so a second -count run -- or another package's setup -- finds the
+// same rows instead of colliding on UNIQUE (kind, name). Any suite that builds
+// the real services and signs in through a provider must call this: on a fresh
+// database no such row exists, and the sign-in fails with "unsupported
+// provider".
 // Built-in methods must NOT be passed: they never reach a resolver, and a row
 // for one would assert a relationship that does not exist.
 func SeedLoginProviders(
 	ctx context.Context, db *sqlx.DB, kekID string, names ...entity.AuthMethod,
 ) (*LoginProviders, error) {
-	var dekID uuid.UUID
-	if err := db.QueryRowxContext(ctx,
-		`INSERT INTO data_keys (kek_id, encrypted_dek) VALUES ($1, $2) RETURNING id`,
-		kekID, []byte("wrapped"),
-	).Scan(&dekID); err != nil {
-		return nil, err
-	}
-
 	byName := make(map[entity.AuthMethod]uuid.UUID, len(names))
 
 	for _, name := range names {
-		var id uuid.UUID
-		if err := db.QueryRowxContext(ctx,
-			`INSERT INTO integration_settings (kind, name, enabled, config, secrets, dek_id)
-			 VALUES ('login', $1, true, '{}'::jsonb, '{}'::jsonb, $2)
-			 ON CONFLICT (kind, name) DO UPDATE SET updated_at = now()
-			 RETURNING id`,
-			string(name), dekID,
-		).Scan(&id); err != nil {
+		id, err := seedLoginProvider(ctx, db, kekID, name)
+		if err != nil {
 			return nil, err
 		}
 
@@ -96,4 +88,52 @@ func (p *LoginProviders) ResolveID(_ context.Context, name entity.AuthMethod) (u
 // address an identity directly.
 func (p *LoginProviders) ID(name entity.AuthMethod) uuid.UUID {
 	return p.byName[name]
+}
+
+// seedLoginProvider returns the id of the login row named name, creating it
+// only when it does not exist yet.
+//
+// Idempotent on purpose. It is called once per suite setup, and several of
+// those run per package, so a seed that always inserted would leave a data_keys
+// row behind on every call -- and DEK rotation scans that whole table.
+//
+// Two packages seeding at the same moment (`make tloc` runs them in parallel)
+// can both find the row missing; the loser's insert does nothing, and it reads
+// the winner's row instead.
+func seedLoginProvider(ctx context.Context, db *sqlx.DB, kekID string, name entity.AuthMethod) (uuid.UUID, error) {
+	const selectID = `SELECT id FROM integration_settings WHERE kind = 'login' AND name = $1`
+
+	var id uuid.UUID
+
+	err := db.QueryRowxContext(ctx, selectID, string(name)).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return uuid.Nil, err
+	}
+
+	var dekID uuid.UUID
+	if err := db.QueryRowxContext(ctx,
+		`INSERT INTO data_keys (kek_id, encrypted_dek) VALUES ($1, $2) RETURNING id`,
+		kekID, []byte("wrapped"),
+	).Scan(&dekID); err != nil {
+		return uuid.Nil, err
+	}
+
+	err = db.QueryRowxContext(ctx,
+		`INSERT INTO integration_settings (kind, name, enabled, config, secrets, dek_id)
+		 VALUES ('login', $1, true, '{}'::jsonb, '{}'::jsonb, $2)
+		 ON CONFLICT (kind, name) DO NOTHING
+		 RETURNING id`,
+		string(name), dekID,
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = db.QueryRowxContext(ctx, selectID, string(name)).Scan(&id)
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
