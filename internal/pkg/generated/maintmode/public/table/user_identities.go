@@ -17,12 +17,13 @@ type userIdentitiesTable struct {
 	postgres.Table
 
 	// Columns
-	ID        postgres.ColumnString
-	UserID    postgres.ColumnString
-	Provider  postgres.ColumnString
-	Subject   postgres.ColumnString // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
-	Email     postgres.ColumnString
-	CreatedAt postgres.ColumnTimestampz
+	ID            postgres.ColumnString
+	UserID        postgres.ColumnString
+	Subject       postgres.ColumnString // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
+	Email         postgres.ColumnString
+	CreatedAt     postgres.ColumnTimestampz
+	IntegrationID postgres.ColumnString // The integration_settings row (category login) this identity authenticates against. NULL for a built-in method, which has no registry row -- see builtin_method.
+	BuiltinMethod postgres.ColumnString // The built-in sign-in method this identity belongs to, for methods with no registry row. NULL for a registry-backed provider. Exactly one of the two columns is set.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -64,27 +65,29 @@ func newUserIdentitiesTable(schemaName, tableName, alias string) *UserIdentities
 
 func newUserIdentitiesTableImpl(schemaName, tableName, alias string) userIdentitiesTable {
 	var (
-		IDColumn        = postgres.StringColumn("id")
-		UserIDColumn    = postgres.StringColumn("user_id")
-		ProviderColumn  = postgres.StringColumn("provider")
-		SubjectColumn   = postgres.StringColumn("subject")
-		EmailColumn     = postgres.StringColumn("email")
-		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		allColumns      = postgres.ColumnList{IDColumn, UserIDColumn, ProviderColumn, SubjectColumn, EmailColumn, CreatedAtColumn}
-		mutableColumns  = postgres.ColumnList{UserIDColumn, ProviderColumn, SubjectColumn, EmailColumn, CreatedAtColumn}
-		defaultColumns  = postgres.ColumnList{IDColumn, EmailColumn, CreatedAtColumn}
+		IDColumn            = postgres.StringColumn("id")
+		UserIDColumn        = postgres.StringColumn("user_id")
+		SubjectColumn       = postgres.StringColumn("subject")
+		EmailColumn         = postgres.StringColumn("email")
+		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
+		IntegrationIDColumn = postgres.StringColumn("integration_id")
+		BuiltinMethodColumn = postgres.StringColumn("builtin_method")
+		allColumns          = postgres.ColumnList{IDColumn, UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn, BuiltinMethodColumn}
+		mutableColumns      = postgres.ColumnList{UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn, BuiltinMethodColumn}
+		defaultColumns      = postgres.ColumnList{IDColumn, EmailColumn, CreatedAtColumn}
 	)
 
 	return userIdentitiesTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:        IDColumn,
-		UserID:    UserIDColumn,
-		Provider:  ProviderColumn,
-		Subject:   SubjectColumn,
-		Email:     EmailColumn,
-		CreatedAt: CreatedAtColumn,
+		ID:            IDColumn,
+		UserID:        UserIDColumn,
+		Subject:       SubjectColumn,
+		Email:         EmailColumn,
+		CreatedAt:     CreatedAtColumn,
+		IntegrationID: IntegrationIDColumn,
+		BuiltinMethod: BuiltinMethodColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

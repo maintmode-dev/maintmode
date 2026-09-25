@@ -14,8 +14,7 @@ import (
 
 type IntegrationSettings struct {
 	ID              uuid.UUID  `sql:"primary_key" db:"integration_settings.id"`
-	Kind            string     `db:"integration_settings.kind"`    // Integration type: telegram | slack | smtp | jira | ... — matches messenger_channels.transport for user-subscribable kinds.
-	Name            string     `db:"integration_settings.name"`    // Instance name within a kind. For login providers it is the identity users authenticate against and is written verbatim into user_identities.provider, so it is immutable: renaming orphans every linked account. Single-instance kinds carry 'default'.
+	Kind            string     `db:"integration_settings.kind"`    // Category the row belongs to: 'notify' (delivery) or 'login' (sign-in provider).
 	Enabled         bool       `db:"integration_settings.enabled"` // Runtime on/off toggle read by the transport resolver; a disabled integration drops delivery best-effort.
 	Config          string     `db:"integration_settings.config"`  // Non-secret settings as plaintext jsonb (host, port, from, tls_policy, api_url, timeout, ...).
 	Secrets         string     `db:"integration_settings.secrets"` // Secret fields only, each value base64(Tink AEAD envelope) encrypted with the DEK at dek_id. Never plaintext.
@@ -24,4 +23,5 @@ type IntegrationSettings struct {
 	CreatedByUserID *uuid.UUID `db:"integration_settings.created_by_user_id"`
 	UpdatedAt       time.Time  `db:"integration_settings.updated_at"`
 	UpdatedByUserID *uuid.UUID `db:"integration_settings.updated_by_user_id"`
+	Name            string     `db:"integration_settings.name"` // System the row connects to -- slack, telegram, email, google, custom -- and the registry key that decides which implementation parses it. Immutable: it is an input to the AAD of this row's client_secret, so renaming would make the secret undecryptable. Linked accounts are NOT at risk -- user_identities references this row by id.
 }

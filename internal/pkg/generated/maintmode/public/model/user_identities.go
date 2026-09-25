@@ -13,10 +13,11 @@ import (
 )
 
 type UserIdentities struct {
-	ID        uuid.UUID `sql:"primary_key" db:"user_identities.id"`
-	UserID    uuid.UUID `db:"user_identities.user_id"`
-	Provider  string    `db:"user_identities.provider"`
-	Subject   string    `db:"user_identities.subject"` // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
-	Email     string    `db:"user_identities.email"`
-	CreatedAt time.Time `db:"user_identities.created_at"`
+	ID            uuid.UUID  `sql:"primary_key" db:"user_identities.id"`
+	UserID        uuid.UUID  `db:"user_identities.user_id"`
+	Subject       string     `db:"user_identities.subject"` // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
+	Email         string     `db:"user_identities.email"`
+	CreatedAt     time.Time  `db:"user_identities.created_at"`
+	IntegrationID *uuid.UUID `db:"user_identities.integration_id"` // The integration_settings row (category login) this identity authenticates against. NULL for a built-in method, which has no registry row -- see builtin_method.
+	BuiltinMethod *string    `db:"user_identities.builtin_method"` // The built-in sign-in method this identity belongs to, for methods with no registry row. NULL for a registry-backed provider. Exactly one of the two columns is set.
 }
