@@ -12,6 +12,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xemail"
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
@@ -112,7 +113,7 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, apperr.ErrEmailMismatch
 	}
 
-	if !emailMatchesIgnoreCase(ctx, claims.Email, inv.Email) {
+	if !xemail.EqualIgnoreCase(claims.Email, inv.Email) {
 		xlog.Warn(ctx, "accept: oauth email does not match invitation")
 		return nil, apperr.ErrEmailMismatch
 	}
@@ -133,13 +134,12 @@ func (s *Service) Accept(ctx context.Context, cmd *entity.AcceptInvitationCmd) (
 		return nil, fmt.Errorf("get or create user: %w", err)
 	}
 
-	// Claim the invitation and assign its roles atomically. Shared with the
-	// invited dance's ClaimForUser: the single-use gate and the load-bearing
-	// MarkAccepted-before-AssignRoles ordering are documented there, in the one
-	// place both paths run them.
-	user, err = s.claimAndAssignRoles(ctx, inv.ID, user.ID, inv.Roles)
+	// Claim the invitation and assign its roles atomically, through the same
+	// ClaimForUser the invited dance uses: the single-use gate and the
+	// load-bearing MarkAccepted-before-AssignRoles ordering are documented
+	// there, in the one place both paths run them. It logs its own failure.
+	user, err = s.claimer.ClaimForUser(ctx, &entity.ResolvedInvitation{ID: inv.ID, Roles: inv.Roles}, user.ID)
 	if err != nil {
-		xlog.Error(ctx, "accept: claim and assign roles failed", xfield.Error(err))
 		return nil, err
 	}
 

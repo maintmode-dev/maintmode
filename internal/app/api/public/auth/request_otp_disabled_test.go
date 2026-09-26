@@ -24,7 +24,7 @@ func TestRequestOTP_DisabledMethodIssuesNoCode(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	impl := initImpl(t).WithAuthSettings(stubAuthSettings{
+	impl := initImplWithSettings(t, stubAuthSettings{
 		enabled: map[entity.AuthMethodName]bool{entity.AuthMethodNameEmailOTP: false},
 	})
 
@@ -44,7 +44,7 @@ func TestRequestOTP_EnabledMethodStillIssues(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	impl := initImpl(t).WithAuthSettings(stubAuthSettings{
+	impl := initImplWithSettings(t, stubAuthSettings{
 		enabled: map[entity.AuthMethodName]bool{entity.AuthMethodNameEmailOTP: true},
 	})
 
@@ -75,39 +75,11 @@ func otpCodeCount(ctx context.Context, t *testing.T, email string) int {
 	return n
 }
 
-// A handler with NO flag source issues nothing either.
-//
-// Not a repeat of the disabled case: that one asserts the gate reads the flag,
-// this one asserts what the gate does when there is nothing to read. Both must
-// refuse, and the reasoning differs -- bootstrap wires the settings service into
-// every binary serving this route, so a nil is a dropped wiring line rather than
-// an instance configured that way.
-//
-// It is worth its own test because the nil branch is the one a refactor deletes
-// by accident. Answering permissively there would mean a single missing line in
-// bootstrap silently re-opens every method an admin closed, with nothing in the
-// response to show for it -- this endpoint answers identically either way.
-func TestRequestOTP_NoFlagSourceIssuesNoCode(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-
-	impl := initImpl(t).WithAuthSettings(nil)
-
-	user := makeOTPUser(t, impl)
-
-	resp := doRequestOTP(t, impl, `{"email":"`+user+`"}`)
-	require.Equal(t, http.StatusAccepted, resp.status,
-		"an unwired handler must still answer like every other outcome")
-
-	require.Zero(t, otpCodeCount(ctx, t, user),
-		"no code may be issued when nothing answers whether the method is offered")
-}
-
 // An unreadable flag issues nothing either: the gate fails CLOSED.
 //
-// The third of the three ways this gate can decline, and the one that is not
-// about configuration at all -- the admin enabled nothing and disabled nothing,
-// the table simply did not answer.
+// The other way this gate can decline, and the one that is not about
+// configuration at all -- the admin enabled nothing and disabled nothing, the
+// table simply did not answer.
 //
 // Failing closed here is the opposite of what the listing on the same endpoint
 // does with the same error, and the asymmetry is deliberate: the listing only
@@ -118,7 +90,7 @@ func TestRequestOTP_UnreadableFlagIssuesNoCode(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	impl := initImpl(t).WithAuthSettings(stubAuthSettings{unreadable: true})
+	impl := initImplWithSettings(t, stubAuthSettings{unreadable: true})
 
 	user := makeOTPUser(t, impl)
 

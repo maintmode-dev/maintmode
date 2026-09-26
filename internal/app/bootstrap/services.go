@@ -29,6 +29,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/deferrednotifications"
 	"github.com/ruko1202/maintmode/internal/services/integration"
 	"github.com/ruko1202/maintmode/internal/services/invitation"
+	"github.com/ruko1202/maintmode/internal/services/invitation/claimer"
 	"github.com/ruko1202/maintmode/internal/services/jwtverifier"
 	licensesvc "github.com/ruko1202/maintmode/internal/services/license"
 	maintSrv "github.com/ruko1202/maintmode/internal/services/maint"
@@ -81,7 +82,11 @@ type Services struct {
 	Token      *token.Service
 	User       *user.Service
 	Invitation *invitation.Service
-	Audit      *auditor.Auditor
+	// InvitationClaimer is the instance the auth service was built with. Exposed
+	// so a test that rebuilds the auth service from this graph hands it the
+	// same claimer rather than assembling a second one.
+	InvitationClaimer *claimer.Claimer
+	Audit             *auditor.Auditor
 	// AuditPublisher enqueues audit events to the durable goque outbox; the
 	// audit-write processor drains them after commit. There are no in-process
 	// goroutines to drain, so no Stop is needed on shutdown — the goque runtime
@@ -140,7 +145,22 @@ func NewServices(ctx context.Context,
 	// client in SaaS mode, Noop otherwise.
 	enforcement, heartbeatSrv := newLicenseService(cfg, stores)
 
-	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher, enforcement)
+	// One keyring for the process. A second one would repeat the startup DEK
+	// re-wrap newIntegrationService performs.
+	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
+	if err != nil {
+		return nil, fmt.Errorf("init keyring: %w", err)
+	}
+
+	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher, keyring)
+	if err != nil {
+		return nil, err
+	}
+
+	// The sign-in paths store a reference to the provider's registry row, not
+	// its name, so the user service resolves one into the other through the
+	// integration service -- which is why that one is built first.
+	tokenSrv, userSrv := newTokenAndUserServices(cfg, stores, auditPublisher, enforcement, integrationSrv)
 
 	// authorizer is the single RBAC authorizer shared by the core (scenario
 	// middleware) and the auth admin routes.
@@ -166,26 +186,9 @@ func NewServices(ctx context.Context,
 	// write-side (the audit-write goque processor writes the log after commit).
 	auditorSrv := auditor.NewAuditor(stores.Audit)
 
-	// One keyring and one scheduler for the process. A second keyring would
-	// repeat the startup DEK re-wrap newIntegrationService performs; a second
-	// scheduler would split the queue plumbing that owns tx-joined enqueue.
-	keyring, err := secrets.NewLocalKeyring(cfg.Crypto.ActiveKEKURI, cfg.Crypto.LocalKeys)
-	if err != nil {
-		return nil, fmt.Errorf("init keyring: %w", err)
-	}
-
-	integrationSrv, err := newIntegrationService(ctx, cfg, stores, auditPublisher, keyring)
-	if err != nil {
-		return nil, err
-	}
-
-	// The sign-in paths store a reference to the provider's registry row, not
-	// its name, so the user service needs a way to resolve one into the other.
-	// Wired here rather than through user.NewService because that call happens
-	// above, before the integration service exists.
-	userSrv.WithLoginProviderResolver(integrationSrv)
-
 	transportResolver := initTransportResolver(cfg, integrationSrv)
+	// One scheduler for the process: a second would split the queue plumbing
+	// that owns tx-joined enqueue.
 	queueScheduler := scheduler.NewService(queue)
 	messageSender := messagesender.NewService(transportResolver, queueScheduler)
 
@@ -203,6 +206,22 @@ func NewServices(ctx context.Context,
 		queueScheduler,
 	)
 
+	// The invitation half of an invited dance, built before the auth service
+	// that calls it. It needs no token issuer, which is what breaks the cycle:
+	// the invitation service below takes authSrv as its TokenIssuer, and the
+	// auth service takes this, not that. Built from the same tx manager, store
+	// and user service as the invitation service -- see claimer.New.
+	//
+	// The same dance store on both sides, exactly as the invitation flow needs
+	// it: the auth service parks and redeems the one-time code, the claimer
+	// redeems the handle that carries the invitation through the dance.
+	invitationClaimer := claimer.New(
+		stores.TxManager,
+		stores.UserInvitations,
+		userSrv,
+		stores.OAuthDance,
+	)
+
 	authSrv := auth.NewService(
 		&cfg.JWT,
 		stores.TxManager,
@@ -215,14 +234,11 @@ func NewServices(ctx context.Context,
 		otpSrv,
 		otpSrv,
 		stores.AuthCredentials,
-	).
-		// Attached HERE rather than at the call site that builds the API, so the
-		// gates cannot be left unwired by a binary that assembles this service
-		// and forgets one chained call. A nil source refuses every built-in, so
-		// the failure mode of forgetting is a locked-out instance rather than a
-		// silently re-opened one -- loud, but the wrong kind of loud to discover
-		// in production.
-		WithMethodFlags(authSettingsSrv)
+		authSettingsSrv,
+		stores.OAuthDance,
+		cfg.Auth.DanceStateTTL(),
+		invitationClaimer,
+	)
 
 	invitationSrv := invitation.NewService(
 		cfg,
@@ -233,15 +249,8 @@ func NewServices(ctx context.Context,
 		authMethods,
 		messageSender,
 		enforcement,
+		invitationClaimer,
 	)
-
-	// The back edge, closed after both services exist.
-	//
-	// It cannot be a constructor argument in either direction: the invitation
-	// service takes authSrv as its TokenIssuer above, so auth cannot take the
-	// invitation service in turn without a cycle the compiler rejects. The
-	// setter is how the dance reaches the invitation guard.
-	authSrv.WithInvitations(invitationSrv)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue)
 	if err != nil {
@@ -305,20 +314,21 @@ func NewServices(ctx context.Context,
 		AuthSettings:      authSettingsSrv,
 		TransportResolver: transportResolver,
 
-		OIDCDiscovery:    discovery,
-		AuthMethods:      authMethods,
-		Auth:             authSrv,
-		Token:            tokenSrv,
-		User:             userSrv,
-		Invitation:       invitationSrv,
-		Audit:            auditorSrv,
-		AuditPublisher:   auditPublisher,
-		TokenChecker:     authSrv,
-		MessageSender:    messageSender,
-		Keyring:          keyring,
-		OTP:              otpSrv,
-		License:          enforcement,
-		licenseHeartbeat: heartbeatSrv,
+		OIDCDiscovery:     discovery,
+		AuthMethods:       authMethods,
+		Auth:              authSrv,
+		Token:             tokenSrv,
+		User:              userSrv,
+		Invitation:        invitationSrv,
+		InvitationClaimer: invitationClaimer,
+		Audit:             auditorSrv,
+		AuditPublisher:    auditPublisher,
+		TokenChecker:      authSrv,
+		MessageSender:     messageSender,
+		Keyring:           keyring,
+		OTP:               otpSrv,
+		License:           enforcement,
+		licenseHeartbeat:  heartbeatSrv,
 	}, nil
 }
 
@@ -330,6 +340,7 @@ func newTokenAndUserServices(
 	stores *Stores,
 	auditPublisher *auditpublisher.Publisher,
 	seatGuard user.SeatGuard,
+	loginProviders user.LoginProviderResolver,
 ) (tokenSvc *token.Service, userSvc *user.Service) {
 	tokenSrv := token.NewService(
 		stores.TxManager,
@@ -347,6 +358,7 @@ func newTokenAndUserServices(
 		tokenSrv,
 		seatGuard,
 		cfg.Auth.AllowOpenSignup,
+		loginProviders,
 	)
 
 	return tokenSrv, userSrv
@@ -524,9 +536,9 @@ func newIntegrationService(
 		return nil, fmt.Errorf("build integration registry: %w", err)
 	}
 
-	// The identities store arrives through a setter, not the constructor: it
-	// belongs to the auth module, and the registry reaches it only through the
-	// one-method consumer interface the module boundaries require.
+	// The identities store belongs to the auth module; the registry reaches it
+	// only through the one-method consumer interface the module boundaries
+	// require, with bootstrap supplying the concrete store.
 	return integration.NewService(
 		stores.TxManager,
 		stores.Integrations,
@@ -535,8 +547,9 @@ func newIntegrationService(
 		keyring,
 		secrets.NewAESCipher(),
 		auditPublisher,
-	).WithIdentities(stores.UserIdentities).
-		WithLoginPresets(cfg.OauthProviders.Presets), nil
+		stores.UserIdentities,
+		cfg.OauthProviders.Presets,
+	), nil
 }
 
 // cacheInvalidator is the half of the transport resolver the change hook needs.

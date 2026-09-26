@@ -20,11 +20,7 @@ type Implementation struct {
 	// here, so a provider configured at runtime appears without a restart.
 	authMethods *authmethod.Methods
 
-	// authSettings answers which BUILT-IN methods this instance offers. Nil
-	// lists NOTHING rather than everything: the sign-in gates refuse those same
-	// methods, so listing them would advertise credentials that will not work.
-	// Every binary that serves this endpoint wires it in bootstrap, so a nil is
-	// a dropped wiring line rather than a configuration.
+	// authSettings answers which BUILT-IN methods this instance offers.
 	authSettings AuthSettings
 
 	authSrv  *auth.Service
@@ -32,12 +28,12 @@ type Implementation struct {
 	userSrv  *user.Service
 	otpSrv   *otp.Service
 
-	// Backend-driven OAuth dance. These are zero when the dance is not
-	// configured, in which case its routes are never registered (see the
-	// config gate) and none of them is read.
+	// Backend-driven OAuth dance. These are empty when the frontend half of the
+	// dance is not configured, in which case /start refuses (see the config
+	// gate in oauth_start.go).
 	// danceCookiePath is the EXTERNAL cookie scope, taken from config rather
 	// than from the mounted route — the proxy strips a prefix the handler never
-	// sees. The config gate requires it, so it is never empty here.
+	// sees. The config gate requires it, so it is never empty past the gate.
 	danceCookiePath      string
 	frontendURL          string
 	frontendCallbackPath string
@@ -63,19 +59,40 @@ func otpResponseFloorFrom(cfg config.Auth) time.Duration {
 	return cfg.OTPResponseFloor
 }
 
+// New builds the auth handlers.
+//
+// authMethods is the live login configuration the sign-in button list is read
+// from, and authSettings the built-in method flags; the two are independent,
+// since an instance reachable only through the BFF path still needs its
+// buttons.
+//
+// The dance's cookie scope and frontend addresses come from appCfg. The state
+// signature is NOT wired here: it belongs to the auth service, which derives it
+// from the JWT issuer key it already holds. Nor is the cookie Secure flag: it is
+// aggregated over the providers that can dance, which are added and removed at
+// runtime, so it is read from the live snapshot per request -- see danceCookie
+// and Snapshot.DanceCookieSecure for which way that aggregation leans and why.
 func New(
 	cfg config.Auth,
 	authSrv *auth.Service,
 	tokenSrv *token.Service,
 	userSrv *user.Service,
 	otpSrv *otp.Service,
+	authMethods *authmethod.Methods,
+	authSettings AuthSettings,
+	appCfg config.App,
 ) *Implementation {
 	return &Implementation{
-		authSrv:          authSrv,
-		tokenSrv:         tokenSrv,
-		userSrv:          userSrv,
-		otpSrv:           otpSrv,
-		otpResponseFloor: otpResponseFloorFrom(cfg),
+		authMethods:          authMethods,
+		authSettings:         authSettings,
+		authSrv:              authSrv,
+		tokenSrv:             tokenSrv,
+		userSrv:              userSrv,
+		otpSrv:               otpSrv,
+		danceCookiePath:      appCfg.OAuthCookiePath,
+		frontendURL:          appCfg.FrontendURL,
+		frontendCallbackPath: appCfg.OAuthCallbackPath,
+		otpResponseFloor:     otpResponseFloorFrom(cfg),
 	}
 }
 
@@ -91,57 +108,4 @@ type AuthSettings interface {
 	// Enabled answers a single method, which is the shape the sign-in gates
 	// need -- each of them asks about exactly one.
 	Enabled(ctx context.Context, method entity.AuthMethodName) (bool, error)
-}
-
-// WithAuthSettings attaches the built-in method flags the listing reads.
-func (i *Implementation) WithAuthSettings(settings AuthSettings) *Implementation {
-	i.authSettings = settings
-
-	return i
-}
-
-// WithAuthMethods attaches the live login configuration, from which the
-// providers endpoint reads its sign-in buttons.
-//
-// Separate from WithOAuthDance because the two are independent: an instance
-// reachable only through the BFF path still needs its buttons, and still has no
-// dance.
-func (i *Implementation) WithAuthMethods(methods *authmethod.Methods) *Implementation {
-	i.authMethods = methods
-
-	return i
-}
-
-// WithOAuthDance attaches the backend-driven dance dependencies.
-//
-// It is a separate constructor step rather than more parameters on New because
-// the dance is optional: an instance that configures no provider never
-// registers these routes, and every existing caller of New keeps working
-// unchanged.
-//
-// The state signature is NOT wired here: it belongs to the auth service, which
-// derives it from the JWT issuer key it already holds — see WithDanceSigner.
-//
-// The cookie Secure flag is NOT captured here. It is aggregated over the
-// providers that can dance, which are now added and removed at runtime, so it
-// is read from the live snapshot per request -- see danceCookieSecure below and
-// Snapshot.DanceCookieSecure for which way that aggregation leans and why.
-func (i *Implementation) WithOAuthDance(appCfg config.App) *Implementation {
-	i.danceCookiePath = appCfg.OAuthCookiePath
-	i.frontendURL = appCfg.FrontendURL
-	i.frontendCallbackPath = appCfg.OAuthCallbackPath
-
-	return i
-}
-
-// danceCookieSecure reads the flag off the live snapshot.
-//
-// Fail-safe when no snapshot is wired at all: a cookie the browser withholds
-// costs a sign-in, one it leaks over http costs the session.
-func (i *Implementation) danceCookieSecure() bool {
-	if i.authMethods == nil {
-		return true
-	}
-
-	return i.authMethods.DanceCookieSecure()
 }

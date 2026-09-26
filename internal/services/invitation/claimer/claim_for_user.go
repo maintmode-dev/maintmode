@@ -1,4 +1,4 @@
-package invitation
+package claimer
 
 import (
 	"context"
@@ -12,14 +12,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// claimAndAssignRoles spends an invitation and grants its roles, atomically.
+// ClaimForUser spends an invitation and grants its roles, atomically, to a user
+// who already exists.
 //
 // It is the ONE copy of that transaction. Both accept paths call it — the
-// deprecated id_token Accept and the invited dance's ClaimForUser — because the
+// deprecated id_token Accept and phase 2 of the invited dance — because the
 // ordering below is load-bearing and invisible to the compiler, and a second
 // copy is how an invariant like that gets fixed in one place and not the other.
 // It returns the updated user because Accept still needs it to issue a token
-// pair; the dance discards it.
+// pair carrying the granted roles; the dance discards it.
 //
 // Both halves run in ONE transaction so an accepted invitation can never be
 // left with a user missing its roles: if AssignRoles fails, the claim rolls back
@@ -44,16 +45,18 @@ import (
 // when the guard counts. It then counts this invitee once as a pending invite
 // and once more as the grant in flight, and at exactly the cap it refuses them
 // their own seat. The failure looks like a licensing problem and is not.
-func (s *Service) claimAndAssignRoles(
+func (c *Claimer) ClaimForUser(
 	ctx context.Context,
-	invitationID uuid.UUID,
+	inv *entity.ResolvedInvitation,
 	userID uuid.UUID,
-	roles []entity.Role,
 ) (*entity.User, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.InvitationClaimer.ClaimForUser")
+	defer span.End()
+
 	var user *entity.User
 
-	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
-		claimed, err := s.store.MarkAccepted(ctx, invitationID)
+	err := c.txManager.WithinTx(ctx, func(ctx context.Context) error {
+		claimed, err := c.store.MarkAccepted(ctx, inv.ID)
 		if err != nil {
 			return fmt.Errorf("mark accepted: %w", err)
 		}
@@ -62,10 +65,10 @@ func (s *Service) claimAndAssignRoles(
 			return apperr.ErrInvalidInvitation
 		}
 
-		user, err = s.userSrv.AssignRoles(ctx, &entity.AssignRolesCmd{
+		user, err = c.userSrv.AssignRoles(ctx, &entity.AssignRolesCmd{
 			Actor:  entity.SystemUser,
 			UserID: userID,
-			Roles:  roles,
+			Roles:  inv.Roles,
 		})
 		if err != nil {
 			return fmt.Errorf("assign invitation roles: %w", err)
@@ -74,26 +77,10 @@ func (s *Service) claimAndAssignRoles(
 		return nil
 	})
 	if err != nil {
+		xlog.Error(ctx, "claim invitation: claim and assign roles failed", xfield.Error(err))
+
 		return nil, err
 	}
 
 	return user, nil
-}
-
-// ClaimForUser is phase 2 of an invited dance: it spends the invitation and
-// grants its roles to the user the dance just signed in.
-//
-// The transaction, and the ordering invariant it rests on, live in
-// claimAndAssignRoles, which the deprecated id_token accept path shares.
-func (s *Service) ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Invitation.ClaimForUser")
-	defer span.End()
-
-	if _, err := s.claimAndAssignRoles(ctx, inv.ID, userID, inv.Roles); err != nil {
-		xlog.Error(ctx, "claim invitation: claim and assign roles failed", xfield.Error(err))
-
-		return err
-	}
-
-	return nil
 }

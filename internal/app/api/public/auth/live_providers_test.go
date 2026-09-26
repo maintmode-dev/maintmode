@@ -24,7 +24,7 @@ func TestLiveProviders_AllThreeReadersSeeANewProvider(t *testing.T) {
 	t.Parallel()
 
 	methods := authmethod.NewAuthMethods(cfg, nil)
-	impl := initImpl(t).WithAuthMethods(methods)
+	impl := initImplWithMethods(t, methods)
 
 	// Before: nothing configured.
 	require.NotContains(t, listedIDs(t, impl), "keycloak")
@@ -65,7 +65,7 @@ func TestLiveProviders_RemovalIsVisibleEverywhere(t *testing.T) {
 	t.Parallel()
 
 	methods := authmethod.NewAuthMethods(cfg, nil)
-	impl := initImpl(t).WithAuthMethods(methods)
+	impl := initImplWithMethods(t, methods)
 
 	installProviders(t, methods, testProvider{ID: "keycloak"})
 	require.Contains(t, listedIDs(t, impl), "keycloak")

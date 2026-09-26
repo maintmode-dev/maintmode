@@ -26,18 +26,17 @@ import (
 func TestUnlinkIdentity_RegistryBackedNoOp(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	srv := initService(t)
+
+	// A real, registry-backed provider this user was never linked to.
+	unlinkedName := entity.AuthMethod("unlinked-" + xuuid.NewString())
+	unlinkedID := seedExtraProvider(ctx, t, unlinkedName)
+	srv, _ := initServiceWithResolver(t, newResolverWith(unlinkedName, unlinkedID))
 
 	// Two identities, so the last-provider guard passes and cannot mask the
 	// behavior under test.
 	user := makeUser(ctx, t, srv)
 	require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub,
 		claimsFor("gh-"+xuuid.NewString()+"@example.com")))
-
-	// A real, registry-backed provider this user was never linked to.
-	unlinkedName := entity.AuthMethod("unlinked-" + xuuid.NewString())
-	unlinkedID := seedExtraProvider(ctx, t, unlinkedName)
-	srv.WithLoginProviderResolver(newResolverWith(unlinkedName, unlinkedID))
 
 	require.NoError(t, srv.UnlinkIdentity(ctx, user.ID, unlinkedName),
 		"disconnecting a registry-backed provider the user never linked is already satisfied")
@@ -65,13 +64,12 @@ func TestUnlinkIdentity_RegistryBackedNoOp(t *testing.T) {
 func TestIdentity_CannotOutliveItsProvider(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	srv := initService(t)
 
 	doomedName := entity.AuthMethod("doomed-" + xuuid.NewString())
 	doomedID := seedExtraProvider(ctx, t, doomedName)
+	srv, _ := initServiceWithResolver(t, newResolverWith(doomedName, doomedID))
 
 	user := makeUser(ctx, t, srv)
-	srv.WithLoginProviderResolver(newResolverWith(doomedName, doomedID))
 	require.NoError(t, srv.LinkIdentity(ctx, user.ID, doomedName,
 		claimsFor(xuuid.NewString()+"@doomed-test.com")))
 

@@ -255,7 +255,8 @@ func TestGetOrCreateByAuthInfo_BootstrapDoesNotUnblockAUser(t *testing.T) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 
 	subject, _ := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(
@@ -323,7 +324,8 @@ func TestGetOrCreateByAuthInfo_BootstrapPublishesRolesChanged(t *testing.T) {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 
 	subject, email := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(
@@ -401,7 +403,8 @@ func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstanceIgnoresTheSeatCap(t *te
 		&fakeTokenRevoker{},
 		guard,
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 
 	subject, email := bootstrapIdentity()
 	user, err := srv.GetOrCreateByAuthInfo(

@@ -24,16 +24,14 @@ func TestLoginWithOTP_RefusedWhenMethodDisabled(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, mocks := initServiceWithUnrelatedBootstrap(t)
+	srv, mocks := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
+		entity.AuthMethodNameEmailOTP: false,
+	}))
 
 	// The verifier would accept this code -- it is never consulted, because the
 	// gate refuses first. Asserting that is the point: a code minted while the
 	// method was on must stop working the moment it is turned off.
 	mocks.otpVerifier.EXPECT().Verify(gomock.Any(), gomock.Any()).Times(0)
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailOTP: false,
-	}))
 
 	_, err := srv.LoginWithOTP(ctx, &entity.VerifyOTPCmd{
 		Email:        "someone@example.com",
@@ -57,12 +55,10 @@ func TestResetPassword_SurvivesEmailOTPBeingDisabled(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, mocks := initServiceWithUnrelatedBootstrap(t)
-	user := makePasswordUser(ctx, t, srv, "old-"+xuuid.NewString())
-
-	srv.WithMethodFlags(flagsWith(map[entity.AuthMethodName]bool{
+	srv, mocks := initServiceWithUnrelatedBootstrapFlags(t, flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailOTP: false,
 	}))
+	user := makePasswordUser(ctx, t, srv, "old-"+xuuid.NewString())
 
 	// The request half still issues: reset is not sign-in.
 	mocks.otpRequester.EXPECT().

@@ -17,8 +17,8 @@ import (
 
 // ensureTelegramIntegration drives the telegram integration row to the wanted
 // enabled state through the public API only. The row may already exist — the
-// suite runs with -count=2 on a shared DB and UNIQUE(kind) forbids a per-run
-// kind — so create falls back to toggle on conflict.
+// suite runs with -count=2 on a shared DB and UNIQUE(kind, name) forbids a
+// per-run name — so create falls back to toggle on conflict.
 //
 // CAUTION: the suite runs the LIVE resolver (use_stub off). While the row is
 // enabled, any concurrently pending telegram delivery would build a real
@@ -34,10 +34,10 @@ func ensureTelegramIntegration(ctx context.Context, t *testing.T, enabled bool) 
 	if enabled {
 		enabledJSON = "true"
 	}
-	body := `{"kind":"telegram","enabled":` + enabledJSON + `,"config":{},"secrets":{"bot_token":"api-test-bogus"}}`
+	body := `{"kind":"notify","name":"telegram","enabled":` + enabledJSON + `,"config":{},"secrets":{"bot_token":"api-test-bogus"}}`
 	status, respBody := adminIntegrationRequest(ctx, t, http.MethodPost, "", body)
 	if status == http.StatusConflict {
-		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPost, "/telegram/default/toggle",
+		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPost, "/notify/telegram/toggle",
 			`{"enabled":`+enabledJSON+`}`)
 	}
 	require.Equal(t, http.StatusOK, status, "ensure telegram integration enabled=%s: %s", enabledJSON, respBody)

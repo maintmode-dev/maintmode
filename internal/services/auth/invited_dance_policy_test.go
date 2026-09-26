@@ -31,10 +31,12 @@ func (s *stubClaimer) ResolveForIdentity(
 	return s.resolved, s.resolveErr
 }
 
-func (s *stubClaimer) ClaimForUser(context.Context, *entity.ResolvedInvitation, uuid.UUID) error {
+func (s *stubClaimer) ClaimForUser(
+	_ context.Context, _ *entity.ResolvedInvitation, userID uuid.UUID,
+) (*entity.User, error) {
 	s.claimed = true
 
-	return nil
+	return &entity.User{ID: userID}, nil
 }
 
 // seedAdmin creates an admin so the zero-admin bootstrap branch does not answer
@@ -93,17 +95,17 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 
 	t.Run("resolved invitation: the dance creates the account and claims it", func(t *testing.T) {
 		t.Parallel()
-		svc, mocks := initInviteOnlyService(t)
-		seedAdmin(ctx, t, svc)
-
 		claimer := &stubClaimer{resolved: &entity.ResolvedInvitation{
 			ID:    uuid.New(),
 			Roles: []entity.Role{entity.RoleEditor},
 		}}
-		svc.WithInvitations(claimer)
-
 		// The success path parks a one-time code, so the store must be armed.
-		svc.danceCodes = oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
+		svc, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{
+			inviteOnly:  true,
+			codes:       oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()),
+			invitations: claimer,
+		})
+		seedAdmin(ctx, t, svc)
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).

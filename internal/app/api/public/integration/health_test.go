@@ -31,7 +31,7 @@ func TestHealthOf(t *testing.T) {
 
 		for _, name := range []string{"google", "custom"} {
 			health := &fixedHealth{value: "unresolved"}
-			impl := (&Implementation{}).WithLoginHealth(health)
+			impl := &Implementation{loginHealth: health}
 
 			got := impl.healthOf(&entity.MaskedIntegration{
 				Kind: integrationkinds.CategoryLogin, Name: name,
@@ -48,20 +48,10 @@ func TestHealthOf(t *testing.T) {
 	t.Run("is absent for a delivery kind", func(t *testing.T) {
 		t.Parallel()
 
-		impl := (&Implementation{}).WithLoginHealth(&fixedHealth{value: "ok"})
+		impl := &Implementation{loginHealth: &fixedHealth{value: "ok"}}
 
 		require.Empty(t, impl.healthOf(&entity.MaskedIntegration{
 			Kind: integrationkinds.CategoryNotify, Name: "slack",
-		}))
-	})
-
-	// An instance with no login providers wired has nothing to report, and must
-	// answer rather than panic.
-	t.Run("is absent when nothing is wired", func(t *testing.T) {
-		t.Parallel()
-
-		require.Empty(t, (&Implementation{}).healthOf(&entity.MaskedIntegration{
-			Kind: integrationkinds.CategoryLogin, Name: "google",
 		}))
 	})
 }

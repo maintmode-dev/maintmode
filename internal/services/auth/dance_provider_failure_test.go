@@ -11,7 +11,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	mock_auth "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/auth"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
@@ -118,18 +117,17 @@ func TestIssueDanceCodeStillAuditsAnUpstreamFailureAsUnavailable(t *testing.T) {
 func TestStartDanceRefusesOnALinkTicketStoreFailure(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
-	srv = srv.WithAuthMethods(danceableMethods{
-		inner:  srv.authMethods,
-		method: entity.AuthMethodGithub,
+	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{
+		codes: codes,
+		wrapMethods: func(inner AuthMethods) AuthMethods {
+			return danceableMethods{inner: inner, method: entity.AuthMethodGithub}
+		},
 	})
 
-	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
 	codes.EXPECT().
 		PeekLinkTicket(gomock.Any(), "some-ticket").
 		Return(nil, errors.New("valkey is unreachable"))
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	_, err := srv.StartDance(t.Context(), string(entity.AuthMethodGithub), "", "some-ticket")
 
@@ -194,16 +192,14 @@ func linkAuditRows(t *testing.T, published []audit.Action) []audit.ProviderLinke
 func TestCompleteLinkAuditsByAction(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
+	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
 	publisher := newRecordingAuditPublisher()
 	srv.auditPublisher = publisher
 
-	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
 	// Redeems to nothing: the refusal path, which is the one a 302 leaves no
 	// other trace of.
 	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "spent").Return(nil, nil)
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "spent",
 		&entity.OAuthIDTokenClaims{Subject: "1", Email: "a@example.com"},
@@ -259,7 +255,8 @@ func TestProviderLinkedIsRenderableAndFilterable(t *testing.T) {
 func TestCompleteLinkAuditsAConflictAsProviderLinked(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
+	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
 
 	owner := seedUser(t, srv)
 	subject := xuuid.NewString()
@@ -276,13 +273,10 @@ func TestCompleteLinkAuditsAConflictAsProviderLinked(t *testing.T) {
 	publisher := newRecordingAuditPublisher()
 	srv.auditPublisher = publisher
 
-	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
 	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
 		UserID:   owner.ID,
 		Provider: entity.AuthMethodGithub,
 	}, nil)
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket", claims,
 		&entity.AuditMetadata{IP: "203.0.113.9"})
@@ -312,19 +306,17 @@ func TestCompleteLinkAuditsAConflictAsProviderLinked(t *testing.T) {
 func TestCompleteLinkAuditsSuccess(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
+	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
 	user := seedUser(t, srv)
 
 	publisher := newRecordingAuditPublisher()
 	srv.auditPublisher = publisher
 
-	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
 	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
 		UserID:   user.ID,
 		Provider: entity.AuthMethodGithub,
 	}, nil)
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	outcome, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
 		&entity.OAuthIDTokenClaims{
@@ -356,14 +348,12 @@ func TestCompleteLinkAuditsSuccess(t *testing.T) {
 func TestCompleteLinkRefusesOnARedeemStoreFailure(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
-
 	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
+
 	codes.EXPECT().
 		ConsumeLinkTicket(gomock.Any(), "ticket").
 		Return(nil, errors.New("valkey is unreachable"))
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	outcome, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
 		&entity.OAuthIDTokenClaims{Subject: "1", Email: "a@example.com", EmailVerified: true},
@@ -387,7 +377,8 @@ func TestCompleteLinkRefusesOnARedeemStoreFailure(t *testing.T) {
 func TestCompleteLinkRefusesASecondGithubIdentity(t *testing.T) {
 	t.Parallel()
 
-	srv, _ := initServiceForMethod(t, entity.AuthMethodGithub)
+	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{codes: codes})
 	user := seedUser(t, srv)
 
 	// The account already holds a github identity, under some other subject.
@@ -398,13 +389,10 @@ func TestCompleteLinkRefusesASecondGithubIdentity(t *testing.T) {
 			EmailVerified: true,
 		}))
 
-	codes := mock_auth.NewMockDanceCodeStore(gomock.NewController(t))
 	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
 		UserID:   user.ID,
 		Provider: entity.AuthMethodGithub,
 	}, nil)
-
-	srv = srv.WithDance(config.Auth{}, codes)
 
 	// A different GitHub account entirely -- a new subject, a new address.
 	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
@@ -421,9 +409,9 @@ func TestCompleteLinkRefusesASecondGithubIdentity(t *testing.T) {
 // danceableMethods makes one provider danceable without a registry row.
 //
 // Danceability is no longer a list read at boot: it is having a gateway in the
-// live snapshot, which a unit test has no reloader to install. So the seam the
-// service already exposes for this is used instead -- WithAuthMethods -- and
-// only the two answers StartDance consults are overridden.
+// live snapshot, which a unit test has no reloader to install. So the test
+// wraps the configuration the service is built with, and only the two answers
+// StartDance consults are overridden.
 //
 // The gateway is nil on purpose. These tests refuse BEFORE the gateway is
 // touched, and a nil one is what proves it: were the refusal to move after the

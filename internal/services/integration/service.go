@@ -60,17 +60,13 @@ type Service struct {
 	cipher         cipher
 	auditPublisher AuditPublisher
 	// identities removes the accounts linked to a provider when it is deleted,
-	// addressed by the registry row's id.
-	//
-	// Nil is NOT tolerated on the delete path any more. It once meant "no auth
-	// storage on this binary, so nothing to protect" and the cascade quietly
-	// skipped; under ON DELETE RESTRICT a skipped cascade makes the delete fail
-	// on the children it left behind, so a binary that deletes login providers
-	// without this wired is misconfigured and says so.
+	// addressed by the registry row's id. Under ON DELETE RESTRICT the cascade
+	// is load-bearing: skipping it makes the delete fail on the children it
+	// left behind.
 	identities IdentitiesStore
 	// loginPresets is the credential-free catalog of well-known providers,
-	// copied into a row at create. Nil means every login name behaves like
-	// "custom" -- a preset only ever removes fields an operator must supply.
+	// copied into a row at create. See presets.go for what an empty catalog
+	// means: only `custom` stays creatable.
 	loginPresets config.LoginPresets
 	// onChange are notified (synchronously, post-commit) with the identity of
 	// every mutated integration. Bootstrap wires the transport resolver's cache
@@ -84,6 +80,11 @@ type Service struct {
 	onChange []func(kind, name string)
 }
 
+// NewService builds the integration registry service.
+//
+// loginPresets may be empty, and that is a valid catalog rather than a missing
+// one: only `custom` can then be created, and every preset-backed name is
+// refused (see presetAndConfig).
 func NewService(
 	txManager *dbtx.TxManager,
 	store *integrationstore.Store,
@@ -92,6 +93,8 @@ func NewService(
 	kr keyring,
 	c cipher,
 	auditPublisher AuditPublisher,
+	identities IdentitiesStore,
+	loginPresets config.LoginPresets,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
@@ -101,6 +104,8 @@ func NewService(
 		keyring:        kr,
 		cipher:         c,
 		auditPublisher: auditPublisher,
+		identities:     identities,
+		loginPresets:   loginPresets,
 	}
 }
 
@@ -111,16 +116,6 @@ func NewService(
 // slot because there are now two consumers, and the second one -- the login
 // reloader -- must not be installable only where the first happens to be.
 func (s *Service) AddOnChange(fn func(kind, name string)) { s.onChange = append(s.onChange, fn) }
-
-// WithIdentities wires the delete cascade's reach into the auth module. A
-// setter rather than a constructor argument for the same reason WithDance is
-// one: it keeps the module boundary that forbids this module from importing
-// the auth storages, with bootstrap supplying the concrete store.
-func (s *Service) WithIdentities(identities IdentitiesStore) *Service {
-	s.identities = identities
-
-	return s
-}
 
 // notifyChanged tells the listener (if any) that kind's stored state changed.
 // Deliberately after commit, not inside the tx: invalidating inside the tx

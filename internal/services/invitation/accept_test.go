@@ -16,6 +16,7 @@ import (
 	mock_invitation "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/invitation"
 	mock_user "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/user"
 	"github.com/ruko1202/maintmode/internal/services/authmethod"
+	"github.com/ruko1202/maintmode/internal/services/invitation/claimer"
 	"github.com/ruko1202/maintmode/internal/services/license"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
@@ -343,7 +344,8 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 		mock_user.NewMockTokenRevoker(ctrl),
 		licenseSrv, // Accept → AssignRoles runs the real seat guard
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 
 	svc := NewService(
 		cfg,
@@ -354,6 +356,10 @@ func TestAccept_NetZeroAtFullCap(t *testing.T) {
 		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{authMethod}),
 		sender,
 		licenseSrv, // Create runs the real guard too (unused here, invite made below via userSrv-free path)
+		// Built from the same tx manager, store and user service, as
+		// claimer.New requires; this test never reaches the dance, so no handle
+		// store.
+		claimer.New(txManager, invStore, userSrv, nil),
 	)
 
 	// Create the pending seat-invite. Cap is 1 and Create's own guard would count

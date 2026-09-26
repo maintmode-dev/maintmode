@@ -12,11 +12,9 @@ package invitation
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ruko1202/xlog"
 
 	"github.com/ruko1202/maintmode/internal/config"
 
@@ -35,7 +33,6 @@ type Store interface {
 	GetActivePendingByEmail(ctx context.Context, email string) (*entity.Invitation, error)
 	List(ctx context.Context, cmd *entity.ListInvitationsCmd) ([]*entity.InvitationListItem, error)
 	SetRevoked(ctx context.Context, id uuid.UUID, revokedAt time.Time) error
-	MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error)
 	Resend(ctx context.Context, id uuid.UUID, tokenHash string, expiresAt, sentAt time.Time) (*entity.Invitation, error)
 	ExpireOlderThan(ctx context.Context, now time.Time, limit int64) (int64, error)
 	PruneTerminalOlderThan(ctx context.Context, cutoff time.Time, limit int64) (int64, error)
@@ -45,7 +42,6 @@ type Store interface {
 type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
 	GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error)
-	AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (*entity.User, error)
 }
 
 // TokenIssuer mints a backend token pair for an authenticated user. Implemented
@@ -54,15 +50,11 @@ type TokenIssuer interface {
 	IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error)
 }
 
-// DanceHandles redeems the opaque handle an invited OAuth dance carries.
-//
-// Consumer-side and one method wide: this service needs to turn a handle into
-// an invitation id and nothing else about the dance. Implemented by the
-// oauthdance store. Nil on an instance with no dance configured, which is why
-// ResolveForIdentity guards for it rather than assuming it is set.
-type DanceHandles interface {
-	PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error
-	ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error)
+// Claimer spends an invitation and grants its roles in one transaction.
+// Implemented by claimer.Claimer, which the invited dance claims through too,
+// so the transaction and its ordering invariant exist once.
+type Claimer interface {
+	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error)
 }
 
 // SeatGuard is the seats-cap guard Create calls inside its tx before inserting a
@@ -95,18 +87,25 @@ type MessageSender interface {
 const defaultInvitationTTL = 7 * 24 * time.Hour
 
 type Service struct {
-	txManager    *dbtx.TxManager
-	store        Store
-	userSrv      UserService
-	tokenIssuer  TokenIssuer
-	authMethods  *authmethod.Methods
-	sender       MessageSender
-	seatGuard    SeatGuard
-	danceHandles DanceHandles
-	ttl          time.Duration
-	frontendURL  string
+	txManager   *dbtx.TxManager
+	store       Store
+	userSrv     UserService
+	tokenIssuer TokenIssuer
+	authMethods *authmethod.Methods
+	sender      MessageSender
+	seatGuard   SeatGuard
+	claimer     Claimer
+	ttl         time.Duration
+	frontendURL string
 }
 
+// NewService builds the invitation service.
+//
+// claimer must be built from the SAME txManager, store and user service passed
+// here: Accept spends the invitation through the claimer's transaction, and the
+// seat guard that runs inside it has to count against the rows this service
+// reads. Two different instances would leave the claim and the lookup that
+// precedes it looking at different things.
 func NewService(
 	cfg *config.AppConfig,
 	txManager *dbtx.TxManager,
@@ -116,6 +115,7 @@ func NewService(
 	authMethods *authmethod.Methods,
 	sender MessageSender,
 	seatGuard SeatGuard,
+	claimer Claimer,
 ) *Service {
 	invitationTTL := cfg.App.InvitationTTL
 	if invitationTTL <= 0 {
@@ -130,31 +130,8 @@ func NewService(
 		authMethods: authMethods,
 		sender:      sender,
 		seatGuard:   seatGuard,
+		claimer:     claimer,
 		ttl:         invitationTTL,
 		frontendURL: cfg.App.FrontendURL,
 	}
-}
-
-// emailMatchesIgnoreCase is the anti-takeover guard and has no environment-gated
-// variant: a dev-only bypass that returned true unconditionally meant one wrong
-// gate disabled the check entirely. Dev stands keep working because
-// the stub provider echoes an email-shaped id_token back as the identity.
-func emailMatchesIgnoreCase(ctx context.Context, email, invited string) bool {
-	_, span := xlog.WithOperationSpan(ctx, "service.Invitation.emailMatchesIgnoreCase")
-	defer span.End()
-
-	return strings.EqualFold(strings.ToLower(email), strings.ToLower(invited))
-}
-
-// WithDanceHandles arms the invited-dance path with the store that redeems
-// handles.
-//
-// A setter, like auth.Service.WithDance, and for the same reason: the store is
-// built only where Valkey is available and only when the dance is configured at
-// all. An instance without it keeps every other invitation path working and
-// refuses invited dances, which is the fail-closed direction.
-func (s *Service) WithDanceHandles(handles DanceHandles) *Service {
-	s.danceHandles = handles
-
-	return s
 }

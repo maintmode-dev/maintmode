@@ -316,45 +316,6 @@ func (c *MockStoreListCall) DoAndReturn(f func(context.Context, *entity.ListInvi
 	return c
 }
 
-// MarkAccepted mocks base method.
-func (m *MockStore) MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkAccepted", ctx, id)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MarkAccepted indicates an expected call of MarkAccepted.
-func (mr *MockStoreMockRecorder) MarkAccepted(ctx, id any) *MockStoreMarkAcceptedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAccepted", reflect.TypeOf((*MockStore)(nil).MarkAccepted), ctx, id)
-	return &MockStoreMarkAcceptedCall{Call: call}
-}
-
-// MockStoreMarkAcceptedCall wrap *gomock.Call
-type MockStoreMarkAcceptedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStoreMarkAcceptedCall) Return(arg0 bool, arg1 error) *MockStoreMarkAcceptedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStoreMarkAcceptedCall) Do(f func(context.Context, uuid.UUID) (bool, error)) *MockStoreMarkAcceptedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStoreMarkAcceptedCall) DoAndReturn(f func(context.Context, uuid.UUID) (bool, error)) *MockStoreMarkAcceptedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // PruneTerminalOlderThan mocks base method.
 func (m *MockStore) PruneTerminalOlderThan(ctx context.Context, cutoff time.Time, limit int64) (int64, error) {
 	m.ctrl.T.Helper()
@@ -493,45 +454,6 @@ func NewMockUserService(ctrl *gomock.Controller) *MockUserService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
-}
-
-// AssignRoles mocks base method.
-func (m *MockUserService) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (*entity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignRoles", ctx, cmd)
-	ret0, _ := ret[0].(*entity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AssignRoles indicates an expected call of AssignRoles.
-func (mr *MockUserServiceMockRecorder) AssignRoles(ctx, cmd any) *MockUserServiceAssignRolesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignRoles", reflect.TypeOf((*MockUserService)(nil).AssignRoles), ctx, cmd)
-	return &MockUserServiceAssignRolesCall{Call: call}
-}
-
-// MockUserServiceAssignRolesCall wrap *gomock.Call
-type MockUserServiceAssignRolesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUserServiceAssignRolesCall) Return(arg0 *entity.User, arg1 error) *MockUserServiceAssignRolesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUserServiceAssignRolesCall) Do(f func(context.Context, *entity.AssignRolesCmd) (*entity.User, error)) *MockUserServiceAssignRolesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceAssignRolesCall) DoAndReturn(f func(context.Context, *entity.AssignRolesCmd) (*entity.User, error)) *MockUserServiceAssignRolesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // GetByEmail mocks base method.
@@ -675,103 +597,65 @@ func (c *MockTokenIssuerIssueTokenPairCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// MockDanceHandles is a mock of DanceHandles interface.
-type MockDanceHandles struct {
+// MockClaimer is a mock of Claimer interface.
+type MockClaimer struct {
 	ctrl     *gomock.Controller
-	recorder *MockDanceHandlesMockRecorder
+	recorder *MockClaimerMockRecorder
 	isgomock struct{}
 }
 
-// MockDanceHandlesMockRecorder is the mock recorder for MockDanceHandles.
-type MockDanceHandlesMockRecorder struct {
-	mock *MockDanceHandles
+// MockClaimerMockRecorder is the mock recorder for MockClaimer.
+type MockClaimerMockRecorder struct {
+	mock *MockClaimer
 }
 
-// NewMockDanceHandles creates a new mock instance.
-func NewMockDanceHandles(ctrl *gomock.Controller) *MockDanceHandles {
-	mock := &MockDanceHandles{ctrl: ctrl}
-	mock.recorder = &MockDanceHandlesMockRecorder{mock}
+// NewMockClaimer creates a new mock instance.
+func NewMockClaimer(ctrl *gomock.Controller) *MockClaimer {
+	mock := &MockClaimer{ctrl: ctrl}
+	mock.recorder = &MockClaimerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockDanceHandles) EXPECT() *MockDanceHandlesMockRecorder {
+func (m *MockClaimer) EXPECT() *MockClaimerMockRecorder {
 	return m.recorder
 }
 
-// ConsumeInvitationHandle mocks base method.
-func (m *MockDanceHandles) ConsumeInvitationHandle(ctx context.Context, handle string) (*uuid.UUID, error) {
+// ClaimForUser mocks base method.
+func (m *MockClaimer) ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConsumeInvitationHandle", ctx, handle)
-	ret0, _ := ret[0].(*uuid.UUID)
+	ret := m.ctrl.Call(m, "ClaimForUser", ctx, inv, userID)
+	ret0, _ := ret[0].(*entity.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ConsumeInvitationHandle indicates an expected call of ConsumeInvitationHandle.
-func (mr *MockDanceHandlesMockRecorder) ConsumeInvitationHandle(ctx, handle any) *MockDanceHandlesConsumeInvitationHandleCall {
+// ClaimForUser indicates an expected call of ClaimForUser.
+func (mr *MockClaimerMockRecorder) ClaimForUser(ctx, inv, userID any) *MockClaimerClaimForUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeInvitationHandle", reflect.TypeOf((*MockDanceHandles)(nil).ConsumeInvitationHandle), ctx, handle)
-	return &MockDanceHandlesConsumeInvitationHandleCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimForUser", reflect.TypeOf((*MockClaimer)(nil).ClaimForUser), ctx, inv, userID)
+	return &MockClaimerClaimForUserCall{Call: call}
 }
 
-// MockDanceHandlesConsumeInvitationHandleCall wrap *gomock.Call
-type MockDanceHandlesConsumeInvitationHandleCall struct {
+// MockClaimerClaimForUserCall wrap *gomock.Call
+type MockClaimerClaimForUserCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDanceHandlesConsumeInvitationHandleCall) Return(arg0 *uuid.UUID, arg1 error) *MockDanceHandlesConsumeInvitationHandleCall {
+func (c *MockClaimerClaimForUserCall) Return(arg0 *entity.User, arg1 error) *MockClaimerClaimForUserCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDanceHandlesConsumeInvitationHandleCall) Do(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceHandlesConsumeInvitationHandleCall {
+func (c *MockClaimerClaimForUserCall) Do(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) (*entity.User, error)) *MockClaimerClaimForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDanceHandlesConsumeInvitationHandleCall) DoAndReturn(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceHandlesConsumeInvitationHandleCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// PutInvitationHandle mocks base method.
-func (m *MockDanceHandles) PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutInvitationHandle", ctx, handle, invitationID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// PutInvitationHandle indicates an expected call of PutInvitationHandle.
-func (mr *MockDanceHandlesMockRecorder) PutInvitationHandle(ctx, handle, invitationID any) *MockDanceHandlesPutInvitationHandleCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutInvitationHandle", reflect.TypeOf((*MockDanceHandles)(nil).PutInvitationHandle), ctx, handle, invitationID)
-	return &MockDanceHandlesPutInvitationHandleCall{Call: call}
-}
-
-// MockDanceHandlesPutInvitationHandleCall wrap *gomock.Call
-type MockDanceHandlesPutInvitationHandleCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDanceHandlesPutInvitationHandleCall) Return(arg0 error) *MockDanceHandlesPutInvitationHandleCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDanceHandlesPutInvitationHandleCall) Do(f func(context.Context, string, uuid.UUID) error) *MockDanceHandlesPutInvitationHandleCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDanceHandlesPutInvitationHandleCall) DoAndReturn(f func(context.Context, string, uuid.UUID) error) *MockDanceHandlesPutInvitationHandleCall {
+func (c *MockClaimerClaimForUserCall) DoAndReturn(f func(context.Context, *entity.ResolvedInvitation, uuid.UUID) (*entity.User, error)) *MockClaimerClaimForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

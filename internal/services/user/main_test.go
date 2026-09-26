@@ -90,6 +90,15 @@ func initService(t *testing.T) *Service {
 func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 	t.Helper()
 
+	return initServiceWithResolver(t, loginProviders)
+}
+
+// initServiceWithResolver builds the default service over a caller-supplied
+// login provider resolver, for tests that sign in through a provider the
+// shared seed does not carry.
+func initServiceWithResolver(t *testing.T, providers LoginProviderResolver) (*Service, *fakeTokenRevoker) {
+	t.Helper()
+
 	revoker := &fakeTokenRevoker{}
 	srv := NewService(
 		dbtx.NewTxManager(db),
@@ -99,7 +108,8 @@ func initServiceWithRevoker(t *testing.T) (*Service, *fakeTokenRevoker) {
 		revoker,
 		license.NewNoop(), // default: seat cap disabled (self-hosted-like)
 		false,             // allowOpenSignup: tests authorize creation per call via the policy
-	).WithLoginProviderResolver(loginProviders)
+		providers,
+	)
 	return srv, revoker
 }
 
@@ -131,7 +141,8 @@ func initServiceWithAdminCount(t *testing.T, activeAdmins int64) *Service {
 		&fakeTokenRevoker{},
 		license.NewNoop(),
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 }
 
 // fakeSeatGuard is a controllable SeatGuard: it returns err from
@@ -176,7 +187,8 @@ func initServiceWithSeatGuard(t *testing.T, guard SeatGuard) *Service {
 		&fakeTokenRevoker{},
 		guard,
 		false,
-	).WithLoginProviderResolver(loginProviders)
+		loginProviders,
+	)
 }
 
 func makeUser(ctx context.Context, t *testing.T, srv *Service, roles ...entity.Role) *entity.User {
