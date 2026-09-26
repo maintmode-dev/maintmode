@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -74,6 +76,12 @@ func TestMain(m *testing.M) {
 		xlog.Panic(ctx, "Failed to wait for API health check", xfield.Error(err))
 	}
 
+	// The approver seed below signs in through `google`, and an identity now
+	// references its provider's registry row. See seedLoginProvider.
+	if err := seedLoginProvider(ctx); err != nil {
+		xlog.Panic(ctx, "Failed to seed the google login provider", xfield.Error(err))
+	}
+
 	// Seed at least one eligible (admin) approver in the auth users table.
 	// The suite mints synthetic JWTs locally and never completes a real login,
 	// so without this the users table is empty and every maintenance-create
@@ -86,6 +94,78 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 	os.Exit(code)
+}
+
+// seedLoginProvider makes sure the stack's registry holds a `google` login
+// provider, creating it through the admin API when it is missing.
+//
+// Every sign-in the suite drives goes through `google`, and the identity it
+// writes references that provider's registry row by id. A fresh stack has no
+// such row, so without this every exchange fails with "unsupported provider"
+// -- which is the product behaving correctly: a stand where nobody configured
+// the provider cannot sign anyone in through it.
+//
+// Created through the API rather than written into the database so the row is
+// sealed with the stack's real keyring, exactly like one an operator adds.
+// Disabled on purpose: the stack runs the stub verifier (use_stub), so sign-ins
+// never reach the provider, and a disabled row keeps the login reloader from
+// trying to discover a real issuer. Resolving an identity's provider reads the
+// row whether or not it is enabled.
+//
+// Idempotent across runs: an existing row is reused, and a concurrent creator
+// winning the race (409) is as good as creating it here.
+func seedLoginProvider(ctx context.Context) error {
+	const (
+		providerPath = "/api/v1/integrations/login/google"
+		createBody   = `{"kind":"login","name":"google","enabled":false,` +
+			`"config":{"client_id":"api-test-client","redirect_uri":"https://localhost/auth/oauth/callback"},` +
+			`"secrets":{"client_secret":"api-test-secret"}}`
+	)
+
+	status, body, err := seedIntegrationRequest(ctx, http.MethodGet, providerPath, "")
+	if err != nil {
+		return fmt.Errorf("look up google provider: %w", err)
+	}
+	if status == http.StatusOK {
+		return nil
+	}
+	if status != http.StatusNotFound {
+		return fmt.Errorf("look up google provider returned %d: %s", status, body)
+	}
+
+	status, body, err = seedIntegrationRequest(ctx, http.MethodPost, "/api/v1/integrations", createBody)
+	if err != nil {
+		return fmt.Errorf("create google provider: %w", err)
+	}
+	if status != http.StatusCreated && status != http.StatusOK && status != http.StatusConflict {
+		return fmt.Errorf("create google provider returned %d: %s", status, body)
+	}
+
+	return nil
+}
+
+// seedIntegrationRequest calls the maintmode integrations API as an admin. The
+// TestMain counterpart of adminIntegrationRequest, which needs a *testing.T.
+func seedIntegrationRequest(ctx context.Context, method, path, body string) (status int, respBody string, err error) {
+	req, err := http.NewRequestWithContext(ctx, method, baseURL("maintmode")+path, bytes.NewBufferString(body))
+	if err != nil {
+		return 0, "", err
+	}
+	xecho.SetBearerToken(req, mustTestAccessToken(entity.RoleAdmin))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.NewClient(client.WithTimeout(5 * time.Second)).Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return resp.StatusCode, string(raw), nil
 }
 
 // seededUserID is the id of the persisted admin user provisioned in TestMain.

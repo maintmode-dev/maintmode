@@ -53,15 +53,16 @@ func adminIntegrationRequest(ctx context.Context, t *testing.T, method, path, bo
 
 // ensureDisabledSlackIntegration drives the slack integration to a known state
 // (disabled, with the given bot token) through the public API only. The row may
-// already exist — the suite runs with -count=2 on a shared DB and UNIQUE(kind)
-// forbids a per-run kind — so create falls back to update on conflict.
+// already exist — the suite runs with -count=2 on a shared DB and
+// UNIQUE(kind, name) forbids a per-run name — so create falls back to update on
+// conflict.
 func ensureDisabledSlackIntegration(ctx context.Context, t *testing.T, botToken string) {
 	t.Helper()
 
-	body := `{"kind":"slack","enabled":false,"config":{},"secrets":{"bot_token":"` + botToken + `"}}`
+	body := `{"kind":"notify","name":"slack","enabled":false,"config":{},"secrets":{"bot_token":"` + botToken + `"}}`
 	status, respBody := adminIntegrationRequest(ctx, t, http.MethodPost, "", body)
 	if status == http.StatusConflict {
-		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPatch, "/slack/default",
+		status, respBody = adminIntegrationRequest(ctx, t, http.MethodPatch, "/notify/slack",
 			`{"enabled":false,"secrets":{"bot_token":"`+botToken+`"}}`)
 	}
 	require.Equal(t, http.StatusOK, status, "ensure disabled slack integration: %s", respBody)
@@ -84,7 +85,7 @@ func TestIntegrationDispatch_DisabledSlackDropsDelivery(t *testing.T) {
 	ensureDisabledSlackIntegration(ctx, t, botToken)
 
 	// Read side never surfaces the secret: only the is-set flag comes back.
-	status, body := adminIntegrationRequest(ctx, t, http.MethodGet, "/slack/default", "")
+	status, body := adminIntegrationRequest(ctx, t, http.MethodGet, "/notify/slack", "")
 	require.Equal(t, http.StatusOK, status, "get slack integration: %s", body)
 	require.Contains(t, body, `"secrets_set"`, "read must expose the is-set view")
 	require.NotContains(t, body, botToken, "read must never surface the plaintext secret")
