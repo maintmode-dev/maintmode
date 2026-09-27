@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/labstack/echo/v5"
 
@@ -37,6 +36,15 @@ const (
 // to present a state this backend signed.
 const (
 	errCodeAccessDenied = "access_denied"
+	// errCodeConsentCancelled says the person canceled the provider's consent
+	// screen. It is kept apart from access_denied because the two ask for
+	// different things -- "try again if you meant to" versus "you need an
+	// invitation" -- and it is safe to tell apart because the cancel happens at
+	// the provider, before this backend learns who the person is: it says
+	// nothing about any account. The British spelling is the wire value the
+	// frontend matches on, so it stays as agreed rather than as misspell would
+	// have it.
+	errCodeConsentCancelled = "consent_cancelled" //nolint:misspell // wire value, see above
 	// errCodeEmailMismatch says the person signed in with an account that is not
 	// the invited address. It is the ONE dance failure a legitimate person can
 	// fix themselves, which is why it is distinguishable at all: collapsing it
@@ -73,8 +81,10 @@ const (
 // collapsing this to internal_error otherwise passes every handler test.
 func danceFailureCode(err error) string {
 	switch {
+	case errors.Is(err, apperr.ErrOAuthConsentDeclined):
+		return errCodeConsentCancelled
 	case errors.Is(err, apperr.ErrOAuthProviderDenied):
-		return providerErrorCode(err)
+		return errCodeProvider
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
 		// ABOVE the ErrUserBlocked arm below, and that ordering is the
@@ -108,17 +118,6 @@ func danceFailureCode(err error) string {
 	default:
 		return errCodeInternal
 	}
-}
-
-// providerErrorCode separates a user declining consent from a provider
-// misbehaving: "I changed my mind" and "the provider is broken" are different
-// things to whoever reads the trail, and only the first is a denial.
-func providerErrorCode(err error) string {
-	if strings.Contains(err.Error(), errCodeAccessDenied) {
-		return errCodeAccessDenied
-	}
-
-	return errCodeProvider
 }
 
 // redirectFailure sends the browser home with a readable code. Never JSON: the
