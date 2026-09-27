@@ -29,7 +29,7 @@ const (
 
 // RequestOTP godoc
 // @Summary Request a one-time sign-in code
-// @Description Emails a one-time code to the address, if it belongs to an account. Answers 202 in every case — unknown address, blocked account, malformed body — so the response never reveals whether an account exists. The returned session_nonce binds the code to the client that asked for it and must be presented when the code is verified; it is never emailed.
+// @Description Emails a one-time code to the address, if it belongs to an account. Answers 202 in every case — unknown address, blocked account, malformed body — so the response never reveals whether an account exists. The returned session_nonce binds the code to the client that asked for it and must be presented when the code is verified; it is never emailed. A request can also send nothing for an existing account -- while the previous code is younger than the reissue cooldown, or has spent its attempts and not yet expired -- and still answers 202 with a fresh nonce that matches no code. A client should therefore not replace the nonce it holds for an address when it asks again within the reissue cooldown (auth.otp_reissue_cooldown, 1 minute by default) of the request that returned it -- simplest is not to ask at all -- and more generally keep every nonce it received for the address within the code lifetime (auth.otp_ttl), verifying with the newest first. A nonce that does not match spends no attempt, but each try is a verify call: it counts against the rate limits and is audited as a session mismatch.
 // @Tags Auth
 // @Accept json
 // @Produce json

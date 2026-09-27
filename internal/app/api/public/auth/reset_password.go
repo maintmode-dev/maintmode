@@ -17,7 +17,7 @@ import (
 
 // RequestPasswordReset godoc
 // @Summary Request a password reset code
-// @Description Emails a one-time code, reusing the sign-in code mechanism. Always answers 202 with a session nonce -- for a known address, an unknown one, or a blocked user alike -- so the response cannot be used to discover which accounts exist.
+// @Description Emails a one-time code, reusing the sign-in code mechanism. Always answers 202 with a session nonce -- for a known address, an unknown one, or a blocked user alike -- so the response cannot be used to discover which accounts exist. A request can also send nothing for an existing account -- while the previous code is younger than the reissue cooldown, or has spent its attempts and not yet expired -- and still answers 202 with a fresh nonce that matches no code. A client should therefore not replace the nonce it holds for an address when it asks again within the reissue cooldown (auth.otp_reissue_cooldown, 1 minute by default) of the request that returned it -- simplest is not to ask at all -- and more generally keep every nonce it received for the address within the code lifetime (auth.otp_ttl), verifying with the newest first. A nonce that does not match spends no attempt, but each try is a verify call: it counts against the rate limits and is audited as a session mismatch.
 // @Tags Auth
 // @Accept json
 // @Produce json
