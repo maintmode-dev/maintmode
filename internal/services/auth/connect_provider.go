@@ -45,8 +45,9 @@ func (s *Service) ConnectProvider(ctx context.Context, cmd *entity.ConnectProvid
 }
 
 // DisconnectProvider unlinks a provider identity from the authenticated user.
-// It refuses to remove the user's only sign-in method, and refuses built-in
-// methods outright.
+// It refuses to remove the user's last provider unless a built-in method would
+// still let them in (see hasBuiltinSignIn), and refuses built-in methods
+// outright.
 //
 // Break-glass is not the account's to detach. It is configured on the
 // deployment, revoked by emptying the instance secret, and re-created by the
@@ -87,7 +88,18 @@ func (s *Service) DisconnectProvider(ctx context.Context, cmd *entity.Disconnect
 		return nil
 	}
 
-	if err := s.usersSrv.UnlinkIdentity(ctx, cmd.UserID, entity.AuthMethod(cmd.Provider)); err != nil {
+	// Asked only for the last provider, the one case it decides: with another
+	// provider linked the user keeps a way in regardless, and a flag that
+	// cannot be read must not fail a disconnect that never needed it.
+	keepsSignIn := false
+	if len(linked) <= 1 {
+		keepsSignIn, err = s.hasBuiltinSignIn(ctx, cmd.UserID)
+		if err != nil {
+			return fmt.Errorf("check built-in sign-in: %w", err)
+		}
+	}
+
+	if err := s.usersSrv.UnlinkIdentity(ctx, cmd.UserID, entity.AuthMethod(cmd.Provider), keepsSignIn); err != nil {
 		return fmt.Errorf("unlink identity: %w", err)
 	}
 
