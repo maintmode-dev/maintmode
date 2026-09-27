@@ -179,12 +179,11 @@ var (
 	// lookup: the user has no password, or no unconsumed one-time code.
 	ErrAuthCredentialNotFound = errors.New("auth credential not found")
 	// ErrOTPSessionMismatch marks a one-time code presented with the wrong
-	// session nonce, or none. It is the ONE failure of the verify endpoint that
-	// does not collapse into the generic answer, and the exception is deliberate:
-	// provoking it requires already holding a live code, so it discloses nothing
-	// about whether an account exists. What it buys is a user who closed the tab
-	// while the mail was in flight being told to ask for a new code, instead of
-	// retyping a correct code against a nonce that no longer exists forever.
+	// session nonce, or none. It exists so the audit trail can record that
+	// reason; the endpoints answer it exactly like every other failure. A
+	// distinct answer would say "this address has a live code", and anyone can
+	// give any address one by requesting a code for it -- which makes the
+	// answer an account-existence oracle.
 	ErrOTPSessionMismatch = errors.New("otp session nonce mismatch")
 	// ErrAuthCredentialConflict is a unique violation on one of the partial
 	// indexes: the user already has a password, or already has a live one-time

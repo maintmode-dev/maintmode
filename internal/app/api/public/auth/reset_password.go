@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/ruko1202/xlog"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
-	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xemail"
 )
@@ -62,7 +60,7 @@ func (i *Implementation) RequestPasswordReset(c *echo.Context) error {
 // @Produce json
 // @Param request body apiauthmodels.ResetPasswordRequest true "Code, session nonce and new password"
 // @Success 204 "Password reset"
-// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed, or otp_session_mismatch"
+// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
 // @Router /api/v1/password/reset/confirm [post]
 //
@@ -95,10 +93,6 @@ func (i *Implementation) ResetPassword(c *echo.Context) error {
 	}
 
 	if err := i.authSrv.ResetPassword(ctx, cmd); err != nil {
-		if errors.Is(err, apperr.ErrOTPSessionMismatch) {
-			return i.otpSessionMismatch(ctx, c, start, err)
-		}
-
 		return i.otpRejected(ctx, c, start, "reset rejected", err)
 	}
 
