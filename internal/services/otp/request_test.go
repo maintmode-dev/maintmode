@@ -16,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
 	"github.com/ruko1202/maintmode/internal/services/messaging/scheduler"
+	"github.com/ruko1202/maintmode/internal/services/otp"
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
@@ -139,6 +140,89 @@ func TestRequest_BlockedUserGetsNoCode(t *testing.T) {
 	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
 }
 
+// TestRequest_CooldownKeepsAYoungCode pins the reissue cooldown: a request
+// while the live code is younger than it sends nothing and leaves that code in
+// place. Without it every request for an address retires the live code, so
+// anyone who knows the address could keep its owner's code from surviving long
+// enough to be typed in. The response cannot show the difference, so the
+// assertions are about the absence of work.
+func TestRequest_CooldownKeepsAYoungCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, sched := newService(t)
+	user := makeUser(ctx, t)
+
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
+	require.NoError(t, err)
+	young, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	// Just short of the configured cooldown, not freshly issued: a cooldown
+	// that shrank to a second -- a wrong unit, a hardcoded value -- must fail
+	// here rather than pass on a code a few milliseconds old.
+	cooldown := otp.ReissueCooldown(cfg.Auth)
+	ageLiveCodeBy(ctx, t, user.ID, cooldown-min(10*time.Second, cooldown/2))
+
+	nonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
+	require.NoError(t, err)
+	require.NotEmpty(t, nonce, "a refused request must look like any other")
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, young.ID, live.ID, "a young code must not be retired")
+	require.NotEqual(t, *live.SessionNonce, nonce,
+		"a held request must never hand out the live code's nonce: anyone who knows the address would get the owner's")
+	require.Len(t, sched.recorded(), 1, "a refused request must queue no email")
+}
+
+// TestRequest_RedeemedCodeStartsNoCooldown: the cooldown protects a code that
+// can still be typed in. Once the user has redeemed it there is nothing to
+// protect, and a user who signs in and then needs another code -- a reset, a
+// second device -- must get one at once.
+func TestRequest_RedeemedCodeStartsNoCooldown(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := newVerifyService(t)
+	user, code, nonce := issueCode(ctx, t, svc)
+
+	_, _, err := svc.svc.Verify(ctx, &entity.VerifyOTPCmd{Email: user.Email, Code: code, SessionNonce: nonce})
+	require.NoError(t, err)
+
+	_, err = svc.svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
+	require.NoError(t, err)
+
+	_, err = credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err, "a new code must be issued right after the last one was redeemed")
+	require.Len(t, svc.sched.recorded(), 2)
+}
+
+// TestRequest_SignInAndResetShareTheSlot: one live code per user, whatever it
+// was requested for. A slot per purpose would give every user two codes to
+// guess at, and the README's promise that a reset inside the cooldown sends
+// nothing would be false.
+func TestRequest_SignInAndResetShareTheSlot(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, sched := newService(t)
+	user := makeUser(ctx, t)
+
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
+	require.NoError(t, err)
+	signIn, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+
+	_, err = svc.Request(ctx, user.Email, entity.OTPPurposePasswordReset)
+	require.NoError(t, err)
+
+	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, signIn.ID, live.ID, "a reset inside the cooldown must be held by the sign-in code")
+	require.Equal(t, entity.OTPPurposeSignIn, sched.only(t).Purpose, "only the sign-in email goes out")
+}
+
 // The purpose rides on the delivery task, which is the only place the
 // processor can learn which email to send.
 func TestRequest_CarriesThePurposeToTheTask(t *testing.T) {
@@ -167,6 +251,8 @@ func TestRequest_ReissueConsumesThePreviousCode(t *testing.T) {
 	require.NoError(t, err)
 	first, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
+
+	ageLiveCode(ctx, t, user.ID)
 
 	_, err = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
@@ -301,6 +387,8 @@ func TestRequest_RollbackRestoresThePreviousCode(t *testing.T) {
 		failingKeyring{err: errors.New("kms unreachable")},
 		secrets.NewAESCipher(),
 	)
+	ageLiveCode(ctx, t, user.ID)
+
 	_, err = failing.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.Error(t, err)
 
@@ -339,6 +427,11 @@ func TestRequest_BurntCodeKeepsTheSlot(t *testing.T) {
 		require.True(t, claimed)
 	}
 
+	// Past the reissue cooldown, so the spent ceiling is the only thing left
+	// that can hold the slot. A code this young would be held by the cooldown
+	// anyway, and the test would pass with the ceiling bar deleted.
+	ageLiveCode(ctx, t, user.ID)
+
 	before := len(sched.recorded())
 
 	// Indistinguishable from the outside: same shape, same absence of an error.
@@ -349,6 +442,7 @@ func TestRequest_BurntCodeKeepsTheSlot(t *testing.T) {
 	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
 	require.Equal(t, burnt.ID, live.ID, "the burnt code must still hold the slot")
+	require.NotEqual(t, *live.SessionNonce, secondNonce, "a held request must never hand out the live code's nonce")
 	require.Nil(t, live.ConsumedAt, "the burnt code must not have been retired")
 	require.Equal(t, svc.MaxAttempts(), live.Attempts)
 
@@ -404,6 +498,8 @@ func TestRequest_PartiallyBurntCodeIsReplaced(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, claimed)
 
+	ageLiveCode(ctx, t, user.ID)
+
 	_, err = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
@@ -441,6 +537,10 @@ func TestRequest_BlocksOnAConcurrentlyLockedCode(t *testing.T) {
 
 	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
+
+	// Past the cooldown, so only the ceiling -- read under the lock -- can
+	// hold the slot; a young code would be held regardless of the lock.
+	ageLiveCode(ctx, t, user.ID)
 
 	cred, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
