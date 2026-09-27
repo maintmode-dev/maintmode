@@ -176,13 +176,26 @@ type ProcessorTaskPayloadEventNotify struct {
 // dead. Retries would otherwise outlive the code: nothing overrides goque's
 // 10-minute retry period, which is longer than the code's own lifetime.
 type ProcessorTaskPayloadOTPEmail struct {
-	CredentialID uuid.UUID `json:"credential_id"`
-	Target       string    `json:"target"`
-	Code         []byte    `json:"code"`
-	DEK          []byte    `json:"dek"`
-	KEKURI       string    `json:"kek_uri"`
-	ExpiresAt    time.Time `json:"expires_at"`
+	// Purpose picks the email's copy. Empty on tasks queued before it existed,
+	// which were all sign-in codes, so the processor reads empty as sign-in.
+	Purpose      OTPPurpose `json:"purpose,omitempty"`
+	CredentialID uuid.UUID  `json:"credential_id"`
+	Target       string     `json:"target"`
+	Code         []byte     `json:"code"`
+	DEK          []byte     `json:"dek"`
+	KEKURI       string     `json:"kek_uri"`
+	ExpiresAt    time.Time  `json:"expires_at"`
 }
+
+// OTPPurpose is what a one-time code was requested for. The code and its checks
+// are the same either way; the email is not, because someone who never asked
+// to reset a password must be told that is what somebody is trying to do.
+type OTPPurpose string
+
+const (
+	OTPPurposeSignIn        OTPPurpose = "sign_in"
+	OTPPurposePasswordReset OTPPurpose = "password_reset"
+)
 
 // ProcessorTaskPayloadMaintReminder is the payload of a deferred-reminder task.
 // It carries only the maintenance id; the processor resolves the maintenance's

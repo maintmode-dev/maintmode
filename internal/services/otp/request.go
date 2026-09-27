@@ -34,7 +34,10 @@ const sessionNonceBytes = 32
 // stored beside the code's hash, and Verify compares it. It is never emailed --
 // that separation is the control: someone who talks a victim into reading out
 // the code still does not have it.
-func (s *Service) Request(ctx context.Context, email string) (nonce string, err error) {
+//
+// The purpose changes only the email's copy; the code, its limits and its
+// checks are the same whatever it was requested for.
+func (s *Service) Request(ctx context.Context, email string, purpose entity.OTPPurpose) (nonce string, err error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.OTP.Request")
 	defer span.End()
 
@@ -70,7 +73,7 @@ func (s *Service) Request(ctx context.Context, email string) (nonce string, err 
 		return nonce, nil
 	}
 
-	issued, err := s.issue(ctx, user, nonce)
+	issued, err := s.issue(ctx, user, nonce, purpose)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +115,7 @@ func (s *Service) Request(ctx context.Context, email string) (nonce string, err 
 // sentinel error instead would reach the handler's rejected() path, which logs
 // at WARN on every call; this branch is replayable by anyone who knows an
 // address, so that would bury real failures under routine traffic.
-func (s *Service) issue(ctx context.Context, user *entity.User, nonce string) (bool, error) {
+func (s *Service) issue(ctx context.Context, user *entity.User, nonce string, purpose entity.OTPPurpose) (bool, error) {
 	code, codeHash, err := xcripto.GenerateOTPCode()
 	if err != nil {
 		return false, fmt.Errorf("generate otp code: %w", err)
@@ -158,6 +161,7 @@ func (s *Service) issue(ctx context.Context, user *entity.User, nonce string) (b
 		if err != nil {
 			return err
 		}
+		task.Purpose = purpose
 
 		// Joins this transaction, so the code row and its delivery task commit
 		// together. A failed enqueue -- or a failed wrap above, which calls the

@@ -79,7 +79,7 @@ func (i *Implementation) RequestOTP(c *echo.Context) error {
 		return i.rejected(ctx, c, start, "method disabled", nil)
 	}
 
-	nonce, err := i.otpSrv.Request(ctx, body.Email)
+	nonce, err := i.otpSrv.Request(ctx, body.Email, entity.OTPPurposeSignIn)
 	if err != nil {
 		return i.rejected(ctx, c, start, "issue failed", err)
 	}
