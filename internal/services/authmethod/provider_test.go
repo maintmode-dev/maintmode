@@ -413,6 +413,51 @@ func TestMethodsDanceProvider(t *testing.T) {
 	})
 }
 
+// TestMethods_ListedExactlyWhenDanceable pins the contract the login page
+// builds on: every provider /auth/providers lists is a button that navigates to
+// /login/oauth/{id}/start, so a provider is listed if and only if DanceProvider
+// resolves it. Each input is a shape the reloader produces; the unreadable one
+// is what a lost KEK or an unknown kind leaves behind.
+func TestMethods_ListedExactlyWhenDanceable(t *testing.T) {
+	t.Parallel()
+
+	methods := NewAuthMethods(newConfig(config.ProdEnvironment, false), nil)
+	methods.installProviders([]providerInput{
+		{
+			ID:      "ok",
+			Method:  &fakeProvider{id: "ok"},
+			Gateway: noopGateway{},
+			Health:  entity.LoginProviderHealthOK,
+		},
+		{
+			ID:      "unresolved",
+			Method:  &fakeProvider{id: "unresolved"},
+			Gateway: noopGateway{},
+			Health:  entity.LoginProviderHealthUnresolved,
+		},
+		{
+			ID:     "no-gateway",
+			Method: &fakeProvider{id: "no-gateway"},
+			Health: entity.LoginProviderHealthOK,
+		},
+		{ID: "disabled", Health: entity.LoginProviderHealthDisabled},
+		{ID: "unreadable", Health: entity.LoginProviderHealthUnreadable},
+	})
+
+	listed := make(map[entity.AuthMethod]bool)
+	for _, view := range methods.Listing() {
+		listed[view.ID] = true
+	}
+
+	for _, id := range []entity.AuthMethod{"ok", "unresolved", "no-gateway", "disabled", "unreadable"} {
+		_, danceable := methods.DanceProvider(string(id))
+		require.Equal(t, danceable, listed[id],
+			"%s: listed=%v but danceable=%v", id, listed[id], danceable)
+	}
+
+	require.Equal(t, map[entity.AuthMethod]bool{"ok": true, "unresolved": true}, listed)
+}
+
 // TestStubSubstitutionYieldsVerifiedClaims covers the regression the
 // email_verified guard would otherwise cause on every use_stub stand.
 //

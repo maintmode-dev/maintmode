@@ -67,22 +67,6 @@ func TestSnapshot_InstallProviders(t *testing.T) {
 		require.Equal(t, entity.LoginProviderHealthOK, m.snapshot().healthOf("keycloak"))
 	})
 
-	// The failure this design exists to prevent: a button whose gateway is
-	// missing. An unresolved provider must be visible and refuse, not vanish
-	// (a brief IdP outage is not a deleted provider) and not half-work.
-	t.Run("an unresolved provider is listed but not danceable", func(t *testing.T) {
-		t.Parallel()
-
-		m := newMethods(t, nil)
-		m.installProviders([]providerInput{provider("keycloak", nil, entity.LoginProviderHealthUnresolved)})
-
-		require.Len(t, m.snapshot().listing, 1, "a provider whose IdP is down must still be listed")
-
-		_, danceable := m.DanceProvider("keycloak")
-		require.False(t, danceable, "without a gateway it must refuse rather than mint state it cannot redeem")
-		require.Equal(t, entity.LoginProviderHealthUnresolved, m.snapshot().healthOf("keycloak"))
-	})
-
 	t.Run("a disabled provider is not listed", func(t *testing.T) {
 		t.Parallel()
 
