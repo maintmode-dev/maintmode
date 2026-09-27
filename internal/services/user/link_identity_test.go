@@ -95,7 +95,7 @@ func TestUnlinkIdentity(t *testing.T) {
 		user := makeUser(ctx, t, srv)
 		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
 
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGithub)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGithub, false)
 		require.NoError(t, err)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
@@ -121,7 +121,7 @@ func TestUnlinkIdentity(t *testing.T) {
 		_, err := useridentities.NewStore(db).Create(ctx, breakGlass)
 		require.NoError(t, err)
 
-		err = srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle)
+		err = srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle, false)
 		require.ErrorIs(t, err, apperr.ErrCannotDisconnectLastProvider)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
@@ -134,12 +134,24 @@ func TestUnlinkIdentity(t *testing.T) {
 
 		user := makeUser(ctx, t, srv)
 
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle, false)
 		require.ErrorIs(t, err, apperr.ErrCannotDisconnectLastProvider)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, providers)
+	})
+
+	t.Run("ok - the last provider goes when a built-in method keeps the user in", func(t *testing.T) {
+		t.Parallel()
+
+		user := makeUser(ctx, t, srv)
+
+		require.NoError(t, srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle, true))
+
+		providers, err := srv.ListConnectedProviders(ctx, user.ID)
+		require.NoError(t, err)
+		require.Empty(t, providers)
 	})
 
 	t.Run("a built-in method cannot be disconnected", func(t *testing.T) {
@@ -153,7 +165,7 @@ func TestUnlinkIdentity(t *testing.T) {
 		// Break-glass belongs to the deployment: it is revoked by emptying the
 		// instance secret, and the next break-glass sign-in writes the row
 		// again. Detaching it would revoke nothing.
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodBootstrap)
+		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodBootstrap, false)
 		require.ErrorIs(t, err, apperr.ErrCannotDisconnectBuiltinMethod)
 
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)

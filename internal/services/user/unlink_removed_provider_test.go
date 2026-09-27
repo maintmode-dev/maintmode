@@ -38,7 +38,7 @@ func TestUnlinkIdentity_RegistryBackedNoOp(t *testing.T) {
 	require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub,
 		claimsFor("gh-"+xuuid.NewString()+"@example.com")))
 
-	require.NoError(t, srv.UnlinkIdentity(ctx, user.ID, unlinkedName),
+	require.NoError(t, srv.UnlinkIdentity(ctx, user.ID, unlinkedName, false),
 		"disconnecting a registry-backed provider the user never linked is already satisfied")
 
 	providers, err := srv.ListConnectedProviders(ctx, user.ID)

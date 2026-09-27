@@ -132,6 +132,10 @@ func TestDisconnectProviderHandler(t *testing.T) {
 	t.Run("lockout - only provider -> 400 with message", func(t *testing.T) {
 		t.Parallel()
 
+		// No built-in method offered, so nothing but the provider lets the
+		// user in and the last-provider guard is what answers.
+		impl := initImplWithoutBuiltins(t)
+
 		c, rec := providerCtx(t, "google", nil)
 		xecho.UserToEchoCtx(c, makeTestUser(ctx, t, impl))
 

@@ -78,6 +78,27 @@ func initImplWithMethods(t *testing.T, methods *authmethod.Methods) *Implementat
 	return newImpl(t, cfg.Auth, nil, methods)
 }
 
+// initImplWithoutBuiltins builds the handler over an auth service that offers
+// no built-in sign-in method, for the refusals a password or an emailed code
+// would otherwise lift -- disconnecting the last provider, for one.
+func initImplWithoutBuiltins(t *testing.T) *Implementation {
+	t.Helper()
+
+	stores, err := bootstrap.NewStores(cfg, db, valkey)
+	require.NoError(t, err)
+
+	services := newTestServices(t, stores)
+	authSrv := newAuthService(stores, services, noBuiltins{}, services.AuthMethods)
+
+	return New(cfg.Auth, authSrv, services.Token, services.User, services.OTP,
+		services.AuthMethods, authflags.NewAllEnabled(), config.App{})
+}
+
+// noBuiltins answers every built-in method as not offered.
+type noBuiltins struct{}
+
+func (noBuiltins) Enabled(context.Context, entity.AuthMethodName) (bool, error) { return false, nil }
+
 // newImpl builds the handler over the real graph. A nil settings source
 // means every built-in is offered; nil methods means the graph's own login
 // configuration, which no reloader has filled, so it lists no providers.
