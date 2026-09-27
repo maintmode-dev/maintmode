@@ -481,22 +481,27 @@ secrets: ## Restore missing dev/local/test app.secrets.yaml from samples
 		fi; \
 	done
 
+# app-up - Recreate the whole stack from scratch
+# Runs app-down first, which DELETES the stack's volumes: every app-up starts on
+# an empty database. test-api relies on that for its clean run. To rebuild only
+# the app container and keep the data, use `docker compose ... up -d --build
+# --no-deps maintmode` instead.
 .PHONY: app-up
 app-up: secrets app-down
 app-up: args=
-app-up: ## Start all services with maintmode using Docker Compose
+app-up: ## Recreate all services from scratch (DELETES volumes via app-down)
 	$(info $(M) starting stack with maintmode=$(MAINTMODE_REPLICAS)...)
 	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} up -d \
 		--scale maintmode=$(MAINTMODE_REPLICAS) \
 		${args}
 	make app-ps
 
-# app-down - Stop and remove all containers
-# Stops all containers and removes them
-# WARNING: This will remove all containers but keeps volumes
-# Use this when you want to stop services but preserve data
+# app-down - Stop and remove all containers AND their volumes
+# WARNING: `down -v` deletes the volumes, so the database and everything else
+# the stack stored is gone. app-up calls this first on purpose (see above); to
+# stop the stack and keep the data, run `docker compose ... stop` instead.
 .PHONY: app-down
-app-down: ## Stop and remove all containers
+app-down: ## Stop and remove all containers and volumes (DELETES data)
 	$(info $(M) stopping all containers...)
 	docker-compose ${DOCKER_COMPOSE_APP_CONFIGS} ${COMPOSE_PROFILES_FLAGS_APP} down -v --remove-orphans
 	make app-ps
