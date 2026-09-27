@@ -89,11 +89,19 @@ func newSnapshot(builtins map[entity.AuthMethod]AuthMethod, providers []provider
 		}
 		health[p.ID] = p.Health
 
-		// A provider that did not resolve is still listed: this reports what is
-		// configured, not what is reachable, and hiding it would make a brief
-		// IdP outage look like a deleted provider. A disabled one is not listed
-		// -- an operator turned it off deliberately.
-		if p.Health != entity.LoginProviderHealthDisabled {
+		// Listed exactly when /start can run its dance: the login page draws
+		// every listed provider as a button that navigates there, so a listed
+		// provider that cannot dance is a button that answers with an error.
+		// That rules out a disabled provider, which an operator turned off, and
+		// an unreadable one -- a secret that will not decrypt after a lost KEK,
+		// a kind nothing implements -- which has neither half built. The admin
+		// integration list still shows those with their health.
+		//
+		// A provider whose IdP has not answered discovery IS listed: both halves
+		// are built and resolve lazily, so this reports what is configured
+		// rather than what is reachable, and hiding it would make a brief IdP
+		// outage look like a deleted provider.
+		if p.Method != nil && p.Gateway != nil {
 			listing = append(listing, entity.LoginMethodView{ID: p.ID, DisplayName: p.DisplayName})
 		}
 	}
@@ -148,9 +156,8 @@ type providerInput struct {
 	// Method verifies ID tokens from this provider. Never nil for a provider
 	// that should be usable at all.
 	Method AuthMethod
-	// Gateway runs the confidential half. Nil means the provider is listed and
-	// verifiable but cannot start a backend dance -- a BFF-only instance, or one
-	// whose credentials are not configured.
+	// Gateway runs the confidential half. Nil means the provider cannot start a
+	// backend dance, and so is not listed for the login page.
 	Gateway Gateway
 	Health  entity.LoginProviderHealth
 	// RedirectURI is where this provider sends the browser back. Carried as the
