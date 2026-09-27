@@ -73,16 +73,15 @@ func (s *Service) Request(ctx context.Context, email string, purpose entity.OTPP
 		return nonce, nil
 	}
 
-	issued, err := s.issue(ctx, user, nonce, purpose)
+	held, err := s.issue(ctx, user, nonce, purpose)
 	if err != nil {
 		return "", err
 	}
 
-	if !issued {
-		// The user's live code has spent its guess ceiling and has not yet
-		// expired. Issuing now would hand back a fresh code with a fresh
-		// counter, which turns "five attempts" into "five attempts per code,
-		// unlimited codes" -- the ceiling would buy nothing.
+	if held != "" {
+		// The user's live code keeps the slot: it has spent its guess ceiling,
+		// or it is younger than the reissue cooldown. See claimSlot for why
+		// each one holds.
 		//
 		// Answered exactly like the two branches above: same nonce shape, no
 		// error, so the handler's ordinary 202 path runs. A caller must not be
@@ -91,11 +90,11 @@ func (s *Service) Request(ctx context.Context, email string, purpose entity.OTPP
 		// difference is worth something only to someone probing addresses.
 		//
 		// INFO, not WARN, and no audit row: no secret was presented, so this is
-		// not a sign-in attempt. The five failures that produced the bar are
-		// already on record, and auditing the refusal would let anyone write
+		// not a sign-in attempt, and auditing the refusal would let anyone write
 		// unbounded rows by replaying this endpoint against a known address.
-		xlog.Info(ctx, "otp code not issued: live code has spent its attempts",
+		xlog.Info(ctx, "otp code not issued: live code holds the slot",
 			xfield.String("user_id", user.ID.String()),
+			xfield.String("reason", string(held)),
 		)
 	}
 
@@ -105,33 +104,33 @@ func (s *Service) Request(ctx context.Context, email string, purpose entity.OTPP
 // issue writes the code and queues its delivery in one transaction, so a
 // credential never outlives the task meant to deliver it and vice versa.
 //
-// It reports whether a code was actually issued. False is not a failure: it
-// means the slot is held by a live code that has spent its ceiling, and the
-// caller answers exactly as it does for a successful issue.
+// It reports why the live code kept the slot, or "" when a code was issued. A
+// held slot is not a failure: the caller answers exactly as it does for a
+// successful issue.
 //
-// The flag is carried out through a captured variable rather than a return from
+// The reason is carried out through a captured variable rather than a return from
 // the closure, because WithinTx takes func(ctx) error and commits on nil -- so
 // there is nowhere in the closure's signature to put it. Signaling with a
 // sentinel error instead would reach the handler's rejected() path, which logs
 // at WARN on every call; this branch is replayable by anyone who knows an
 // address, so that would bury real failures under routine traffic.
-func (s *Service) issue(ctx context.Context, user *entity.User, nonce string, purpose entity.OTPPurpose) (bool, error) {
+func (s *Service) issue(ctx context.Context, user *entity.User, nonce string, purpose entity.OTPPurpose) (slotHold, error) {
 	code, codeHash, err := xcripto.GenerateOTPCode()
 	if err != nil {
-		return false, fmt.Errorf("generate otp code: %w", err)
+		return "", fmt.Errorf("generate otp code: %w", err)
 	}
 
-	issued := false
+	var held slotHold
 
 	err = s.txManager.WithinTx(ctx, func(ctx context.Context) error {
-		free, err := s.claimSlot(ctx, user.ID)
+		held, err = s.claimSlot(ctx, user.ID)
 		if err != nil {
 			return err
 		}
 
-		if !free {
+		if held != "" {
 			// Nothing to roll back: the read took a lock and wrote nothing, so
-			// the transaction commits empty and `issued` stays false.
+			// the transaction commits empty.
 			return nil
 		}
 
@@ -181,26 +180,59 @@ func (s *Service) issue(ctx context.Context, user *entity.User, nonce string, pu
 			xfield.String("credential_id", cred.ID.String()),
 		)
 
-		issued = true
-
 		return nil
 	})
 
-	return issued, err
+	return held, err
 }
 
-// claimSlot frees the single active-OTP slot for a new code, and reports whether
-// the caller may use it.
+// slotHold names why the live code kept the slot, for the log.
+type slotHold string
+
+const (
+	slotHoldAttemptsSpent slotHold = "attempts_spent"
+	slotHoldCooldown      slotHold = "cooldown"
+)
+
+// claimSlot frees the single active-OTP slot for a new code, or reports why the
+// live code keeps it.
 //
-// It refuses exactly one case: a live code that is unexpired and has spent its
-// guess ceiling. That code keeps the slot until it dies of its own accord, so
-// burning the attempts on a code cannot be undone by simply asking for another.
-// The bar therefore lasts at most the code's remaining lifetime -- deliberately
-// not longer, since a durable lock on an endpoint anyone can call against any
-// address would be a denial-of-service primitive rather than a control.
+// It refuses two cases, both about a live code that has not yet expired:
 //
-// An expired burnt code is retired like any other: the ceiling protects a code
-// that can still be guessed, and an expired one cannot.
+//   - The code has spent its guess ceiling. It keeps the slot until it dies of
+//     its own accord, so burning the attempts on a code cannot be undone by
+//     simply asking for another. The bar lasts at most the code's remaining
+//     lifetime -- deliberately not longer, since a durable lock on an endpoint
+//     anyone can call against any address would be a denial-of-service
+//     primitive rather than a control. Even bounded, it is one, and a known
+//     one: anyone can request a code for an address, receive its nonce, and
+//     spend its attempts with wrong guesses. The owner receives that code but
+//     cannot use it -- it is bound to the requester's nonce -- and gets no new
+//     one for sign-in or password reset until it expires, again and again. It
+//     costs one request plus otp_max_attempts guesses per lifetime, and every
+//     guess is an audited login failure. Any per-user limit on guessing admits
+//     this; the alternative -- a budget per requester -- would let guessing
+//     scale with the number of requesters.
+//   - The code is younger than the reissue cooldown. Without it every request
+//     for an address retires the live code, so anyone who knows the address
+//     can keep its owner's code from surviving long enough to be typed in. The
+//     cooldown protects that window. It has a price: someone who requests a
+//     code for the address once per cooldown holds the slot themselves. The
+//     owner then receives a code each cooldown and can use none of them --
+//     each is bound to the requester's nonce, and the owner's own requests are
+//     held. That costs one request a minute, where retiring every code took a
+//     dozen, and unlike burning attempts it writes no audit row: it shows only
+//     as held requests in the log and codes in the owner's mailbox. The
+//     per-address rate limiter does not stop that rate; the cooldown is kept
+//     short for this reason, and is capped at the code lifetime.
+//
+// An expired code is retired like any other: the ceiling protects a code that
+// can still be guessed, and an expired one cannot.
+//
+// The cooldown is measured from created_at, stamped by the database clock,
+// against this process's clock. Skew between the two moves the boundary by
+// that much: NTP-scale skew is lost in a minute, but a database clock behind
+// the process by a whole cooldown would switch it off.
 //
 // The read takes a row lock. Without it a verify claiming the final attempt
 // concurrently would let this read see a count one short of the ceiling, judge
@@ -209,27 +241,33 @@ func (s *Service) issue(ctx context.Context, user *entity.User, nonce string, pu
 //
 // Consuming rather than deleting mirrors how invitation reissue revokes the
 // previous row: the superseded attempt stays visible in the table.
-func (s *Service) claimSlot(ctx context.Context, userID uuid.UUID) (bool, error) {
+func (s *Service) claimSlot(ctx context.Context, userID uuid.UUID) (slotHold, error) {
 	live, err := s.store.GetUnconsumedOTPByUserIDForUpdate(ctx, userID)
 	switch {
 	case errors.Is(err, apperr.ErrAuthCredentialNotFound):
 		// The ordinary first-request case, not a failure.
-		return true, nil
+		return "", nil
 	case err != nil:
-		return false, fmt.Errorf("look up live otp: %w", err)
+		return "", fmt.Errorf("look up live otp: %w", err)
 	}
 
-	if live.Attempts >= s.maxAttempts && live.ExpiresAt != nil && live.ExpiresAt.After(xtime.UTCNow()) {
-		return false, nil
+	now := xtime.UTCNow()
+	if live.ExpiresAt != nil && live.ExpiresAt.After(now) {
+		switch {
+		case live.Attempts >= s.maxAttempts:
+			return slotHoldAttemptsSpent, nil
+		case live.CreatedAt.After(now.Add(-s.reissueCooldown)):
+			return slotHoldCooldown, nil
+		}
 	}
 
 	// A false here means a concurrent request consumed the same row first. Either
 	// way the slot is free, which is all this step needs.
 	if _, err := s.store.ConsumeOTP(ctx, live.ID); err != nil {
-		return false, fmt.Errorf("consume live otp: %w", err)
+		return "", fmt.Errorf("consume live otp: %w", err)
 	}
 
-	return true, nil
+	return "", nil
 }
 
 // sealForDelivery builds the delivery task: the code under a fresh data key,
@@ -280,9 +318,10 @@ func (s *Service) sealForDelivery(
 // credential itself; that is the trap the invitation path documents when it
 // explains why it keys on a token hash rather than a timestamp.
 //
-// It follows that a retried request is not collapsed: it mints a new credential,
-// a new key and a second email. Only the newest code works, which is why the
-// email copy points at the newest one.
+// It follows that a request after the reissue cooldown is not collapsed: it
+// mints a new credential, a new key and a second email. Only the newest code
+// works, which is why the email copy points at the newest one. A request inside
+// the cooldown is held by claimSlot and sends nothing.
 func idempotencyKey(credentialID string) string {
 	return xhash.HashSha256(fmt.Appendf(nil, "otp-email:%s", credentialID))
 }
