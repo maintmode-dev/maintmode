@@ -40,7 +40,9 @@ auth:
   allow_open_signup: false
   # How long an emailed code stays valid. Short on purpose: a code delivered by
   # email is guessable in principle, and this window plus the attempt ceiling
-  # below are what bound that.
+  # below are what bound that. The web UI assumes 5m for its countdowns
+  # (CODE_TTL_SECONDS in maintmode-ui);
+  # change both together.
   otp_ttl: 5m
   # How long a signed OAuth-dance state stays valid: the span from pressing
   # "sign in" to finishing a consent screen, password prompt and second factor
@@ -64,6 +66,16 @@ auth:
   # one expires, or "five attempts" would mean "five per code, unlimited codes".
   # Non-positive falls back to 5; anything above 10 is clamped.
   otp_max_attempts: 5
+  # Least time between two codes for one user. A request while the live code
+  # is younger than this sends nothing and leaves that code in place, so
+  # someone requesting codes for an address cannot keep retiring its owner's
+  # code before it is typed in. Kept short on purpose: whoever requests a code
+  # once per cooldown holds the slot, and the owner's requests go unanswered
+  # meanwhile. Non-positive falls back to 1m; capped at otp_ttl.
+  # The web UI assumes 1m (OTP_REISSUE_COOLDOWN_SECONDS in maintmode-ui) to
+  # decide when to keep its nonce; change both together, or a longer value
+  # here makes the UI replace a working nonce with a dead one.
+  otp_reissue_cooldown: 1m
 
 jwtverifier:
   jwt_issuer: oauth-service
