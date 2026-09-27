@@ -23,10 +23,11 @@ import (
 // every other method is what makes blocking, audit and IP binding apply here
 // without restating them.
 //
-// Every failure except one answers the same way to the caller. The exception is
-// ErrOTPSessionMismatch, argued at its definition. The reason for each failure
-// reaches the audit trail through the returned FailureReason, which is where the
-// distinctions live once the response has flattened them.
+// Failures are told apart only for the audit trail, through the returned
+// FailureReason. ErrOTPSessionMismatch is a separate sentinel so that reason can
+// be recorded, but the handlers answer it exactly like every other failure: a
+// distinct response would say "this address has a live code", and anyone can
+// give any address a live code by calling Request first.
 //
 // This method takes NO transaction, and that is load-bearing rather than an
 // omission. Its statements each take one row lock and never hold one while
@@ -98,9 +99,19 @@ func (s *Service) Verify(ctx context.Context, cmd *entity.VerifyOTPCmd) (*entity
 		return user, entity.AuditFailureCodeExpired, apperr.ErrInvalidCredentials
 	}
 
-	// The claim comes BEFORE either comparison, and is the ceiling check as well
-	// as the increment. Splitting them would cap recorded attempts rather than
-	// performed ones -- see ClaimOTPAttempt.
+	// The nonce is checked BEFORE the attempt is claimed, so only the browser
+	// that requested the code can spend its attempts. Claiming first let anyone
+	// who knew an address burn the owner's code with a made-up nonce, and since
+	// a burnt code bars a new one, keep them out of code sign-in and password
+	// reset indefinitely. Skipping the claim here buys no guesses: without the
+	// nonce the code is never compared, and the nonce is 256 bits.
+	if !matches(cred.SessionNonce, cmd.SessionNonce) {
+		return user, entity.AuditFailureSessionMismatch, apperr.ErrOTPSessionMismatch
+	}
+
+	// The claim comes BEFORE the code comparison, and is the ceiling check as
+	// well as the increment. Splitting them would cap recorded attempts rather
+	// than performed ones -- see ClaimOTPAttempt.
 	claimed, err := s.store.ClaimOTPAttempt(ctx, cred.ID, s.maxAttempts)
 	if err != nil {
 		// Fails the request rather than proceeding. Comparing a guess that was
@@ -121,14 +132,6 @@ func (s *Service) Verify(ctx context.Context, cmd *entity.VerifyOTPCmd) (*entity
 		// The ceiling is spent. The code is NOT consumed here: leaving it in
 		// place is what bars a fresh one until it expires on its own.
 		return user, entity.AuditFailureAttemptsExhausted, apperr.ErrInvalidCredentials
-	}
-
-	// Nonce before code. Both are attacker-supplied and both are compared in
-	// constant time, so neither order leaks by timing; checking the nonce first
-	// means a user who lost their tab gets the actionable message even when they
-	// also fat-fingered the code.
-	if !matches(cred.SessionNonce, cmd.SessionNonce) {
-		return user, entity.AuditFailureSessionMismatch, apperr.ErrOTPSessionMismatch
 	}
 
 	if !matches(&cred.SecretHash, xhash.HashSha256([]byte(cmd.Code))) {
