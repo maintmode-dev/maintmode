@@ -16,9 +16,11 @@ import (
 // DisconnectProvider godoc
 // @Summary Disconnect an OAuth provider from the current user
 // @Description Unlinks a sign-in provider from the authenticated user. The last
-// @Description remaining provider cannot be removed (lockout protection), and
-// @Description neither can a built-in method such as break-glass: it belongs to
-// @Description the deployment, not the account.
+// @Description remaining provider can be removed only while a built-in method
+// @Description still lets the user in -- email codes offered on the instance, or
+// @Description password sign-in offered and a password set (lockout protection).
+// @Description A built-in method such as break-glass cannot be removed: it
+// @Description belongs to the deployment, not the account.
 // @Description Disconnecting a provider the user is not linked to is a no-op (204).
 // @Tags Auth
 // @Produce json

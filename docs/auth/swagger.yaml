@@ -1433,9 +1433,11 @@ paths:
         delete:
             description: |-
                 Unlinks a sign-in provider from the authenticated user. The last
-                remaining provider cannot be removed (lockout protection), and
-                neither can a built-in method such as break-glass: it belongs to
-                the deployment, not the account.
+                remaining provider can be removed only while a built-in method
+                still lets the user in -- email codes offered on the instance, or
+                password sign-in offered and a password set (lockout protection).
+                A built-in method such as break-glass cannot be removed: it
+                belongs to the deployment, not the account.
                 Disconnecting a provider the user is not linked to is a no-op (204).
             parameters:
                 - description: Configured provider instance name, e.g. google
