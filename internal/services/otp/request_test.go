@@ -26,7 +26,7 @@ func TestRequest_IssuesACodeForAKnownUser(t *testing.T) {
 	svc, sched := newService(t)
 	user := makeUser(ctx, t)
 
-	nonce, err := svc.Request(ctx, user.Email)
+	nonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, nonce)
 
@@ -68,7 +68,7 @@ func TestRequest_QueueHoldsNoReadableCode(t *testing.T) {
 	svc := newServiceWith(t, scheduler.NewService(goque.NewTaskQueueManager(storage)))
 	user := makeUser(ctx, t)
 
-	_, err = svc.Request(ctx, user.Email)
+	_, err = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	cred, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -111,7 +111,7 @@ func TestRequest_UnknownUserLooksIdentical(t *testing.T) {
 	ctx := context.Background()
 	svc, sched := newService(t)
 
-	nonce, err := svc.Request(ctx, uuid.NewString()+"@email.com")
+	nonce, err := svc.Request(ctx, uuid.NewString()+"@email.com", entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, nonce)
 	require.Empty(t, sched.recorded())
@@ -130,13 +130,28 @@ func TestRequest_BlockedUserGetsNoCode(t *testing.T) {
 	user.BlockedAt = &blockedAt
 	require.NoError(t, usersStore.Update(ctx, user))
 
-	nonce, err := svc.Request(ctx, user.Email)
+	nonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, nonce)
 	require.Empty(t, sched.recorded())
 
 	_, err = credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
+}
+
+// The purpose rides on the delivery task, which is the only place the
+// processor can learn which email to send.
+func TestRequest_CarriesThePurposeToTheTask(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, sched := newService(t)
+	user := makeUser(ctx, t)
+
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposePasswordReset)
+	require.NoError(t, err)
+
+	require.Equal(t, entity.OTPPurposePasswordReset, sched.only(t).Purpose)
 }
 
 // Requesting again supersedes the previous code: the partial unique index allows
@@ -148,12 +163,12 @@ func TestRequest_ReissueConsumesThePreviousCode(t *testing.T) {
 	svc, sched := newService(t)
 	user := makeUser(ctx, t)
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	first, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
 
-	_, err = svc.Request(ctx, user.Email)
+	_, err = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	second, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
 	require.NoError(t, err)
@@ -194,7 +209,7 @@ func TestRequest_ConcurrentReissueLeavesOneLiveCode(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, errs[i] = svc.Request(ctx, user.Email)
+			_, errs[i] = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 		}()
 	}
 	wg.Wait()
@@ -219,7 +234,7 @@ func TestRequest_FailedEnqueueRollsBackTheCredential(t *testing.T) {
 	user := makeUser(ctx, t)
 	sched.err = errors.New("queue unavailable")
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.Error(t, err)
 
 	_, err = credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -244,7 +259,7 @@ func TestRequest_FailedWrapRollsBackTheCredential(t *testing.T) {
 		secrets.NewAESCipher(),
 	)
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.Error(t, err)
 
 	_, err = credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -258,7 +273,7 @@ func TestRequest_FailedEncryptRollsBackTheCredential(t *testing.T) {
 	user := makeUser(ctx, t)
 	svc := newServiceWithCrypto(t, testKeyring(t), failingCipher{err: errors.New("seal failed")})
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.Error(t, err)
 
 	_, err = credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -276,7 +291,7 @@ func TestRequest_RollbackRestoresThePreviousCode(t *testing.T) {
 	user := makeUser(ctx, t)
 
 	working, _ := newService(t)
-	_, err := working.Request(ctx, user.Email)
+	_, err := working.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	original, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -286,7 +301,7 @@ func TestRequest_RollbackRestoresThePreviousCode(t *testing.T) {
 		failingKeyring{err: errors.New("kms unreachable")},
 		secrets.NewAESCipher(),
 	)
-	_, err = failing.Request(ctx, user.Email)
+	_, err = failing.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.Error(t, err)
 
 	survivor, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -311,7 +326,7 @@ func TestRequest_BurntCodeKeepsTheSlot(t *testing.T) {
 	svc, sched := newService(t)
 	user := makeUser(ctx, t)
 
-	nonce, err := svc.Request(ctx, user.Email)
+	nonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, nonce)
 
@@ -327,7 +342,7 @@ func TestRequest_BurntCodeKeepsTheSlot(t *testing.T) {
 	before := len(sched.recorded())
 
 	// Indistinguishable from the outside: same shape, same absence of an error.
-	secondNonce, err := svc.Request(ctx, user.Email)
+	secondNonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, secondNonce)
 
@@ -358,7 +373,7 @@ func TestRequest_ExpiredBurntCodeIsReplaced(t *testing.T) {
 		require.True(t, claimed)
 	}
 
-	nonce, err := svc.Request(ctx, user.Email)
+	nonce, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 	require.NotEmpty(t, nonce)
 
@@ -379,7 +394,7 @@ func TestRequest_PartiallyBurntCodeIsReplaced(t *testing.T) {
 	svc, _ := newService(t)
 	user := makeUser(ctx, t)
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	first, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -389,7 +404,7 @@ func TestRequest_PartiallyBurntCodeIsReplaced(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, claimed)
 
-	_, err = svc.Request(ctx, user.Email)
+	_, err = svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	live, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -424,7 +439,7 @@ func TestRequest_BlocksOnAConcurrentlyLockedCode(t *testing.T) {
 	svc, _ := newService(t)
 	user := makeUser(ctx, t)
 
-	_, err := svc.Request(ctx, user.Email)
+	_, err := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	cred, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
@@ -453,7 +468,7 @@ func TestRequest_BlocksOnAConcurrentlyLockedCode(t *testing.T) {
 	require.NoError(t, err)
 
 	reissued := make(chan error, 1)
-	go func() { _, e := svc.Request(ctx, user.Email); reissued <- e }()
+	go func() { _, e := svc.Request(ctx, user.Email, entity.OTPPurposeSignIn); reissued <- e }()
 
 	// The reissue must still be blocked on the lock. A read that does not wait
 	// would already have retired the code by now.

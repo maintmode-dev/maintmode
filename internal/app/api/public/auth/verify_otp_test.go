@@ -165,7 +165,7 @@ func seedAddress(t *testing.T, impl *Implementation) (email string, cred *entity
 	})
 	require.NoError(t, err)
 
-	nonce, err = impl.otpSrv.Request(t.Context(), email)
+	nonce, err = impl.otpSrv.Request(t.Context(), email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	cred, err = authcredentials.NewStore(db).GetUnconsumedOTPByUserID(t.Context(), user.ID)

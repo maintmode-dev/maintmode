@@ -19,7 +19,7 @@ func issueCode(ctx context.Context, t *testing.T, svc *otpService) (user *entity
 
 	user = makeUser(ctx, t)
 
-	nonce, err := svc.svc.Request(ctx, user.Email)
+	nonce, err := svc.svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	return user, svc.decodeCode(t), nonce
