@@ -99,7 +99,7 @@ groups:
           severity: critical
         annotations:
           summary: "Google ID-token exchange is rejecting logins"
-          description: "The BFF's id_token exchange has been returning 4xx for 10m. The BFF only calls this after Google authenticated the user, so we are rejecting tokens Google just issued — no new user can log in. Check JWKS reachability, that oauth/google/client_id still matches the client maintmode-ui uses, and the container clock."
+          description: "The BFF's id_token exchange has been returning 4xx for 10m. The BFF only calls this after Google authenticated the user, so we are rejecting tokens Google just issued — no new user can log in. Check JWKS reachability, that the client_id of the Google login integration (admin, Integrations) still matches the client maintmode-ui uses, and the container clock."
 
       - alert: InvitationAcceptFailing
         # In prod the exchange endpoint above is blocked by NotAllowedInProd, so
