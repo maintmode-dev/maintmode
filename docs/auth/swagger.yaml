@@ -1127,7 +1127,7 @@ paths:
                 - Auth
     /api/v1/login/otp/verify:
         post:
-            description: Redeems a code emailed by /login/otp/request and issues a token pair. Requires both the code and the session_nonce returned when it was requested; a mismatch answers otp_session_mismatch, telling the caller to request a new code. Every other failure — wrong code, expired code, exhausted attempts, unknown address, malformed body — answers with the same 401, so the response never reveals whether an account exists.
+            description: Redeems a code emailed by /login/otp/request and issues a token pair. Requires both the code and the session_nonce returned when it was requested. Every failure — wrong code, wrong or missing nonce, expired code, exhausted attempts, unknown address, malformed body — answers with the same 401, so the response never reveals whether an account exists; a client offers "request a new code" on any of them.
             requestBody:
                 content:
                     application/json:
@@ -1147,7 +1147,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Authentication failed, or otp_session_mismatch
+                    description: Authentication failed
                 "429":
                     content:
                         application/json:
@@ -1433,7 +1433,9 @@ paths:
         delete:
             description: |-
                 Unlinks a sign-in provider from the authenticated user. The last
-                remaining provider cannot be removed (lockout protection).
+                remaining provider cannot be removed (lockout protection), and
+                neither can a built-in method such as break-glass: it belongs to
+                the deployment, not the account.
                 Disconnecting a provider the user is not linked to is a no-op (204).
             parameters:
                 - description: Configured provider instance name, e.g. google
@@ -1450,7 +1452,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Cannot disconnect the only sign-in method
+                    description: Cannot disconnect the only sign-in method, or a built-in one
                 "401":
                     content:
                         application/json:
@@ -1486,7 +1488,7 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Authentication failed, or otp_session_mismatch
+                    description: Authentication failed
                 "429":
                     content:
                         application/json:
