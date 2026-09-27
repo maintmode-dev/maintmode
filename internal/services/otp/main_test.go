@@ -164,6 +164,31 @@ func (s *recordingScheduler) only(t *testing.T) entity.ProcessorTaskPayloadOTPEm
 	return payload
 }
 
+// ageLiveCode moves the user's live code past the configured reissue
+// cooldown, for tests about what a second request does once the cooldown is no
+// longer the reason it is refused. The age follows the configuration, so a
+// longer cooldown cannot quietly turn those tests back into cooldown tests.
+func ageLiveCode(ctx context.Context, t *testing.T, userID uuid.UUID) {
+	t.Helper()
+
+	ageLiveCodeBy(ctx, t, userID, otp.ReissueCooldown(cfg.Auth)+30*time.Second)
+}
+
+// ageLiveCodeBy backdates the user's live code by age, leaving its expiry
+// alone. The age must stay under the code lifetime, or the code would read as
+// issued before it could still be live and the test would describe no real
+// state.
+func ageLiveCodeBy(ctx context.Context, t *testing.T, userID uuid.UUID, age time.Duration) {
+	t.Helper()
+
+	require.Less(t, age, otp.TTL(cfg.Auth), "an aged code must still be inside its lifetime")
+
+	_, err := db.ExecContext(ctx, `
+		UPDATE auth_credentials SET created_at = now() - make_interval(secs => $2)
+		WHERE user_id = $1 AND kind = 'otp' AND consumed_at IS NULL`, userID, age.Seconds())
+	require.NoError(t, err)
+}
+
 // makeExpiredOTP inserts a live-but-dead one-time code: unconsumed, so it still
 // occupies the single active-OTP slot, but past its expiry. It is what the
 // reissue barrier must decline to treat as a bar.

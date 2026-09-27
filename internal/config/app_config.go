@@ -327,6 +327,11 @@ type Auth struct {
 	// time — see otp.MaxAttempts, which also explains why the clamp has to run
 	// before the int16 conversion.
 	OTPMaxAttempts int `mapstructure:"otp_max_attempts"`
+	// OTPReissueCooldown is the least time between two codes for one user: a
+	// request while the live code is younger than this sends nothing and
+	// leaves that code in place. Non-positive falls back to one minute, and it
+	// is never longer than the code lifetime -- see otp.ReissueCooldown.
+	OTPReissueCooldown time.Duration `mapstructure:"otp_reissue_cooldown"`
 }
 
 // DanceStateTTL resolves the OAuth-dance state lifetime, falling back to

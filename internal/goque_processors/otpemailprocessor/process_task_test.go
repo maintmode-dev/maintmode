@@ -36,6 +36,22 @@ func TestProcessTask_SealedCodeReachesTheEmail(t *testing.T) {
 		"plain text would skip the transport's branded frame")
 }
 
+// The purpose on the task picks the copy: a reset code is sent as one, so a
+// person who did not ask for it is told someone is trying to replace their
+// password rather than to sign in.
+func TestProcessTask_ResetCodeIsSentAsAReset(t *testing.T) {
+	t.Parallel()
+
+	sent := &recordingSender{}
+	p, payload := newFixture(t, time.Now().Add(testTTL), sent)
+	payload.Purpose = entity.OTPPurposePasswordReset
+
+	require.NoError(t, p.ProcessTask(context.Background(), typedTask(payload)))
+
+	require.Contains(t, sent.msg.Subject, "password reset")
+	require.Contains(t, sent.msg.Body, testCode)
+}
+
 // An expired code must be canceled, not delivered and not retried. Returning
 // nil would mark an undelivered code as processed successfully; returning a
 // plain error would retry a code that can never become valid again.

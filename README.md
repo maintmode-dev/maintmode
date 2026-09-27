@@ -118,14 +118,50 @@ secret APIs itself.
 
 ## First login
 
-A fresh installation has no users. The first person to sign in through Google
-becomes an administrator — that is how the initial account is created, and it
-applies whenever the instance has no active administrators.
+A fresh installation has no users and no login providers. The way in is the
+break-glass admin: set `bootstrap.email` in `app.config.yaml` and the
+`bootstrap/password` secret, then sign in with that address and password on the
+login page. An empty password turns break-glass off, so set one before the first
+start. Whoever signs in while the instance has no active administrator becomes
+one, whatever the method.
 
 This is deliberately first-login-wins, with no locking. It assumes the operator
 signs in before anyone else can reach the instance, so **sign in first, then
 expose it**. After that, `allow_open_signup` stays `false` by default and further
 users join by invitation.
+
+Once signed in, an administrator adds login providers (Google, a custom OIDC
+provider, GitHub) under Integrations, and chooses which built-in methods the
+login page offers: email and password (on by default) and emailed one-time codes
+(off by default). Emailed codes and password reset send email, so they need
+the email integration configured.
+
+One-time codes, for sign-in and for password reset alike, are limited per user.
+A code accepts `auth.otp_max_attempts` guesses (5); once they are spent, no new
+code is sent until that code expires (`auth.otp_ttl`, 5 minutes). A new code is
+also not sent while the previous one is younger than
+`auth.otp_reissue_cooldown` (1 minute), so someone requesting codes for an
+address cannot keep retiring its owner's code before it is typed in. In both
+cases the request still answers as usual and sends nothing. Both limits are per
+user, not per requester: someone who knows an address can hold them too, by
+requesting codes for it themselves. Requesting once per cooldown, or spending a
+code's attempts with wrong guesses, keeps its owner from getting a code they can
+use: the owner still receives the codes the requester triggers, but each is
+bound to the requester's session. This is a known limitation. Burning attempts
+writes an audited login failure (`login.failed`) per guess; holding the
+cooldown writes nothing and shows only in the log and the owner's mailbox. It
+affects code sign-in and password reset only -- an owner who signs in with a
+password or through a provider is unaffected. The limits are shared between
+sign-in and reset: a reset requested within a minute of a sign-in code sends
+nothing, and the user has to wait out the cooldown before asking for one.
+
+A request that sends nothing still answers with a fresh session nonce that
+matches no code. A client must therefore not replace the nonce it holds for an
+address when it asks again within the cooldown of the request that returned it
+-- simplest is not to ask at all -- and more generally keeps every nonce it
+received for the address within the code lifetime, verifying with the newest
+first. A mismatched nonce spends no attempt, but each try is a verify call that
+counts against the rate limits and is audited as a session mismatch.
 
 ## Licensing and telemetry
 

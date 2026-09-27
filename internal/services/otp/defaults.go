@@ -68,3 +68,27 @@ func MaxAttempts(cfg config.Auth) int16 {
 
 	return int16(n)
 }
+
+// defaultReissueCooldown is the least time between two codes for one user when
+// auth.otp_reissue_cooldown is unset.
+//
+// A minute is long enough for the email to arrive and the code to be typed,
+// which is what the cooldown protects: without it every request for an
+// address retires the live code, so anyone who knows the address can keep
+// its owner's code from ever surviving long enough to be used.
+const defaultReissueCooldown = time.Minute
+
+// ReissueCooldown returns the configured cooldown between codes, guarded in
+// both directions. A non-positive value falls back to the default rather than
+// switching the cooldown off. Anything longer than the code lifetime is cut
+// to it, as belt-and-braces: past that the live code has expired, and the
+// expiry check in claimSlot already keeps an expired code from standing in
+// the way of a new one.
+func ReissueCooldown(cfg config.Auth) time.Duration {
+	cooldown := cfg.OTPReissueCooldown
+	if cooldown <= 0 {
+		cooldown = defaultReissueCooldown
+	}
+
+	return min(cooldown, TTL(cfg))
+}

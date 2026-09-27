@@ -243,9 +243,14 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrCannotDisconnectBuiltinMethod):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
+	// One fixed message for both. The sentinels' own text says whether the
+	// provider account is linked here or to somebody else, which the dance's
+	// link_conflict deliberately does not: it would tell a caller that a
+	// provider account they hold is registered on this instance to another
+	// person. The audit trail keeps the distinction.
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
-		return http.StatusConflict, NewErrorResponse(ErrConflict, err.Error())
+		return http.StatusConflict, NewErrorResponse(ErrConflict, "this provider account cannot be linked to your profile")
 
 	case errors.Is(err, apperr.ErrInvitationNotFound):
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())

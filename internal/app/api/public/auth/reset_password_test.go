@@ -65,6 +65,13 @@ func TestResetPassword_FailuresAreIndistinguishable(t *testing.T) {
 		"malformed body": `{`,
 	}
 
+	// A live code with a made-up nonce, which once answered with its own code
+	// and so told an account apart from none -- see the verify endpoint's test.
+	foreignEmail, _, _ := seedAddress(t, impl)
+	cases["foreign nonce"] = fmt.Sprintf(
+		`{"email":%q,"code":%q,"session_nonce":%q,"new_password":"a-long-enough-password"}`,
+		foreignEmail, wrongCode, nonce)
+
 	responses := make(map[string]recordedResponse, len(cases))
 	for name, body := range cases {
 		responses[name] = doResetConfirm(t, impl, body)

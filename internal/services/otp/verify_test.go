@@ -19,7 +19,7 @@ func issueCode(ctx context.Context, t *testing.T, svc *otpService) (user *entity
 
 	user = makeUser(ctx, t)
 
-	nonce, err := svc.svc.Request(ctx, user.Email)
+	nonce, err := svc.svc.Request(ctx, user.Email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	return user, svc.decodeCode(t), nonce
@@ -106,10 +106,8 @@ func TestVerify_StopsAtTheCeiling(t *testing.T) {
 	require.Equal(t, svc.svc.MaxAttempts(), cred.Attempts)
 }
 
-// TestVerify_WrongNonceIsItsOwnError pins the one failure that does not collapse
-// into the generic answer, and TestVerify_WrongNonceAndWrongCode pins the order:
-// nonce is checked first, so a user who lost their tab is told to ask for a new
-// code even when they also mistyped.
+// TestVerify_WrongNonceIsItsOwnError pins the audit reason for a foreign nonce;
+// the handlers flatten it into the generic answer.
 func TestVerify_WrongNonceIsItsOwnError(t *testing.T) {
 	t.Parallel()
 
@@ -135,8 +133,38 @@ func TestVerify_WrongNonceAndWrongCode(t *testing.T) {
 		Email: user.Email, Code: "000000", SessionNonce: uuid.NewString(),
 	})
 	require.ErrorIs(t, err, apperr.ErrOTPSessionMismatch,
-		"the nonce is checked before the code, so this is the actionable failure")
+		"the nonce is checked before the code")
 	require.Equal(t, entity.AuditFailureSessionMismatch, reason)
+}
+
+// TestVerify_ForeignNonceSpendsNoAttempts is the regression test for burning
+// someone else's code: a caller who knows only the address submits more wrong
+// guesses than the ceiling allows, and the owner must still redeem the code
+// with their own nonce afterwards.
+func TestVerify_ForeignNonceSpendsNoAttempts(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := newVerifyService(t)
+	user, code, nonce := issueCode(ctx, t, svc)
+
+	for range svc.svc.MaxAttempts() + 1 {
+		_, reason, err := svc.svc.Verify(ctx, &entity.VerifyOTPCmd{
+			Email: user.Email, Code: "000000", SessionNonce: uuid.NewString(),
+		})
+		require.ErrorIs(t, err, apperr.ErrOTPSessionMismatch)
+		require.Equal(t, entity.AuditFailureSessionMismatch, reason)
+	}
+
+	cred, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.NoError(t, err)
+	require.Zero(t, cred.Attempts, "a foreign nonce must not spend the owner's attempts")
+
+	got, _, err := svc.svc.Verify(ctx, &entity.VerifyOTPCmd{
+		Email: user.Email, Code: code, SessionNonce: nonce,
+	})
+	require.NoError(t, err)
+	require.Equal(t, user.ID, got.ID)
 }
 
 func TestVerify_EmptyNonceIsAMismatch(t *testing.T) {

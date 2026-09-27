@@ -28,6 +28,12 @@ var (
 	// its own. Distinct from ErrOAuthExchangeFailed, which is the back-channel
 	// call failing after the browser already came back.
 	ErrOAuthProviderDenied = errors.New("oauth provider denied")
+	// ErrOAuthConsentDeclined marks the one provider error that is the user's
+	// own choice: the redirect came back with error=access_denied (RFC 6749
+	// §4.1.2.1), which a provider sends when the person cancels its consent
+	// screen. It wraps ErrOAuthProviderDenied, so everything that treats a
+	// provider-ended dance alike keeps doing so.
+	ErrOAuthConsentDeclined = fmt.Errorf("%w: consent declined", ErrOAuthProviderDenied)
 	// ErrOAuthDanceStateInvalid marks a callback that cannot be shown to belong
 	// to a dance this backend began: no state cookie, a signature that does not
 	// verify, one that has expired, or a missing PKCE verifier or code.
@@ -179,12 +185,11 @@ var (
 	// lookup: the user has no password, or no unconsumed one-time code.
 	ErrAuthCredentialNotFound = errors.New("auth credential not found")
 	// ErrOTPSessionMismatch marks a one-time code presented with the wrong
-	// session nonce, or none. It is the ONE failure of the verify endpoint that
-	// does not collapse into the generic answer, and the exception is deliberate:
-	// provoking it requires already holding a live code, so it discloses nothing
-	// about whether an account exists. What it buys is a user who closed the tab
-	// while the mail was in flight being told to ask for a new code, instead of
-	// retyping a correct code against a nonce that no longer exists forever.
+	// session nonce, or none. It exists so the audit trail can record that
+	// reason; the endpoints answer it exactly like every other failure. A
+	// distinct answer would say "this address has a live code", and anyone can
+	// give any address one by requesting a code for it -- which makes the
+	// answer an account-existence oracle.
 	ErrOTPSessionMismatch = errors.New("otp session nonce mismatch")
 	// ErrAuthCredentialConflict is a unique violation on one of the partial
 	// indexes: the user already has a password, or already has a live one-time

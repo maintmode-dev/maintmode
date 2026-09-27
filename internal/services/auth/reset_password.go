@@ -101,7 +101,7 @@ func (s *Service) ResetPassword(ctx context.Context, cmd *entity.ResetPasswordCm
 }
 
 // RequestPasswordReset issues a one-time code for a password reset, reusing the
-// sign-in code mechanism unchanged.
+// sign-in code mechanism; only the email's copy differs.
 //
 // It answers the same way for every address, known or not: the nonce comes back
 // regardless, so the response cannot be used to enumerate accounts.
@@ -109,7 +109,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) (strin
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.RequestPasswordReset")
 	defer span.End()
 
-	nonce, err := s.otpRequester.Request(ctx, email)
+	nonce, err := s.otpRequester.Request(ctx, email, entity.OTPPurposePasswordReset)
 	if err != nil && !errors.Is(err, apperr.ErrUserNotFound) {
 		return "", fmt.Errorf("request reset code: %w", err)
 	}

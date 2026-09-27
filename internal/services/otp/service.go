@@ -81,6 +81,9 @@ type Service struct {
 	// MaxAttempts() rather than resolving its own copy from config. The two
 	// enforce complementary halves of one rule and must not disagree.
 	maxAttempts int16
+	// reissueCooldown is the least age of the live code before a request may
+	// replace it.
+	reissueCooldown time.Duration
 }
 
 func NewService(
@@ -93,14 +96,15 @@ func NewService(
 	sched TaskScheduler,
 ) *Service {
 	return &Service{
-		txManager:   txManager,
-		store:       store,
-		userSrv:     userSrv,
-		keyring:     keyring,
-		cipher:      cipher,
-		scheduler:   sched,
-		ttl:         TTL(cfg.Auth),
-		maxAttempts: MaxAttempts(cfg.Auth),
+		txManager:       txManager,
+		store:           store,
+		userSrv:         userSrv,
+		keyring:         keyring,
+		cipher:          cipher,
+		scheduler:       sched,
+		ttl:             TTL(cfg.Auth),
+		maxAttempts:     MaxAttempts(cfg.Auth),
+		reissueCooldown: ReissueCooldown(cfg.Auth),
 	}
 }
 

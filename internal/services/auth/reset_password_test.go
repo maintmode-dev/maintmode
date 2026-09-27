@@ -116,7 +116,7 @@ func TestRequestPasswordReset(t *testing.T) {
 	srv, mocks := initServiceWithUnrelatedBootstrap(t)
 
 	mocks.otpRequester.EXPECT().
-		Request(gomock.Any(), "nobody@example.com").
+		Request(gomock.Any(), "nobody@example.com", entity.OTPPurposePasswordReset).
 		Return("a-nonce", nil)
 
 	nonce, err := srv.RequestPasswordReset(ctx, "nobody@example.com")

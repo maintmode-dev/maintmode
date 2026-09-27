@@ -138,6 +138,11 @@ func (s *Service) RedeemDanceCode(ctx context.Context, code string) (*entity.Tok
 	return pair, nil
 }
 
+// oauthErrorAccessDenied is the RFC 6749 §4.1.2.1 error code a provider
+// redirects back with when the resource owner denies the request -- in
+// practice, the person canceling the consent screen.
+const oauthErrorAccessDenied = "access_denied"
+
 // CompleteDance turns a callback into a one-time code the frontend can redeem,
 // or an error saying why it could not.
 //
@@ -163,6 +168,13 @@ func (s *Service) CompleteDance(
 		xlog.Warn(ctx, "oauth provider reported an error",
 			xfield.String("provider_error", callback.ProviderError))
 		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderDenied)
+
+		// Matched exactly: the error parameter is a registered code, and a
+		// substring match would let "access_denied_by_policy" -- a provider
+		// refusing, not the person -- read as the person changing their mind.
+		if callback.ProviderError == oauthErrorAccessDenied {
+			return nil, apperr.ErrOAuthConsentDeclined
+		}
 
 		return nil, fmt.Errorf("%w: %s", apperr.ErrOAuthProviderDenied, callback.ProviderError)
 	}

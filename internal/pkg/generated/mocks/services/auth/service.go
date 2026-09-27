@@ -170,18 +170,18 @@ func (m *MockOTPRequester) EXPECT() *MockOTPRequesterMockRecorder {
 }
 
 // Request mocks base method.
-func (m *MockOTPRequester) Request(ctx context.Context, email string) (string, error) {
+func (m *MockOTPRequester) Request(ctx context.Context, email string, purpose entity.OTPPurpose) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Request", ctx, email)
+	ret := m.ctrl.Call(m, "Request", ctx, email, purpose)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Request indicates an expected call of Request.
-func (mr *MockOTPRequesterMockRecorder) Request(ctx, email any) *MockOTPRequesterRequestCall {
+func (mr *MockOTPRequesterMockRecorder) Request(ctx, email, purpose any) *MockOTPRequesterRequestCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockOTPRequester)(nil).Request), ctx, email)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockOTPRequester)(nil).Request), ctx, email, purpose)
 	return &MockOTPRequesterRequestCall{Call: call}
 }
 
@@ -197,13 +197,13 @@ func (c *MockOTPRequesterRequestCall) Return(arg0 string, arg1 error) *MockOTPRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOTPRequesterRequestCall) Do(f func(context.Context, string) (string, error)) *MockOTPRequesterRequestCall {
+func (c *MockOTPRequesterRequestCall) Do(f func(context.Context, string, entity.OTPPurpose) (string, error)) *MockOTPRequesterRequestCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOTPRequesterRequestCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockOTPRequesterRequestCall {
+func (c *MockOTPRequesterRequestCall) DoAndReturn(f func(context.Context, string, entity.OTPPurpose) (string, error)) *MockOTPRequesterRequestCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

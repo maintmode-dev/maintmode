@@ -62,7 +62,7 @@ func TestResetPassword_SurvivesEmailOTPBeingDisabled(t *testing.T) {
 
 	// The request half still issues: reset is not sign-in.
 	mocks.otpRequester.EXPECT().
-		Request(gomock.Any(), user.Email).
+		Request(gomock.Any(), user.Email, entity.OTPPurposePasswordReset).
 		Return(xuuid.NewString(), nil).
 		Times(1)
 

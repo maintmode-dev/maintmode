@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/services/otp/templates"
 )
 
@@ -14,20 +15,33 @@ import (
 // (tests included) repeats it enough for goconst to flag the literal.
 const oneMinutePhrase = "1 minute"
 
-const (
-	// OTPEmailSubject is the subject of the code email. Exported because the
-	// processor sends the message and this package owns the copy.
-	OTPEmailSubject  = "Your MaintMode sign-in code"
-	otpEmailTemplate = "otp_email.gohtml"
-)
+// codeEmail is one purpose's copy: a subject and the template for the body.
+type codeEmail struct {
+	subject  string
+	template string
+}
 
-// otpEmailTmpl is the HTML code email, parsed once from the embedded templates.
-// html/template, not text/template, and not string concatenation: the transport
-// injects a rendered body into its branded frame as raw template.HTML, so a body
-// that did not come from html/template would turn that frame into an
-// HTML-injection sink. See notifytransport/email/layout.go.
-var otpEmailTmpl = template.Must(
-	template.ParseFS(templates.FS, otpEmailTemplate),
+// codeEmails holds the copy per purpose. A reset code gets its own because the
+// sign-in copy tells someone who did not ask to "safely ignore" it -- the wrong
+// advice when what somebody is attempting is to replace their password.
+var codeEmails = map[entity.OTPPurpose]codeEmail{
+	entity.OTPPurposeSignIn: {
+		subject:  "Your MaintMode sign-in code",
+		template: "otp_email.gohtml",
+	},
+	entity.OTPPurposePasswordReset: {
+		subject:  "Your MaintMode password reset code",
+		template: "password_reset_email.gohtml",
+	},
+}
+
+// codeEmailTmpl holds every code email, parsed once from the embedded
+// templates. html/template, not text/template, and not string concatenation:
+// the transport injects a rendered body into its branded frame as raw
+// template.HTML, so a body that did not come from html/template would turn that
+// frame into an HTML-injection sink. See notifytransport/email/layout.go.
+var codeEmailTmpl = template.Must(
+	template.ParseFS(templates.FS, "*.gohtml"),
 )
 
 type otpEmailData struct {
@@ -38,19 +52,30 @@ type otpEmailData struct {
 	ExpiresIn string
 }
 
-// RenderOTPEmail renders the code email body.
-func RenderOTPEmail(code string, ttl time.Duration) (string, error) {
+// RenderOTPEmail renders the code email for a purpose, returning its subject
+// and body. An empty purpose is a sign-in code: tasks queued before the purpose
+// existed carry none, and every one of them was a sign-in.
+func RenderOTPEmail(purpose entity.OTPPurpose, code string, ttl time.Duration) (subject, body string, err error) {
+	if purpose == "" {
+		purpose = entity.OTPPurposeSignIn
+	}
+
+	copyFor, ok := codeEmails[purpose]
+	if !ok {
+		return "", "", fmt.Errorf("render otp email: unknown purpose %q", purpose)
+	}
+
 	var buf strings.Builder
 
-	err := otpEmailTmpl.Execute(&buf, otpEmailData{
+	err = codeEmailTmpl.ExecuteTemplate(&buf, copyFor.template, otpEmailData{
 		Code:      code,
 		ExpiresIn: expiresInPhrase(ttl),
 	})
 	if err != nil {
-		return "", fmt.Errorf("render otp email: %w", err)
+		return "", "", fmt.Errorf("render otp email: %w", err)
 	}
 
-	return strings.TrimSpace(buf.String()), nil
+	return copyFor.subject, strings.TrimSpace(buf.String()), nil
 }
 
 // expiresInPhrase renders a code TTL as a whole-minute phrase.

@@ -48,17 +48,6 @@ var (
 	// message carries the far end's own text for an admin to read. Splitting the
 	// two means a library rewording its errors cannot break a UI.
 	ErrIntegrationProbeFailed ErrorCode = "probe_failed"
-
-	// ErrOTPSessionMismatch is the ONE failure of the one-time-code verify
-	// endpoint that does not collapse into the generic unauthorized answer.
-	//
-	// The exception is safe because provoking it requires already holding a live
-	// code, so it says nothing about whether an account exists. It is worth
-	// having because the legitimate cause is a user who closed the tab while the
-	// mail was in flight: told "invalid code" they would retype a correct code
-	// against a nonce that no longer exists, forever. Told to request a new one,
-	// they recover in a step.
-	ErrOTPSessionMismatch ErrorCode = "otp_session_mismatch"
 )
 
 type ErrorResponse struct {

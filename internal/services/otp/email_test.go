@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // The code reaches the user by email; the session nonce never does. That split
@@ -20,7 +22,7 @@ func TestRenderOTPEmail_CarriesCodeNotNonce(t *testing.T) {
 		nonce = "R7xQpLm4vT8sKd2wYn6bHc0jZaEuFgIo1rSt3MvXyPk="
 	)
 
-	body, err := RenderOTPEmail(code, 5*time.Minute)
+	_, body, err := RenderOTPEmail(entity.OTPPurposeSignIn, code, 5*time.Minute)
 	require.NoError(t, err)
 
 	require.Contains(t, body, code)
@@ -34,7 +36,7 @@ func TestRenderOTPEmail_CarriesCodeNotNonce(t *testing.T) {
 func TestRenderOTPEmail_EscapesInterpolatedValues(t *testing.T) {
 	t.Parallel()
 
-	body, err := RenderOTPEmail(`<script>alert(1)</script>`, time.Minute)
+	_, body, err := RenderOTPEmail(entity.OTPPurposeSignIn, `<script>alert(1)</script>`, time.Minute)
 	require.NoError(t, err)
 
 	require.NotContains(t, body, "<script>")
@@ -69,7 +71,39 @@ func TestExpiresInPhrase(t *testing.T) {
 func TestRenderOTPEmail_PointsAtTheNewestCode(t *testing.T) {
 	t.Parallel()
 
-	body, err := RenderOTPEmail("000042", 5*time.Minute)
+	_, body, err := RenderOTPEmail(entity.OTPPurposeSignIn, "000042", 5*time.Minute)
 	require.NoError(t, err)
 	require.Contains(t, strings.ToLower(body), "newest")
+}
+
+// A reset code must not arrive dressed as a sign-in code. The sign-in copy
+// tells someone who did not ask to "safely ignore" it, which is the wrong
+// advice when what somebody is attempting is to replace their password -- the
+// recipient has to be told that is what the code is for.
+func TestRenderOTPEmail_ResetCodeSaysItIsAReset(t *testing.T) {
+	t.Parallel()
+
+	subject, body, err := RenderOTPEmail(entity.OTPPurposePasswordReset, "481920", 5*time.Minute)
+	require.NoError(t, err)
+
+	require.Contains(t, strings.ToLower(subject), "password reset")
+	require.Contains(t, body, "481920")
+	require.Contains(t, strings.ToLower(body), "reset your password")
+	require.Contains(t, strings.ToLower(body), "has not changed")
+	require.NotContains(t, strings.ToLower(subject+body), "sign-in")
+}
+
+// Tasks queued before the purpose existed carry none, and all of them were
+// sign-in codes, so an empty purpose must render exactly as one.
+func TestRenderOTPEmail_EmptyPurposeIsSignIn(t *testing.T) {
+	t.Parallel()
+
+	legacySubject, legacyBody, err := RenderOTPEmail("", "481920", 5*time.Minute)
+	require.NoError(t, err)
+
+	subject, body, err := RenderOTPEmail(entity.OTPPurposeSignIn, "481920", 5*time.Minute)
+	require.NoError(t, err)
+
+	require.Equal(t, subject, legacySubject)
+	require.Equal(t, body, legacyBody)
 }

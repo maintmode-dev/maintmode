@@ -38,10 +38,10 @@ func doVerifyOTP(t *testing.T, impl *Implementation, body string) recordedRespon
 	}
 }
 
-// Every failure except the nonce mismatch must be indistinguishable. Each case
-// takes a different route — unknown address, no live code, malformed body,
-// failed validation — and each would otherwise reach a different arm of the
-// shared error mapper.
+// Every failure must be indistinguishable. Each case takes a different route —
+// unknown address, no live code, malformed body, failed validation, a foreign
+// nonce — and each would otherwise reach a different arm of the shared error
+// mapper.
 //
 // Asserted pairwise rather than against a literal: what matters is that no two
 // differ, and only comparing every pair catches one branch quietly diverging.
@@ -78,6 +78,11 @@ func TestVerifyOTP_FailuresAreIndistinguishable(t *testing.T) {
 		"wrong code against a live code": doVerifyOTP(t, impl, seedLiveCode(t, impl)),
 		"attempts exhausted":             doVerifyOTP(t, impl, seedBurntCode(t, impl)),
 		"expired code":                   doVerifyOTP(t, impl, seedExpiredCode(t, impl)),
+		// A live code with a made-up nonce. It once had its own answer, which made
+		// it an account-existence oracle: anyone can give any address a live code
+		// by requesting one, so "mismatch" versus "unauthorized" told an account
+		// apart from none.
+		"foreign nonce": doVerifyOTP(t, impl, seedWrongNonce(t, impl)),
 	}
 
 	for name, resp := range got {
@@ -160,7 +165,7 @@ func seedAddress(t *testing.T, impl *Implementation) (email string, cred *entity
 	})
 	require.NoError(t, err)
 
-	nonce, err = impl.otpSrv.Request(t.Context(), email)
+	nonce, err = impl.otpSrv.Request(t.Context(), email, entity.OTPPurposeSignIn)
 	require.NoError(t, err)
 
 	cred, err = authcredentials.NewStore(db).GetUnconsumedOTPByUserID(t.Context(), user.ID)
@@ -215,36 +220,6 @@ func verifyBody(email, nonce string) string {
 	return `{"email":"` + email + `","code":"` + wrongCode + `","session_nonce":"` + nonce + `"}`
 }
 
-// TestVerifyOTP_SessionMismatchIsItsOwnResponse pins the one deliberate
-// exception, and pins that it stays narrow: a distinct code and an actionable
-// message, with nothing about whose nonce, what was expected, or whether a code
-// exists for the address.
-func TestVerifyOTP_SessionMismatchIsItsOwnResponse(t *testing.T) {
-	t.Parallel()
-
-	rec := httptest.NewRecorder()
-	c := echotest.ContextConfig{
-		Request:  httptest.NewRequest(http.MethodPost, "/api/v1/login/otp/verify", http.NoBody),
-		Response: rec,
-	}.ToContext(t)
-
-	// Floor zeroed: this asserts the response body, and waiting out a real floor
-	// would only make the test slow.
-	impl := initImplWithOTPFloor(t, 0)
-	require.NoError(t, impl.otpSessionMismatch(c.Request().Context(), c, time.Now(),
-		errors.New("nonce a1b2c3 did not match stored d4e5f6 for user 42")))
-
-	require.Equal(t, http.StatusUnauthorized, rec.Code)
-	require.Equal(t, "no-store", rec.Header().Get(echo.HeaderCacheControl))
-	require.Contains(t, rec.Body.String(), "otp_session_mismatch")
-	require.Contains(t, rec.Body.String(), "request a new code")
-
-	body := strings.ToLower(rec.Body.String())
-	require.NotContains(t, body, "a1b2c3", "the response must not echo the sent nonce")
-	require.NotContains(t, body, "d4e5f6", "the response must not leak the stored nonce")
-	require.NotContains(t, body, "user 42", "the response must not identify anyone")
-}
-
 // TestOTPRejected_LeaksNothingAboutTheCause is the other half of the collapse:
 // the pairwise test proves every path funnels here, this proves what is built
 // here is safe to send whatever the cause was.
@@ -295,10 +270,9 @@ func TestVerifyOTP_FloorAppliesToEveryReturnPath(t *testing.T) {
 	nonce := strings.Repeat("A", 43) + "="
 
 	// The SUCCESS path is floored too, and that is not redundant with the
-	// failures. Left unfloored, an attacker holding a victim's code but not
-	// their nonce sees otp_session_mismatch at the floor while the correct pair
-	// returns immediately -- a timing signal for "the code is right, only the
-	// binding is wrong", which is exactly the state a relayed code is in.
+	// failures. Left unfloored, every failure answers at the floor while the
+	// correct pair returns immediately -- a timing signal that separates a
+	// success before the body is read.
 	successBody := seedRedeemable(t, impl)
 
 	for name, body := range map[string]string{
@@ -312,9 +286,7 @@ func TestVerifyOTP_FloorAppliesToEveryReturnPath(t *testing.T) {
 		"wrong code":         seedLiveCode(t, impl),
 		"attempts exhausted": seedBurntCode(t, impl),
 		"expired code":       seedExpiredCode(t, impl),
-		// The one deliberately distinguishable failure still has to be floored:
-		// unfloored it would be the single failure with a telling latency. It
-		// needs a REAL live code with the wrong nonce -- a made-up address never
+		// A REAL live code with the wrong nonce -- a made-up address never
 		// reaches the nonce comparison at all.
 		"session mismatch": seedWrongNonce(t, impl),
 	} {

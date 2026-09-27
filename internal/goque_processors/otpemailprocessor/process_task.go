@@ -64,7 +64,7 @@ func (p *queueProcessor) ProcessTask(
 		return fmt.Errorf("decrypt otp code: %w", err)
 	}
 
-	body, err := otp.RenderOTPEmail(string(code), p.ttl)
+	subject, body, err := otp.RenderOTPEmail(payload.Purpose, string(code), p.ttl)
 	if err != nil {
 		xlog.Error(ctx, "otp email failed: cannot render the body", xfield.Error(err))
 		return fmt.Errorf("render otp email: %w", err)
@@ -76,7 +76,7 @@ func (p *queueProcessor) ProcessTask(
 		entity.NotifyTransportEmail,
 		payload.Target,
 		entity.NotifyMessage{
-			Subject:     otp.OTPEmailSubject,
+			Subject:     subject,
 			Body:        body,
 			MessageMIME: entity.HTMLMessageMIME,
 		},

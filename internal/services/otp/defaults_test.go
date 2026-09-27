@@ -67,3 +67,25 @@ func TestMaxAttempts(t *testing.T) {
 		})
 	}
 }
+
+// The cooldown falls back on a non-positive value rather than switching off,
+// and never outlasts a code: past its lifetime the live code has expired, and
+// an expired code must never stand in the way of a new one.
+func TestReissueCooldown(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		cooldown, ttl, want time.Duration
+	}{
+		"configured":       {30 * time.Second, 5 * time.Minute, 30 * time.Second},
+		"unset":            {0, 5 * time.Minute, time.Minute},
+		"negative":         {-time.Second, 5 * time.Minute, time.Minute},
+		"longer than ttl":  {10 * time.Minute, 5 * time.Minute, 5 * time.Minute},
+		"default over ttl": {0, 30 * time.Second, 30 * time.Second},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, otp.ReissueCooldown(config.Auth{OTPReissueCooldown: tc.cooldown, OTPTTL: tc.ttl}))
+		})
+	}
+}

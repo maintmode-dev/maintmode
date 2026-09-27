@@ -103,10 +103,13 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 }
 
 // UnlinkIdentity removes the provider identity from userID. It refuses to remove
-// the last remaining identity (ErrCannotDisconnectLastProvider) and refuses
-// built-in methods outright (ErrCannotDisconnectBuiltinMethod). Disconnecting a
-// provider the user is not linked to is a no-op success (idempotent).
-func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod) error {
+// the last remaining provider (ErrCannotDisconnectLastProvider) unless
+// keepsSignIn says the user can still get in by a built-in method -- a password
+// or an emailed code, which this module does not own and the caller decides --
+// and refuses built-in methods outright (ErrCannotDisconnectBuiltinMethod).
+// Disconnecting a provider the user is not linked to is a no-op success
+// (idempotent).
+func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod, keepsSignIn bool) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.UnlinkIdentity",
 		xfield.String("provider", string(provider)),
 	)
@@ -140,7 +143,7 @@ func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider
 		if err != nil {
 			return fmt.Errorf("count identities: %w", err)
 		}
-		if count <= 1 {
+		if count <= 1 && !keepsSignIn {
 			return apperr.ErrCannotDisconnectLastProvider
 		}
 

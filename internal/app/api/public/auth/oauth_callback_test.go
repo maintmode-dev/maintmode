@@ -209,7 +209,7 @@ func TestCallbackClearsBothCookiesOnEveryExit(t *testing.T) {
 		wantErr string
 	}{
 		"success":          {query: happy},
-		"provider error":   {query: url.Values{"error": {"access_denied"}}, wantErr: "access_denied"},
+		"provider error":   {query: url.Values{"error": {"access_denied"}}, wantErr: "consent_cancelled"}, //nolint:misspell // wire value
 		"no state cookie":  {query: happy, mutate: func(r *danceRun) { r.signature = "" }, wantErr: "state_invalid"},
 		"forged signature": {query: happy, mutate: func(r *danceRun) { r.signature = "1799999999.forged" }, wantErr: "state_invalid"},
 		"no verifier":      {query: happy, mutate: func(r *danceRun) { r.verifier = "" }, wantErr: "state_invalid"},
@@ -513,8 +513,11 @@ func TestCallbackProviderErrors(t *testing.T) {
 		wantError   string
 	}{
 		// The provider reporting a declined consent screen. Nothing is broken;
-		// the user simply starts again.
-		"user declined":      {providerErr: "access_denied", wantError: "access_denied"},
+		// the user simply starts again -- and must not be told they need an
+		// invitation, which is what access_denied means.
+		"user declined": {providerErr: "access_denied", wantError: "consent_cancelled"}, //nolint:misspell // wire value
+		// Only the exact code is the person's choice.
+		"denied by policy":   {providerErr: "access_denied_by_policy", wantError: "provider_error"},
 		"provider stumbled":  {providerErr: "temporarily_unavailable", wantError: "provider_error"},
 		"provider misbehave": {providerErr: "server_error", wantError: "provider_error"},
 	}

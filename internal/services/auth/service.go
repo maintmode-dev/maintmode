@@ -41,7 +41,7 @@ type AuthMethodFlags interface {
 // OTPRequester issues a one-time code. The reset flow reuses the sign-in code
 // mechanism unchanged rather than growing a second one.
 type OTPRequester interface {
-	Request(ctx context.Context, email string) (string, error)
+	Request(ctx context.Context, email string, purpose entity.OTPPurpose) (string, error)
 }
 
 // OTPVerifier redeems a one-time code and reports the user it belonged to.
