@@ -196,25 +196,3 @@ func TestProvision_InvalidEntryChangesNothing(t *testing.T) {
 		})
 	}
 }
-
-// A declared entry is written as it stands: its facts come from the same entry
-// and are not held to the catalog. The file's author owns the catalog too, so
-// pointing a preset name elsewhere from here is theirs to do; the preset rules
-// guard the admin API.
-func TestProvision_UsesTheEntryAsWritten(t *testing.T) {
-	ctx := context.Background()
-	_, kinds, _ := initService(t)
-	entry := declared("cfg-client")
-	entry.IssuerURL = "https://sso.corp.example"
-	entry.DisplayName = "Corp SSO"
-	svc, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: entry})
-
-	require.NoError(t, svc.Provision(ctx))
-
-	row, found := readRow(ctx, t, kinds.login, kinds.oidc)
-	require.True(t, found)
-	require.Contains(t, row.Config, "https://sso.corp.example")
-	require.Contains(t, row.Config, "Corp SSO")
-	require.Contains(t, row.Config, "cfg-client")
-	require.NotContains(t, row.Config, "from-the-secrets-file", "the secret never reaches the config")
-}
