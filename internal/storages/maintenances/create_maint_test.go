@@ -141,6 +141,17 @@ func TestCreate_ActualPeriod(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, lo.ToPtr(tc.actualPeriod), dbMaint.ActualPeriod)
 				require.Equal(t, created, dbMaint)
+
+				// An open-ended period left in the shared database overlaps every
+				// window later tests claim. This is testdbutils.CancelMaintOnCleanup
+				// inlined: that package imports this one.
+				if tc.actualPeriod.IsOpen() {
+					t.Cleanup(func() {
+						dbMaint.ActualPeriod = lo.ToPtr(entity.NewPeriod(tc.actualPeriod.Start, tc.actualPeriod.Start.Add(time.Hour)))
+						dbMaint.Status = entity.MaintenanceStatusCancelled
+						_ = store.UpdateMaint(ctx, dbMaint)
+					})
+				}
 			})
 		}
 	})

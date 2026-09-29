@@ -161,7 +161,16 @@ func TestConflictScopeMatrix(t *testing.T) {
 		t.Run(tc.name+" (factual)", func(t *testing.T) {
 			t.Parallel()
 
+			// An isolated window moved a thousand years into the PAST. The factual
+			// query matches on actual_period, and a maintenance left in progress
+			// by any other test has an open-ended one -- [started, ∞) -- which
+			// overlaps every future window. Enough of them on the shared database
+			// crowd a global-scope subject past the query's LIMIT and push this
+			// neighbor out of the page. No such row starts before now, so a past
+			// window is theirs to miss; for maintenances that have already run it
+			// is also the realistic place for the period to be.
 			start, end := testdbutils.IsolatedPeriodBounds(t)
+			start, end = start.AddDate(-1000, 0, 0), end.AddDate(-1000, 0, 0)
 			period := entity.NewPeriod(start, end)
 
 			// Both sides must have actually run for the factual query to see

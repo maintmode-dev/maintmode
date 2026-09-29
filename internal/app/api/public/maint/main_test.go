@@ -26,8 +26,10 @@ import (
 	resourcemodels "github.com/ruko1202/maintmode/internal/app/api/public/resources/models"
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/storages/maintenances"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
+	testdbutils "github.com/ruko1202/maintmode/test/utils/db"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 )
@@ -102,6 +104,10 @@ func createDraftMaintenance(ctx context.Context, t *testing.T, impl *Implementat
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
+	// Tests here start and complete what they create; one left in progress
+	// would overlap every later test's window in the shared database.
+	testdbutils.CancelMaintOnCleanup(ctx, t, maintenances.NewStore(db), resp.ID)
+
 	return &resp
 }
 
@@ -349,5 +355,9 @@ func createTwoStepDraftMaintenance(ctx context.Context, t *testing.T, impl *Impl
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	resp := testjsonudils.JSONToAny[apimodels.CreateDraftMaintResponse](t, rec.Body)
+	// Tests here start and complete what they create; one left in progress
+	// would overlap every later test's window in the shared database.
+	testdbutils.CancelMaintOnCleanup(ctx, t, maintenances.NewStore(db), resp.ID)
+
 	return &resp
 }
