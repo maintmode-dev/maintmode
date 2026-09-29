@@ -10,46 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	integrationsvc "github.com/ruko1202/maintmode/internal/services/integration"
 )
 
-// provisionedLoginRow creates an ordinary login row and then marks it owned by
-// the config file, the way provisioning leaves it. Marked through SQL so the
-// guard is tested on its own, independent of Provision.
-func provisionedLoginRow(ctx context.Context, t *testing.T, svc *integrationsvc.Service, kinds testKinds) *entity.MaskedIntegration {
+// provisionLoginRow leaves the fixture's login row the way provisioning does,
+// by running it.
+func provisionLoginRow(ctx context.Context, t *testing.T, kinds testKinds) {
 	t.Helper()
 
-	_, err := svc.Create(ctx, &entity.CreateIntegrationCmd{
-		Kind:    kinds.login,
-		Name:    kinds.oidc,
-		Enabled: lo.ToPtr(true),
-		Config:  presetConfig("corp-client"),
-		Secrets: json.RawMessage(`{"client_secret":"corp-secret"}`),
-		Actor:   testActor(),
-	})
-	require.NoError(t, err)
-
-	_, err = db.ExecContext(ctx,
-		`UPDATE integration_settings SET provisioned = true WHERE kind = $1 AND name = $2`, kinds.login, kinds.oidc)
-	require.NoError(t, err)
-
-	row, err := svc.GetByKindName(ctx, kinds.login, kinds.oidc)
-	require.NoError(t, err)
-	require.True(t, row.Provisioned)
-
-	return row
+	svc, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: declared("corp-client")})
+	require.NoError(t, svc.Provision(ctx))
 }
 
 // A provisioned row belongs to the config file: an admin edit would be
 // overwritten at the next restart at best, and at worst would store a secret in
 // the database that the feature promises is not there.
 //
+// Not parallel: it provisions (see provision_test.go).
+//
 // Proven by mutation: removing the guard from updateWithApply turns the update
 // and toggle cases red.
 func TestService_ProvisionedRowRefusesAdminWrites(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name  string
 		write func(ctx context.Context, svc *integrationsvc.Service, kinds testKinds) error
@@ -98,22 +81,18 @@ func TestService_ProvisionedRowRefusesAdminWrites(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := context.Background()
 			svc, kinds, mocks := initService(t)
-			before := provisionedLoginRow(ctx, t, svc, kinds)
-			secretBefore := rawStoredSecret(ctx, t, kinds.oidc, "client_secret")
+			provisionLoginRow(ctx, t, kinds)
+			before, _ := readRow(ctx, t, kinds.login, kinds.oidc)
 			auditBefore := len(mocks.audit.Actions())
 
 			err := tc.write(ctx, svc, kinds)
 
 			require.ErrorIs(t, err, apperr.ErrIntegrationNameReserved)
-			after, getErr := svc.GetByKindName(ctx, kinds.login, kinds.oidc)
-			require.NoError(t, getErr, "the row must survive")
-			require.Equal(t, before.Enabled, after.Enabled)
-			require.JSONEq(t, string(before.Config), string(after.Config))
-			require.Equal(t, before.UpdatedAt, after.UpdatedAt)
-			require.Equal(t, secretBefore, rawStoredSecret(ctx, t, kinds.oidc, "client_secret"))
+			after, found := readRow(ctx, t, kinds.login, kinds.oidc)
+			require.True(t, found, "the row must survive")
+			require.Equal(t, before, after, "a refused write changes nothing")
 			require.Equal(t, uuid.Nil, mocks.identities.unlinkedFrom, "no identity cascade may run")
 			require.Len(t, mocks.audit.Actions(), auditBefore, "a refused write is not audited")
 		})

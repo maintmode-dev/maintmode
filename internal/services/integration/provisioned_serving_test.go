@@ -40,10 +40,11 @@ func TestListLoginProviders_ServesAProvisionedRowFromMemory(t *testing.T) {
 	svc, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: declared("cfg-client")})
 	require.NoError(t, svc.Provision(ctx))
 
-	_, err := db.ExecContext(ctx,
-		`UPDATE integration_settings SET config = jsonb_set(config, '{client_id}', '"another-replica"'), enabled = false
-		 WHERE kind = $1 AND name = $2`, kinds.login, kinds.oidc)
-	require.NoError(t, err)
+	// Another replica, started later on a different config, rewrites the row.
+	other := declared("another-replica")
+	other.Enabled = lo.ToPtr(false)
+	replica, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: other})
+	require.NoError(t, replica.Provision(ctx))
 
 	provider := listedLogin(ctx, t, svc, kinds.oidc)
 
@@ -58,17 +59,18 @@ func TestListLoginProviders_ServesAProvisionedRowFromMemory(t *testing.T) {
 // A released row has no secret. Opening it can only fail, and reporting that
 // as unreadable -- with an error log every reload tick on every replica --
 // would cry wolf about a provider that is simply off.
+//
+// Not parallel: it provisions (see provision_test.go).
 func TestListLoginProviders_DisabledRowWithoutSecretIsNotUnreadable(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
-	svc, kinds, _ := initService(t)
-	createDisabledLogin(ctx, t, svc, kinds)
+	_, kinds, _ := initService(t)
+	first, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: declared("cfg-client")})
+	require.NoError(t, first.Provision(ctx))
 
-	_, err := db.ExecContext(ctx,
-		`UPDATE integration_settings SET secrets = '{}' WHERE kind = $1 AND name = $2`, kinds.login, kinds.oidc)
-	require.NoError(t, err)
+	next, _ := newServiceFor(t, kinds, nil, config.LoginProviders{})
+	require.NoError(t, next.Provision(ctx))
 
-	provider := listedLogin(ctx, t, svc, kinds.oidc)
+	provider := listedLogin(ctx, t, next, kinds.oidc)
 
 	require.False(t, provider.Unreadable)
 	require.False(t, provider.Enabled)
