@@ -24,11 +24,12 @@ var (
 	// Distinct from ErrIntegrationConflict, whose message speaks of a row that
 	// already exists and would misdescribe this entirely.
 	ErrIntegrationInUse = errors.New("integration still has linked accounts; retry the delete")
-	// ErrIntegrationNameReserved is returned when a create collides with a
-	// provider configured in the config file. Config wins, so the row is refused
-	// rather than stored and shadowed -- a shadowed row would silently become
-	// the live IdP for that name the day the config entry is removed.
-	ErrIntegrationNameReserved = errors.New("integration name is reserved by configuration")
+	// ErrIntegrationNameReserved is returned when an admin write -- update,
+	// toggle or delete -- targets a row provisioned from the config file. The
+	// file owns such a row: an edit here would be overwritten at the next
+	// restart, and a secret written here would put in the database what
+	// provisioning promises is not there.
+	ErrIntegrationNameReserved = errors.New("integration is managed by the config file; change it there and restart")
 	// ErrIntegrationDisabled signals that an integration exists but is turned off.
 	// The notify dispatch path treats it as a best-effort drop, not an error.
 	ErrIntegrationDisabled = errors.New("integration is disabled")

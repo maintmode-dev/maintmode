@@ -68,6 +68,13 @@ func (s *Service) Delete(ctx context.Context, kind, name string, actor *entity.U
 			return getErr
 		}
 
+		// Before the cascade: deleting a provisioned row would take its
+		// identities with it, and the next restart would re-insert the provider
+		// under a new id with nobody linked to it.
+		if guardErr := refuseProvisioned(existing); guardErr != nil {
+			return guardErr
+		}
+
 		unlinked, cascadeErr := s.unlinkIdentities(ctx, kind, existing.ID)
 		if cascadeErr != nil {
 			return cascadeErr

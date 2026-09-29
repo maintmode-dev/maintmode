@@ -153,8 +153,8 @@ func mapError(err error) (int, *ErrorResponse) {
 		return http.StatusNotFound, NewErrorResponse(ErrNotFound, err.Error())
 
 	// Two distinct 409s on this surface, deliberately not collapsed: they ask
-	// the operator for different remedies -- pick another name, or stop
-	// colliding with a configured provider.
+	// the operator for different remedies -- pick another name, or change the
+	// provider in the config file that owns it.
 	//
 	// There is deliberately no third one for "accounts are still linked".
 	// Deleting a login provider does not refuse in that case: it unlinks the
