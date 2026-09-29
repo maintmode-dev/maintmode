@@ -54,7 +54,27 @@ func (s *Service) ListLoginProviders(ctx context.Context, kind string) ([]entity
 func (s *Service) openProvider(
 	ctx context.Context, row *entity.IntegrationSetting,
 ) entity.ConfiguredProvider {
+	// This replica's own config first. A provisioned provider is served from
+	// memory whole -- settings, secret and enabled -- and the row only lends it
+	// an id. The row's config is a display copy written by whichever replica
+	// started last; serving from it would pair that replica's client_id with
+	// this one's secret during a rolling config change.
+	if declared, ok := s.provisioned[row.Name]; ok {
+		return declared.ConfiguredProvider
+	}
+
 	provider := entity.ConfiguredProvider{Name: row.Name, Enabled: row.Enabled}
+
+	// A disabled row with no secret is left unopened. The reloader builds
+	// nothing for a disabled row anyway, and opening one that has no secret --
+	// a row released by provisioning, or provisioned by another replica's
+	// config -- can only fail, which would report a provider that is simply
+	// off as unreadable, with an error log every tick. A disabled row that DOES
+	// carry a secret is still opened: its failing to decrypt is the early
+	// warning of a lost key.
+	if !row.Enabled && len(row.Secrets) == 0 {
+		return provider
+	}
 
 	settings, err := s.resolveAndOpen(ctx, row)
 	if err != nil {
