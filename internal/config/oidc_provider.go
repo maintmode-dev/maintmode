@@ -60,9 +60,10 @@ type OIDCProvider struct {
 // UseStub (gated on IsDev) is the only stub-related knob.
 type OauthProviders struct {
 	UseStub bool `mapstructure:"use_stub"`
-	// Presets is the credential-free catalog of well-known login providers.
-	// It configures nothing by itself -- see LoginPresets.
-	Presets LoginPresets `mapstructure:"presets"`
+	// Providers is one flat section per login provider, keyed by registry
+	// system name: its facts, and -- when it is declared here -- enabled and
+	// its settings. See LoginProvider.
+	Providers LoginProviders `mapstructure:"providers"`
 }
 
 // ValidateInstanceKey reports whether key may name an OIDC instance.

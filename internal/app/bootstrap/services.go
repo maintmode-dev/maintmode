@@ -548,7 +548,7 @@ func newIntegrationService(
 		secrets.NewAESCipher(),
 		auditPublisher,
 		stores.UserIdentities,
-		cfg.OauthProviders.Presets,
+		cfg.OauthProviders.Providers,
 	), nil
 }
 

@@ -86,7 +86,7 @@ func initResolver(t *testing.T) harness {
 		secrets.NewAESCipher(),
 		publishermock.New(t),
 		// No login kind in this registry, so neither the delete cascade nor
-		// the preset catalog is ever reached.
+		// the provider sections are ever reached.
 		nil,
 		nil,
 	)

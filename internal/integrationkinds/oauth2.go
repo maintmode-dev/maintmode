@@ -62,7 +62,7 @@ type OAuth2Settings struct {
 	// the operator: applyPreset refuses a create that sets them and
 	// enforcePreset refuses an update that changes them. They are stored on the
 	// row rather than read from the catalog at use time, for the reason
-	// LoginPreset gives -- a value read live would change under providers
+	// config.LoginFacts gives -- a value read live would change under providers
 	// already using it.
 	//
 	// They are required, and validated as URLs, because nothing else supplies

@@ -23,7 +23,7 @@ func TestApplySecret(t *testing.T) {
 				Password: "<secret:valkey/password>",
 				DB:       0,
 			},
-			// Two branches of the recursive walk at once. The preset catalog is
+			// Two branches of the recursive walk at once. The provider sections are
 			// the config's only map of structs, so it covers reflect.Map — a ref
 			// inside a map value must resolve rather than silently keeping its
 			// placeholder. AllowedHostedDomains below is a []string, covering
@@ -34,11 +34,11 @@ func TestApplySecret(t *testing.T) {
 			// secret ref; it is used here because it is the config's only map of
 			// structs, and the branch has to be exercised by something.
 			OauthProviders: OauthProviders{
-				Presets: LoginPresets{
-					"google": {
+				Providers: LoginProviders{
+					"google": {LoginFacts: LoginFacts{
 						DisplayName: "<secret:oauth/google/display_name>",
 						IssuerURL:   "https://accounts.google.com",
-					},
+					}},
 				},
 			},
 			JWTVerifier: JWTVerifierConfig{
@@ -90,11 +90,11 @@ func TestApplySecret(t *testing.T) {
 				DB:       0,
 			},
 			OauthProviders: OauthProviders{
-				Presets: LoginPresets{
-					"google": {
+				Providers: LoginProviders{
+					"google": {LoginFacts: LoginFacts{
 						DisplayName: "Google",
 						IssuerURL:   "https://accounts.google.com",
-					},
+					}},
 				},
 			},
 			JWTVerifier: JWTVerifierConfig{

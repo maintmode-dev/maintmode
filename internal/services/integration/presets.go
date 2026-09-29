@@ -116,7 +116,7 @@ func (s *Service) enforcePreset(name string, cfg json.RawMessage) error {
 // unregistered) and the caller should do nothing at all.
 func (s *Service) presetAndConfig(
 	name string, cfg json.RawMessage,
-) (preset config.LoginPreset, fields map[string]any, preseted bool, err error) {
+) (preset config.LoginFacts, fields map[string]any, preseted bool, err error) {
 	// Whether the catalog speaks for this name is asked of the registered ENTRY,
 	// not of the name: `google` and `custom` are the same oidc implementation, so
 	// the name alone cannot tell them apart -- the entry carries the key, and an
@@ -128,12 +128,12 @@ func (s *Service) presetAndConfig(
 	// registry lookup that is about to refuse it anyway.
 	in, found := s.registry.lookup(name)
 	if !found {
-		return config.LoginPreset{}, nil, false, nil
+		return config.LoginFacts{}, nil, false, nil
 	}
 
 	entry, isPreseted := in.(integrationkinds.Preseted)
 	if !isPreseted {
-		return config.LoginPreset{}, nil, false, nil
+		return config.LoginFacts{}, nil, false, nil
 	}
 
 	// The registry says WHICH key; the deployment's catalog says what is under
@@ -141,22 +141,23 @@ func (s *Service) presetAndConfig(
 	// in code, the other differs between stands.
 	key := entry.PresetKey()
 	if key == "" {
-		return config.LoginPreset{}, nil, false, nil
+		return config.LoginFacts{}, nil, false, nil
 	}
 
-	preset, inCatalog := s.loginPresets.For(key)
-	if !inCatalog {
-		return config.LoginPreset{}, nil, false, fmt.Errorf(
+	// An entry with no facts fixes nothing, so it counts as no entry at all.
+	provider, inCatalog := s.loginProviders.For(key)
+	if !inCatalog || len(provider.Fields()) == 0 {
+		return config.LoginFacts{}, nil, false, fmt.Errorf(
 			"%w: %q has no preset in this deployment's catalog", apperr.ErrValidation, key)
 	}
 
 	fields = map[string]any{}
 	if len(cfg) > 0 {
 		if err := json.Unmarshal(cfg, &fields); err != nil {
-			return config.LoginPreset{}, nil, false, fmt.Errorf(
+			return config.LoginFacts{}, nil, false, fmt.Errorf(
 				"%w: config: %w", apperr.ErrValidation, err)
 		}
 	}
 
-	return preset, fields, true, nil
+	return provider.LoginFacts, fields, true, nil
 }

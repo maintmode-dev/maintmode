@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"os"
 	"testing"
 
@@ -170,37 +171,8 @@ func initServiceWith(
 		login:     integrationkinds.CategoryLogin,
 	}
 
-	registry, err := integrationsvc.NewRegistry(
-		renamedKind{Integration: integrationkinds.Slack, name: kinds.slack},
-		renamedKind{Integration: integrationkinds.Email, name: kinds.email},
-		renamedKind{Integration: integrationkinds.Telegram, name: kinds.telegram},
-		renamedKind{Integration: integrationkinds.Google, name: kinds.oidc},
-		renamedKind{Integration: integrationkinds.Custom, name: kinds.byoIssuer},
-	)
-	require.NoError(t, err)
+	svc, mocks := newServiceFor(t, kinds, identities, nil)
 
-	mocks := &serviceMocks{audit: publishermock.New(t), identities: &fakeIdentities{}}
-
-	if identities == nil {
-		identities = mocks.identities
-	}
-
-	svc := integrationsvc.NewService(
-		dbtx.NewTxManager(db),
-		integrationstore.NewStore(db),
-		datakeystore.NewStore(db),
-		registry,
-		keyring,
-		testCipher,
-		mocks.audit,
-		identities,
-		// The fixture's login name carries the per-test suffix so parallel runs
-		// stay off each other's rows, which makes it a PRESET name rather than
-		// "custom" -- so it needs a catalog entry to be creatable at all.
-		config.LoginPresets{
-			integrationkinds.Google.Name(): {DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
-		},
-	)
 	// Each test's rows use unique NAMES; drop them at the end so the shared table
 	// does not accumulate across a package run.
 	//
@@ -231,6 +203,67 @@ func initServiceWith(
 	})
 
 	return svc, kinds, mocks
+}
+
+// newServiceFor builds a service over an existing set of test names, with a
+// fresh audit spy. A test that needs a SECOND service over the same rows -- one
+// that provisions them after the first created them -- calls this directly;
+// cleanup stays with whoever generated the names.
+//
+// provisioned is the config file's declared providers for this service, keyed
+// by the test's names; nil means nothing is provisioned. The fixture's catalog
+// entry is added beside them.
+func newServiceFor(
+	t *testing.T,
+	kinds testKinds,
+	identities integrationsvc.IdentitiesStore,
+	provisioned config.LoginProviders,
+) (*integrationsvc.Service, *serviceMocks) {
+	t.Helper()
+
+	mocks := &serviceMocks{audit: publishermock.New(t), identities: &fakeIdentities{}}
+	if identities == nil {
+		identities = mocks.identities
+	}
+
+	registry, err := integrationsvc.NewRegistry(
+		renamedKind{Integration: integrationkinds.Slack, name: kinds.slack},
+		renamedKind{Integration: integrationkinds.Email, name: kinds.email},
+		renamedKind{Integration: integrationkinds.Telegram, name: kinds.telegram},
+		renamedKind{Integration: integrationkinds.Google, name: kinds.oidc},
+		renamedKind{Integration: integrationkinds.Custom, name: kinds.byoIssuer},
+	)
+	require.NoError(t, err)
+
+	svc := integrationsvc.NewService(
+		dbtx.NewTxManager(db),
+		integrationstore.NewStore(db),
+		datakeystore.NewStore(db),
+		registry,
+		keyring,
+		testCipher,
+		mocks.audit,
+		identities,
+		providersWithCatalog(provisioned),
+	)
+
+	return svc, mocks
+}
+
+// providersWithCatalog adds the fixture's catalog entry to a test's declared
+// providers. The fixture's login name carries the per-test suffix so parallel
+// runs stay off each other's rows, which makes it a PRESET name rather than
+// "custom" -- so it needs a catalog entry to be creatable at all.
+func providersWithCatalog(provisioned config.LoginProviders) config.LoginProviders {
+	providers := config.LoginProviders{
+		integrationkinds.Google.Name(): {
+			ManagedBy:  config.ManagedByUI,
+			LoginFacts: config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
+		},
+	}
+	maps.Copy(providers, provisioned)
+
+	return providers
 }
 
 // testPresetIssuer is the issuer the fixture's catalog supplies. A login row

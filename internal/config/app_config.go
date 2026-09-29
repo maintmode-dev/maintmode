@@ -711,6 +711,12 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("failed to load secrets for service %s: %s", appName, err)
 	}
 
+	// Before applySecrets: a reference and a literal are only distinguishable
+	// while the reference is still unresolved.
+	if err := cfg.OauthProviders.prepareProviders(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	if err := cfg.applySecrets(secrets); err != nil {
 		log.Panicf("failed to apply secrets for service %s: %s", appName, err)
 	}
