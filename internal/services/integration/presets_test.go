@@ -18,14 +18,14 @@ func presetSvc(t *testing.T) *Service {
 		integrationkinds.Google, integrationkinds.Custom, integrationkinds.GitHub)
 	require.NoError(t, err)
 
-	return &Service{registry: registry, loginPresets: config.LoginPresets{
-		"google": {DisplayName: "Google", IssuerURL: "https://accounts.google.com"},
-		"github": {
+	return &Service{registry: registry, loginProviders: config.LoginProviders{
+		"google": {LoginFacts: config.LoginFacts{DisplayName: "Google", IssuerURL: "https://accounts.google.com"}},
+		"github": {LoginFacts: config.LoginFacts{
 			DisplayName:  "GitHub",
 			AuthorizeURL: "https://github.com/login/oauth/authorize",
 			TokenURL:     "https://github.com/login/oauth/access_token",
 			APIBaseURL:   "https://api.github.com",
-		},
+		}},
 	}}
 }
 
@@ -81,7 +81,7 @@ func TestApplyPreset_MissingCatalogEntryIsRefused(t *testing.T) {
 
 	registry, err := NewRegistry(integrationkinds.Google, integrationkinds.Custom)
 	require.NoError(t, err)
-	svc := &Service{registry: registry, loginPresets: config.LoginPresets{}}
+	svc := &Service{registry: registry, loginProviders: config.LoginProviders{}}
 
 	_, err = svc.applyPreset("google", json.RawMessage(`{"client_id":"c"}`))
 	require.ErrorIs(t, err, apperr.ErrValidation)
@@ -142,7 +142,7 @@ func TestEnforcePreset_MissingCatalogEntryIsRefused(t *testing.T) {
 	require.NoError(t, err)
 
 	// A deployment whose catalog lost the entry -- or never had it.
-	svc := &Service{registry: registry, loginPresets: config.LoginPresets{}}
+	svc := &Service{registry: registry, loginProviders: config.LoginProviders{}}
 
 	err = svc.enforcePreset("google", json.RawMessage(
 		`{"issuer_url":"https://attacker.example","client_id":"c"}`))
@@ -185,4 +185,19 @@ func TestApplyPreset_RefusesACallerSuppliedOAuth2Endpoint(t *testing.T) {
 		json.RawMessage(`{"token_url":"https://attacker.example/token","client_id":"c"}`))
 	require.ErrorIs(t, err, apperr.ErrValidation)
 	require.ErrorContains(t, err, "token_url")
+}
+
+// An entry with no facts -- `google: {}`, written in the belief that the
+// section implies defaults -- fixes nothing, so it must be refused exactly like
+// a missing one; otherwise an admin could aim google at an IdP of their choice.
+func TestEnforcePreset_EmptyCatalogEntryIsRefused(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(integrationkinds.Google, integrationkinds.Custom)
+	require.NoError(t, err)
+	svc := &Service{registry: registry, loginProviders: config.LoginProviders{"google": {}}}
+
+	err = svc.enforcePreset("google", json.RawMessage(
+		`{"issuer_url":"https://attacker.example","client_id":"c"}`))
+	require.ErrorIs(t, err, apperr.ErrValidation)
 }

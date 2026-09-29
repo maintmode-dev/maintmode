@@ -36,6 +36,12 @@ type IntegrationSetting struct {
 	// store mapper. On read paths this is masked; never surfaced as plaintext.
 	Secrets map[string]string
 	DEKID   uuid.UUID
+	// Provisioned marks a row owned by the config file rather than the admin
+	// API: startup provisioning writes it, every admin write refuses it, and it
+	// stores no secret -- the client_secret lives in the memory of the process
+	// that read it from the secrets file. Only the provisioning store methods
+	// write this column; the admin write path never does.
+	Provisioned bool
 
 	CreatedAt       time.Time
 	CreatedByUserID *uuid.UUID
@@ -124,6 +130,9 @@ type MaskedIntegration struct {
 	Enabled    bool
 	Config     json.RawMessage
 	SecretsSet map[string]bool
+	// Provisioned: see IntegrationSetting.Provisioned. SecretsSet of such a row
+	// is empty by construction -- its secret is not in the database.
+	Provisioned bool
 
 	CreatedAt       time.Time
 	CreatedByUserID *uuid.UUID
@@ -145,6 +154,7 @@ func (s *IntegrationSetting) Mask() *MaskedIntegration {
 		Enabled:         s.Enabled,
 		Config:          s.Config,
 		SecretsSet:      set,
+		Provisioned:     s.Provisioned,
 		CreatedAt:       s.CreatedAt,
 		CreatedByUserID: s.CreatedByUserID,
 		UpdatedAt:       s.UpdatedAt,

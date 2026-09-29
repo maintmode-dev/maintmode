@@ -1,0 +1,6 @@
+# Findings already in history that are provably not secrets. Each line is a
+# gitleaks fingerprint: commit:path:rule:line.
+
+# base64 of "not-an-envelope", a test value that must fail to decrypt; since
+# replaced with a zero-entropy one.
+cc7e5f5a55a05fd16dcdca42a228380d67634316:internal/services/integration/provisioned_serving_test.go:generic-api-key:87

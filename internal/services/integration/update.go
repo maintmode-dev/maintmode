@@ -141,6 +141,14 @@ func (s *Service) updateWithApply(ctx context.Context, kind, name string,
 			return fmt.Errorf("get integration: %w", err)
 		}
 
+		// Before the callback, so it guards Update and Toggle alike and comes
+		// ahead of every rule the callback applies: the preset and AAD checks
+		// would otherwise answer a provisioned row with THEIR reason, when the
+		// only remedy is the config file.
+		if guardErr := refuseProvisioned(current); guardErr != nil {
+			return guardErr
+		}
+
 		if err = fn(ctx, current); err != nil {
 			return fmt.Errorf("apply integration update: %w", err)
 		}

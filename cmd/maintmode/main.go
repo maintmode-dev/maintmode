@@ -67,10 +67,11 @@ func newAuthHandlers(
 		cfg.App,
 	)
 
-	// The reloader owns the login snapshot from here on. There is no second
-	// source any more: providers used to also come from the config file, and
-	// that half is gone -- the registry is where a provider is configured, and
-	// the bootstrap admin is the way back in when nobody can sign in.
+	// The reloader owns the login snapshot from here on. Its one source is the
+	// registry: providers declared in the config file are written into it by
+	// Provision at startup and served from that replica's memory, so they reach
+	// the reloader through the same listing as the ones an admin created. The
+	// bootstrap admin is the way back in when nobody can sign in.
 	reloader := authmethod.NewReloader(
 		services.Integration,
 		services.AuthMethods,

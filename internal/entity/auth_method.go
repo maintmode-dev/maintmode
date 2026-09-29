@@ -159,7 +159,7 @@ type OAuth2Identity struct {
 // The endpoints travel WITH the credentials because a plain OAuth 2.0 provider
 // publishes no discovery document: there is nothing to fetch them from, so they
 // are configuration like the client id is. They reach a row from the deployment
-// catalog rather than from an operator -- see config.LoginPreset -- which is
+// catalog rather than from an operator -- see config.LoginFacts -- which is
 // what stops anyone pointing a known provider name at a host they control.
 type OAuth2Credentials struct {
 	// DisplayName labels log lines and spans. It is not part of the exchange.

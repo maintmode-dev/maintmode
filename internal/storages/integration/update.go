@@ -17,7 +17,7 @@ import (
 
 // Update persists the editable columns of an integration and returns the stored
 // row. The caller passes a fully merged entity (read-modify-write). Only
-// enabled/config/secrets/dek_id and the updated_* authorship are written;
+// enabled/config/secrets/dek_id/provisioned and the updated_* authorship are written;
 // kind/created_* are left untouched so the type key and original author survive.
 //
 // updated_at is stamped here (not by the caller) to the app clock, matching the
@@ -40,6 +40,9 @@ func (s *Store) Update(ctx context.Context, setting *entity.IntegrationSetting) 
 			table.IntegrationSettings.Config,
 			table.IntegrationSettings.Secrets,
 			table.IntegrationSettings.DekID,
+			// Admin writes carry the flag through unchanged -- the guard refuses
+			// every row where it is set -- so only provisioning ever changes it.
+			table.IntegrationSettings.Provisioned,
 			table.IntegrationSettings.UpdatedAt,
 			table.IntegrationSettings.UpdatedByUserID,
 		).

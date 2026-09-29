@@ -539,7 +539,7 @@ func newIntegrationService(
 	// The identities store belongs to the auth module; the registry reaches it
 	// only through the one-method consumer interface the module boundaries
 	// require, with bootstrap supplying the concrete store.
-	return integration.NewService(
+	srv := integration.NewService(
 		stores.TxManager,
 		stores.Integrations,
 		stores.DataKeys,
@@ -548,8 +548,18 @@ func newIntegrationService(
 		secrets.NewAESCipher(),
 		auditPublisher,
 		stores.UserIdentities,
-		cfg.OauthProviders.Presets,
-	), nil
+		cfg.OauthProviders.Providers,
+	)
+
+	// Write the config file's login providers into the registry before the
+	// service is handed out: nothing may serve or consume it first -- the task
+	// processors, or the login reloader's first build, which serves provisioned
+	// providers from what this call validated. A bad entry fails startup here.
+	if err := srv.Provision(ctx); err != nil {
+		return nil, fmt.Errorf("provision login providers: %w", err)
+	}
+
+	return srv, nil
 }
 
 // cacheInvalidator is the half of the transport resolver the change hook needs.

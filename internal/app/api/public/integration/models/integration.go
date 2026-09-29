@@ -43,10 +43,21 @@ type Integration struct {
 	// "I saved it, why does it not work".
 	Health     string          `json:"health,omitempty" example:"ok"`
 	SecretsSet map[string]bool `json:"secrets_set"`
-	CreatedAt  time.Time       `json:"created_at" format:"date-time"`
-	CreatedBy  *UserSummary    `json:"created_by"`
-	UpdatedAt  time.Time       `json:"updated_at" format:"date-time"`
-	UpdatedBy  *UserSummary    `json:"updated_by"`
+	// Provisioned is true when the row is declared in the server's config file
+	// rather than created through this API. Such a row refuses PATCH, DELETE and
+	// toggle with 409 -- it is changed in the config file and applied on
+	// restart.
+	//
+	// Its secrets_set is empty even while it works: the secret lives in the
+	// server's secrets file, not in the database, so a client must branch on
+	// this flag rather than read an empty secrets_set as "no secret".
+	// created_by is null for a row provisioning inserted, and updated_by is null
+	// after any provisioning write or release.
+	Provisioned bool         `json:"provisioned"`
+	CreatedAt   time.Time    `json:"created_at" format:"date-time"`
+	CreatedBy   *UserSummary `json:"created_by"`
+	UpdatedAt   time.Time    `json:"updated_at" format:"date-time"`
+	UpdatedBy   *UserSummary `json:"updated_by"`
 }
 
 // ListIntegrationsResponse is the list envelope.

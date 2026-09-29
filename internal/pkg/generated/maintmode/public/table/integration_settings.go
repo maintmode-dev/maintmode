@@ -28,6 +28,7 @@ type integrationSettingsTable struct {
 	UpdatedAt       postgres.ColumnTimestampz
 	UpdatedByUserID postgres.ColumnString
 	Name            postgres.ColumnString // System the row connects to -- slack, telegram, email, google, custom -- and the registry key that decides which implementation parses it. Immutable: it is an input to the AAD of this row's client_secret, so renaming would make the secret undecryptable. Linked accounts are NOT at risk -- user_identities references this row by id.
+	Provisioned     postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -80,9 +81,10 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
 		UpdatedByUserIDColumn = postgres.StringColumn("updated_by_user_id")
 		NameColumn            = postgres.StringColumn("name")
-		allColumns            = postgres.ColumnList{IDColumn, KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn}
-		mutableColumns        = postgres.ColumnList{KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn}
-		defaultColumns        = postgres.ColumnList{IDColumn, ConfigColumn, SecretsColumn, CreatedAtColumn, UpdatedAtColumn}
+		ProvisionedColumn     = postgres.BoolColumn("provisioned")
+		allColumns            = postgres.ColumnList{IDColumn, KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn, ProvisionedColumn}
+		mutableColumns        = postgres.ColumnList{KindColumn, EnabledColumn, ConfigColumn, SecretsColumn, DekIDColumn, CreatedAtColumn, CreatedByUserIDColumn, UpdatedAtColumn, UpdatedByUserIDColumn, NameColumn, ProvisionedColumn}
+		defaultColumns        = postgres.ColumnList{IDColumn, ConfigColumn, SecretsColumn, CreatedAtColumn, UpdatedAtColumn, ProvisionedColumn}
 	)
 
 	return integrationSettingsTable{
@@ -100,6 +102,7 @@ func newIntegrationSettingsTableImpl(schemaName, tableName, alias string) integr
 		UpdatedAt:       UpdatedAtColumn,
 		UpdatedByUserID: UpdatedByUserIDColumn,
 		Name:            NameColumn,
+		Provisioned:     ProvisionedColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -64,10 +64,18 @@ type Service struct {
 	// is load-bearing: skipping it makes the delete fail on the children it
 	// left behind.
 	identities IdentitiesStore
-	// loginPresets is the credential-free catalog of well-known providers,
-	// copied into a row at create. See presets.go for what an empty catalog
-	// means: only `custom` stays creatable.
-	loginPresets config.LoginPresets
+	// loginProviders is the config file's provider sections. Their facts are
+	// the catalog an API create copies into a row (see presets.go: with no
+	// entry, only `custom` stays creatable); the managed_by: config entries are
+	// the providers Provision validates, writes and serves -- ONE source for all
+	// three, so they cannot drift.
+	loginProviders config.LoginProviders
+	// provisioned is the managed_by: config entries after validation, keyed by
+	// name: what openProvider serves for a provisioned row, secret included --
+	// the secret is not in the database, so this is the only place it lives.
+	// Set once by Provision at startup, before the reloader's first build reads
+	// it, and never written again -- which is why it needs no lock.
+	provisioned map[string]provisionedProvider
 	// onChange are notified (synchronously, post-commit) with the identity of
 	// every mutated integration. Bootstrap wires the transport resolver's cache
 	// invalidation and the login reloader; an empty list means nobody is
@@ -82,7 +90,7 @@ type Service struct {
 
 // NewService builds the integration registry service.
 //
-// loginPresets may be empty, and that is a valid catalog rather than a missing
+// loginProviders may be empty, and that is a valid catalog rather than a missing
 // one: only `custom` can then be created, and every preset-backed name is
 // refused (see presetAndConfig).
 func NewService(
@@ -94,7 +102,7 @@ func NewService(
 	c cipher,
 	auditPublisher AuditPublisher,
 	identities IdentitiesStore,
-	loginPresets config.LoginPresets,
+	loginProviders config.LoginProviders,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
@@ -105,7 +113,10 @@ func NewService(
 		cipher:         c,
 		auditPublisher: auditPublisher,
 		identities:     identities,
-		loginPresets:   loginPresets,
+		// The managed entries are validated and applied by Provision, not
+		// here: validation needs the registry's rules and the rows need a
+		// transaction.
+		loginProviders: loginProviders,
 	}
 }
 

@@ -175,32 +175,53 @@ valkey:
 
 oauth_providers:
   use_stub: true
-  # Catalog of well-known login providers: what this product already knows
-  # about them, so an operator configuring one supplies only their own OAuth
-  # client. It holds NO credential and creates NO provider -- a provider exists
-  # only when a row exists in the registry, and adding an entry here that the
-  # registry does not know is refused at create.
+  # One section per login provider, flat like Grafana's [auth.github]: the
+  # provider's facts (display_name, issuer_url, authorize_url, token_url,
+  # api_base_url) and, when it is declared here, its settings side by side.
   #
-  # These values are COPIED INTO THE ROW when a provider is created. Editing one
-  # therefore affects providers created afterwards and leaves existing ones
-  # alone: issuer_url is an input to the AAD of that provider's client_secret,
-  # so a live read would mean one edit here made every affected provider fail at
-  # the next sign-in.
-  presets:
+  # managed_by is REQUIRED and says who owns the provider:
+  #   - ui: an admin creates and runs it in the UI, supplying only their own
+  #     OAuth client (client_id, client_secret, redirect_uri). The entry holds
+  #     the facts and nothing else; they are copied into the provider when it
+  #     is created and cannot be changed in the UI -- a provider name that
+  #     already has accounts behind it must not be re-pointable at a host
+  #     someone else controls.
+  #   - config: the provider is declared HERE, for an operator who keeps
+  #     secrets in their own store and renders the secrets file from it.
+  #     enabled is required; with enabled: true the settings are too.
+  #       - the provider's secrets (client_secret) must be <secret:KEY>
+  #         references into the secrets file, never literals; any other value
+  #         may be one too;
+  #       - the provider is read-only in the UI and API, and its secret is never
+  #         stored in the database; enabled: false pins it off;
+  #       - changes apply on restart;
+  #       - declaring a provider an admin already created TAKES IT OVER: linked
+  #         accounts are kept, and the secret stored in the database is wiped.
+  # To hand a provider over to the UI, set managed_by: ui and keep only its
+  # facts. It stays disabled until an admin enables it with a client_secret.
+  # `custom` ships no facts: declared here it carries all of its own.
+  # The binary and this file change format together; roll them back together.
+  providers:
     google:
       display_name: Google
       issuer_url: https://accounts.google.com
+      managed_by: ui
+      # To declare it here instead:
+      # managed_by: config
+      # enabled: true
+      # client_id: "1234.apps.googleusercontent.com"
+      # redirect_uri: "https://maint.example.com/auth/api/v1/login/oauth/google/callback"
+      # client_secret: <secret:login/google/client_secret>
     # GitHub publishes no discovery document, so its endpoints cannot be
-    # fetched the way an OIDC issuer's are -- they are configuration. Fixed by
-    # the preset rather than asked of an operator: a provider name that already
-    # has accounts behind it must not be re-pointable at a host someone else
-    # controls. Editing them here is a deploy-time act, which is what makes a
-    # GitHub Enterprise Server or a test double possible without a rebuild.
+    # fetched the way an OIDC issuer's are -- they are configuration. Editing
+    # them here is a deploy-time act, which is what makes a GitHub Enterprise
+    # Server or a test double possible without a rebuild.
     github:
       display_name: GitHub
       authorize_url: https://github.com/login/oauth/authorize
       token_url: https://github.com/login/oauth/access_token
       api_base_url: https://api.github.com
+      managed_by: ui
 
 jwt:
   issuer_name: oauth-service

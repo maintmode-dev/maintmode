@@ -200,10 +200,10 @@ func (r *Reloader) signal() {
 
 // build turns the stored rows into the snapshot input.
 //
-// The registry is the only source. Providers used to also arrive from the
-// config file and win a name collision with a stored row -- the break-glass
-// path for an operator locked out of the admin UI. That half is gone with the
-// config section, and the bootstrap admin is the remaining way in.
+// The registry is the only source. Providers declared in the config file are
+// not a second one: provisioning writes them into the registry at startup, and
+// the listing already hands back their settings from memory. The bootstrap
+// admin is the way in for an operator locked out of the admin UI.
 func (r *Reloader) build(ctx context.Context, stored []entity.ConfiguredProvider) []providerInput {
 	inputs := make([]providerInput, 0, len(stored))
 	for _, row := range stored {
