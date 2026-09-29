@@ -25,17 +25,25 @@ type Integration struct {
 	ID uuid.UUID `json:"id" format:"uuid"`
 	// Kind is the CATEGORY the row belongs to: "notify" or "login".
 	Kind string `json:"kind" example:"notify"`
-	// Name is the SYSTEM it connects to: slack, telegram, email, google or
-	// custom. Together with Kind it is the row's identity AND the path that
+	// Name is the SYSTEM it connects to: slack, telegram, email, google,
+	// github or custom. Together with Kind it is the row's identity AND the path that
 	// addresses it: clients build /api/v1/integrations/{kind}/{name} from these
 	// two fields rather than assembling an identifier of their own.
 	Name    string          `json:"name" example:"slack"`
 	Enabled bool            `json:"enabled"`
 	Config  json.RawMessage `json:"config" swaggertype:"object"`
-	// Health is present for login providers only, and reports whether the
-	// provider can actually be used: "ok", "unresolved" (discovery has not
-	// answered, so it is listed but refuses sign-in), "disabled", or
-	// "unreadable" (its stored secret will not decrypt).
+	// Health is present for login providers only, and reports whether this
+	// replica serves the provider:
+	//   - "ok": its settings parsed and validated, and the provider was built.
+	//     Nothing is probed -- discovery runs on the first sign-in, and the
+	//     credentials are checked by the identity provider only then -- so
+	//     "ok" means configured, not that a sign-in will succeed;
+	//   - "unresolved": the row exists but this replica has not loaded it yet
+	//     (written on another replica, picked up within 30s); sign-in through
+	//     it is refused until then;
+	//   - "disabled": turned off;
+	//   - "unreadable": the row cannot be turned into a provider -- its stored
+	//     secret will not decrypt, or its config no longer parses or validates.
 	//
 	// The sign-in page deliberately does NOT use this -- it reports what is
 	// configured, not what is reachable, and probing every IdP to render a login
@@ -70,13 +78,14 @@ type ListIntegrationsResponse struct {
 // before persisting and never echoes them back.
 //
 // (Kind, Name) must be one of the pairs the registry knows -- (notify, slack),
-// (notify, telegram), (notify, email), (login, google), (login, custom).
-// Anything else is refused: the name decides which implementation parses the
-// row, so it is a closed set rather than free text.
+// (notify, telegram), (notify, email), (login, google), (login, github),
+// (login, custom). Anything else is refused: the name decides which
+// implementation parses the row, so it is a closed set rather than free text.
 //
-// For a preset system the server supplies what it already knows -- Google's
-// issuer and display name come from the deployment's catalog -- and sending
-// either of those fields is REFUSED rather than ignored. "custom" is the one
+// For a preset system the server supplies what it already knows from the
+// deployment's catalog -- Google's issuer and display name, GitHub's display
+// name and endpoints -- and sending any of those fields is REFUSED rather than
+// ignored. "custom" is the one
 // entry where the operator supplies everything, issuer included.
 type CreateIntegrationRequest struct {
 	// Kind is the category: "notify" or "login".

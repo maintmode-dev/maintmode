@@ -51,15 +51,19 @@ type ConfiguredProvider struct {
 type LoginProviderHealth string
 
 const (
-	// LoginProviderHealthOK means the provider resolved and can sign people in.
+	// LoginProviderHealthOK means the provider was built from valid settings.
+	// Nothing is probed: discovery is lazy, so this is "configured", not
+	// "a sign-in will succeed".
 	LoginProviderHealthOK LoginProviderHealth = "ok"
-	// LoginProviderHealthUnresolved means discovery has not answered, or the row
-	// is not in the snapshot at all. The provider is listed and /start refuses
-	// it.
+	// LoginProviderHealthUnresolved means the row is not in this replica's
+	// snapshot yet -- written elsewhere, not reloaded here. The provider is
+	// listed and /start refuses it.
 	LoginProviderHealthUnresolved LoginProviderHealth = "unresolved"
 	// LoginProviderHealthDisabled means an operator turned it off.
 	LoginProviderHealthDisabled LoginProviderHealth = "disabled"
-	// LoginProviderHealthUnreadable means the stored secret does not decrypt.
+	// LoginProviderHealthUnreadable means the row could not be turned into a
+	// provider: its stored secret does not decrypt, or its config no longer
+	// parses or validates.
 	LoginProviderHealthUnreadable LoginProviderHealth = "unreadable"
 )
 
