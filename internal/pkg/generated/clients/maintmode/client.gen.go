@@ -401,10 +401,22 @@ type ApimodelsIntegration struct {
 	// custom. Together with Kind it is the row's identity AND the path that
 	// addresses it: clients build /api/v1/integrations/{kind}/{name} from these
 	// two fields rather than assembling an identifier of their own.
-	Name       *string                                                                     `json:"name,omitempty"`
-	SecretsSet *map[string]bool                                                            `json:"secrets_set,omitempty"`
-	UpdatedAt  *time.Time                                                                  `json:"updated_at,omitempty"`
-	UpdatedBy  *GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary `json:"updated_by,omitempty"`
+	Name *string `json:"name,omitempty"`
+
+	// Provisioned Provisioned is true when the row is declared in the server's config file
+	// rather than created through this API. Such a row refuses PATCH, DELETE and
+	// toggle with 409 -- it is changed in the config file and applied on
+	// restart.
+	//
+	// Its secrets_set is empty even while it works: the secret lives in the
+	// server's secrets file, not in the database, so a client must branch on
+	// this flag rather than read an empty secrets_set as "no secret".
+	// created_by is null for a row provisioning inserted, and updated_by is null
+	// after any provisioning write or release.
+	Provisioned *bool                                                                       `json:"provisioned,omitempty"`
+	SecretsSet  *map[string]bool                                                            `json:"secrets_set,omitempty"`
+	UpdatedAt   *time.Time                                                                  `json:"updated_at,omitempty"`
+	UpdatedBy   *GithubComRuko1202MaintmodeInternalAppApiPublicIntegrationModelsUserSummary `json:"updated_by,omitempty"`
 }
 
 // ApimodelsListAssignableUsersResponse defines model for apimodels.ListAssignableUsersResponse.

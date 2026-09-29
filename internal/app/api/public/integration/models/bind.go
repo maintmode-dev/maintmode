@@ -22,17 +22,18 @@ func ToAPIIntegration(
 	m *entity.MaskedIntegration, author, editor *entity.UserSummary, health string,
 ) *Integration {
 	return &Integration{
-		Health:     health,
-		ID:         m.ID,
-		Kind:       m.Kind,
-		Name:       m.Name,
-		Enabled:    m.Enabled,
-		Config:     m.Config,
-		SecretsSet: m.SecretsSet,
-		CreatedAt:  m.CreatedAt,
-		CreatedBy:  toAPIUserSummary(author),
-		UpdatedAt:  m.UpdatedAt,
-		UpdatedBy:  toAPIUserSummary(editor),
+		Health:      health,
+		ID:          m.ID,
+		Kind:        m.Kind,
+		Name:        m.Name,
+		Enabled:     m.Enabled,
+		Config:      m.Config,
+		SecretsSet:  m.SecretsSet,
+		Provisioned: m.Provisioned,
+		CreatedAt:   m.CreatedAt,
+		CreatedBy:   toAPIUserSummary(author),
+		UpdatedAt:   m.UpdatedAt,
+		UpdatedBy:   toAPIUserSummary(editor),
 	}
 }
 

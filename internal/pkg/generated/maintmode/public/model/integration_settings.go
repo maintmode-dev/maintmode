@@ -24,4 +24,5 @@ type IntegrationSettings struct {
 	UpdatedAt       time.Time  `db:"integration_settings.updated_at"`
 	UpdatedByUserID *uuid.UUID `db:"integration_settings.updated_by_user_id"`
 	Name            string     `db:"integration_settings.name"` // System the row connects to -- slack, telegram, email, google, custom -- and the registry key that decides which implementation parses it. Immutable: it is an input to the AAD of this row's client_secret, so renaming would make the secret undecryptable. Linked accounts are NOT at risk -- user_identities references this row by id.
+	Provisioned     bool       `db:"integration_settings.provisioned"`
 }

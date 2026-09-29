@@ -378,6 +378,10 @@
                         "example": "slack",
                         "type": "string"
                     },
+                    "provisioned": {
+                        "description": "Provisioned is true when the row is declared in the server's config file\nrather than created through this API. Such a row refuses PATCH, DELETE and\ntoggle with 409 -- it is changed in the config file and applied on\nrestart.\n\nIts secrets_set is empty even while it works: the secret lives in the\nserver's secrets file, not in the database, so a client must branch on\nthis flag rather than read an empty secrets_set as \"no secret\".\ncreated_by is null for a row provisioning inserted, and updated_by is null\nafter any provisioning write or release.",
+                        "type": "boolean"
+                    },
                     "secrets_set": {
                         "additionalProperties": {
                             "type": "boolean"
