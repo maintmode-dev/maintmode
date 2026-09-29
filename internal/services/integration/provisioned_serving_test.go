@@ -84,7 +84,7 @@ func TestListLoginProviders_DisabledRowWithBrokenSecretStaysUnreadable(t *testin
 	createDisabledLogin(ctx, t, svc, kinds)
 
 	_, err := db.ExecContext(ctx,
-		`UPDATE integration_settings SET secrets = '{"client_secret":"bm90LWFuLWVudmVsb3Bl"}' WHERE kind = $1 AND name = $2`,
+		`UPDATE integration_settings SET secrets = '{"client_secret":"AAAAAAAAAAAAAAAA"}' WHERE kind = $1 AND name = $2`,
 		kinds.login, kinds.oidc)
 	require.NoError(t, err)
 
