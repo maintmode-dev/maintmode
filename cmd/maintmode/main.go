@@ -139,14 +139,6 @@ func main() {
 		xlog.Panic(ctx, "failed to init services", xfield.Error(err))
 	}
 
-	// Write the config file's login providers into the registry before anything
-	// serves or consumes: before the task processors take work, and before the
-	// login reloader's first build, which serves provisioned providers from what
-	// this call validated. A bad entry stops the process here.
-	if err := services.Integration.Provision(ctx); err != nil {
-		xlog.Panic(ctx, "failed to provision login providers", xfield.Error(err))
-	}
-
 	// start async task processor
 	{
 		taskProcessors, err := bootstrap.NewTaskProcessors(cfg.TaskProcessor, cfg.License, cfg.Auth, stores, services)
