@@ -221,6 +221,20 @@ func newServiceFor(
 ) (*integrationsvc.Service, *serviceMocks) {
 	t.Helper()
 
+	return newServiceDeclaring(t, kinds, identities, provisioned, nil)
+}
+
+// newServiceDeclaring is newServiceFor with the config file's notify transport
+// sections too, keyed by the test's names.
+func newServiceDeclaring(
+	t *testing.T,
+	kinds testKinds,
+	identities integrationsvc.IdentitiesStore,
+	provisioned config.LoginProviders,
+	transports config.NotifyTransportEntries,
+) (*integrationsvc.Service, *serviceMocks) {
+	t.Helper()
+
 	mocks := &serviceMocks{audit: publishermock.New(t), identities: &fakeIdentities{}}
 	if identities == nil {
 		identities = mocks.identities
@@ -245,6 +259,7 @@ func newServiceFor(
 		mocks.audit,
 		identities,
 		providersWithCatalog(provisioned),
+		transports,
 	)
 
 	return svc, mocks

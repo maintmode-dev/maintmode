@@ -86,7 +86,9 @@ func initResolver(t *testing.T) harness {
 		secrets.NewAESCipher(),
 		publishermock.New(t),
 		// No login kind in this registry, so neither the delete cascade nor
-		// the provider sections are ever reached.
+		// the provider sections are ever reached; no transport is declared in
+		// config, so every one resolves from its row.
+		nil,
 		nil,
 		nil,
 	)

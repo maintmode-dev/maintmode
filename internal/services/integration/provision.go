@@ -20,13 +20,14 @@ import (
 
 // provisionedCategories are the categories the config file can declare
 // integrations in, in the order Provision writes them.
-var provisionedCategories = []integrationkinds.Category{integrationkinds.CategoryLogin}
+var provisionedCategories = []integrationkinds.Category{integrationkinds.CategoryLogin, integrationkinds.CategoryNotify}
 
 // declaration is one config entry as Provision reads it, whatever its category:
-// the entry, and the facts a login provider carries beside it (nil for any
-// other category).
+// its name, the entry, and the facts a login provider carries beside it (nil
+// for any other category).
 type declaration struct {
 	category integrationkinds.Category
+	name     string
 	entry    config.ManagedEntry
 	facts    map[string]string
 }
@@ -59,7 +60,8 @@ type provisionedEntry struct {
 //     and handed back to the admin API, identities untouched.
 //
 // The secret is never written. This replica serves provisioned integrations
-// from memory (see openProvider), so the database holds only the row.
+// from memory -- login providers through openProvider, notify transports
+// through Settings -- so the database holds only the row.
 //
 // Any error fails startup; there is no retry in-process. A replica restarted by
 // the orchestrator provisions again from the top.
@@ -90,7 +92,7 @@ func (s *Service) Provision(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("provision integrations: %w", err)
+		return err
 	}
 
 	s.provisioned = declared
@@ -113,16 +115,23 @@ func (s *Service) provisionCategory(
 }
 
 // declarations is every entry of every section the config file declares
-// integrations in, keyed by name. Names are unique across categories -- the
-// registry keys by name -- so one map holds both.
-func (s *Service) declarations() map[string]declaration {
-	out := make(map[string]declaration, len(s.loginProviders))
+// integrations in.
+//
+// A list rather than a map by name: the two sections are keyed separately, so
+// a transport and a provider can share a name, and neither may silently shadow
+// the other. A declared one under the wrong category is refused by admit.
+func (s *Service) declarations() []declaration {
+	out := make([]declaration, 0, len(s.loginProviders)+len(s.notifyTransports))
 	for name, provider := range s.loginProviders {
-		out[name] = declaration{
+		out = append(out, declaration{
 			category: integrationkinds.CategoryLogin,
+			name:     name,
 			entry:    provider.ManagedEntry,
 			facts:    provider.Fields(),
-		}
+		})
+	}
+	for name, transport := range s.notifyTransports {
+		out = append(out, declaration{category: integrationkinds.CategoryNotify, name: name, entry: transport})
 	}
 
 	return out
@@ -139,20 +148,20 @@ func (s *Service) parseDeclared() (map[integrationkinds.Category]map[string]prov
 	declared := map[integrationkinds.Category]map[string]provisionedEntry{}
 
 	var errs error
-	for name, decl := range s.declarations() {
+	for _, decl := range s.declarations() {
 		if decl.entry.ManagedBy != config.ManagedByConfig {
 			continue
 		}
 
-		entry, err := s.parseDeclaredEntry(name, decl)
+		entry, err := s.parseDeclaredEntry(decl)
 		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("provisioned %s/%s: %w", decl.category, name, err))
+			errs = errors.Join(errs, fmt.Errorf("provisioned %s/%s: %w", decl.category, decl.name, err))
 			continue
 		}
 		if declared[decl.category] == nil {
 			declared[decl.category] = map[string]provisionedEntry{}
 		}
-		declared[decl.category][name] = entry
+		declared[decl.category][decl.name] = entry
 	}
 
 	return declared, errs
@@ -166,12 +175,12 @@ func (s *Service) parseDeclared() (map[integrationkinds.Category]map[string]prov
 // author of this file already controls the catalog the preset rules read, so
 // pointing `google` elsewhere from here is an operator's act, not an attack.
 // The preset rules guard the admin API, which is where the line is.
-func (s *Service) parseDeclaredEntry(name string, decl declaration) (provisionedEntry, error) {
-	if err := s.registry.admit(decl.category, name); err != nil {
+func (s *Service) parseDeclaredEntry(decl declaration) (provisionedEntry, error) {
+	if err := s.registry.admit(decl.category, decl.name); err != nil {
 		return provisionedEntry{}, err
 	}
 
-	in, err := s.registry.get(name)
+	in, err := s.registry.get(decl.name)
 	if err != nil {
 		return provisionedEntry{}, err
 	}
@@ -191,7 +200,7 @@ func (s *Service) parseDeclaredEntry(name string, decl declaration) (provisioned
 		return provisionedEntry{Config: cfg}, nil
 	}
 
-	_, settings, err := s.resolveSettings(name, cfg, secrets)
+	_, settings, err := s.resolveSettings(decl.name, cfg, secrets)
 	if err != nil {
 		return provisionedEntry{}, err
 	}

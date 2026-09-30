@@ -549,14 +549,16 @@ func newIntegrationService(
 		auditPublisher,
 		stores.UserIdentities,
 		cfg.OauthProviders.Providers,
+		cfg.NotifyTransport.Transports,
 	)
 
-	// Write the config file's login providers into the registry before the
-	// service is handed out: nothing may serve or consume it first -- the task
-	// processors, or the login reloader's first build, which serves provisioned
-	// providers from what this call validated. A bad entry fails startup here.
+	// Write the config file's login providers and notify transports into the
+	// registry before the service is handed out: nothing may serve or consume
+	// it first -- the task processors, the transport resolver, or the login
+	// reloader's first build, all of which serve provisioned entries from what
+	// this call validated. A bad entry fails startup here.
 	if err := srv.Provision(ctx); err != nil {
-		return nil, fmt.Errorf("provision login providers: %w", err)
+		return nil, fmt.Errorf("provision config-declared integrations: %w", err)
 	}
 
 	return srv, nil
