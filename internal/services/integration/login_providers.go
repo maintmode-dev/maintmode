@@ -163,9 +163,9 @@ func (s *Service) openSettings(
 	// inter-deploy-step branches. Without this the stored config is trusted
 	// because it was once written, which is not the same as being valid now.
 	//
-	// The failure is ErrValidation, which the reloader already classifies as
-	// unresolved -- the provider is listed with its state so an operator can see
-	// why, and every other provider in the rebuild is unaffected.
+	// The failure is ErrValidation, which openProvider reports as unreadable --
+	// the provider is listed with its state so an operator can see why, and
+	// every other provider in the rebuild is unaffected.
 	if err := in.Validate(settings); err != nil {
 		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}

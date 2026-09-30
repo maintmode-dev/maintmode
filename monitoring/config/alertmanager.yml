@@ -135,6 +135,5 @@ receivers:
       - <<: *telegram_base
         message_thread_id: 18
 
+  # Silences whatever routes here: a receiver with no configs sends nothing.
   - name: telegram-noop
-    telegram_configs:
-        message_thread_id: 0
