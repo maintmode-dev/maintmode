@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
+
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/integrationkinds"
 )
@@ -30,10 +33,17 @@ import (
 // dead-letter on delivery. A plain storage failure stays unwrapped: it is an
 // infrastructure error, not an integration state.
 //
+// An integration this replica's config declares is served from memory, with
+// no database read -- see servedFromConfig.
+//
 // The decrypted secrets live inside the returned Settings; the caller (the
 // transport builder) captures what it needs and drops them — Settings types
 // carry no Stringer/marshaler, so they cannot be logged wholesale by accident.
 func (s *Service) Settings(ctx context.Context, kind, name string) (integrationkinds.Settings, error) {
+	if settings, declared, err := s.servedFromConfig(kind, name); declared {
+		return settings, err
+	}
+
 	setting, err := s.store.GetByKindName(ctx, kind, name)
 	if errors.Is(err, apperr.ErrIntegrationNotFound) {
 		return nil, fmt.Errorf("%w: %q", apperr.ErrIntegrationNotConfigured, name)
@@ -43,6 +53,19 @@ func (s *Service) Settings(ctx context.Context, kind, name string) (integrationk
 	}
 	if !setting.Enabled {
 		return nil, apperr.ErrIntegrationDisabled
+	}
+
+	// Provisioned, but not by this replica's config: another replica declared
+	// it, and its secret lives only in that replica's memory. Opening the row
+	// would find no secret and -- since nothing here validates -- hand back
+	// settings with an empty token, which builds a transport that reports
+	// healthy and fails every send. A replica on a different config is the
+	// cause, so it is named in the log.
+	if setting.Provisioned {
+		xlog.Warn(ctx, "integration is provisioned by a config this replica does not share; not serving it",
+			xfield.String("category", kind), xfield.String("name", name))
+
+		return nil, fmt.Errorf("%w: %q is declared in another replica's config", apperr.ErrIntegrationUnreadable, name)
 	}
 
 	// From here on the integration is enabled and every failure is a local
@@ -109,4 +132,27 @@ func (s *Service) decryptAllSecrets(
 		plain[key] = string(value)
 	}
 	return plain, nil
+}
+
+// servedFromConfig answers for an integration this replica's config declares:
+// its parsed settings when enabled, ErrIntegrationDisabled when pinned off. The
+// bool is false for anything the config does not declare, which the caller then
+// reads from its row.
+//
+// The row is not consulted at all, the same way openProvider serves a login
+// provider: it is a display copy written by whichever replica started last, and
+// during a rolling config change it may carry another replica's settings.
+func (s *Service) servedFromConfig(
+	kind integrationkinds.Category, name string,
+) (integrationkinds.Settings, bool, error) {
+	declared, ok := s.provisioned[kind][name]
+	if !ok {
+		return nil, false, nil
+	}
+
+	if !declared.Enabled {
+		return nil, true, apperr.ErrIntegrationDisabled
+	}
+
+	return declared.Settings, true, nil
 }
