@@ -192,6 +192,8 @@ oauth_providers:
   #       - the provider's secrets (client_secret) must be <secret:KEY>
   #         references into the secrets file, never literals; any other value
   #         may be one too;
+  #       - a key the provider does not read fails startup, even when
+  #         enabled: false;
   #       - the provider is read-only in the UI and API, and its secret is never
   #         stored in the database; enabled: false pins it off;
   #       - changes apply on restart;
@@ -240,12 +242,65 @@ jwt:
 notify_transport:
   # The channel catalog lives in Postgres (messenger_channels); tests
   # seed it via the storage layer. Per-transport credentials live in the
-  # DB-backed integration registry. use_stub is OFF here on
+  # DB-backed integration registry (transports below are all managed in the
+  # UI). use_stub is OFF here on
   # purpose: every dispatch in the API suite traverses the LIVE resolver
   # (registry -> decrypt -> builder). No test enables an integration, so
   # a delivery resolves to disabled/unconfigured and drops best-effort —
   # the suite exercises the real DB-settings path without real transports.
   use_stub: false
+  # One section per notify transport (slack, telegram, email), flat: managed_by,
+  # enabled and the transport's settings side by side. A transport with no
+  # section is managed in the UI.
+  #
+  # managed_by is REQUIRED and says who owns the transport:
+  #   - ui: an admin configures and enables it in the UI. The section holds
+  #     nothing else; anything more in it is ignored.
+  #   - config: the transport is declared HERE, for an operator who keeps
+  #     secrets in their own store and renders the secrets file from it.
+  #     enabled is required; with enabled: true the settings are too.
+  #       - its secret (bot_token for slack and telegram, password for email)
+  #         must be a <secret:KEY> reference into the secrets file, never a
+  #         literal. Only that key is read from a reference: write every other
+  #         setting as a plain value. A referenced key must exist in the
+  #         secrets file even when enabled: false;
+  #       - a key the transport does not read fails startup, even when
+  #         enabled: false -- the settings are shown in the admin UI as written;
+  #       - the transport is read-only in the UI and API, and its secret is
+  #         never stored in the database; enabled: false pins it off;
+  #       - changes apply on restart;
+  #       - declaring a transport an admin already configured TAKES IT OVER:
+  #         the secret stored in the database is wiped, and neither the UI nor
+  #         the API can show it -- put the original token in your secret store
+  #         first, or issue a new one.
+  # Removing a section, or switching it to managed_by: ui, hands the transport
+  # back to the UI switched off: deliveries through it are dropped until an
+  # admin enables it with its secret.
+  # email also carries sign-in codes (OTP) and invitations, so a broken or
+  # released email transport stops OTP sign-in; the way back in is the
+  # break-glass password or an OAuth provider.
+  transports:
+    # The API suite creates, edits and toggles these transports through the
+    # API, so they must stay managed in the UI here.
+    slack:
+      managed_by: ui
+      # To declare it here instead:
+      # managed_by: config
+      # enabled: true
+      # bot_token: <secret:notify/slack/bot_token>
+    telegram:
+      managed_by: ui
+    email:
+      managed_by: ui
+      # To declare it here instead:
+      # managed_by: config
+      # enabled: true
+      # host: smtp.example.com
+      # port: 587
+      # tls_policy: mandatory
+      # from: "maintmode@example.com"
+      # username: maintmode
+      # password: <secret:notify/email/password>
 
 task_processor:
   messaging:
