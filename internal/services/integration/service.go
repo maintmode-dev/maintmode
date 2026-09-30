@@ -7,6 +7,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	datakeystore "github.com/ruko1202/maintmode/internal/storages/datakey"
 	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -70,12 +71,17 @@ type Service struct {
 	// the providers Provision validates, writes and serves -- ONE source for all
 	// three, so they cannot drift.
 	loginProviders config.LoginProviders
-	// provisioned is the managed_by: config entries after validation, keyed by
-	// name: what openProvider serves for a provisioned row, secret included --
-	// the secret is not in the database, so this is the only place it lives.
-	// Set once by Provision at startup, before the reloader's first build reads
-	// it, and never written again -- which is why it needs no lock.
-	provisioned map[string]provisionedProvider
+	// notifyTransports is the config file's notify transport sections. Unlike
+	// login providers they carry no catalog; only the managed_by: config
+	// entries matter, and Provision validates, writes and serves them.
+	notifyTransports config.NotifyTransportEntries
+	// provisioned is the managed_by: config entries of every category after
+	// validation, keyed by category and then by name -- the (kind, name) a row
+	// is addressed by: what a provisioned row is served from, secret included
+	// -- the secret is not in the database, so this is the only place it
+	// lives. Set once by Provision at startup, before anything reads it, and
+	// never written again -- which is why it needs no lock.
+	provisioned map[integrationkinds.Category]map[string]provisionedEntry
 	// onChange are notified (synchronously, post-commit) with the identity of
 	// every mutated integration. Bootstrap wires the transport resolver's cache
 	// invalidation and the login reloader; an empty list means nobody is
@@ -90,6 +96,7 @@ type Service struct {
 
 // NewService builds the integration registry service.
 //
+// notifyTransports may be empty: every transport is then managed in the UI.
 // loginProviders may be empty, and that is a valid catalog rather than a missing
 // one: only `custom` can then be created, and every preset-backed name is
 // refused (see presetAndConfig).
@@ -103,6 +110,7 @@ func NewService(
 	auditPublisher AuditPublisher,
 	identities IdentitiesStore,
 	loginProviders config.LoginProviders,
+	notifyTransports config.NotifyTransportEntries,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
@@ -116,7 +124,8 @@ func NewService(
 		// The managed entries are validated and applied by Provision, not
 		// here: validation needs the registry's rules and the rows need a
 		// transaction.
-		loginProviders: loginProviders,
+		loginProviders:   loginProviders,
+		notifyTransports: notifyTransports,
 	}
 }
 

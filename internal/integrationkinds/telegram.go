@@ -40,6 +40,8 @@ func (telegram) Category() string { return CategoryNotify }
 
 func (telegram) SecretKeys() []string { return []string{tgSecretKeyBotToken} }
 
+func (telegram) EmptySettings() Settings { return &TelegramSettings{} }
+
 func (telegram) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s TelegramSettings
 	if err := unmarshalConfig(config, &s); err != nil {

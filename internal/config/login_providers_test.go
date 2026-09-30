@@ -61,14 +61,16 @@ func TestPrepareProviders_Refuses(t *testing.T) {
 		},
 		{
 			name:     "managed_by misspelled",
-			provider: LoginProvider{ManagedBy: "confg"},
+			provider: LoginProvider{ManagedEntry: ManagedEntry{ManagedBy: "confg"}},
 			wantErr:  "oauth_providers.providers.google: managed_by must be config or ui",
 		},
 		{
 			// A provider the file owns must say whether it is on.
-			name:     "managed by config without enabled",
-			provider: LoginProvider{ManagedBy: ManagedByConfig, Settings: map[string]any{"client_id": "c"}},
-			wantErr:  "oauth_providers.providers.google: enabled must be set when managed_by is config",
+			name: "managed by config without enabled",
+			provider: LoginProvider{ManagedEntry: ManagedEntry{
+				ManagedBy: ManagedByConfig, Settings: map[string]any{"client_id": "c"},
+			}},
+			wantErr: "oauth_providers.providers.google: enabled must be set when managed_by is config",
 		},
 	}
 
@@ -93,18 +95,25 @@ func TestPrepareProviders_Accepts(t *testing.T) {
 		// carries is ignored, secrets included: a leftover reference must not
 		// fail startup, and a handover to the UI is one changed word.
 		"google": {
-			ManagedBy:  ManagedByUI,
 			LoginFacts: LoginFacts{DisplayName: "Google", IssuerURL: "https://accounts.google.com"},
-			Enabled:    lo.ToPtr(true),
-			Settings:   map[string]any{"client_id": "c", "client_secret": "<secret:login/google/client_secret>"},
+			ManagedEntry: ManagedEntry{
+				ManagedBy: ManagedByUI,
+				Enabled:   lo.ToPtr(true),
+				Settings:  map[string]any{"client_id": "c", "client_secret": "<secret:login/google/client_secret>"},
+			},
 		},
 		// Pinned off by the file: no credentials needed for a provider that is
 		// never served.
-		"github": {ManagedBy: ManagedByConfig, Enabled: lo.ToPtr(false), LoginFacts: LoginFacts{DisplayName: "GitHub"}},
+		"github": {
+			LoginFacts:   LoginFacts{DisplayName: "GitHub"},
+			ManagedEntry: ManagedEntry{ManagedBy: ManagedByConfig, Enabled: lo.ToPtr(false)},
+		},
 	}}
 
 	require.NoError(t, providers.prepareProviders())
-	require.Nil(t, providers.Providers["google"].Secrets, "a ui entry's secrets are left alone")
+	require.Nil(t, providers.Providers["google"].Secrets, "a ui entry's secrets are dropped")
+	require.Nil(t, providers.Providers["google"].Settings, "a ui entry's settings are dropped")
+	require.Equal(t, "Google", providers.Providers["google"].DisplayName, "a ui entry keeps its facts")
 }
 
 func readProvidersConfig(t *testing.T, yaml string) *AppConfig {

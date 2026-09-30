@@ -50,6 +50,8 @@ func (slack) Category() string { return CategoryNotify }
 // internal source of truth.
 func (slack) SecretKeys() []string { return []string{slackSecretKeyBotToken} }
 
+func (slack) EmptySettings() Settings { return &SlackSettings{} }
+
 func (slack) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s SlackSettings
 	if err := unmarshalConfig(config, &s); err != nil {

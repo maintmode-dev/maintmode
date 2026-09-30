@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"path"
@@ -361,13 +362,36 @@ func (a Auth) DanceStateTTL() time.Duration {
 // finishing a consent screen, password prompt and second factor included.
 const DefaultDanceStateTTL = 10 * time.Minute
 
-// NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
-// credentials (Slack/Telegram/SMTP) live in the DB-backed integration registry,
-// not here; the only remaining knob is the dev stub short-circuit.
+// NotifyTransportConfig holds process-level notify-delivery settings. A
+// transport's credentials live in the DB-backed integration registry, entered
+// through the admin UI -- unless Transports declares it here.
 type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.
 	UseStub bool `mapstructure:"use_stub"`
+	// Transports is one flat section per notify transport, keyed by registry
+	// system name (slack, telegram, email). See NotifyTransportEntry.
+	Transports NotifyTransportEntries `mapstructure:"transports"`
+}
+
+// NotifyTransportEntry is one notify transport's section: managed_by, enabled
+// and the transport's settings, flat. Unlike a login provider it has no facts
+// -- a transport has nothing an operator should not have to look up -- so a ui
+// entry carries nothing but its mode, and a transport with no entry is managed
+// in the UI too.
+//
+// Named apart from entity.NotifyTransport, which is the transport's name.
+type NotifyTransportEntry = ManagedEntry
+
+// NotifyTransportEntries is every notify transport section, keyed by the
+// registry's system name.
+type NotifyTransportEntries map[string]NotifyTransportEntry
+
+// prepareTransports checks every transport section's mode and moves its
+// <secret:KEY> references from Settings into Secrets. See prepareEntries.
+func (n NotifyTransportConfig) prepareTransports() error {
+	return prepareEntries("notify_transport.transports", n.Transports,
+		func(entry *NotifyTransportEntry) *ManagedEntry { return entry })
 }
 
 type TaskProcessorConfig struct {
@@ -713,7 +737,10 @@ func initConfig(appName string) *AppConfig {
 
 	// Before applySecrets: a reference and a literal are only distinguishable
 	// while the reference is still unresolved.
-	if err := cfg.OauthProviders.prepareProviders(); err != nil {
+	if err := errors.Join(
+		cfg.OauthProviders.prepareProviders(),
+		cfg.NotifyTransport.prepareTransports(),
+	); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 

@@ -39,6 +39,7 @@ func (f fakeIntegration) Parse(json.RawMessage, map[string]string) (integrationk
 	return nil, nil
 }
 func (f fakeIntegration) Validate(integrationkinds.Settings) error { return nil }
+func (fakeIntegration) EmptySettings() integrationkinds.Settings   { return &struct{}{} }
 
 func TestNewRegistry_LookupByName(t *testing.T) {
 	t.Parallel()

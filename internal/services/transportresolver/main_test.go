@@ -86,7 +86,9 @@ func initResolver(t *testing.T) harness {
 		secrets.NewAESCipher(),
 		publishermock.New(t),
 		// No login kind in this registry, so neither the delete cascade nor
-		// the provider sections are ever reached.
+		// the provider sections are ever reached; no transport is declared in
+		// config, so every one resolves from its row.
+		nil,
 		nil,
 		nil,
 	)
@@ -143,6 +145,7 @@ func (namedResolvable) Parse(_ json.RawMessage, secretsIn map[string]string) (in
 	return resolvableSettings(secretsIn["token"]), nil
 }
 func (namedResolvable) Validate(integrationkinds.Settings) error { return nil }
+func (namedResolvable) EmptySettings() integrationkinds.Settings { return new(resolvableSettings) }
 
 // resolvableSettings is namedResolvable's parsed settings: just the plaintext token.
 type resolvableSettings string
