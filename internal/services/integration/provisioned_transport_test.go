@@ -53,6 +53,47 @@ func TestSettings_ServesADeclaredTransportFromMemory(t *testing.T) {
 	require.Equal(t, "cfg-token", settings.(integrationkinds.SlackSettings).BotToken)
 }
 
+// Every notify kind comes out of memory with its secret merged in -- email's
+// password included, which OTP sign-in and invitations depend on -- and an
+// unauthenticated relay with none.
+func TestSettings_ServesEveryDeclaredKind(t *testing.T) {
+	ctx := context.Background()
+	_, kinds, _ := initService(t)
+	_, relayKinds, _ := initService(t)
+
+	svc, _ := newServiceDeclaring(t, kinds, nil, nil, config.NotifyTransportEntries{
+		kinds.telegram: declaredTransport(nil, map[string]string{"bot_token": "tg-token"}),
+		kinds.email: declaredTransport(map[string]any{
+			"host": "smtp.example.com", "port": 587, "from": "maint@example.com",
+			"username": "maint", "tls_policy": "mandatory",
+		}, map[string]string{"password": "smtp-password"}),
+	})
+	require.NoError(t, svc.Provision(ctx))
+
+	telegram, err := svc.Settings(ctx, kinds.notify, kinds.telegram)
+	require.NoError(t, err)
+	require.Equal(t, "tg-token", telegram.(integrationkinds.TelegramSettings).BotToken)
+
+	email, err := svc.Settings(ctx, kinds.notify, kinds.email)
+	require.NoError(t, err)
+	require.Equal(t, integrationkinds.EmailSettings{
+		Host: "smtp.example.com", Port: 587, From: "maint@example.com",
+		Username: "maint", Password: "smtp-password", TLSPolicy: "mandatory",
+	}, email)
+
+	relaySvc, _ := newServiceDeclaring(t, relayKinds, nil, nil, config.NotifyTransportEntries{
+		relayKinds.email: declaredTransport(map[string]any{
+			"host": "relay.internal", "port": 25, "from": "maint@example.com", "tls_policy": "none",
+		}, nil),
+	})
+	require.NoError(t, relaySvc.Provision(ctx))
+
+	relayed, err := relaySvc.Settings(ctx, relayKinds.notify, relayKinds.email)
+	require.NoError(t, err)
+	require.Empty(t, relayed.(integrationkinds.EmailSettings).Password)
+	require.Equal(t, "relay.internal", relayed.(integrationkinds.EmailSettings).Host)
+}
+
 func TestSettings_PinnedOffTransportIsDisabled(t *testing.T) {
 	ctx := context.Background()
 	_, kinds, _ := initService(t)

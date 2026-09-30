@@ -134,6 +134,12 @@ func TestProvision_ReleasesPerCategory(t *testing.T) {
 	both, _ := newServiceDeclaring(t, kinds, nil, provider, transport)
 	require.NoError(t, both.Provision(ctx))
 
+	// Each entry is written under its own category only.
+	_, found := readRow(ctx, t, kinds.notify, kinds.oidc)
+	require.False(t, found, "a provider is not written as a transport")
+	_, found = readRow(ctx, t, kinds.login, kinds.slack)
+	require.False(t, found, "a transport is not written as a provider")
+
 	loginOnly, _ := newServiceDeclaring(t, kinds, nil, provider, nil)
 	require.NoError(t, loginOnly.Provision(ctx))
 
@@ -263,6 +269,29 @@ func TestProvision_InvalidTransportChangesNothing(t *testing.T) {
 			require.False(t, found, "one bad entry writes no row")
 		})
 	}
+}
+
+// Everything is parsed before anything is written, across categories: a bad
+// transport keeps a valid provider from being inserted, and from releasing one
+// provisioned earlier.
+func TestProvision_BadTransportWritesNoProvider(t *testing.T) {
+	ctx := context.Background()
+	_, kinds, _ := initService(t)
+	provider := config.LoginProviders{kinds.oidc: declared("cfg-client")}
+	bad := config.NotifyTransportEntries{kinds.slack: declaredTransport(map[string]any{"bot_token": "literal"}, nil)}
+
+	svc, _ := newServiceDeclaring(t, kinds, nil, provider, bad)
+	require.ErrorIs(t, svc.Provision(ctx), apperr.ErrValidation)
+	_, found := readRow(ctx, t, kinds.login, kinds.oidc)
+	require.False(t, found, "the valid provider is not inserted")
+
+	first, _ := newServiceDeclaring(t, kinds, nil, provider, nil)
+	require.NoError(t, first.Provision(ctx))
+	dropsProvider, _ := newServiceDeclaring(t, kinds, nil, nil, bad)
+	require.ErrorIs(t, dropsProvider.Provision(ctx), apperr.ErrValidation)
+
+	row, _ := readRow(ctx, t, kinds.login, kinds.oidc)
+	require.True(t, row.Provisioned, "the provider is not released by a run that failed")
 }
 
 // A literal secret is refused as a validation error naming the key.
