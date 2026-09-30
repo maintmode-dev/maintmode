@@ -59,8 +59,8 @@ func (s *Service) openProvider(
 	// an id. The row's config is a display copy written by whichever replica
 	// started last; serving from it would pair that replica's client_id with
 	// this one's secret during a rolling config change.
-	if declared, ok := s.provisioned[row.Name]; ok {
-		return declared.ConfiguredProvider
+	if declared, ok := s.provisioned[row.Kind][row.Name]; ok {
+		return entity.ConfiguredProvider{Name: row.Name, Enabled: declared.Enabled, Settings: declared.Settings}
 	}
 
 	provider := entity.ConfiguredProvider{Name: row.Name, Enabled: row.Enabled}

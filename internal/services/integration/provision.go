@@ -18,39 +18,54 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
-// provisionedProvider is one config-declared login provider, parsed: what this
+// provisionedCategories are the categories the config file can declare
+// integrations in, in the order Provision writes them.
+var provisionedCategories = []integrationkinds.Category{integrationkinds.CategoryLogin}
+
+// declaration is one config entry as Provision reads it, whatever its category:
+// the entry, and the facts a login provider carries beside it (nil for any
+// other category).
+type declaration struct {
+	category integrationkinds.Category
+	entry    config.ManagedEntry
+	facts    map[string]string
+}
+
+// provisionedEntry is one config-declared integration, parsed: what this
 // replica serves, secret included, and the config the row is written from.
-type provisionedProvider struct {
-	// ConfiguredProvider is served as is by openProvider. Its Settings carry
-	// the secret and are never stored.
-	entity.ConfiguredProvider
+type provisionedEntry struct {
+	Enabled bool
+	// Settings is served as is, secret included, and never stored. Nil for an
+	// entry pinned off.
+	Settings integrationkinds.Settings
 	// Config is the JSON written to the row: the entry's facts and settings as
 	// written.
 	Config json.RawMessage
 }
 
-// Provision writes the config file's login providers into the registry. It runs
-// once at startup, before the reloader's first build.
+// Provision writes the config file's declared integrations into the registry.
+// It runs once at startup, before the reloader's first build.
 //
 // Every entry is validated before anything is written, exactly as a create
 // would validate it; one bad entry fails startup and changes no row. Then, in
-// one transaction serialized across replicas:
+// one transaction serialized across replicas, per category:
 //
-//   - a declared provider with no row is inserted, provisioned, with no secret;
-//   - a declared provider with a row is rewritten in place, on every start. If
-//     that row was the admin API's, this is a TAKE-OVER: the id -- and with it
-//     every linked identity -- is kept, and the stored secret is wiped;
-//   - a provisioned row the config no longer declares is released: disabled and
-//     handed back to the admin API, identities untouched.
+//   - a declared integration with no row is inserted, provisioned, with no
+//     secret;
+//   - a declared integration with a row is rewritten in place, on every start.
+//     If that row was the admin API's, this is a TAKE-OVER: the id -- and with
+//     it every linked identity -- is kept, and the stored secret is wiped;
+//   - a provisioned row the config no longer declares is released: disabled
+//     and handed back to the admin API, identities untouched.
 //
-// The secret is never written. This replica serves provisioned providers from
-// memory (see ListLoginProviders), so the database holds only the row.
+// The secret is never written. This replica serves provisioned integrations
+// from memory (see openProvider), so the database holds only the row.
 //
 // Any error fails startup; there is no retry in-process. A replica restarted by
 // the orchestrator provisions again from the top.
 //
 // Call it exactly once per process, before the login reloader starts: it sets
-// the in-memory providers the reloader reads without a lock, which is safe only
+// the in-memory entries the reloader reads without a lock, which is safe only
 // because nothing reads them before this returns and nothing writes them after.
 func (s *Service) Provision(ctx context.Context) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.Provision")
@@ -63,19 +78,19 @@ func (s *Service) Provision(ctx context.Context) error {
 
 	err = s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		if lockErr := dbtx.AdvisoryXactLock(ctx, dbtx.AdvisoryLockKeyLoginProvisioning); lockErr != nil {
-			return fmt.Errorf("acquire login provisioning lock: %w", lockErr)
+			return fmt.Errorf("acquire provisioning lock: %w", lockErr)
 		}
 
-		for name, provider := range declared {
-			if provisionErr := s.provisionOne(ctx, name, provider); provisionErr != nil {
-				return fmt.Errorf("provision login provider %q: %w", name, provisionErr)
+		for _, category := range provisionedCategories {
+			if provisionErr := s.provisionCategory(ctx, category, declared[category]); provisionErr != nil {
+				return provisionErr
 			}
 		}
 
-		return s.releaseUndeclared(ctx, declared)
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("provision login providers: %w", err)
+		return fmt.Errorf("provision integrations: %w", err)
 	}
 
 	s.provisioned = declared
@@ -83,25 +98,61 @@ func (s *Service) Provision(ctx context.Context) error {
 	return nil
 }
 
+// provisionCategory writes one category's declared entries, keyed by name,
+// and releases its undeclared ones.
+func (s *Service) provisionCategory(
+	ctx context.Context, category integrationkinds.Category, declared map[string]provisionedEntry,
+) error {
+	for name, entry := range declared {
+		if err := s.provisionOne(ctx, category, name, entry); err != nil {
+			return fmt.Errorf("provision %s/%s: %w", category, name, err)
+		}
+	}
+
+	return s.releaseUndeclared(ctx, category, declared)
+}
+
+// declarations is every entry of every section the config file declares
+// integrations in, keyed by name. Names are unique across categories -- the
+// registry keys by name -- so one map holds both.
+func (s *Service) declarations() map[string]declaration {
+	out := make(map[string]declaration, len(s.loginProviders))
+	for name, provider := range s.loginProviders {
+		out[name] = declaration{
+			category: integrationkinds.CategoryLogin,
+			entry:    provider.ManagedEntry,
+			facts:    provider.Fields(),
+		}
+	}
+
+	return out
+}
+
 // parseDeclared parses every entry with managed_by: config into what Provision
 // writes and serves; an entry that does not parse is an error, so the create
 // rules are enforced here. Entries managed by the UI are skipped: they declare
-// nothing here. Errors name the provider; none carries a secret value.
-func (s *Service) parseDeclared() (map[string]provisionedProvider, error) {
-	declared := map[string]provisionedProvider{}
+// nothing here. Errors name the entry; none carries a secret value.
+//
+// The result is keyed by category and then by name, the (kind, name) a row is
+// addressed by.
+func (s *Service) parseDeclared() (map[integrationkinds.Category]map[string]provisionedEntry, error) {
+	declared := map[integrationkinds.Category]map[string]provisionedEntry{}
 
 	var errs error
-	for name, entry := range s.loginProviders {
-		if entry.ManagedBy != config.ManagedByConfig {
+	for name, decl := range s.declarations() {
+		if decl.entry.ManagedBy != config.ManagedByConfig {
 			continue
 		}
 
-		provider, err := s.parseDeclaredEntry(name, entry)
+		entry, err := s.parseDeclaredEntry(name, decl)
 		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("provisioned login provider %q: %w", name, err))
+			errs = errors.Join(errs, fmt.Errorf("provisioned %s/%s: %w", decl.category, name, err))
 			continue
 		}
-		declared[name] = provider
+		if declared[decl.category] == nil {
+			declared[decl.category] = map[string]provisionedEntry{}
+		}
+		declared[decl.category][name] = entry
 	}
 
 	return declared, errs
@@ -115,77 +166,71 @@ func (s *Service) parseDeclared() (map[string]provisionedProvider, error) {
 // author of this file already controls the catalog the preset rules read, so
 // pointing `google` elsewhere from here is an operator's act, not an attack.
 // The preset rules guard the admin API, which is where the line is.
-func (s *Service) parseDeclaredEntry(name string, entry config.LoginProvider) (provisionedProvider, error) {
-	if err := s.registry.admit(integrationkinds.CategoryLogin, name); err != nil {
-		return provisionedProvider{}, err
+func (s *Service) parseDeclaredEntry(name string, decl declaration) (provisionedEntry, error) {
+	if err := s.registry.admit(decl.category, name); err != nil {
+		return provisionedEntry{}, err
 	}
 
 	in, err := s.registry.get(name)
 	if err != nil {
-		return provisionedProvider{}, err
+		return provisionedEntry{}, err
 	}
 
-	cfg, secrets, err := declaredSettings(in, entry)
+	cfg, secrets, err := declaredSettings(in, decl)
 	if err != nil {
-		return provisionedProvider{}, err
+		return provisionedEntry{}, err
 	}
 
 	// Pinned off: never served, so there is nothing to validate the settings
-	// for, and demanding credentials for a switched-off provider would push an
-	// operator towards handing it to the UI just to switch it off.
+	// for, and demanding credentials for a switched-off integration would push
+	// an operator towards handing it to the UI just to switch it off.
 	//
 	// Enabled is never nil here: the config loader refuses a managed_by: config
-	// entry without it (config.checkMode).
-	if !lo.FromPtr(entry.Enabled) {
-		return provisionedProvider{
-			ConfiguredProvider: entity.ConfiguredProvider{Name: name},
-			Config:             cfg,
-		}, nil
+	// entry without it.
+	if !lo.FromPtr(decl.entry.Enabled) {
+		return provisionedEntry{Config: cfg}, nil
 	}
 
 	_, settings, err := s.resolveSettings(name, cfg, secrets)
 	if err != nil {
-		return provisionedProvider{}, err
+		return provisionedEntry{}, err
 	}
 
-	return provisionedProvider{
-		ConfiguredProvider: entity.ConfiguredProvider{Name: name, Enabled: true, Settings: settings},
-		Config:             cfg,
-	}, nil
+	return provisionedEntry{Enabled: true, Settings: settings, Config: cfg}, nil
 }
 
-// declaredSettings turns an entry into the row's config and the provider's
+// declaredSettings turns an entry into the row's config and the integration's
 // secrets. The config loader already split the entry by value -- references in
-// Secrets, everything else in Settings -- and the provider's kind says which
+// Secrets, everything else in Settings -- and the integration's kind says which
 // keys are secret, so only those are taken from Secrets:
 //
 //   - a secret written literally is refused, since this file is the one that
-//     gets committed; checked whether or not the provider is enabled, as a
+//     gets committed; checked whether or not the entry is enabled, as a
 //     pinned-off entry would otherwise write it into the row. The error names
 //     the key, never the value;
 //   - a missing secret is left to the kind's Validate, which a pinned-off
 //     entry never reaches -- it needs no credentials;
 //   - a reference under a key the kind does not treat as secret is ignored.
 func declaredSettings(
-	in integrationkinds.Integration, entry config.LoginProvider,
+	in integrationkinds.Integration, decl declaration,
 ) (json.RawMessage, map[string]string, error) {
 	secrets := map[string]string{}
 	for _, key := range in.SecretKeys() {
-		if _, literal := entry.Settings[key]; literal {
+		if _, literal := decl.entry.Settings[key]; literal {
 			return nil, nil, fmt.Errorf(
 				"%w: %s must be a <secret:KEY> reference to the secrets file, not a literal value",
 				apperr.ErrValidation, key)
 		}
-		if value, ok := entry.Secrets[key]; ok {
+		if value, ok := decl.entry.Secrets[key]; ok {
 			secrets[key] = value
 		}
 	}
 
 	fields := map[string]any{}
-	maps.Copy(fields, entry.Settings)
+	maps.Copy(fields, decl.entry.Settings)
 	// The facts come as map[string]string, which maps.Copy will not put into a
 	// map[string]any.
-	for key, value := range entry.Fields() {
+	for key, value := range decl.facts {
 		fields[key] = value
 	}
 
@@ -197,27 +242,29 @@ func declaredSettings(
 	return cfg, secrets, nil
 }
 
-// provisionOne inserts or rewrites one declared provider.
+// provisionOne inserts or rewrites one declared integration.
 //
 // An existing row is rewritten unconditionally, secret wiped either way: a
 // restart with an unchanged config costs one UPDATE of a handful of rows, which
 // is cheaper than working out whether anything moved.
-func (s *Service) provisionOne(ctx context.Context, name string, provider provisionedProvider) error {
-	existing, err := s.store.GetForUpdateByKindName(ctx, integrationkinds.CategoryLogin, name)
+func (s *Service) provisionOne(
+	ctx context.Context, category integrationkinds.Category, name string, entry provisionedEntry,
+) error {
+	existing, err := s.store.GetForUpdateByKindName(ctx, category, name)
 	if errors.Is(err, apperr.ErrIntegrationNotFound) {
-		return s.insertProvisioned(ctx, name, provider)
+		return s.insertProvisioned(ctx, category, name, entry)
 	}
 	if err != nil {
 		return err
 	}
 
 	if !existing.Provisioned {
-		xlog.Warn(ctx, "login provider taken over by the config file; its stored secret was wiped",
-			xfield.String("name", name))
+		xlog.Warn(ctx, "integration taken over by the config file; its stored secret was wiped",
+			xfield.String("category", category), xfield.String("name", name))
 	}
 
-	existing.Enabled = provider.Enabled
-	existing.Config = provider.Config
+	existing.Enabled = entry.Enabled
+	existing.Config = entry.Config
 	existing.Secrets = nil
 	existing.Provisioned = true
 	existing.UpdatedByUserID = nil
@@ -227,20 +274,22 @@ func (s *Service) provisionOne(ctx context.Context, name string, provider provis
 	return err
 }
 
-// insertProvisioned creates the row for a provider no row exists for yet. It
-// still gets a DEK of its own: nothing is sealed under it now, but a released
-// row becomes an ordinary one an admin can put a secret into.
-func (s *Service) insertProvisioned(ctx context.Context, name string, provider provisionedProvider) error {
+// insertProvisioned creates the row for an integration no row exists for yet.
+// It still gets a DEK of its own: nothing is sealed under it now, but a
+// released row becomes an ordinary one an admin can put a secret into.
+func (s *Service) insertProvisioned(
+	ctx context.Context, category integrationkinds.Category, name string, entry provisionedEntry,
+) error {
 	_, dekID, err := s.newDEK(ctx)
 	if err != nil {
 		return err
 	}
 
 	_, err = s.store.Create(ctx, &entity.IntegrationSetting{
-		Kind:        integrationkinds.CategoryLogin,
+		Kind:        category,
 		Name:        name,
-		Enabled:     provider.Enabled,
-		Config:      provider.Config,
+		Enabled:     entry.Enabled,
+		Config:      entry.Config,
 		DEKID:       dekID,
 		Provisioned: true,
 	})
@@ -248,28 +297,48 @@ func (s *Service) insertProvisioned(ctx context.Context, name string, provider p
 	return err
 }
 
-// releaseUndeclared hands back to the UI every provisioned row this config no
-// longer declares -- its entry was removed, or switched to managed_by: ui.
-func (s *Service) releaseUndeclared(ctx context.Context, declared map[string]provisionedProvider) error {
-	rows, err := s.store.ListByKind(ctx, integrationkinds.CategoryLogin)
+// releaseUndeclared hands back to the UI every provisioned row of a category
+// this config no longer declares -- its entry was removed, or switched to
+// managed_by: ui. declared is the category's entries, keyed by name.
+//
+// Only rows whose name this service's registry holds under the category are
+// released. In production that is every name, so nothing changes; in a test
+// registering its own renamed kinds, it keeps the run off the rows a stand
+// provisioned on the same database.
+func (s *Service) releaseUndeclared(
+	ctx context.Context, category integrationkinds.Category, declared map[string]provisionedEntry,
+) error {
+	rows, err := s.store.ListByKind(ctx, category)
 	if err != nil {
-		return fmt.Errorf("list login providers: %w", err)
+		return fmt.Errorf("list %s integrations: %w", category, err)
 	}
 
 	var gone []string
 	for _, row := range rows {
-		if _, ok := declared[row.Name]; row.Provisioned && !ok {
-			gone = append(gone, row.Name)
+		// An admin's row: not the config's to release.
+		if !row.Provisioned {
+			continue
 		}
+		// Still declared: rewritten above, stays provisioned.
+		if _, ok := declared[row.Name]; ok {
+			continue
+		}
+		// A name this registry does not hold under the category, such as a
+		// stand's row seen by a test with renamed kinds.
+		if s.registry.admit(category, row.Name) != nil {
+			continue
+		}
+
+		gone = append(gone, row.Name)
 	}
 
-	if err := s.store.ReleaseProvisioned(ctx, integrationkinds.CategoryLogin, gone); err != nil {
-		return fmt.Errorf("release login providers: %w", err)
+	if err := s.store.ReleaseProvisioned(ctx, category, gone); err != nil {
+		return fmt.Errorf("release %s integrations: %w", category, err)
 	}
 
 	if len(gone) > 0 {
-		xlog.Warn(ctx, "login providers no longer declared in the config file; released to the UI and disabled",
-			xfield.Strings("names", gone))
+		xlog.Warn(ctx, "integrations no longer declared in the config file; released to the UI and disabled",
+			xfield.String("category", category), xfield.Strings("names", gone))
 	}
 
 	return nil

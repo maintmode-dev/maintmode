@@ -7,6 +7,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/integrationkinds"
 	datakeystore "github.com/ruko1202/maintmode/internal/storages/datakey"
 	integrationstore "github.com/ruko1202/maintmode/internal/storages/integration"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
@@ -70,12 +71,13 @@ type Service struct {
 	// the providers Provision validates, writes and serves -- ONE source for all
 	// three, so they cannot drift.
 	loginProviders config.LoginProviders
-	// provisioned is the managed_by: config entries after validation, keyed by
-	// name: what openProvider serves for a provisioned row, secret included --
-	// the secret is not in the database, so this is the only place it lives.
-	// Set once by Provision at startup, before the reloader's first build reads
-	// it, and never written again -- which is why it needs no lock.
-	provisioned map[string]provisionedProvider
+	// provisioned is the managed_by: config entries of every category after
+	// validation, keyed by category and then by name -- the (kind, name) a row
+	// is addressed by: what a provisioned row is served from, secret included
+	// -- the secret is not in the database, so this is the only place it
+	// lives. Set once by Provision at startup, before anything reads it, and
+	// never written again -- which is why it needs no lock.
+	provisioned map[integrationkinds.Category]map[string]provisionedEntry
 	// onChange are notified (synchronously, post-commit) with the identity of
 	// every mutated integration. Bootstrap wires the transport resolver's cache
 	// invalidation and the login reloader; an empty list means nobody is

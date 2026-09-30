@@ -56,6 +56,14 @@ func unmarshalConfig(config json.RawMessage, dst any) error {
 	return nil
 }
 
+// Category is which half of the product an integration belongs to: what the
+// .kind column of integration_settings holds.
+//
+// An alias rather than a defined type: it names what a string is where one is
+// passed around, while the stores and the admin API, which speak plain strings,
+// need no conversion.
+type Category = string
+
 // Categories an integration_settings row can belong to. They are what the
 // .kind column holds after the registry moved to keying by system name: a row
 // answers "which half of the product is this" with the category, and "which
@@ -66,7 +74,7 @@ func unmarshalConfig(config json.RawMessage, dst any) error {
 // Integration implements "notify".
 const (
 	// CategoryNotify is a delivery integration -- Slack, Telegram, SMTP.
-	CategoryNotify = "notify"
+	CategoryNotify Category = "notify"
 	// CategoryLogin is a sign-in provider. It is the category the delete
 	// cascade, the login reloader and the admin health field key on; before the
 	// rename each of them compared against the "oidc" kind, which stopped
@@ -82,5 +90,5 @@ const (
 	// switches on the settings TYPE. Everything downstream of it holds an
 	// AuthMethod and a Gateway, both interfaces, so a further shape costs one
 	// arm there and nothing here.
-	CategoryLogin = "login"
+	CategoryLogin Category = "login"
 )

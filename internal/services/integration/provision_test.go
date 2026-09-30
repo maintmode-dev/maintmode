@@ -137,6 +137,25 @@ func TestProvision_ReleasesAProviderDroppedFromConfig(t *testing.T) {
 	require.Equal(t, uuid.Nil, mocks.identities.unlinkedFrom, "identities are untouched")
 }
 
+// Release reaches only the names this service's registry holds. Another run's
+// renamed kinds -- or a stand's real rows on the same database -- are not this
+// config's to release, even though they are provisioned and undeclared here.
+func TestProvision_ReleaseLeavesUnregisteredNamesAlone(t *testing.T) {
+	ctx := context.Background()
+	_, kinds, _ := initService(t)
+	owner, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: declared("cfg-client")})
+	require.NoError(t, owner.Provision(ctx))
+
+	_, otherKinds, _ := initService(t)
+	stranger, _ := newServiceFor(t, otherKinds, nil, config.LoginProviders{})
+	require.NoError(t, stranger.Provision(ctx))
+
+	row, found := readRow(ctx, t, kinds.login, kinds.oidc)
+	require.True(t, found)
+	require.True(t, row.Provisioned, "a name outside the registry is not released")
+	require.True(t, row.Enabled)
+}
+
 func TestProvision_InvalidEntryChangesNothing(t *testing.T) {
 	cases := []struct {
 		name string

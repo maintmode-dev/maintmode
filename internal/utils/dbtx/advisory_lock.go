@@ -55,11 +55,12 @@ const (
 	AdvisoryLockKeyDEKRotation AdvisoryLockKey = 3
 
 	// AdvisoryLockKeyLoginProvisioning serializes startup provisioning of
-	// config-declared login providers. Every replica provisions at startup, so a
-	// rolling deploy has several doing it at once; without the lock two of them
-	// both find a declared provider missing, both insert it, and the loser fails
-	// startup on UNIQUE (kind, name). Held for one short transaction over a
-	// handful of rows.
+	// config-declared integrations -- login providers and notify transports
+	// alike, in one transaction; the name predates the second category. Every
+	// replica provisions at startup, so a rolling deploy has several doing it
+	// at once; without the lock two of them both find a declared integration
+	// missing, both insert it, and the loser fails startup on UNIQUE (kind,
+	// name). Held for one short transaction over a handful of rows.
 	//
 	// It is key 4 by the ordering invariant above; provisioning co-holds no
 	// other key -- DEK rotation (key 3) runs in its own transaction.
