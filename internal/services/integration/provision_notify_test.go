@@ -224,6 +224,28 @@ func TestProvision_InvalidTransportChangesNothing(t *testing.T) {
 				return config.NotifyTransportEntries{kinds.slack: declaredTransport(nil, nil)}
 			},
 		},
+		{
+			// A secret under a name the kind does not read -- a typo, or the
+			// name another tool uses -- would otherwise be stored in the row's
+			// plaintext config and returned by the admin API.
+			name: "unknown key holding a literal",
+			decl: func(kinds testKinds) config.NotifyTransportEntries {
+				return config.NotifyTransportEntries{kinds.slack: declaredTransport(
+					map[string]any{"token": "from-the-secrets-file"},
+					map[string]string{"bot_token": "t"})}
+			},
+		},
+		{
+			// Pinned off skips Validate, not the shape: its config is written
+			// into the row all the same.
+			name: "unknown key on a pinned-off entry",
+			decl: func(kinds testKinds) config.NotifyTransportEntries {
+				return config.NotifyTransportEntries{kinds.slack: {
+					ManagedBy: config.ManagedByConfig, Enabled: lo.ToPtr(false),
+					Settings: map[string]any{"token": "from-the-secrets-file"},
+				}}
+			},
+		},
 	}
 
 	for _, tc := range cases {

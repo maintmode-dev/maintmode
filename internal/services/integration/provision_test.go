@@ -193,6 +193,14 @@ func TestProvision_InvalidEntryChangesNothing(t *testing.T) {
 			},
 		},
 		{
+			name: "unknown key",
+			decl: func(kinds testKinds) config.LoginProviders {
+				bad := declared("cfg-client")
+				bad.Settings["client_secret_typo"] = "from-the-secrets-file"
+				return config.LoginProviders{kinds.oidc: bad}
+			},
+		},
+		{
 			name: "missing client_secret",
 			decl: func(kinds testKinds) config.LoginProviders {
 				bad := declared("cfg-client")

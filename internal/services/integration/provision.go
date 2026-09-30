@@ -1,11 +1,13 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -219,7 +221,8 @@ func (s *Service) parseDeclaredEntry(decl declaration) (provisionedEntry, error)
 //     the key, never the value;
 //   - a missing secret is left to the kind's Validate, which a pinned-off
 //     entry never reaches -- it needs no credentials;
-//   - a reference under a key the kind does not treat as secret is ignored.
+//   - a reference under a key the kind does not treat as secret is ignored;
+//   - a key the kind does not read at all is refused -- see refuseUnknownKeys.
 func declaredSettings(
 	in integrationkinds.Integration, decl declaration,
 ) (json.RawMessage, map[string]string, error) {
@@ -248,7 +251,42 @@ func declaredSettings(
 		return nil, nil, fmt.Errorf("%w: config: %w", apperr.ErrValidation, err)
 	}
 
+	if err := refuseUnknownKeys(in, cfg); err != nil {
+		return nil, nil, err
+	}
+
 	return cfg, secrets, nil
+}
+
+// refuseUnknownKeys holds a declared config to the shape of its kind's
+// settings: a key the kind does not read, or a value of the wrong type, fails
+// startup.
+//
+// Stricter than the admin API on purpose. Everything in the config is written
+// into the row's PLAINTEXT config column and returned by the admin read model,
+// so a secret under a name the kind does not know -- `token` for `bot_token`, a
+// typo, another tool's spelling -- would be stored unencrypted and shown to
+// every reader, with nothing to say it was ignored. The check runs whether or
+// not the entry is enabled, since a pinned-off entry's config is written too.
+//
+// The error is encoding/json's, which names the key and the Go type, never a
+// string value. A secret key itself never reaches here as a known field -- its
+// Settings field is json:"-" -- and a literal one was refused above.
+func refuseUnknownKeys(in integrationkinds.Integration, cfg json.RawMessage) error {
+	// Parse of an empty config is the kind's zero settings: its type is the
+	// shape the config must fit.
+	shape, err := in.Parse(nil, nil)
+	if err != nil {
+		return fmt.Errorf("%w: config: %w", apperr.ErrValidation, err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(cfg))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(reflect.New(reflect.TypeOf(shape)).Interface()); err != nil {
+		return fmt.Errorf("%w: config: %w", apperr.ErrValidation, err)
+	}
+
+	return nil
 }
 
 // provisionOne inserts or rewrites one declared integration.
