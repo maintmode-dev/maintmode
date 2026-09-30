@@ -51,6 +51,8 @@ func (email) Category() string { return CategoryNotify }
 
 func (email) SecretKeys() []string { return []string{emailSecretKeyPassword} }
 
+func (email) EmptySettings() Settings { return &EmailSettings{} }
+
 func (email) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s EmailSettings
 	if err := unmarshalConfig(config, &s); err != nil {

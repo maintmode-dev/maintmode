@@ -140,6 +140,8 @@ func (o oidc) PresetKey() string {
 
 func (oidc) SecretKeys() []string { return []string{oidcSecretKeyClientSecret} }
 
+func (oidc) EmptySettings() Settings { return &OIDCSettings{} }
+
 func (oidc) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s OIDCSettings
 	if err := unmarshalConfig(config, &s); err != nil {

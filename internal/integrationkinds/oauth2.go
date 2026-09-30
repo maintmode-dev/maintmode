@@ -156,6 +156,8 @@ func (oauth2) Category() string { return CategoryLogin }
 // SecretKeys is what the service encrypts at rest and masks on read.
 func (oauth2) SecretKeys() []string { return []string{oauth2SecretKeyClientSecret} }
 
+func (oauth2) EmptySettings() Settings { return &OAuth2Settings{} }
+
 func (oauth2) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s OAuth2Settings
 	if err := unmarshalConfig(config, &s); err != nil {

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
@@ -273,16 +272,9 @@ func declaredSettings(
 // string value. A secret key itself never reaches here as a known field -- its
 // Settings field is json:"-" -- and a literal one was refused above.
 func refuseUnknownKeys(in integrationkinds.Integration, cfg json.RawMessage) error {
-	// Parse of an empty config is the kind's zero settings: its type is the
-	// shape the config must fit.
-	shape, err := in.Parse(nil, nil)
-	if err != nil {
-		return fmt.Errorf("%w: config: %w", apperr.ErrValidation, err)
-	}
-
 	decoder := json.NewDecoder(bytes.NewReader(cfg))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(reflect.New(reflect.TypeOf(shape)).Interface()); err != nil {
+	if err := decoder.Decode(in.EmptySettings()); err != nil {
 		return fmt.Errorf("%w: config: %w", apperr.ErrValidation, err)
 	}
 

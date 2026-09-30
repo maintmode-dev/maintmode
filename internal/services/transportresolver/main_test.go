@@ -145,6 +145,7 @@ func (namedResolvable) Parse(_ json.RawMessage, secretsIn map[string]string) (in
 	return resolvableSettings(secretsIn["token"]), nil
 }
 func (namedResolvable) Validate(integrationkinds.Settings) error { return nil }
+func (namedResolvable) EmptySettings() integrationkinds.Settings { return new(resolvableSettings) }
 
 // resolvableSettings is namedResolvable's parsed settings: just the plaintext token.
 type resolvableSettings string

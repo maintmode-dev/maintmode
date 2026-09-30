@@ -25,6 +25,9 @@ func (systemNamed) Parse(c json.RawMessage, sec map[string]string) (integrationk
 func (systemNamed) Validate(s integrationkinds.Settings) error {
 	return integrationkinds.Slack.Validate(s)
 }
+func (systemNamed) EmptySettings() integrationkinds.Settings {
+	return integrationkinds.Slack.EmptySettings()
+}
 
 // TestSecretAAD_DeliveryBindingIsTheSystemName is a regression lock on the one
 // value in this change that must NOT move.
