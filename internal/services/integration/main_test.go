@@ -257,8 +257,8 @@ func newServiceFor(
 func providersWithCatalog(provisioned config.LoginProviders) config.LoginProviders {
 	providers := config.LoginProviders{
 		integrationkinds.Google.Name(): {
-			ManagedBy:  config.ManagedByUI,
-			LoginFacts: config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
+			LoginFacts:   config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
+			ManagedEntry: config.ManagedEntry{ManagedBy: config.ManagedByUI},
 		},
 	}
 	maps.Copy(providers, provisioned)

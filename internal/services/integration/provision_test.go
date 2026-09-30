@@ -31,14 +31,16 @@ import (
 func declared(clientID string) config.LoginProvider {
 	return config.LoginProvider{
 		LoginFacts: config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
-		ManagedBy:  config.ManagedByConfig,
-		Enabled:    lo.ToPtr(true),
-		Settings: map[string]any{
-			"client_id":    clientID,
-			"redirect_uri": "https://app.example/auth/callback",
-			"jwtverifier":  map[string]any{"allowed_hosted_domains": []any{"example.com"}},
+		ManagedEntry: config.ManagedEntry{
+			ManagedBy: config.ManagedByConfig,
+			Enabled:   lo.ToPtr(true),
+			Settings: map[string]any{
+				"client_id":    clientID,
+				"redirect_uri": "https://app.example/auth/callback",
+				"jwtverifier":  map[string]any{"allowed_hosted_domains": []any{"example.com"}},
+			},
+			Secrets: map[string]string{"client_secret": "from-the-secrets-file"},
 		},
-		Secrets: map[string]string{"client_secret": "from-the-secrets-file"},
 	}
 }
 
