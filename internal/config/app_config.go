@@ -569,7 +569,6 @@ type JWTVerifierConfig struct {
 	// their discovery document declares, which is the only authority on the
 	// string a provider actually mints.
 	JWTIssuer string `mapstructure:"jwt_issuer"`
-	JWKSURL   string `mapstructure:"jwks_url"`
 	// AllowedHostedDomains, when non-empty, restricts ID tokens to those
 	// whose `hd` claim matches one of the listed domains.
 	//
@@ -953,9 +952,9 @@ func (c *AppConfig) validateUseStubInDev() error {
 
 // validateValkeyConfig rejects an empty valkey.addr at startup.
 //
-// The key was renamed redis -> valkey, and viper unmarshals without
-// ErrorUnused: a config file still carrying the old `redis:` block is not an
-// error, it simply leaves Valkey as the Go zero value. That would be survivable
+// The key was renamed redis -> valkey. A stale `redis:` block is now refused
+// at load as an unknown key (see readConfig), but a file with neither block
+// still leaves Valkey as the Go zero value. That would be survivable
 // if an empty address then failed to connect, but go-redis substitutes its own
 // default instead (options.go: `if opt.Addr == "" { opt.Addr = "localhost:6379" }`),
 // so the ping succeeds against whatever happens to answer on the local port and
@@ -1091,8 +1090,11 @@ func readConfig(filePath string) (*AppConfig, error) {
 		return nil, fmt.Errorf("failed to read config file %s", filePath)
 	}
 
+	// Exact: a key no field reads is an error, not a no-op. A misspelled or
+	// renamed key otherwise leaves its field at the zero value and the process
+	// boots on a setting nobody wrote.
 	cfg := new(AppConfig)
-	if err := reader.Unmarshal(cfg); err != nil {
+	if err := reader.UnmarshalExact(cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config file %s: %w", filePath, err)
 	}
 

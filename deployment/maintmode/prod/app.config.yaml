@@ -79,16 +79,10 @@ auth:
   otp_reissue_cooldown: 1m
 
 jwtverifier:
+  # Tokens are checked against the public half of jwt.issuer_private_key,
+  # derived in-process: nothing is fetched.
   jwt_issuer: oauth-service
-  # In-process JWKS: the merged maintmode process serves /.well-known/jwks.json
-  # itself, so the verifier fetches from localhost, not the removed
-  # auth service.
-  jwks_url: http://localhost:8000/api/v1/.well-known/jwks.json
-  jwks_refresh_interval: 1h
-  jwks_http_timeout: 10s
   jwt_leeway: 30s
-  jwks_unknown_kid_refresh_rate: 5m
-  jwks_unknown_kid_wait_max: 10s
 
 rbac:
   adapter: file
