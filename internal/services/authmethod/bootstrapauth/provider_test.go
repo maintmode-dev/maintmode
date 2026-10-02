@@ -69,7 +69,7 @@ func TestServiceAuthenticate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, entity.BootstrapSubject, claims.Subject)
 		require.Equal(t, testEmail, claims.Email)
-		require.NotEmpty(t, claims.Name)
+		require.Equal(t, "Bootstrap Admin ("+testEmail+")", claims.Name)
 		// The address comes from configuration, so whoever controls the
 		// deployment has asserted it. Left at the zero value it would read as
 		// an upstream reporting the address unverified, and break-glass has no

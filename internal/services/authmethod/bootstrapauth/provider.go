@@ -12,14 +12,20 @@
 package bootstrapauth
 
 import (
+	"fmt"
+
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
 // bootstrapUserName is the display name given to the break-glass admin when it
-// is first created. A constant rather than a config key: it has exactly one
-// consumer (users.name on creation) and no second one in sight.
-const bootstrapUserName = "Bootstrap Admin"
+// is first created. It carries the address so that break-glass accounts read
+// apart in user lists and the audit log rather than all as "Bootstrap Admin".
+// Derived rather than a config key: it has exactly one consumer (users.name on
+// creation) and no second one in sight.
+func bootstrapUserName(email string) string {
+	return fmt.Sprintf("Bootstrap Admin (%s)", email)
+}
 
 // Service verifies the break-glass password and reports the configured admin
 // identity. The password comes from configuration and is held in memory; an
