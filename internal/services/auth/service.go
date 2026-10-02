@@ -151,8 +151,8 @@ type InvitationClaimer interface {
 	ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)
 	// ClaimForUser runs AFTER the user exists. It flips pending→accepted and
 	// assigns the invitation's roles in ONE transaction, so an accepted
-	// invitation never leaves a user without its roles. The updated user it
-	// returns is not needed here: the dance issued its pair in phase 1.
+	// invitation never leaves a user without its roles. The dance issues its
+	// pair from the user it returns, so the token carries those roles.
 	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error)
 }
 

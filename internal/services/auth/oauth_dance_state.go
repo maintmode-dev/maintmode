@@ -345,25 +345,37 @@ func (s *Service) issueDanceCode(
 	// refused, exactly as before.
 	policy := entity.UserCreationPolicy{AllowCreate: invitation != nil}
 
-	// PHASE 1: create (or find) the user and issue the pair, in its own
-	// transaction — GetOrCreateByAuthInfo's unique-violation recovery retries on
-	// a clean connection and cannot be nested.
-	pair, user, err := s.SignInWithVerifiedClaims(ctx, provider, claims, policy, meta)
+	// PHASE 1: create (or find) the user, in its own transaction —
+	// GetOrCreateByAuthInfo's unique-violation recovery retries on a clean
+	// connection and cannot be nested.
+	user, err := s.resolveSignInUser(ctx, provider, claims, policy, meta)
 	if err != nil {
 		return nil, fmt.Errorf("sign in with verified claims: %w", err)
 	}
 
 	// PHASE 2: spend the invitation and grant its roles, atomically.
 	//
-	// It runs after issuance because roles attach to a user id that did not
-	// exist until phase 1. A failure here leaves a live session whose user holds
-	// only the default roles while the invitation stays pending and its link
-	// stays usable — the same direction the id_token accept path chose, and the
-	// safer one: the alternative burns an invitation for a session nobody got.
+	// BEFORE issuance, like the id_token accept path: the access token carries
+	// the roles the user holds when it is minted, so a pair issued first would
+	// hand an invited admin a guest token until its next refresh. A failure here
+	// issues no session and leaves the invitation pending, so following the link
+	// again finishes the job. A failure at issuance below leaves the invitation
+	// spent, but the account then exists with its roles and an ordinary sign-in
+	// reaches it.
 	if invitation != nil {
-		if _, err := s.invitations.ClaimForUser(ctx, invitation, user.ID); err != nil {
-			return nil, fmt.Errorf("claim invitation: %w", err)
+		claimed, claimErr := s.invitations.ClaimForUser(ctx, invitation, user.ID)
+		if claimErr != nil {
+			s.publishLoginFailure(ctx, user, meta, entity.AuditFailureUserProvisioning)
+
+			return nil, fmt.Errorf("claim invitation: %w", claimErr)
 		}
+		user = claimed
+	}
+
+	// PHASE 3: issue the pair for the user as it now stands.
+	pair, err := s.issueSignInPair(ctx, user, meta)
+	if err != nil {
+		return nil, fmt.Errorf("sign in with verified claims: %w", err)
 	}
 
 	code, err := newDanceSecret()
