@@ -56,8 +56,7 @@ func bootstrapPolicy() entity.UserCreationPolicy {
 
 // A break-glass login must work on an instance that already has admins — that
 // is the whole point: it exists for when the existing admins are unreachable.
-// Without AllowCreate the login would be refused with ErrSignupDisabled, since
-// the zero-admin branch does not fire here.
+// Without AllowCreate the login would be refused with ErrSignupDisabled.
 func TestGetOrCreateByAuthInfo_BootstrapOnPopulatedInstance(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -352,16 +351,10 @@ func TestGetOrCreateByAuthInfo_BootstrapPublishesRolesChanged(t *testing.T) {
 }
 
 // The founding case: `docker compose up` on an empty database, nobody in the
-// system yet, and the operator signs in for the first time. This is the
-// scenario the whole feature exists for, and it takes a DIFFERENT branch from
-// every other test in this file.
-//
-// createByPolicy checks `admins == 0` BEFORE the link branch and before
-// AllowCreate, and that branch hardcodes []Role{RoleAdmin} while ignoring
-// policy.GrantRoles entirely. So the policy the auth service passes is dead
-// here, and the admin role arrives by a path no other test walks — which is
-// exactly why it needs its own coverage rather than being assumed from the
-// populated-instance tests.
+// system yet, and the operator signs in for the first time. Break-glass is the
+// ONLY way to get the first admin -- an ordinary login on an empty instance is
+// held to signup policy (TestGetOrCreateByAuthInfo_EmptyInstance) -- so the
+// admin role here must come from the break-glass policy itself.
 func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstance(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -386,10 +379,9 @@ func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstance(t *testing.T) {
 	require.Equal(t, user.ID, again.ID)
 }
 
-// The zero-admin branch grants admin through a path of its own, so the seat-cap
-// exemption has to hold there too — an instance can be at its licensed cap and
-// still have no admin, which is precisely when break-glass is needed and
-// precisely when a cap would refuse it.
+// The seat-cap exemption has to hold on an empty instance too — an instance can
+// be at its licensed cap and still have no admin, which is precisely when
+// break-glass is needed and precisely when a cap would refuse it.
 func TestGetOrCreateByAuthInfo_BootstrapOnAnEmptyInstanceIgnoresTheSeatCap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

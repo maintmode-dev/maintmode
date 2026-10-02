@@ -34,9 +34,9 @@ app:
   oauth_cookie_path: /auth/api/v1/login/oauth
 
 auth:
-  # Open self-registration: an unknown, uninvited user signs in as guest. ON in
-  # local/dev so teammates can log in via the browser once the first admin has
-  # bootstrapped; keep OFF in prod (invite-only).
+  # Open self-registration: an unknown, uninvited user signs in as guest. Keep
+  # OFF in prod (invite-only). Either way the first admin is created by
+  # break-glass (bootstrap), never by the first login.
   allow_open_signup: true
   # How long an emailed code stays valid. Short on purpose: a code delivered by
   # email is guessable in principle, and this window plus the attempt ceiling
@@ -211,7 +211,7 @@ oauth_providers:
       enabled: true
       client_id: "local-mock.apps.googleusercontent.com"
       redirect_uri: "http://localhost:8000/api/v1/login/oauth/google/callback"
-      client_secret: <secret:login/google/client_secret>
+      client_secret: <secret:auth_provider/google/client_secret>
     # GitHub publishes no discovery document, so its endpoints cannot be
     # fetched the way an OIDC issuer's are -- they are configuration. Editing
     # them here is a deploy-time act, which is what makes a GitHub Enterprise
@@ -225,7 +225,7 @@ oauth_providers:
       enabled: true
       client_id: "local-mock-github-client"
       redirect_uri: "http://localhost:8000/api/v1/login/oauth/github/callback"
-      client_secret: <secret:login/github/client_secret>
+      client_secret: <secret:auth_provider/github/client_secret>
     custom:
       display_name: "Corporate SSO (mock)"
       issuer_url: "https://sso.example.com/realms/maintmode"
@@ -233,7 +233,7 @@ oauth_providers:
       enabled: true
       client_id: "maintmode-local"
       redirect_uri: "http://localhost:8000/api/v1/login/oauth/custom/callback"
-      client_secret: <secret:login/custom/client_secret>
+      client_secret: <secret:auth_provider/custom/client_secret>
 
 jwt:
   issuer_name: oauth-service

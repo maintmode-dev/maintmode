@@ -46,8 +46,8 @@ func (p *recordingAuditPublisher) rolesChanges() []audit.RolesChanged {
 }
 
 // initPolicyService builds a service around the given users store (typically a
-// count-forcing wrapper, so the bootstrap decision is deterministic on the
-// shared DB) with a recording audit publisher.
+// count-forcing wrapper, so the admin population is fixed on the shared DB)
+// with a recording audit publisher.
 func initPolicyService(t *testing.T, store UsersStore, allowOpenSignup bool) (*Service, *recordingAuditPublisher) {
 	t.Helper()
 
@@ -78,7 +78,7 @@ func oauthInfo() *entity.OAuthProviderUserInfo {
 func TestGetOrCreateByAuthInfo_CreationPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	// One active admin: the bootstrap branch stays off, only the policy decides.
+	// One active admin: a populated instance, the common case.
 	steadyStore := func() UsersStore {
 		return fixedAdminCountStore{UsersStore: users.NewStore(db), activeAdmins: 1}
 	}
@@ -174,30 +174,39 @@ func TestGetOrCreateByAuthInfo_CreationPolicy(t *testing.T) {
 	})
 }
 
-func TestGetOrCreateByAuthInfo_Bootstrap(t *testing.T) {
+// An instance with no admins gives an ordinary login no special treatment: the
+// first admin comes from break-glass, so the first stranger to reach a fresh
+// instance must not become its admin. Zero active admins is forced on every
+// count, so the shared DB's real admins cannot hide a revived first-admin
+// branch.
+func TestGetOrCreateByAuthInfo_EmptyInstance(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	// Zero active admins reported on every count: the bootstrap branch is
-	// always taken. The shared DB's real admins are invisible to the forced
-	// count, so this exercises the empty-installation decision deterministically.
 	emptyStore := func() UsersStore {
 		return fixedAdminCountStore{UsersStore: users.NewStore(db), activeAdmins: 0}
 	}
 
-	t.Run("first login creates the admin and audits the grant", func(t *testing.T) {
+	t.Run("signup closed: refused, nothing persisted", func(t *testing.T) {
 		t.Parallel()
 		srv, rec := initPolicyService(t, emptyStore(), false)
+		info := oauthInfo()
+
+		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, info, entity.UserCreationPolicy{})
+		require.ErrorIs(t, err, apperr.ErrSignupDisabled)
+		require.Nil(t, user)
+		require.Empty(t, rec.rolesChanges())
+
+		_, err = users.NewStore(db).GetByEmail(ctx, info.Email)
+		require.ErrorIs(t, err, apperr.ErrUserNotFound)
+	})
+
+	t.Run("signup open: a guest, not an admin", func(t *testing.T) {
+		t.Parallel()
+		srv, rec := initPolicyService(t, emptyStore(), true)
 
 		user, err := srv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, oauthInfo(), entity.UserCreationPolicy{})
 		require.NoError(t, err)
-		require.True(t, user.IsAdmin(), "first user must be promoted to admin, got roles %v", user.Roles)
-
-		// The bootstrap promotion is recorded by the plain RolesChanged event
-		// that AssignRoles publishes — system actor, admin role.
-		changes := rec.rolesChanges()
-		require.Len(t, changes, 1)
-		require.Equal(t, entity.SystemUser, changes[0].Actor)
-		require.Equal(t, user.ID, changes[0].Target.ID)
-		require.Equal(t, []entity.Role{entity.RoleAdmin}, changes[0].Change.Roles)
+		require.Equal(t, entity.DefaultRoles, user.Roles)
+		require.Empty(t, rec.rolesChanges())
 	})
 }

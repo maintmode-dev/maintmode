@@ -146,8 +146,8 @@ type InvitationClaimer interface {
 	// A nil result with a nil error is not possible: absence is reported as an
 	// error, never as an empty value. An invitation may legitimately carry no
 	// roles, so a nil-or-empty slice must never be readable as "no invitation" —
-	// that overloading is what decides AllowCreate, and on a zero-admin instance
-	// a wrong answer grants admin.
+	// that overloading is what decides AllowCreate, and a wrong answer creates
+	// an account signup policy would have refused.
 	ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)
 	// ClaimForUser runs AFTER the user exists. It flips pending→accepted and
 	// assigns the invitation's roles in ONE transaction, so an accepted

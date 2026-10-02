@@ -292,13 +292,11 @@ type App struct {
 // one-time-code sign-in behaves.
 type Auth struct {
 	// AllowOpenSignup lets an unknown, uninvited user self-register as guest on
-	// OAuth login. Default false: once the first admin exists, login of an
-	// unknown user without an invitation is rejected (invite-only). Read at
-	// startup, per-replica — a config rollout may briefly diverge across
-	// replicas. Bootstrap correctness does not depend on it: the first-admin
-	// decision is first-login-wins and takes no advisory lock, resting instead
-	// on the operational model that the operator logs in before any other
-	// traffic reaches the instance (see GetOrCreateByAuthInfo).
+	// OAuth login. Default false: login of an unknown user without an
+	// invitation is rejected (invite-only), on a fresh instance too -- the
+	// first admin is created by break-glass, not by whoever logs in first. Read
+	// at startup, per-replica — a config rollout may briefly diverge across
+	// replicas.
 	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
 	// OTPTTL is how long an emailed one-time code stays valid. Zero falls back to
 	// a 5-minute default at wiring time. Short on purpose: a code delivered by

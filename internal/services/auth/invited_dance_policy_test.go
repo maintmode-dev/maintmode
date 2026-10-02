@@ -39,21 +39,6 @@ func (s *stubClaimer) ClaimForUser(
 	return &entity.User{ID: userID}, nil
 }
 
-// seedAdmin creates an admin so the zero-admin bootstrap branch does not answer
-// first. Without it GetOrCreateByAuthInfo grants admin unconditionally and both
-// policies would create a user, hiding the gate this test exists to pin.
-func seedAdmin(ctx context.Context, t *testing.T, svc *Service) {
-	t.Helper()
-
-	_, err := svc.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle,
-		&entity.OAuthProviderUserInfo{
-			ID:    uuid.NewString(),
-			Email: uuid.NewString() + "@admin-gate.test",
-			Name:  "Admin",
-		}, entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{entity.RoleAdmin}})
-	require.NoError(t, err)
-}
-
 // TestInvitedDanceAllowCreateGate pins the single most security-relevant line
 // in the invited dance: an account is created ONLY when an invitation actually
 // resolved.
@@ -75,7 +60,6 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 	t.Run("no invitation: the dance refuses to create an account", func(t *testing.T) {
 		t.Parallel()
 		svc, mocks := initInviteOnlyService(t)
-		seedAdmin(ctx, t, svc)
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).
@@ -105,7 +89,6 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			codes:       oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()),
 			invitations: claimer,
 		})
-		seedAdmin(ctx, t, svc)
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).
