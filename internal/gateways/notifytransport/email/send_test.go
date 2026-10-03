@@ -69,8 +69,9 @@ func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 	decoded := decodeQuotedPrintable(t, msg.data)
 	require.Contains(t, decoded, link, "link must be present in the HTML body")
 	// The plain-text alternative must keep the link too — anchors are expanded to
-	// "text (url)" so a non-HTML client still has a way to accept the invitation.
-	require.Contains(t, decoded, "here ("+link+")", "plain-text alternative must keep the link")
+	// "text: url" so a non-HTML client still has a way to accept the invitation,
+	// with the URL ending its line: nothing of ours may cling to it.
+	require.Contains(t, decoded, "here: "+link+"\r\n", "plain-text alternative must keep the link")
 	// HTML bodies are wrapped in the branded frame: the wordmark and the default
 	// footer line appear in both the HTML and its derived plain text.
 	require.Contains(t, decoded, "MaintMode", "wrapped HTML must carry the wordmark")
@@ -137,14 +138,22 @@ func TestHTMLToText(t *testing.T) {
 		want string
 	}{
 		{
-			name: "anchor expands to text (url)",
+			name: "anchor expands to text: url",
 			in:   `<p>Click <a href="https://x.test/a?t=1">here</a></p>`,
-			want: "Click here (https://x.test/a?t=1)",
+			want: "Click here: https://x.test/a?t=1",
+		},
+		{
+			// The invitation's shape: a link alone in its paragraph. Nothing of
+			// ours may cling to the URL -- a trailing ")" made the copied link
+			// invalid.
+			name: "a link paragraph leaves the url bare at the end of its line",
+			in:   `<p><a href="https://x.test/accept-invite?token=abc%3D">Accept your invitation</a></p><p>Expires soon.</p>`,
+			want: "Accept your invitation: https://x.test/accept-invite?token=abc%3D\n\nExpires soon.",
 		},
 		{
 			name: "entities are unescaped",
 			in:   `<a href="https://x.test/a?t=1&amp;u=2">go</a>`,
-			want: "go (https://x.test/a?t=1&u=2)",
+			want: "go: https://x.test/a?t=1&u=2",
 		},
 		{
 			name: "br and block tags become newlines",
