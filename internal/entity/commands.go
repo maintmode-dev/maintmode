@@ -308,6 +308,17 @@ type LoginWithPasswordCmd struct {
 	UserAgent string
 }
 
+// AcceptInvitationWithPasswordCmd accepts an invitation by choosing a password
+// instead of signing in through a provider. The invitation's own email is the
+// account's address; there is none to submit.
+type AcceptInvitationWithPasswordCmd struct {
+	// Token is the raw token from the invitation link.
+	Token     string
+	Password  string
+	ClientIP  string
+	UserAgent string
+}
+
 type ConnectProviderCmd struct {
 	UserID uuid.UUID
 	// Provider is the raw name from the request; the service validates it
