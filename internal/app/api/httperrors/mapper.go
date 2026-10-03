@@ -90,6 +90,8 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrEmailMismatch, "")
 	case errors.Is(err, apperr.ErrInvalidInvitation):
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvitationInvalid, "")
+	case errors.Is(err, apperr.ErrSignInMethodDisabled):
+		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrMethodDisabled, "this sign-in method is disabled")
 
 	// license enforcement: stable 403 codes, checked before the
 	// generic ErrForbidden case so the frontend can distinguish them.

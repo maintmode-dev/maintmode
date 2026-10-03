@@ -177,6 +177,10 @@ var (
 	// ErrEmailMismatch is the accept-time guard: the OAuth email does not match
 	// the invitation email. Surfaced as status "email_mismatch" with no detail.
 	ErrEmailMismatch = fmt.Errorf("%w: email mismatch", ErrValidation)
+	// ErrSignInMethodDisabled refuses accepting an invitation through a
+	// built-in method an admin has switched off: the account it would create
+	// could not sign in with the credential it was given.
+	ErrSignInMethodDisabled = errors.New("sign-in method is disabled")
 )
 
 // Auth credential errors, for the two built-in sign-in methods.

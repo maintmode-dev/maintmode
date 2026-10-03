@@ -65,15 +65,19 @@ var sensitiveQueryParams = map[string]struct{}{
 // creating an integration posts them in a request body. Body logging is
 // dev-only, but that is where fixtures are recorded, and a captured request
 // carrying a real OAuth client secret outlives the stand it came from.
+//
+// invitation_token is a bearer credential too: whoever holds it can accept the
+// invitation, and with a password that means creating the account.
 var sensitiveBodyFields = map[string]struct{}{
-	"access_token":  {},
-	"refresh_token": {},
-	"id_token":      {},
-	"code":          {},
-	"password":      {},
-	"session_nonce": {},
-	"client_secret": {},
-	"bot_token":     {},
+	"access_token":     {},
+	"refresh_token":    {},
+	"id_token":         {},
+	"code":             {},
+	"password":         {},
+	"session_nonce":    {},
+	"client_secret":    {},
+	"bot_token":        {},
+	"invitation_token": {},
 }
 
 var _ sanitize.Sanitizer = RequestSanitizer{}

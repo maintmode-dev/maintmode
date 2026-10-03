@@ -227,6 +227,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
+	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword)
 }
 
 // oauthDanceRoutes registers the backend-driven OAuth dance.

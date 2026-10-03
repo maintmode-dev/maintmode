@@ -1,5 +1,17 @@
 components:
     schemas:
+        apiauthmodels.AcceptInvitationWithPasswordRequest:
+            properties:
+                invitation_token:
+                    description: InvitationToken is the raw token from the invitation link.
+                    type: string
+                password:
+                    description: Password must be 12 to 256 bytes of UTF-8.
+                    type: string
+            required:
+                - invitation_token
+                - password
+            type: object
         apiauthmodels.AuditFacets:
             properties:
                 all:
@@ -2065,6 +2077,50 @@ paths:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
                     description: Internal error
             summary: Accept an invitation (public, deprecated)
+            tags:
+                - Users
+    /api/v1/users/invitations/accept/password:
+        post:
+            description: Creates the invited user with the invitation's email, sets the password, spends the invitation and grants its roles, then issues a backend token pair carrying those roles. For instances where people sign in with a password rather than through an identity provider.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.AcceptInvitationWithPasswordRequest'
+                description: Invitation token and the new password
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: 'code: invalid (no live invitation) | invalid request (password outside the policy, malformed body)'
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: 'code: method_disabled | seats_limit_exceeded'
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: 'code: conflict (an account with this email already exists)'
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Accept an invitation by setting a password
             tags:
                 - Users
     /api/v1/users/invitations/preview:

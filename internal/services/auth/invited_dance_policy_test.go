@@ -32,6 +32,10 @@ func (s *stubClaimer) ResolveForIdentity(
 	return s.resolved, s.resolveErr
 }
 
+func (s *stubClaimer) ResolveByToken(context.Context, string) (*entity.Invitation, error) {
+	return nil, apperr.ErrInvalidInvitation
+}
+
 // ClaimForUser returns the user holding the invitation's roles on top of the
 // defaults, as the real claimer's AssignRoles does.
 func (s *stubClaimer) ClaimForUser(

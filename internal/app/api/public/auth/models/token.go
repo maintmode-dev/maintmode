@@ -71,6 +71,15 @@ type LoginWithPasswordRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// AcceptInvitationWithPasswordRequest accepts an invitation by choosing a
+// password. There is no email field: the account takes the invited address.
+type AcceptInvitationWithPasswordRequest struct {
+	// InvitationToken is the raw token from the invitation link.
+	InvitationToken string `json:"invitation_token" binding:"required"`
+	// Password must be 12 to 256 bytes of UTF-8.
+	Password string `json:"password" binding:"required"`
+}
+
 // ChangePasswordRequest sets the caller's own password.
 //
 // CurrentPassword is required when the account already has one and must be
