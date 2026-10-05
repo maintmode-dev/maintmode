@@ -20,7 +20,7 @@ import (
 // credential in this package.
 //
 // The claims are synthetic: there is no upstream provider to issue them. Email
-// is the reserved entity.BreakGlassEmail, which is what makes a repeat login
+// is the one the service was built with, which is what makes a repeat login
 // resolve to the same account.
 func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.OAuthIDTokenClaims, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Bootstrap.Authenticate")
@@ -40,7 +40,7 @@ func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.
 	}
 
 	return &entity.OAuthIDTokenClaims{
-		Email:         entity.BreakGlassEmail,
+		Email:         s.email,
 		Name:          entity.BreakGlassName,
 		EmailVerified: true,
 	}, nil

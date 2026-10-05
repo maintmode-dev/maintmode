@@ -16,15 +16,16 @@ import (
 )
 
 // Service verifies the break-glass password and reports the break-glass
-// identity. The password comes from configuration and is held in memory; an
-// empty one means this instance has no break-glass, and Authenticate then
-// refuses every candidate.
+// identity: the account at email. The password comes from configuration and is
+// held in memory; an empty one means this instance has no break-glass, and
+// Authenticate then refuses every candidate.
 type Service struct {
 	password string
+	email    string
 }
 
-func NewService(password string) *Service {
-	return &Service{password: password}
+func NewService(password, email string) *Service {
+	return &Service{password: password, email: email}
 }
 
 func (s *Service) MethodID() entity.AuthMethod {

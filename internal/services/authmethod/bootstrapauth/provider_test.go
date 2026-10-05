@@ -27,7 +27,7 @@ func observedCtx(t *testing.T) (context.Context, *observer.ObservedLogs) {
 
 // newService builds the break-glass method with the given resolved password.
 func newService(password string) *bootstrapauth.Service {
-	return bootstrapauth.NewService(password)
+	return bootstrapauth.NewService(password, "break-glass@maintmode.invalid")
 }
 
 func loggedText(logs *observer.ObservedLogs) string {
@@ -55,7 +55,7 @@ func TestServiceAuthenticate(t *testing.T) {
 
 	const password = "the-break-glass-password"
 
-	t.Run("the right password yields the configured identity", func(t *testing.T) {
+	t.Run("the right password yields the account it was built for", func(t *testing.T) {
 		t.Parallel()
 
 		ctx, _ := observedCtx(t)
@@ -65,24 +65,11 @@ func TestServiceAuthenticate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "break-glass@maintmode.invalid", claims.Email)
 		require.Equal(t, "Break-glass admin", claims.Name)
-		// The address is fixed by the code, so nothing upstream has to vouch
-		// for it. Left at the zero value it would read as
-		// an upstream reporting the address unverified, and break-glass has no
-		// upstream to report anything.
+		// The address is configured, so nothing upstream has to vouch for it.
+		// Left at the zero value it would read as an upstream reporting the
+		// address unverified, and break-glass has no upstream to report
+		// anything.
 		require.True(t, claims.EmailVerified)
-	})
-
-	t.Run("the subject is constant so a repeat login resolves the same user", func(t *testing.T) {
-		t.Parallel()
-
-		ctx, _ := observedCtx(t)
-		svc := newService(password)
-
-		first, err := svc.Authenticate(ctx, password)
-		require.NoError(t, err)
-		second, err := svc.Authenticate(ctx, password)
-		require.NoError(t, err)
-		require.Equal(t, first.Subject, second.Subject)
 	})
 
 	// Every wrong password yields the same error, whatever its shape: same

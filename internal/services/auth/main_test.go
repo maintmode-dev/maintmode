@@ -118,21 +118,13 @@ type testBreakGlass struct {
 }
 
 func newTestBreakGlass(password string) *testBreakGlass {
+	email := xuuid.NewString() + "@maintmode.invalid"
+
 	return &testBreakGlass{
-		Service:  bootstrapauth.NewService(password),
-		email:    xuuid.NewString() + "@maintmode.invalid",
+		Service:  bootstrapauth.NewService(password, email),
+		email:    email,
 		password: password,
 	}
-}
-
-func (b *testBreakGlass) Authenticate(ctx context.Context, credential string) (*entity.OAuthIDTokenClaims, error) {
-	claims, err := b.Service.Authenticate(ctx, credential)
-	if err != nil {
-		return nil, err
-	}
-	claims.Email = b.email
-
-	return claims, nil
 }
 
 // initServiceWithBreakGlass builds the service around a break-glass provider

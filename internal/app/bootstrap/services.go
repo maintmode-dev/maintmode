@@ -11,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/dekrotator"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 	licensegw "github.com/ruko1202/maintmode/internal/gateways/license"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
@@ -490,7 +491,7 @@ func initAuthMethods(cfg *config.AppConfig) *authmethod.Methods {
 	// The provider is registered either way, and Authenticate refuses every
 	// candidate when the password is empty, so the attempt stays
 	// indistinguishable from one against a wrong address.
-	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap.Password))
+	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap.Password, entity.BreakGlassEmail))
 
 	// The gateways -- the confidential half -- are not available here: they hold
 	// the client secret and are built in main, where it is resolved. So this
