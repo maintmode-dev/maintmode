@@ -22,7 +22,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 	)
 	defer span.End()
 
-	method, err := s.methodRef(ctx, provider)
+	integrationID, err := s.integrationID(ctx, provider)
 	if err != nil {
 		xlog.Error(ctx, "failed to resolve provider", xfield.Error(err))
 
@@ -52,8 +52,14 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 			return apperr.ErrUserBlocked
 		}
 
+		// The break-glass account's only way in is the break-glass password: a
+		// linked provider would outlive a change of that password.
+		if owner.IsBreakGlass() {
+			return apperr.ErrBreakGlassPersonalSignIn
+		}
+
 		// Reject if this provider subject is already linked anywhere.
-		bySubject, err := s.identitiesStore.GetByMethodSubject(ctx, method, claims.Subject)
+		bySubject, err := s.identitiesStore.GetByMethodSubject(ctx, integrationID, claims.Subject)
 		switch {
 		case err == nil && bySubject.UserID == userID:
 			return apperr.ErrProviderAlreadyConnected
@@ -68,7 +74,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 		// Reject if this user already has an identity for this provider (under a
 		// different subject). One identity per (user, provider) keeps the
 		// disconnect lockout guard sound.
-		_, err = s.identitiesStore.GetByUserAndMethod(ctx, userID, method)
+		_, err = s.identitiesStore.GetByUserAndMethod(ctx, userID, integrationID)
 		switch {
 		case err == nil:
 			return apperr.ErrProviderAlreadyConnected
@@ -82,11 +88,11 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 		// surfaces ErrProviderAlreadyConnected from the unique index — that's
 		// already the 409 we want, so no special handling is needed here.
 		identity := &entity.UserIdentity{
-			UserID:  userID,
-			Subject: claims.Subject,
-			Email:   claims.Email,
+			UserID:        userID,
+			IntegrationID: integrationID,
+			Subject:       claims.Subject,
+			Email:         claims.Email,
 		}
-		method.Apply(identity)
 
 		if _, err = s.identitiesStore.Create(ctx, identity); err != nil {
 			return fmt.Errorf("create identity: %w", err)
@@ -105,8 +111,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 // UnlinkIdentity removes the provider identity from userID. It refuses to remove
 // the last remaining provider (ErrCannotDisconnectLastProvider) unless
 // keepsSignIn says the user can still get in by a built-in method -- a password
-// or an emailed code, which this module does not own and the caller decides --
-// and refuses built-in methods outright (ErrCannotDisconnectBuiltinMethod).
+// or an emailed code, which this module does not own and the caller decides.
 // Disconnecting a provider the user is not linked to is a no-op success
 // (idempotent).
 func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider entity.AuthMethod, keepsSignIn bool) error {
@@ -115,26 +120,12 @@ func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider
 	)
 	defer span.End()
 
-	// Break-glass is not the account's to detach: it is configured on the
-	// deployment, revoked by emptying the instance secret, and written again by
-	// the next break-glass sign-in. Removing the row would revoke nothing and
-	// mislead whoever asked.
-	//
-	// Refused HERE rather than only at the API boundary, because this method is
-	// the one that guarantees it. A guard on the endpoint alone leaves every
-	// other caller -- including a future one -- able to do what the product does
-	// not allow.
-	if provider.IsBuiltin() {
-		return apperr.ErrCannotDisconnectBuiltinMethod
-	}
-
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		// Lock the user row so concurrent disconnects serialize; otherwise two
 		// disconnects could both observe count > 1 and both delete, locking the
 		// user out. With one identity per (user, registry row) -- the partial
 		// unique index -- the count equals the number of connected providers, so
-		// the guard below is exact. Break-glass is not in it: see
-		// CountProvidersByUserID.
+		// the guard below is exact.
 		if _, err := s.usersStore.GetForUpdateByID(ctx, userID); err != nil {
 			return fmt.Errorf("lock user: %w", err)
 		}
@@ -150,10 +141,6 @@ func (s *Service) UnlinkIdentity(ctx context.Context, userID uuid.UUID, provider
 		// Addressed by the provider's NAME, joined to the registry row inside the
 		// statement. Deleting an identity the user does not hold removes nothing
 		// and reports no error, which is the idempotence /disconnect promises.
-		//
-		// Built-in methods never arrive here: DisconnectProvider refuses them
-		// before this runs, because break-glass belongs to the deployment rather
-		// than to the account and detaching it would revoke nothing.
 		if err := s.identitiesStore.DeleteUserIdentityByProviderName(ctx, userID, provider); err != nil {
 			return fmt.Errorf("delete identity: %w", err)
 		}

@@ -667,13 +667,7 @@ func (c AppConfig) OAuthDanceEnabled() bool {
 // ship exactly that, so validateBootstrapConfig must keep accepting an empty
 // password. The KEY, however, must be present in the
 // secrets file: the resolver hard-fails on a missing one.
-//
-// Email determines the identity of the break-glass admin. It deliberately comes
-// from configuration rather than the request body: whoever controls the
-// deployment decides who the admin is, not whoever guessed the password, and a
-// later sign-in resolves to the same user instead of creating a second one.
 type BootstrapConfig struct {
-	Email    string `mapstructure:"email"`
 	Password string `mapstructure:"password"`
 }
 
@@ -703,7 +697,7 @@ const (
 	// that matters, character-class rules are not. It applies ONLY to a
 	// configured password — an empty one means "no break-glass on this
 	// instance", which is a choice rather than a weak credential.
-	minBootstrapPasswordLen = 12
+	minBootstrapPasswordLen = 20
 )
 
 func initConfig(appName string) *AppConfig {
@@ -794,25 +788,6 @@ func initConfig(appName string) *AppConfig {
 // short" would panic those deployments at boot, which is precisely the outage
 // this endpoint exists to prevent.
 func (c *AppConfig) validateBootstrapConfig() error {
-	// Email is checked FIRST, before the empty-password early return: an empty
-	// password is a legitimate configuration, and an instance that later gains
-	// one should not then discover it also needs an address. It is not
-	// decoration — linkBootstrapToExistingUser resolves
-	// an account by this address and grants it admin, so an empty or
-	// placeholder value is an admin grant pointed at the wrong row (or, when
-	// empty, at a user created with an empty email that permanently occupies
-	// the NOT NULL UNIQUE slot).
-	if c.Bootstrap.Email == "" {
-		return fmt.Errorf("bootstrap.email is required: it decides which account the break-glass login grants admin to")
-	}
-
-	if strings.Contains(c.Bootstrap.Email, secretPlaceholderMarker) {
-		return fmt.Errorf(
-			"bootstrap.email is a placeholder (%q): set the address of the operator who should hold break-glass access",
-			c.Bootstrap.Email,
-		)
-	}
-
 	if c.Bootstrap.Password == "" {
 		return nil
 	}

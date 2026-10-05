@@ -140,6 +140,34 @@ func TestRequest_BlockedUserGetsNoCode(t *testing.T) {
 	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
 }
 
+// anyUser answers every address with one real user, so a test can show that a
+// refusal came from the address itself and not from the lookup finding nobody.
+type anyUser struct{ user *entity.User }
+
+func (a anyUser) GetByEmail(context.Context, string) (*entity.User, error) { return a.user, nil }
+
+// The break-glass account is signed into with its password alone: no code is
+// issued for its reserved address, for a sign-in or a reset, in any case.
+func TestRequest_BreakGlassAddressGetsNoCode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	user := makeUser(ctx, t)
+	sched := &recordingScheduler{}
+	svc := otp.NewService(cfg, txManager, credStore, anyUser{user: user}, testKeyring(t),
+		secrets.NewAESCipher(), sched)
+
+	for _, purpose := range []entity.OTPPurpose{entity.OTPPurposeSignIn, entity.OTPPurposePasswordReset} {
+		nonce, err := svc.Request(ctx, "Break-Glass@MaintMode.invalid", purpose)
+		require.NoError(t, err)
+		require.NotEmpty(t, nonce, "answered like an unknown address")
+	}
+	require.Empty(t, sched.recorded())
+
+	_, err := credStore.GetUnconsumedOTPByUserID(ctx, user.ID)
+	require.ErrorIs(t, err, apperr.ErrAuthCredentialNotFound)
+}
+
 // TestRequest_CooldownKeepsAYoungCode pins the reissue cooldown: a request
 // while the live code is younger than it sends nothing and leaves that code in
 // place. Without it every request for an address retires the live code, so

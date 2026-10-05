@@ -26,11 +26,6 @@ import (
 // found among the user's own, and the registry row supplies nothing but its
 // name.
 //
-// Built-in methods are not reachable through this path -- DisconnectProvider
-// refuses them before any of this -- so there is no builtin_method branch to
-// handle. The join enforces that on its own: a built-in row has no
-// integration_id to join on.
-//
 // Deleting an identity the user does not hold is a no-op, which is the
 // idempotence /disconnect promises: "you are not linked to this" and "stop
 // linking me to this" describe the same desired state.

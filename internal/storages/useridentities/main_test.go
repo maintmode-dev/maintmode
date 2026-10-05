@@ -80,13 +80,11 @@ func seedNamedProvider(ctx context.Context, t *testing.T, name string) uuid.UUID
 }
 
 // identity builds an unstored identity for one user, with a unique subject.
-func identity(userID uuid.UUID, ref entity.SignInMethodRef) *entity.UserIdentity {
-	row := &entity.UserIdentity{
-		UserID:  userID,
-		Subject: xuuid.NewString(),
-		Email:   xuuid.NewString() + "@identities-test.com",
+func identity(userID, integrationID uuid.UUID) *entity.UserIdentity {
+	return &entity.UserIdentity{
+		UserID:        userID,
+		IntegrationID: integrationID,
+		Subject:       xuuid.NewString(),
+		Email:         xuuid.NewString() + "@identities-test.com",
 	}
-	ref.Apply(row)
-
-	return row
 }

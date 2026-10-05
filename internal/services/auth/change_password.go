@@ -48,6 +48,10 @@ func (s *Service) ChangePassword(ctx context.Context, cmd *entity.ChangePassword
 		return fmt.Errorf("resolve user: %w", err)
 	}
 
+	if user.IsBreakGlass() {
+		return apperr.ErrBreakGlassPersonalSignIn
+	}
+
 	if verifyErr := s.verifyCurrentPassword(ctx, cmd); verifyErr != nil {
 		return verifyErr
 	}

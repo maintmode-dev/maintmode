@@ -46,13 +46,7 @@ func (s *Service) ConnectProvider(ctx context.Context, cmd *entity.ConnectProvid
 
 // DisconnectProvider unlinks a provider identity from the authenticated user.
 // It refuses to remove the user's last provider unless a built-in method would
-// still let them in (see hasBuiltinSignIn), and refuses built-in methods
-// outright.
-//
-// Break-glass is not the account's to detach. It is configured on the
-// deployment, revoked by emptying the instance secret, and re-created by the
-// next break-glass sign-in -- so removing the row would change nothing except
-// what the person who asked believes about their account.
+// still let them in (see hasBuiltinSignIn).
 //
 // A provider the user has not linked is already in the requested state, so this
 // returns success without touching the database. The membership check is against
@@ -71,13 +65,6 @@ func (s *Service) DisconnectProvider(ctx context.Context, cmd *entity.Disconnect
 		xfield.String("provider", cmd.Provider),
 	)
 	defer span.End()
-
-	// Refused before the membership check, and therefore before any transaction:
-	// a built-in method is not a wrong name to be answered with the idempotent
-	// no-op, it is a request the product does not grant.
-	if entity.AuthMethod(cmd.Provider).IsBuiltin() {
-		return apperr.ErrCannotDisconnectBuiltinMethod
-	}
 
 	linked, err := s.usersSrv.ListConnectedProviders(ctx, cmd.UserID)
 	if err != nil {

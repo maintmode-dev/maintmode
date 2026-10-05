@@ -19,10 +19,9 @@ import (
 // prefix length through response timing. This is the only comparison of the
 // credential in this package.
 //
-// The claims are synthetic. Subject is the constant entity.BootstrapSubject —
-// there is no upstream provider to issue one — which is what makes a repeat
-// login resolve to the same user. Email comes from configuration, never from
-// the request: whoever controls the deployment decides who the admin is.
+// The claims are synthetic: there is no upstream provider to issue them. Email
+// is the one the service was built with, which is what makes a repeat login
+// resolve to the same account.
 func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.OAuthIDTokenClaims, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Bootstrap.Authenticate")
 	defer span.End()
@@ -32,18 +31,17 @@ func (s *Service) Authenticate(ctx context.Context, credential string) (*entity.
 	// between that state and a skeleton key, and it is reached in normal
 	// operation rather than after a wiring mistake. Refusing here rather than
 	// declining to register the method is what keeps the attempt on the ordinary
-	// failure path -- decoy burned, failure audited, same opaque 401 -- so an
+	// failure path -- failure audited, same opaque 401 -- so an
 	// instance with no break-glass is indistinguishable from one with a
-	// different address configured.
+	// different password configured.
 	if s.password == "" || subtle.ConstantTimeCompare([]byte(credential), []byte(s.password)) != 1 {
 		xlog.Warn(ctx, "bootstrap login rejected: credential mismatch")
 		return nil, apperr.ErrInvalidCredentials
 	}
 
 	return &entity.OAuthIDTokenClaims{
-		Subject:       entity.BootstrapSubject,
 		Email:         s.email,
-		Name:          bootstrapUserName(s.email),
+		Name:          entity.BreakGlassName,
 		EmailVerified: true,
 	}, nil
 }

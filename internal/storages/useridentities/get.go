@@ -15,18 +15,19 @@ import (
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 )
 
-// GetByMethodSubject resolves the identity a method's subject belongs to.
+// GetByMethodSubject resolves the identity a provider's subject belongs to,
+// the provider named by its integration_settings row.
 //
 // This is the lookup every sign-in makes: the subject comes from the provider,
 // and the row it matches decides which user is being signed in.
-func (s *Store) GetByMethodSubject(ctx context.Context, ref entity.SignInMethodRef, subject string) (*entity.UserIdentity, error) {
+func (s *Store) GetByMethodSubject(ctx context.Context, integrationID uuid.UUID, subject string) (*entity.UserIdentity, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByMethodSubject")
 	defer span.End()
 
 	stmt := table.UserIdentities.
 		SELECT(table.UserIdentities.AllColumns).
 		WHERE(
-			methodFilter(ref).
+			table.UserIdentities.IntegrationID.EQ(postgres.UUID(integrationID)).
 				AND(table.UserIdentities.Subject.EQ(postgres.String(subject))),
 		)
 
@@ -34,7 +35,7 @@ func (s *Store) GetByMethodSubject(ctx context.Context, ref entity.SignInMethodR
 }
 
 // GetByUserAndMethod returns the identity linking userID to one method.
-func (s *Store) GetByUserAndMethod(ctx context.Context, userID uuid.UUID, ref entity.SignInMethodRef) (*entity.UserIdentity, error) {
+func (s *Store) GetByUserAndMethod(ctx context.Context, userID, integrationID uuid.UUID) (*entity.UserIdentity, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserIdentities.GetByUserAndMethod")
 	defer span.End()
 
@@ -42,7 +43,7 @@ func (s *Store) GetByUserAndMethod(ctx context.Context, userID uuid.UUID, ref en
 		SELECT(table.UserIdentities.AllColumns).
 		WHERE(
 			table.UserIdentities.UserID.EQ(postgres.UUID(userID)).
-				AND(methodFilter(ref)),
+				AND(table.UserIdentities.IntegrationID.EQ(postgres.UUID(integrationID))),
 		)
 
 	return s.get(ctx, stmt)

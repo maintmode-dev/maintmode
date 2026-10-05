@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
@@ -45,144 +44,10 @@ func (p *recordingAuditPublisher) actions() []audit.Action {
 	return append([]audit.Action(nil), p.published...)
 }
 
-// Why several subtests below are NOT parallel:
-//
-// entity.BootstrapSubject is a per-instance constant, so every break-glass
-// login in this package resolves to the SAME user and shares one seed denylist.
-// Running those concurrently lets one subtest's Retire spend another's seed.
-// Subtests that never touch a seed stay parallel.
-
-// bootstrapAddress returns an address unique to one test. Production has one
-// break-glass admin per instance; these tests share a database, so each stands
-// in for a separate instance.
-func bootstrapAddress() string {
-	return xuuid.NewString() + "@bootstrap.test"
-}
-
 func TestLoginWithPassword(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	t.Run("issues an admin token pair", func(t *testing.T) {
-		// NOT parallel: one shared bootstrap admin, see the note above.
-
-		email := bootstrapAddress()
-		password := "the-break-glass-" + xuuid.NewString()
-		srv, _ := initServiceWithBootstrap(t, email, password)
-
-		pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email:    email,
-			Password: password,
-			ClientIP: "10.0.0.1",
-		})
-		require.NoError(t, err)
-		require.NotEmpty(t, pair.AccessToken)
-		require.NotEmpty(t, pair.RefreshToken)
-
-		access, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
-		require.NoError(t, err)
-		require.Contains(t, access.UserRoles, entity.RoleAdmin,
-			"the break-glass admin must actually be an admin")
-
-		// The identity is NOT asserted here. entity.BootstrapSubject is a
-		// per-instance constant, so on this shared test database every
-		// break-glass login resolves to whichever admin was provisioned first.
-		// That is correct in production, where one instance has one break-glass
-		// admin, and it makes the address a property of the database rather
-		// than of this test.
-	})
-
-	// The address now selects the method: a break-glass password submitted
-	// against some other address must not sign anyone in. Before RUK-289 the
-	// body email was ignored entirely and any address reached this provider.
-	t.Run("the break-glass password only answers for its own address", func(t *testing.T) {
-		t.Parallel()
-
-		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "the-break-glass-"+xuuid.NewString())
-
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email:    "someone-else@example.com",
-			Password: "the-break-glass-password",
-			ClientIP: "10.0.0.1",
-		})
-		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
-	})
-
-	// The break-glass address must not be locatable by timing. Every failing
-	// branch of this endpoint spends one argon2id verification; the wrong-seed
-	// branch is a constant-time compare over a config string and would answer
-	// microseconds instead of tens of milliseconds without the decoy.
-	t.Run("a wrong break-glass password costs the same as any other failure", func(t *testing.T) {
-		t.Parallel()
-
-		email := bootstrapAddress()
-		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
-
-		measure := func(address string) time.Duration {
-			start := time.Now()
-			_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-				Email: address, Password: "definitely-not-the-password", ClientIP: "10.0.0.1",
-			})
-			require.Error(t, err)
-
-			return time.Since(start)
-		}
-
-		atBootstrap := measure(email)
-		elsewhere := measure("someone-else@example.com")
-
-		// Both pay one argon2id. Asserting a ratio rather than a difference
-		// keeps this meaningful on slower machines; the gap being closed is
-		// three orders of magnitude, so a 4x band cannot hide it.
-		require.Less(t, atBootstrap, elsewhere*4,
-			"the break-glass address must not answer measurably faster than any other")
-		require.Less(t, elsewhere, atBootstrap*4,
-			"nor measurably slower")
-	})
-
-	t.Run("a wrong password yields no token", func(t *testing.T) {
-		t.Parallel()
-
-		email := bootstrapAddress()
-		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
-
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email:    email,
-			Password: "not-the-password",
-			ClientIP: "10.0.0.1",
-		})
-		require.Error(t, err)
-	})
-
-	// Step 1 of the resolution order beats step 2: once a stored password exists
-	// for an address, the break-glass credential is not consulted for it.
-	t.Run("a stored password takes precedence over the break-glass one", func(t *testing.T) {
-		t.Parallel()
-
-		seedPassword := "the-break-glass-" + xuuid.NewString()
-		user := makePasswordUser(ctx, t, nil, "")
-
-		// The break-glass provider answers for this user's own address, so both
-		// credentials are candidates for the same login.
-		srv, _ := initServiceWithBootstrap(t, user.Email, seedPassword)
-
-		own, err := xcripto.HashPassword("my-own-personal-password")
-		require.NoError(t, err)
-		require.NoError(t, srv.passwords.UpsertPassword(ctx, user.ID, own))
-
-		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: user.Email, Password: "my-own-personal-password", ClientIP: "10.0.0.1",
-		})
-		require.NoError(t, err, "the personal password must work")
-
-		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: user.Email, Password: seedPassword, ClientIP: "10.0.0.1",
-		})
-		require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
-			"the break-glass password must not be consulted once a personal one exists")
-	})
-
-	// An ordinary user with a stored password signs in through the same route.
 	t.Run("an ordinary user signs in with their own password", func(t *testing.T) {
 		t.Parallel()
 
@@ -198,6 +63,23 @@ func TestLoginWithPassword(t *testing.T) {
 
 		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
 			Email: user.Email, Password: "the-wrong-one", ClientIP: "10.0.0.1",
+		})
+		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
+	})
+
+	// Break-glass has its own endpoint. Its password must not open this one,
+	// not even against the break-glass account's own address: that would be a
+	// second door, gated by the email_password flag instead of nothing.
+	t.Run("the break-glass password does not sign in here", func(t *testing.T) {
+		t.Parallel()
+
+		breakGlass := newTestBreakGlass("the-break-glass-" + xuuid.NewString())
+		srv, _ := initServiceWithBreakGlass(t, breakGlass, nil)
+		_, err := srv.LoginWithBreakGlass(ctx, &entity.LoginWithBreakGlassCmd{Password: breakGlass.password})
+		require.NoError(t, err, "the account must exist for the address to mean anything")
+
+		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+			Email: breakGlass.email, Password: breakGlass.password, ClientIP: "10.0.0.1",
 		})
 		require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
 	})
@@ -253,16 +135,16 @@ func TestLoginWithPassword_Audit(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	t.Run("a success is audited", func(t *testing.T) {
-		// NOT parallel: see the seed subtests above -- one shared bootstrap user.
+		t.Parallel()
 
-		email := bootstrapAddress()
-		password := "the-break-glass-" + xuuid.NewString()
-		srv, _ := initServiceWithBootstrap(t, email, password)
+		password := "her-own-password-" + xuuid.NewString()
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
+		user := makePasswordUser(ctx, t, srv, password)
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
 
 		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: email, Password: password, ClientIP: "10.0.0.1", UserAgent: "curl/8",
+			Email: user.Email, Password: password, ClientIP: "10.0.0.1", UserAgent: "curl/8",
 		})
 		require.NoError(t, err)
 
@@ -281,13 +163,12 @@ func TestLoginWithPassword_Audit(t *testing.T) {
 	t.Run("a wrong password is audited with its own reason", func(t *testing.T) {
 		t.Parallel()
 
-		email := bootstrapAddress()
-		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
 
 		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: email, Password: "wrong", ClientIP: "10.0.0.2",
+			Email: "nobody-" + xuuid.NewString() + "@example.com", Password: "wrong", ClientIP: "10.0.0.2",
 		})
 		require.Error(t, err)
 
@@ -309,35 +190,9 @@ func TestLoginWithPassword_Audit(t *testing.T) {
 }
 
 // TestLoginWithPassword_AuditNamesTheMethod pins which credential answered.
-//
-// The break-glass password is permanently live, and the argument for leaving it
-// that way rather than demoting it to a one-time seed is that every use is on
-// the record. That argument only holds if the record says which credential
-// answered, so these assertions are the argument itself, not decoration.
 func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	t.Run("a break-glass success is labeled bootstrap", func(t *testing.T) {
-		// NOT parallel: one shared bootstrap user.
-
-		email := bootstrapAddress()
-		password := "the-break-glass-" + xuuid.NewString()
-		srv, _ := initServiceWithBootstrap(t, email, password)
-		publisher := newRecordingAuditPublisher()
-		srv.auditPublisher = publisher
-
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: email, Password: password, ClientIP: "10.0.0.1",
-		})
-		require.NoError(t, err)
-
-		actions := publisher.actions()
-		require.NotEmpty(t, actions)
-		success, ok := actions[len(actions)-1].(audit.LoginSuccess)
-		require.True(t, ok, "expected a login success, got %T", actions[len(actions)-1])
-		require.Equal(t, entity.AuditLoginMethodBootstrap, success.Meta.LoginMethod)
-	})
 
 	// The mutation guard for the case above: a constant wired in one place
 	// satisfies the bootstrap assertion and fails here.
@@ -345,7 +200,7 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		t.Parallel()
 
 		password := "her-own-password-" + xuuid.NewString()
-		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		user := makePasswordUser(ctx, t, srv, password)
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
@@ -362,45 +217,12 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		require.Equal(t, entity.AuditLoginMethodPassword, success.Meta.LoginMethod)
 	})
 
-	// THE SECURITY ASSERTION.
-	//
-	// A wrong password submitted against the break-glass address must not be
-	// labeled. Labeling it would let anyone who can read the audit log sort
-	// failed sign-ins by method and learn which address the break-glass
-	// credential answers for -- on an instance where it has never been used
-	// successfully, that is the only thing keeping the address out of the trail.
-	// It would disclose by record precisely what the decoy hash on that path
-	// spends an argon2id verification to hide from timing.
-	//
-	// A single method threaded uniformly through the failure publishes satisfies
-	// both success assertions above and fails here.
-	t.Run("a wrong break-glass password is not labeled", func(t *testing.T) {
-		t.Parallel()
-
-		email := bootstrapAddress()
-		srv, _ := initServiceWithBootstrap(t, email, "the-break-glass-"+xuuid.NewString())
-		publisher := newRecordingAuditPublisher()
-		srv.auditPublisher = publisher
-
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: email, Password: "wrong", ClientIP: "10.0.0.4",
-		})
-		require.Error(t, err)
-
-		actions := publisher.actions()
-		require.Len(t, actions, 1)
-		failed, ok := actions[0].(audit.LoginFailed)
-		require.True(t, ok, "expected a login failure, got %T", actions[0])
-		require.Empty(t, failed.Meta.LoginMethod,
-			"labeling this branch turns the audit log into an oracle for the break-glass address")
-	})
-
 	// The other half of the address gate: a wrong address is equally unlabeled,
 	// so the two cannot be told apart by method either.
 	t.Run("a wrong address is not labeled", func(t *testing.T) {
 		t.Parallel()
 
-		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "the-break-glass-"+xuuid.NewString())
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
 
@@ -416,13 +238,13 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		require.Empty(t, failed.Meta.LoginMethod)
 	})
 
-	// Issuance refused after a correct stored password: the mirror of the
-	// break-glass branch below, and labeled for the same reason.
+	// Issuance refused after a correct stored password: the credential
+	// verified, so the failure is labeled.
 	t.Run("issuance refused after a correct stored password is labeled password", func(t *testing.T) {
 		t.Parallel()
 
 		password := "her-own-password-" + xuuid.NewString()
-		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		user := makePasswordUser(ctx, t, srv, password)
 
 		// Blocking the user is what makes IssueTokenPair refuse: the guard lives
@@ -461,7 +283,7 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 	t.Run("a wrong stored password is labeled password", func(t *testing.T) {
 		t.Parallel()
 
-		srv, _ := initServiceWithBootstrap(t, bootstrapAddress(), "unrelated-"+xuuid.NewString())
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		user := makePasswordUser(ctx, t, srv, "her-own-password-"+xuuid.NewString())
 		publisher := newRecordingAuditPublisher()
 		srv.auditPublisher = publisher
@@ -476,91 +298,5 @@ func TestLoginWithPassword_AuditNamesTheMethod(t *testing.T) {
 		failed, ok := actions[0].(audit.LoginFailed)
 		require.True(t, ok, "expected a login failure, got %T", actions[0])
 		require.Equal(t, entity.AuditLoginMethodPassword, failed.Meta.LoginMethod)
-	})
-}
-
-// TestLoginWithPassword_UnconfiguredBreakGlassIsIndistinguishable covers the
-// instance that has no break-glass at all.
-//
-// Once an empty configured value stopped conjuring a password, "no break-glass"
-// became a state an instance can actually be in -- and the refusal it produces
-// must look exactly like a refusal against a wrong address. Otherwise the trail
-// or the clock tells an attacker which instances have an emergency entrance and
-// which do not, and on the ones that do, which addresses have no stored
-// password.
-func TestLoginWithPassword_UnconfiguredBreakGlassIsIndistinguishable(t *testing.T) {
-	t.Parallel()
-	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	t.Run("the refusal is audited like any other", func(t *testing.T) {
-		t.Parallel()
-
-		email := bootstrapAddress()
-		srv, _ := initServiceWithBootstrap(t, email, "")
-		publisher := newRecordingAuditPublisher()
-		srv.auditPublisher = publisher
-
-		// The empty password specifically, not just any wrong one: an
-		// unconfigured instance resolves to an empty credential, so submitting
-		// the same empty string is the shape that would make it a skeleton key
-		// if the guard in Authenticate ever went away.
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-			Email: email, Password: "", ClientIP: "10.0.0.20",
-		})
-		require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
-			"an unconfigured break-glass must refuse like a wrong credential, "+
-				"not like an unsupported provider")
-
-		actions := publisher.actions()
-		require.Len(t, actions, 1,
-			"a refusal that publishes nothing means the path returned early, "+
-				"before the audit record and before the decoy")
-		failed, ok := actions[0].(audit.LoginFailed)
-		require.True(t, ok, "expected a login failure, got %T", actions[0])
-		require.Equal(t, entity.AuditFailureInvalidCredentials, failed.Meta.FailureReason)
-		require.Empty(t, failed.Meta.LoginMethod,
-			"nothing verified, so nothing is named")
-	})
-
-	// The timing half. Measured ACROSS configurations because that is the only
-	// pair this change can break: within one unconfigured service both branches
-	// already burn the decoy on lines nothing here touches, so such a comparison
-	// is green before and after and proves nothing.
-	t.Run("an unconfigured refusal costs the same as a configured one", func(t *testing.T) {
-		t.Parallel()
-
-		measure := func(srv *Service, address string) time.Duration {
-			start := time.Now()
-			_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-				Email: address, Password: "definitely-not-the-password", ClientIP: "10.0.0.21",
-			})
-			require.Error(t, err)
-
-			return time.Since(start)
-		}
-
-		unconfiguredEmail := bootstrapAddress()
-		unconfigured, _ := initServiceWithBootstrap(t, unconfiguredEmail, "")
-
-		configuredEmail := bootstrapAddress()
-		configured, _ := initServiceWithBootstrap(t, configuredEmail,
-			"the-break-glass-"+xuuid.NewString())
-
-		// Sequential, in one subtest: two services on two parallel subtests would
-		// add scheduling noise to a comparison that does not need it. One
-		// discarded pass each first, so neither side is charged for lazily
-		// initialized state the other has already paid for.
-		measure(unconfigured, unconfiguredEmail)
-		measure(configured, configuredEmail)
-
-		withoutPassword := measure(unconfigured, unconfiguredEmail)
-		withWrongPassword := measure(configured, configuredEmail)
-
-		// Same 4x band as the wrong-password timing test above, and for the same
-		// reason: the gap being closed is three orders of magnitude.
-		require.Less(t, withoutPassword, withWrongPassword*4,
-			"an instance with no break-glass must not answer measurably faster")
-		require.Less(t, withWrongPassword, withoutPassword*4,
-			"nor measurably slower")
 	})
 }

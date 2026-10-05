@@ -80,6 +80,9 @@ type User struct {
 // IsBlocked reports whether the user is currently blocked.
 func (u *User) IsBlocked() bool { return u.BlockedAt != nil }
 
+// IsBreakGlass reports whether the user is the break-glass account.
+func (u *User) IsBreakGlass() bool { return IsBreakGlassEmail(u.Email) }
+
 // IsAdmin reports whether the user holds the admin role (regardless of blocked state).
 func (u *User) IsAdmin() bool { return slices.Contains(u.Roles, RoleAdmin) }
 

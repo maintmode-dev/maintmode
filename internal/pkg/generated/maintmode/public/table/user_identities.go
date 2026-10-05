@@ -22,8 +22,7 @@ type userIdentitiesTable struct {
 	Subject       postgres.ColumnString // Stable per-user identifier issued by the OAuth provider (the OIDC "sub" claim from the id_token). Identifies who the user is at that provider; used to resolve the user on login.
 	Email         postgres.ColumnString
 	CreatedAt     postgres.ColumnTimestampz
-	IntegrationID postgres.ColumnString // The integration_settings row (category login) this identity authenticates against. NULL for a built-in method, which has no registry row -- see builtin_method.
-	BuiltinMethod postgres.ColumnString // The built-in sign-in method this identity belongs to, for methods with no registry row. NULL for a registry-backed provider. Exactly one of the two columns is set.
+	IntegrationID postgres.ColumnString // The integration_settings row (category login) this identity authenticates against.
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -71,9 +70,8 @@ func newUserIdentitiesTableImpl(schemaName, tableName, alias string) userIdentit
 		EmailColumn         = postgres.StringColumn("email")
 		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
 		IntegrationIDColumn = postgres.StringColumn("integration_id")
-		BuiltinMethodColumn = postgres.StringColumn("builtin_method")
-		allColumns          = postgres.ColumnList{IDColumn, UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn, BuiltinMethodColumn}
-		mutableColumns      = postgres.ColumnList{UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn, BuiltinMethodColumn}
+		allColumns          = postgres.ColumnList{IDColumn, UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn}
+		mutableColumns      = postgres.ColumnList{UserIDColumn, SubjectColumn, EmailColumn, CreatedAtColumn, IntegrationIDColumn}
 		defaultColumns      = postgres.ColumnList{IDColumn, EmailColumn, CreatedAtColumn}
 	)
 
@@ -87,7 +85,6 @@ func newUserIdentitiesTableImpl(schemaName, tableName, alias string) userIdentit
 		Email:         EmailColumn,
 		CreatedAt:     CreatedAtColumn,
 		IntegrationID: IntegrationIDColumn,
-		BuiltinMethod: BuiltinMethodColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

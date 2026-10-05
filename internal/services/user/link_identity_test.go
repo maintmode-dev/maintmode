@@ -8,7 +8,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -38,6 +37,22 @@ func TestLinkIdentity(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, providers, entity.AuthMethodGoogle)
 		require.Contains(t, providers, entity.AuthMethodGithub)
+	})
+
+	// Its way in is the break-glass password; a linked provider would outlive a
+	// change of that password.
+	t.Run("the break-glass account cannot link a provider", func(t *testing.T) {
+		t.Parallel()
+
+		breakGlass, err := srv.EnsureBreakGlassAccount(ctx, breakGlassEmail(), "Break-glass admin")
+		require.NoError(t, err)
+
+		err = srv.LinkIdentity(ctx, breakGlass.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com"))
+		require.ErrorIs(t, err, apperr.ErrBreakGlassPersonalSignIn)
+
+		providers, err := srv.ListConnectedProviders(ctx, breakGlass.ID)
+		require.NoError(t, err)
+		require.NotContains(t, providers, entity.AuthMethodGithub)
 	})
 
 	t.Run("already connected to this user", func(t *testing.T) {
@@ -103,32 +118,6 @@ func TestUnlinkIdentity(t *testing.T) {
 		require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, providers)
 	})
 
-	t.Run("lockout - break-glass does not count as another provider", func(t *testing.T) {
-		t.Parallel()
-
-		// Google plus break-glass: two identity rows, one provider the user can
-		// see. Counting the break-glass row would let them disconnect Google and
-		// be left with the emergency path alone.
-		user := makeUser(ctx, t, srv)
-		breakGlass := &entity.UserIdentity{
-			UserID: user.ID,
-			// Suffixed: the real constant is one row per instance, and this suite
-			// shares a database.
-			Subject: entity.BootstrapSubject + "-" + xuuid.NewString(),
-			Email:   user.Email,
-		}
-		entity.SignInByBuiltin(entity.AuthMethodBootstrap).Apply(breakGlass)
-		_, err := useridentities.NewStore(db).Create(ctx, breakGlass)
-		require.NoError(t, err)
-
-		err = srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodGoogle, false)
-		require.ErrorIs(t, err, apperr.ErrCannotDisconnectLastProvider)
-
-		providers, err := srv.ListConnectedProviders(ctx, user.ID)
-		require.NoError(t, err)
-		require.Equal(t, []entity.AuthMethod{entity.AuthMethodGoogle}, providers)
-	})
-
 	t.Run("lockout - cannot disconnect the only provider", func(t *testing.T) {
 		t.Parallel()
 
@@ -152,24 +141,5 @@ func TestUnlinkIdentity(t *testing.T) {
 		providers, err := srv.ListConnectedProviders(ctx, user.ID)
 		require.NoError(t, err)
 		require.Empty(t, providers)
-	})
-
-	t.Run("a built-in method cannot be disconnected", func(t *testing.T) {
-		t.Parallel()
-
-		// Two identities, so the last-provider guard cannot be what refuses and
-		// mask the guard under test.
-		user := makeUser(ctx, t, srv)
-		require.NoError(t, srv.LinkIdentity(ctx, user.ID, entity.AuthMethodGithub, claimsFor("gh-"+xuuid.NewString()+"@example.com")))
-
-		// Break-glass belongs to the deployment: it is revoked by emptying the
-		// instance secret, and the next break-glass sign-in writes the row
-		// again. Detaching it would revoke nothing.
-		err := srv.UnlinkIdentity(ctx, user.ID, entity.AuthMethodBootstrap, false)
-		require.ErrorIs(t, err, apperr.ErrCannotDisconnectBuiltinMethod)
-
-		providers, err := srv.ListConnectedProviders(ctx, user.ID)
-		require.NoError(t, err)
-		require.ElementsMatch(t, []entity.AuthMethod{entity.AuthMethodGoogle, entity.AuthMethodGithub}, providers)
 	})
 }
