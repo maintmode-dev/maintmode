@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
@@ -130,5 +131,77 @@ func TestLoginWithBreakGlass(t *testing.T) {
 			ClientIP:    "10.0.0.1",
 		})
 		require.ErrorIs(t, err, apperr.ErrBreakGlassPersonalSignIn)
+	})
+}
+
+// TestBreakGlassSessionIsShort pins the break-glass session's lifetimes: its
+// access token lasts five minutes and the session ends a day after the sign-in,
+// however often it is refreshed. That is what bounds the access of whoever once
+// held the break-glass password -- there is no revocation on a password change.
+func TestBreakGlassSessionIsShort(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+	const clientIP = "10.0.0.7"
+
+	signIn := func(t *testing.T) (*Service, *entity.TokenPair) {
+		t.Helper()
+
+		breakGlass := newTestBreakGlass("the-break-glass-" + xuuid.NewString())
+		srv, _ := initServiceWithBreakGlass(t, breakGlass, nil)
+		pair, err := srv.LoginWithBreakGlass(ctx, &entity.LoginWithBreakGlassCmd{
+			Password: breakGlass.password, ClientIP: clientIP,
+		})
+		require.NoError(t, err)
+
+		return srv, pair
+	}
+	accessLifetime := func(t *testing.T, srv *Service, pair *entity.TokenPair) time.Duration {
+		t.Helper()
+
+		claims, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
+		require.NoError(t, err)
+
+		return claims.ExpiresAt.Sub(claims.IssuedAt.Time)
+	}
+
+	t.Run("the access token lasts five minutes", func(t *testing.T) {
+		t.Parallel()
+
+		srv, pair := signIn(t)
+
+		require.Equal(t, 300, pair.ExpiresIn)
+		require.Equal(t, 5*time.Minute, accessLifetime(t, srv, pair))
+	})
+
+	t.Run("a refresh issues a short access token again", func(t *testing.T) {
+		t.Parallel()
+
+		srv, pair := signIn(t)
+		// A real grace window, so the replay below takes the grace branch too.
+		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
+
+		refreshed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		require.NoError(t, err)
+		require.Equal(t, 300, refreshed.ExpiresIn)
+		require.Equal(t, 5*time.Minute, accessLifetime(t, srv, refreshed))
+
+		replayed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		require.NoError(t, err)
+		require.Empty(t, replayed.RefreshToken, "the replay must land in the grace window")
+		require.Equal(t, 300, replayed.ExpiresIn)
+		require.Equal(t, 5*time.Minute, accessLifetime(t, srv, replayed))
+	})
+
+	t.Run("refreshing does not carry the session past a day after the sign-in", func(t *testing.T) {
+		t.Parallel()
+
+		srv, pair := signIn(t)
+		_, err := db.ExecContext(ctx,
+			`UPDATE refresh_tokens SET session_started_at = now() - interval '25 hours' WHERE family = $1`,
+			pair.SessionID)
+		require.NoError(t, err)
+
+		_, err = srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		require.ErrorIs(t, err, apperr.ErrTokenExpired)
 	})
 }

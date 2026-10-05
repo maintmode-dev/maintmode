@@ -93,14 +93,19 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 			return nil, apperr.ErrRefreshTokenNotFound
 		}
 
-		accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID)
+		ttls, err := s.sessionTTLsFor(ctx, rt.UserID)
+		if err != nil {
+			return nil, err
+		}
+
+		accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID, ttls.access)
 		if err != nil {
 			return nil, err
 		}
 
 		return &entity.TokenPair{
 			AccessToken:  accessToken,
-			ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
+			ExpiresIn:    int(ttls.access.Seconds()),
 			RefreshToken: "", // RefreshToken intentionally empty — client should keep its current one
 		}, nil
 	}
@@ -128,6 +133,11 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	// CreatedAt is the row's own age, and rotation inserts a new row, so it
 	// measures time since the last rotation -- i.e. idleness. SessionStartedAt
 	// is carried unchanged down the chain and measures time since sign-in.
+	ttls, err := s.sessionTTLsFor(ctx, oldRefreshToken.UserID)
+	if err != nil {
+		return nil, err
+	}
+
 	if idle := now.Sub(oldRefreshToken.CreatedAt); idle > s.cfg.SessionInactiveLifetime {
 		xlog.Error(ctx, "session idle past its limit",
 			xfield.String("idle_for", idle.String()),
@@ -135,16 +145,16 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 		)
 		return nil, apperr.ErrTokenExpired
 	}
-	if age := now.Sub(oldRefreshToken.SessionStartedAt); age > s.cfg.SessionMaxLifetime {
+	if age := now.Sub(oldRefreshToken.SessionStartedAt); age > ttls.maxLifetime {
 		xlog.Error(ctx, "session past its maximum lifetime",
 			xfield.String("age", age.String()),
-			xfield.String("limit", s.cfg.SessionMaxLifetime.String()),
+			xfield.String("limit", ttls.maxLifetime.String()),
 		)
 		return nil, apperr.ErrTokenExpired
 	}
 
 	// Issue access token before DB writes — if signing fails, no state is mutated.
-	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID)
+	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID, ttls.access)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, err
@@ -187,11 +197,11 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 	return &entity.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
-		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
+		ExpiresIn:    int(ttls.access.Seconds()),
 	}, nil
 }
 
-func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
+func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueAccessByUserID")
 	defer span.End()
 
@@ -199,7 +209,7 @@ func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID
 	if err != nil {
 		return "", fmt.Errorf("fetch user: %w", err)
 	}
-	return s.tokenSrv.IssueAccessToken(ctx, s.cfg.AccessTokenTTL, user)
+	return s.tokenSrv.IssueAccessToken(ctx, ttl, user)
 }
 
 func distributedLockKey(key string) string {
