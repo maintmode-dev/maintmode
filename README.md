@@ -118,23 +118,65 @@ secret APIs itself.
 
 ## First login
 
-A fresh installation has no users and no login providers. The way in is the
-break-glass admin: set the
-`bootstrap/password` secret, then sign in with that password alone on the
-login page. An empty password turns break-glass off, so set one before the first
-start. Whoever signs in while the instance has no active administrator becomes
-one, whatever the method.
+A fresh installation has no users. The way in is the break-glass administrator:
+set the `bootstrap/password` secret (at least 20 characters), then sign in with
+that password alone at `/login/recovery` in the web UI. The first such sign-in
+creates the break-glass account; every sign-in grants it admin again. An empty
+password turns break-glass off — and leaves a fresh instance with no way to
+create its first administrator, so set one before the first start.
 
-This is deliberately first-login-wins, with no locking. It assumes the operator
-signs in before anyone else can reach the instance, so **sign in first, then
-expose it**. After that, `allow_open_signup` stays `false` by default and further
-users join by invitation.
+No other sign-in creates an administrator. With `allow_open_signup: false` (the
+default) an unknown user is refused unless they hold an invitation — on a fresh
+instance too — so exposing a new instance before anyone has signed in is safe as
+long as the break-glass password is strong. The break-glass administrator
+invites everyone else; invitations go out by email, so configure the email
+integration first.
 
-Once signed in, an administrator adds login providers (Google, a custom OIDC
-provider, GitHub) under Integrations, and chooses which built-in methods the
-login page offers: email and password (on by default) and emailed one-time codes
-(off by default). Emailed codes and password reset send email, so they need
-the email integration configured.
+The password stays a standing administrator credential: anyone who has it is an
+admin. Keep it in a secret manager, and rotate it — or set it to `""` to retire
+break-glass — once real administrators exist.
+
+Login providers (Google, GitHub, a custom OIDC provider) are either declared in
+`app.config.yaml` under `oauth_providers.providers` (`managed_by: config`, the
+client secret as a `<secret:auth_provider/<name>/client_secret>` reference) or
+added by an administrator under Integrations (`managed_by: ui`). The
+administrator also chooses which built-in methods the login page offers: email
+and password (on by default) and emailed one-time codes (off by default).
+Emailed codes and password reset send email, so they need the email integration
+configured.
+
+### How provider sign-in works
+
+The backend runs the OAuth exchange itself, as a confidential client. The
+browser reaches the backend for two routes only:
+
+1. `GET /api/v1/login/oauth/{provider}/start` — the button on the login page
+   sends the browser here, and the backend redirects it to the provider;
+2. `GET /api/v1/login/oauth/{provider}/callback` — the provider sends the
+   browser back here, and the backend redirects it to the frontend at
+   `app.frontend_url` + `app.oauth_callback_path` with a one-time code.
+
+The frontend server then redeems that code with
+`POST /api/v1/login/oauth/code/exchange`. Every other route — password, code
+and break-glass sign-in, token refresh, the application API — is called by the
+frontend server, never by a browser, so a gateway in front of the service only
+has to expose those two routes publicly.
+
+Behind a gateway that serves the service under a path prefix and strips it (the
+dev stack's Caddy serves it under `/auth`), two settings take the **external**
+form, the one the browser sees:
+
+- the provider's `redirect_uri` — for example
+  `https://maintmode.example.com/auth/api/v1/login/oauth/google/callback` — is
+  what you register at the provider. Registering the internal form fails with
+  `redirect_uri_mismatch` on the provider's side, which never reaches our logs;
+- `app.oauth_cookie_path` — `/auth/api/v1/login/oauth` — scopes the two
+  short-lived dance cookies. A path the browser never requests means the cookies
+  never come back, and the callback fails.
+
+`app.frontend_url`, `app.oauth_callback_path` and `app.oauth_cookie_path` must
+all be set; with any of them empty the code exchange route is not registered and
+provider sign-in is off.
 
 One-time codes, for sign-in and for password reset alike, are limited per user.
 A code accepts `auth.otp_max_attempts` guesses (5); once they are spent, no new

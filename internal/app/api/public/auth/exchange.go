@@ -18,6 +18,7 @@ import (
 
 // ExchangeGoogleToken godoc
 // @Summary Exchange a Google ID token for a backend token pair
+// @Description The older frontend-driven flow: the caller obtained a Google ID token itself and posts it here. Browsers sign in through GET /login/oauth/{provider}/start instead; this route stays registered in every environment, and the dev sign-in stub and the API tests use it.
 // @Tags Auth
 // @Accept json
 // @Produce json

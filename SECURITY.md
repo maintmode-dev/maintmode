@@ -41,9 +41,10 @@ configuration — for example running with `environment: local`, or with
 You run your own instance, so its security is yours to operate. Two things
 matter more than the rest:
 
-- **The first login on a fresh installation becomes an administrator.** This is
-  how the initial account is created, and it is deliberately first-login-wins
-  with no locking. Log in yourself before the instance is reachable by anyone
-  else.
+- **The break-glass password is an administrator credential.** On a fresh
+  installation the first administrator is the break-glass account, signed in
+  with `bootstrap/password` alone; every sign-in with it grants admin. Use a
+  long random value, keep it in a secret manager, and rotate it — or set it to
+  `""` to turn break-glass off — once real administrators exist.
 - **Keep `allow_open_signup: false`** (the default) unless you specifically want
   anyone who can reach the instance to be able to register.

@@ -1408,6 +1408,7 @@
         },
         "/api/v1/login/oauth/exchange/google": {
             "post": {
+                "description": "The older frontend-driven flow: the caller obtained a Google ID token itself and posts it here. Browsers sign in through GET /login/oauth/{provider}/start instead; this route stays registered in every environment, and the dev sign-in stub and the API tests use it.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1538,7 +1539,7 @@
         },
         "/api/v1/login/oauth/{provider}/start": {
             "get": {
-                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is the backend-owned alternative to the BFF flow behind /login/oauth/exchange/google, which stays live.",
+                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider; POST /login/oauth/exchange/google is the older frontend-driven flow.",
                 "parameters": [
                     {
                         "description": "Configured provider instance name, e.g. google",
