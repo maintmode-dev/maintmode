@@ -52,9 +52,9 @@ type OIDCSettings struct {
 }
 
 // OIDCJWTVerify is the subset of the config's jwtverifier block that applies to
-// an upstream provider. The other three fields there (jwt_issuer, jwks_url,
-// jwt_leeway) concern this backend's OWN tokens and are deliberately absent:
-// exposing inert knobs in an admin form invites misconfiguration.
+// an upstream provider. The other two fields there (jwt_issuer, jwt_leeway)
+// concern this backend's OWN tokens and are deliberately absent: exposing inert
+// knobs in an admin form invites misconfiguration.
 type OIDCJWTVerify struct {
 	// AllowedHostedDomains restricts sign-in to accounts whose Google `hd`
 	// claim matches one of these domains.
@@ -139,6 +139,8 @@ func (o oidc) PresetKey() string {
 }
 
 func (oidc) SecretKeys() []string { return []string{oidcSecretKeyClientSecret} }
+
+func (oidc) EmptySettings() Settings { return &OIDCSettings{} }
 
 func (oidc) Parse(config json.RawMessage, secrets map[string]string) (Settings, error) {
 	var s OIDCSettings

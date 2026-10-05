@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,27 +32,18 @@ func (s *stubClaimer) ResolveForIdentity(
 	return s.resolved, s.resolveErr
 }
 
+func (s *stubClaimer) ResolveByToken(context.Context, string) (*entity.Invitation, error) {
+	return nil, apperr.ErrInvalidInvitation
+}
+
+// ClaimForUser returns the user holding the invitation's roles on top of the
+// defaults, as the real claimer's AssignRoles does.
 func (s *stubClaimer) ClaimForUser(
-	_ context.Context, _ *entity.ResolvedInvitation, userID uuid.UUID,
+	_ context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID,
 ) (*entity.User, error) {
 	s.claimed = true
 
-	return &entity.User{ID: userID}, nil
-}
-
-// seedAdmin creates an admin so the zero-admin bootstrap branch does not answer
-// first. Without it GetOrCreateByAuthInfo grants admin unconditionally and both
-// policies would create a user, hiding the gate this test exists to pin.
-func seedAdmin(ctx context.Context, t *testing.T, svc *Service) {
-	t.Helper()
-
-	_, err := svc.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle,
-		&entity.OAuthProviderUserInfo{
-			ID:    uuid.NewString(),
-			Email: uuid.NewString() + "@admin-gate.test",
-			Name:  "Admin",
-		}, entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{entity.RoleAdmin}})
-	require.NoError(t, err)
+	return &entity.User{ID: userID, Roles: append(slices.Clone(entity.DefaultRoles), inv.Roles...)}, nil
 }
 
 // TestInvitedDanceAllowCreateGate pins the single most security-relevant line
@@ -62,10 +54,6 @@ func seedAdmin(ctx context.Context, t *testing.T, svc *Service) {
 // auth.allow_open_signup: true, so every handler-level test creates users
 // either way and a gate hard-coded to true is invisible there. This is the only
 // shape where the gate decides anything.
-//
-// The stakes are higher than "open signup": GetOrCreateByAuthInfo grants
-// RoleAdmin when admins == 0 and checks that BEFORE consulting AllowCreate, so
-// on a fresh instance an always-true gate is an open ADMIN signup hole.
 func TestInvitedDanceAllowCreateGate(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -75,7 +63,6 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 	t.Run("no invitation: the dance refuses to create an account", func(t *testing.T) {
 		t.Parallel()
 		svc, mocks := initInviteOnlyService(t)
-		seedAdmin(ctx, t, svc)
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).
@@ -105,7 +92,6 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			codes:       oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()),
 			invitations: claimer,
 		})
-		seedAdmin(ctx, t, svc)
 
 		mocks.authMethod.EXPECT().
 			Authenticate(gomock.Any(), gomock.Any()).
@@ -124,4 +110,47 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 		assert.False(t, outcome.Linked, "an invited sign-in is not a link")
 		assert.True(t, claimer.claimed, "phase 2 must spend the invitation")
 	})
+}
+
+// TestInvitedDanceTokenCarriesInvitationRoles pins the order of the invited
+// dance: the invitation's roles are granted BEFORE the pair is minted. The
+// access token carries the roles the user holds at minting, so a pair issued
+// first hands an invited admin a guest token, and every admin endpoint answers
+// 403 until the next refresh -- while /me, which reads the database, already
+// shows the admin.
+func TestInvitedDanceTokenCarriesInvitationRoles(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	claimer := &stubClaimer{resolved: &entity.ResolvedInvitation{
+		ID:    uuid.New(),
+		Roles: []entity.Role{entity.RoleAdmin},
+	}}
+	codes := oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL())
+	svc, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{
+		inviteOnly:  true,
+		codes:       codes,
+		invitations: claimer,
+	})
+
+	mocks.authMethod.EXPECT().
+		Authenticate(gomock.Any(), gomock.Any()).
+		Return(&entity.OAuthIDTokenClaims{
+			Subject: uuid.NewString(),
+			Email:   uuid.NewString() + "@invited.test",
+			Name:    "Invited admin",
+		}, nil).
+		AnyTimes()
+
+	outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "a-handle",
+		&entity.AuditMetadata{IP: "127.0.0.1"})
+	require.NoError(t, err)
+
+	pair, err := codes.ConsumeCode(ctx, outcome.Code)
+	require.NoError(t, err)
+
+	access, err := svc.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
+	require.NoError(t, err)
+	require.Contains(t, access.UserRoles, entity.RoleAdmin,
+		"the access token must carry the invitation's roles")
 }

@@ -27,12 +27,6 @@ func TestExchangeTestRoles(t *testing.T) {
 
 	impl := initImpl(t)
 
-	// Pin the installation past bootstrap before the subtests run: an active
-	// admin must exist, otherwise the roleless user below would be promoted to
-	// the first admin and the guest assertion would flap on a fresh database.
-	rec := doExchange(t, impl, entity.RoleAdmin)
-	require.Equal(t, http.StatusOK, rec.Code)
-
 	t.Run("roles from context are granted", func(t *testing.T) {
 		t.Parallel()
 

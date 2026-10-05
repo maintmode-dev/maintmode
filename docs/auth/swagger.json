@@ -1,6 +1,23 @@
 {
     "components": {
         "schemas": {
+            "apiauthmodels.AcceptInvitationWithPasswordRequest": {
+                "properties": {
+                    "invitation_token": {
+                        "description": "InvitationToken is the raw token from the invitation link.",
+                        "type": "string"
+                    },
+                    "password": {
+                        "description": "Password must be 12 to 256 bytes of UTF-8.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "invitation_token",
+                    "password"
+                ],
+                "type": "object"
+            },
             "apiauthmodels.AuditFacets": {
                 "properties": {
                     "all": {
@@ -280,10 +297,21 @@
                 },
                 "type": "object"
             },
+            "apiauthmodels.LoginWithBreakGlassRequest": {
+                "properties": {
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "password"
+                ],
+                "type": "object"
+            },
             "apiauthmodels.LoginWithPasswordRequest": {
                 "properties": {
                     "email": {
-                        "description": "Email is REQUIRED and must be a well-formed address of at most 254\ncharacters, even though the bootstrap method ignores it when deciding who\nsigns in — that identity comes from configuration. It is required because\na failed attempt is attributed to it in the audit trail, and because the\nlater email_password method identifies by it.\n\nSaying so here matters more than usual: every failure of this endpoint\nanswers with the same opaque 401, so a client that omits the field gets\nno runtime signal about why. This contract is the only place that can\ntell an integrator the field is mandatory.",
+                        "description": "Email is REQUIRED and must be a well-formed address of at most 254\ncharacters: it selects the account, and a failed attempt is attributed to\nit in the audit trail.\n\nSaying so here matters more than usual: every failure of this endpoint\nanswers with the same opaque 401, so a client that omits the field gets\nno runtime signal about why. This contract is the only place that can\ntell an integrator the field is mandatory.",
                         "type": "string"
                     },
                     "password": {
@@ -1271,6 +1299,58 @@
                 "summary": "Get licensed seat usage",
                 "tags": [
                     "Users"
+                ]
+            }
+        },
+        "/api/v1/login/break-glass": {
+            "post": {
+                "description": "Issues a backend token pair for the break-glass admin account. The body carries the configured break-glass password and nothing else -- there is no address. Every failure (wrong password, break-glass switched off, blocked account, malformed body) answers with the same 401.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apiauthmodels.LoginWithBreakGlassRequest"
+                            }
+                        }
+                    },
+                    "description": "Break-glass password",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Authentication failed"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Rate limit exceeded"
+                    }
+                },
+                "summary": "Sign in with the break-glass password",
+                "tags": [
+                    "Auth"
                 ]
             }
         },
@@ -2658,6 +2738,78 @@
                     }
                 },
                 "summary": "Accept an invitation (public, deprecated)",
+                "tags": [
+                    "Users"
+                ]
+            }
+        },
+        "/api/v1/users/invitations/accept/password": {
+            "post": {
+                "description": "Creates the invited user with the invitation's email, sets the password, spends the invitation and grants its roles, then issues a backend token pair carrying those roles. For instances where people sign in with a password rather than through an identity provider.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apiauthmodels.AcceptInvitationWithPasswordRequest"
+                            }
+                        }
+                    },
+                    "description": "Invitation token and the new password",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "code: invalid (no live invitation) | invalid request (password outside the policy, malformed body)"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "code: method_disabled | seats_limit_exceeded"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "code: conflict (an account with this email already exists)"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Rate limit exceeded"
+                    }
+                },
+                "summary": "Accept an invitation by setting a password",
                 "tags": [
                     "Users"
                 ]

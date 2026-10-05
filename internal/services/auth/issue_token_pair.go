@@ -20,7 +20,9 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.IssueTokenPair")
 	defer span.End()
 
-	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, s.cfg.AccessTokenTTL, user)
+	ttls := s.sessionTTLs(user)
+
+	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, ttls.access, user)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, fmt.Errorf("issue access token: %w", err)
@@ -50,7 +52,7 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 	return &entity.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: raw,
-		ExpiresIn:    int(s.cfg.AccessTokenTTL.Seconds()),
+		ExpiresIn:    int(ttls.access.Seconds()),
 		SessionID:    family,
 	}, nil
 }

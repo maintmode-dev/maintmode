@@ -94,7 +94,7 @@ var (
 )
 
 // htmlToText produces a best-effort plain-text fallback for the HTML body: it
-// expands anchors to "text (url)", turns block breaks into newlines, strips the
+// expands anchors to "text: url", turns block breaks into newlines, strips the
 // remaining tags, and unescapes HTML entities (the body comes from html/template,
 // which escapes `&`/`<`/`>`). It is not a full HTML renderer — just enough so a
 // non-HTML client still sees readable content and any links.
@@ -107,8 +107,13 @@ var (
 // and a cell-level one would only double up. A future HTML body that puts
 // side-by-side cells in one row would collapse to "LeftRight" here and must add
 // </td> → " " (or similar) at that point.
+//
+// The URL is never wrapped in punctuation of ours. "text (url)" put a closing
+// parenthesis right after it, which mail clients' link detection and
+// double-click selection take as part of the URL -- an invitation link copied
+// from the text version arrived with a trailing ")" and was refused as invalid.
 func htmlToText(body string) string {
-	text := anchorRE.ReplaceAllString(body, "$2 ($1)")
+	text := anchorRE.ReplaceAllString(body, "$2: $1")
 	replacer := strings.NewReplacer(
 		"<br>", "\n", "<br/>", "\n", "<br />", "\n",
 		"</p>", "\n\n", "</div>", "\n", "</tr>", "\n",

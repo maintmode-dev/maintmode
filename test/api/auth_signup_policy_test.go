@@ -26,9 +26,6 @@ import (
 // backend must refuse to provision the user: HTTP 403 with the stable machine
 // code signup_disabled, no new users row, and a login.failed audit record with
 // the dedicated "signup disabled" reason.
-//
-// The bootstrap fast path never fires here: TestMain seeded an active admin,
-// so this login cannot win the first-admin bootstrap.
 func TestAuthAPI_AuthExchange_SignupDisabled(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 

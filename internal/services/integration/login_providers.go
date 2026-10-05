@@ -59,8 +59,8 @@ func (s *Service) openProvider(
 	// an id. The row's config is a display copy written by whichever replica
 	// started last; serving from it would pair that replica's client_id with
 	// this one's secret during a rolling config change.
-	if declared, ok := s.provisioned[row.Name]; ok {
-		return declared.ConfiguredProvider
+	if declared, ok := s.provisioned[row.Kind][row.Name]; ok {
+		return entity.ConfiguredProvider{Name: row.Name, Enabled: declared.Enabled, Settings: declared.Settings}
 	}
 
 	provider := entity.ConfiguredProvider{Name: row.Name, Enabled: row.Enabled}
@@ -163,9 +163,9 @@ func (s *Service) openSettings(
 	// inter-deploy-step branches. Without this the stored config is trusted
 	// because it was once written, which is not the same as being valid now.
 	//
-	// The failure is ErrValidation, which the reloader already classifies as
-	// unresolved -- the provider is listed with its state so an operator can see
-	// why, and every other provider in the rebuild is unaffected.
+	// The failure is ErrValidation, which openProvider reports as unreadable --
+	// the provider is listed with its state so an operator can see why, and
+	// every other provider in the rebuild is unaffected.
 	if err := in.Validate(settings); err != nil {
 		return nil, fmt.Errorf("%w: %w", apperr.ErrValidation, err)
 	}

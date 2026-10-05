@@ -43,10 +43,10 @@ func (s *Service) exchangeIDToken(ctx context.Context, cmd *entity.ExchangeIDTok
 	}
 
 	// TestRoles are filled only by the dev component of the API layer; in prod
-	// the field is always empty, so creation falls back to bootstrap/open-signup.
+	// the field is always empty, so creation falls back to open signup.
 	// The policy is derived HERE rather than inside SignInWithVerifiedClaims,
-	// because the other caller of that method — the backend OAuth dance — has no
-	// X-Test-Roles header to derive it from and must pass the zero value.
+	// because the backend OAuth dance, which signs in through the same two
+	// halves, has no X-Test-Roles header to derive it from.
 	return s.SignInWithVerifiedClaims(ctx, cmd.Provider, claims, entity.UserCreationPolicy{
 		AllowCreate: len(cmd.TestRoles) > 0,
 		GrantRoles:  cmd.TestRoles,

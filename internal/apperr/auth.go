@@ -124,16 +124,6 @@ var (
 	// to an HTTP status), so disconnect stays idempotent.
 	ErrProviderNotConnected         = errors.New("provider not connected")
 	ErrCannotDisconnectLastProvider = errors.New("cannot disconnect the only sign-in method")
-	// ErrCannotDisconnectBuiltinMethod is returned when a user tries to detach a
-	// built-in sign-in method.
-	//
-	// Break-glass is a property of the DEPLOYMENT, not a link the account owns:
-	// it exists so an operator can get in when the configured providers cannot,
-	// its credential lives in the instance secrets, and it is turned off by
-	// emptying that secret. Letting a user detach it would neither revoke it nor
-	// keep it away -- the next break-glass sign-in simply writes the row again --
-	// so the request can only mislead whoever made it.
-	ErrCannotDisconnectBuiltinMethod = errors.New("cannot disconnect a built-in sign-in method")
 )
 
 var (
@@ -141,6 +131,12 @@ var (
 	ErrForbidden   = errors.New("forbidden")
 	ErrNotChanged  = errors.New("not changed")
 )
+
+// ErrBreakGlassPersonalSignIn refuses a personal way in -- a password or a
+// linked provider -- on the break-glass account. Its way in is the configured
+// break-glass password; a personal one would survive a change of that password
+// and keep access it is meant to revoke. Wraps ErrForbidden => HTTP 403.
+var ErrBreakGlassPersonalSignIn = fmt.Errorf("%w: the break-glass account has no personal sign-in", ErrForbidden)
 
 // User management lockout protection. Both wrap ErrValidation so the HTTP layer
 // maps them to 400 (see httperrors.ToAPIError).
@@ -177,6 +173,10 @@ var (
 	// ErrEmailMismatch is the accept-time guard: the OAuth email does not match
 	// the invitation email. Surfaced as status "email_mismatch" with no detail.
 	ErrEmailMismatch = fmt.Errorf("%w: email mismatch", ErrValidation)
+	// ErrSignInMethodDisabled refuses accepting an invitation through a
+	// built-in method an admin has switched off: the account it would create
+	// could not sign in with the credential it was given.
+	ErrSignInMethodDisabled = errors.New("sign-in method is disabled")
 )
 
 // Auth credential errors, for the two built-in sign-in methods.

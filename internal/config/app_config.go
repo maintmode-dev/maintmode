@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"path"
@@ -291,13 +292,11 @@ type App struct {
 // one-time-code sign-in behaves.
 type Auth struct {
 	// AllowOpenSignup lets an unknown, uninvited user self-register as guest on
-	// OAuth login. Default false: once the first admin exists, login of an
-	// unknown user without an invitation is rejected (invite-only). Read at
-	// startup, per-replica — a config rollout may briefly diverge across
-	// replicas. Bootstrap correctness does not depend on it: the first-admin
-	// decision is first-login-wins and takes no advisory lock, resting instead
-	// on the operational model that the operator logs in before any other
-	// traffic reaches the instance (see GetOrCreateByAuthInfo).
+	// OAuth login. Default false: login of an unknown user without an
+	// invitation is rejected (invite-only), on a fresh instance too -- the
+	// first admin is created by break-glass, not by whoever logs in first. Read
+	// at startup, per-replica — a config rollout may briefly diverge across
+	// replicas.
 	AllowOpenSignup bool `mapstructure:"allow_open_signup"`
 	// OTPTTL is how long an emailed one-time code stays valid. Zero falls back to
 	// a 5-minute default at wiring time. Short on purpose: a code delivered by
@@ -361,13 +360,36 @@ func (a Auth) DanceStateTTL() time.Duration {
 // finishing a consent screen, password prompt and second factor included.
 const DefaultDanceStateTTL = 10 * time.Minute
 
-// NotifyTransportConfig holds process-level notify-delivery toggles. Per-transport
-// credentials (Slack/Telegram/SMTP) live in the DB-backed integration registry,
-// not here; the only remaining knob is the dev stub short-circuit.
+// NotifyTransportConfig holds process-level notify-delivery settings. A
+// transport's credentials live in the DB-backed integration registry, entered
+// through the admin UI -- unless Transports declares it here.
 type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.
 	UseStub bool `mapstructure:"use_stub"`
+	// Transports is one flat section per notify transport, keyed by registry
+	// system name (slack, telegram, email). See NotifyTransportEntry.
+	Transports NotifyTransportEntries `mapstructure:"transports"`
+}
+
+// NotifyTransportEntry is one notify transport's section: managed_by, enabled
+// and the transport's settings, flat. Unlike a login provider it has no facts
+// -- a transport has nothing an operator should not have to look up -- so a ui
+// entry carries nothing but its mode, and a transport with no entry is managed
+// in the UI too.
+//
+// Named apart from entity.NotifyTransport, which is the transport's name.
+type NotifyTransportEntry = ManagedEntry
+
+// NotifyTransportEntries is every notify transport section, keyed by the
+// registry's system name.
+type NotifyTransportEntries map[string]NotifyTransportEntry
+
+// prepareTransports checks every transport section's mode and moves its
+// <secret:KEY> references from Settings into Secrets. See prepareEntries.
+func (n NotifyTransportConfig) prepareTransports() error {
+	return prepareEntries("notify_transport.transports", n.Transports,
+		func(entry *NotifyTransportEntry) *ManagedEntry { return entry })
 }
 
 type TaskProcessorConfig struct {
@@ -545,7 +567,6 @@ type JWTVerifierConfig struct {
 	// their discovery document declares, which is the only authority on the
 	// string a provider actually mints.
 	JWTIssuer string `mapstructure:"jwt_issuer"`
-	JWKSURL   string `mapstructure:"jwks_url"`
 	// AllowedHostedDomains, when non-empty, restricts ID tokens to those
 	// whose `hd` claim matches one of the listed domains.
 	//
@@ -646,13 +667,7 @@ func (c AppConfig) OAuthDanceEnabled() bool {
 // ship exactly that, so validateBootstrapConfig must keep accepting an empty
 // password. The KEY, however, must be present in the
 // secrets file: the resolver hard-fails on a missing one.
-//
-// Email determines the identity of the break-glass admin. It deliberately comes
-// from configuration rather than the request body: whoever controls the
-// deployment decides who the admin is, not whoever guessed the password, and a
-// later sign-in resolves to the same user instead of creating a second one.
 type BootstrapConfig struct {
-	Email    string `mapstructure:"email"`
 	Password string `mapstructure:"password"`
 }
 
@@ -682,7 +697,7 @@ const (
 	// that matters, character-class rules are not. It applies ONLY to a
 	// configured password — an empty one means "no break-glass on this
 	// instance", which is a choice rather than a weak credential.
-	minBootstrapPasswordLen = 12
+	minBootstrapPasswordLen = 20
 )
 
 func initConfig(appName string) *AppConfig {
@@ -713,7 +728,10 @@ func initConfig(appName string) *AppConfig {
 
 	// Before applySecrets: a reference and a literal are only distinguishable
 	// while the reference is still unresolved.
-	if err := cfg.OauthProviders.prepareProviders(); err != nil {
+	if err := errors.Join(
+		cfg.OauthProviders.prepareProviders(),
+		cfg.NotifyTransport.prepareTransports(),
+	); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -770,25 +788,6 @@ func initConfig(appName string) *AppConfig {
 // short" would panic those deployments at boot, which is precisely the outage
 // this endpoint exists to prevent.
 func (c *AppConfig) validateBootstrapConfig() error {
-	// Email is checked FIRST, before the empty-password early return: an empty
-	// password is a legitimate configuration, and an instance that later gains
-	// one should not then discover it also needs an address. It is not
-	// decoration — linkBootstrapToExistingUser resolves
-	// an account by this address and grants it admin, so an empty or
-	// placeholder value is an admin grant pointed at the wrong row (or, when
-	// empty, at a user created with an empty email that permanently occupies
-	// the NOT NULL UNIQUE slot).
-	if c.Bootstrap.Email == "" {
-		return fmt.Errorf("bootstrap.email is required: it decides which account the break-glass login grants admin to")
-	}
-
-	if strings.Contains(c.Bootstrap.Email, secretPlaceholderMarker) {
-		return fmt.Errorf(
-			"bootstrap.email is a placeholder (%q): set the address of the operator who should hold break-glass access",
-			c.Bootstrap.Email,
-		)
-	}
-
 	if c.Bootstrap.Password == "" {
 		return nil
 	}
@@ -926,9 +925,9 @@ func (c *AppConfig) validateUseStubInDev() error {
 
 // validateValkeyConfig rejects an empty valkey.addr at startup.
 //
-// The key was renamed redis -> valkey, and viper unmarshals without
-// ErrorUnused: a config file still carrying the old `redis:` block is not an
-// error, it simply leaves Valkey as the Go zero value. That would be survivable
+// The key was renamed redis -> valkey. A stale `redis:` block is now refused
+// at load as an unknown key (see readConfig), but a file with neither block
+// still leaves Valkey as the Go zero value. That would be survivable
 // if an empty address then failed to connect, but go-redis substitutes its own
 // default instead (options.go: `if opt.Addr == "" { opt.Addr = "localhost:6379" }`),
 // so the ping succeeds against whatever happens to answer on the local port and
@@ -1064,8 +1063,11 @@ func readConfig(filePath string) (*AppConfig, error) {
 		return nil, fmt.Errorf("failed to read config file %s", filePath)
 	}
 
+	// Exact: a key no field reads is an error, not a no-op. A misspelled or
+	// renamed key otherwise leaves its field at the zero value and the process
+	// boots on a setting nobody wrote.
 	cfg := new(AppConfig)
-	if err := reader.Unmarshal(cfg); err != nil {
+	if err := reader.UnmarshalExact(cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config file %s: %w", filePath, err)
 	}
 

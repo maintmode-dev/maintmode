@@ -2,10 +2,7 @@ package jwtverifier
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,22 +19,6 @@ import (
 
 const testIssuer = "oauth-service"
 
-// forbiddenJWKSServer fails the test on any request. The verifier is pointed at it
-// so that a reintroduced HTTP key path is caught rather than silently tolerated.
-func forbiddenJWKSServer(t *testing.T) (url string, hits *atomic.Int64) {
-	t.Helper()
-
-	hits = new(atomic.Int64)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits.Add(1)
-		t.Errorf("verifier reached the network: %s %s", r.Method, r.URL.Path)
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}))
-	t.Cleanup(server.Close)
-
-	return server.URL, hits
-}
-
 func TestVerifyAccessToken(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
@@ -47,9 +28,8 @@ func TestVerifyAccessToken(t *testing.T) {
 		kid := "kid-1"
 
 		key := newTestKey(t)
-		jwksURL, _ := forbiddenJWKSServer(t)
 
-		verifier := newTestVerifier(ctx, t, jwksURL, key, kid)
+		verifier := newTestVerifier(ctx, t, key, kid)
 		token := signTestToken(t, key, kid, testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleEditor})
 
 		claims, err := verifier.VerifyAccessToken(ctx, token)
@@ -59,35 +39,12 @@ func TestVerifyAccessToken(t *testing.T) {
 		require.NotEmpty(t, claims.Subject)
 	})
 
-	t.Run("no network", func(t *testing.T) {
-		t.Parallel()
-		kid := "kid-1"
-
-		key := newTestKey(t)
-		jwksURL, hits := forbiddenJWKSServer(t)
-
-		verifier := newTestVerifier(ctx, t, jwksURL, key, kid)
-
-		// A full happy-path verification plus an unknown kid, which on the old HTTP
-		// path was exactly what triggered a refresh fetch.
-		_, err := verifier.VerifyAccessToken(ctx,
-			signTestToken(t, key, kid, testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleEditor}))
-		require.NoError(t, err)
-
-		_, err = verifier.VerifyAccessToken(ctx,
-			signTestToken(t, key, "kid-unknown", testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleEditor}))
-		require.Error(t, err)
-
-		require.Zero(t, hits.Load(), "verifier must resolve keys locally, without any JWKS request")
-	})
-
 	t.Run("errors", func(t *testing.T) {
 		t.Parallel()
 
 		key := newTestKey(t)
 		kid := "kid-1"
-		jwksURL, _ := forbiddenJWKSServer(t)
-		verifier := newTestVerifier(ctx, t, jwksURL, key, kid)
+		verifier := newTestVerifier(ctx, t, key, kid)
 
 		tests := []struct {
 			name      string
@@ -153,10 +110,9 @@ func TestVerifyAccessToken(t *testing.T) {
 		t.Parallel()
 
 		key := newTestKey(t)
-		jwksURL, _ := forbiddenJWKSServer(t)
 		// A kid unrelated to the other cases: the token carries no kid at all, so
 		// whatever the verifier is configured with must be irrelevant here.
-		verifier := newTestVerifier(ctx, t, jwksURL, key, "kid-unrelated")
+		verifier := newTestVerifier(ctx, t, key, "kid-unrelated")
 
 		token := jwt.NewWithClaims(jwt.SigningMethodES256,
 			testClaims(testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleGuest}))
@@ -190,8 +146,7 @@ func TestVerifyAccessToken_AuthUnavailableUnreachable(t *testing.T) {
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
 	key := newTestKey(t)
-	jwksURL, hits := forbiddenJWKSServer(t)
-	verifier := newTestVerifier(ctx, t, jwksURL, key, "kid-1")
+	verifier := newTestVerifier(ctx, t, key, "kid-1")
 
 	token := signTestToken(t, key, "kid-unknown", testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleGuest})
 
@@ -203,7 +158,6 @@ func TestVerifyAccessToken_AuthUnavailableUnreachable(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1, "local storage must hold exactly the configured key")
 	require.Zero(t, verifier.LastRefreshFailedAt(ctx), "refresh callback must not be wired to the local key path")
-	require.Zero(t, hits.Load())
 }
 
 func TestVerifyAccessToken_Concurrent(t *testing.T) {
@@ -214,8 +168,7 @@ func TestVerifyAccessToken_Concurrent(t *testing.T) {
 
 	key := newTestKey(t)
 	kid := "kid-1"
-	jwksURL, hits := forbiddenJWKSServer(t)
-	verifier := newTestVerifier(ctx, t, jwksURL, key, kid)
+	verifier := newTestVerifier(ctx, t, key, kid)
 
 	valid := signTestToken(t, key, kid, testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleEditor})
 	unknownKid := signTestToken(t, key, "kid-unknown", testIssuer, time.Now().Add(time.Hour), []entity.Role{entity.RoleEditor})
@@ -259,7 +212,6 @@ func TestVerifyAccessToken_Concurrent(t *testing.T) {
 		require.ErrorIsf(t, got.err, apperr.ErrInvalidAccessToken, "goroutine %d verifying the unknown kid", i)
 	}
 
-	require.Zero(t, hits.Load())
 	require.Zero(t, verifier.LastRefreshFailedAt(ctx))
 }
 

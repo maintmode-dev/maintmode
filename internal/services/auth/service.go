@@ -146,13 +146,17 @@ type InvitationClaimer interface {
 	// A nil result with a nil error is not possible: absence is reported as an
 	// error, never as an empty value. An invitation may legitimately carry no
 	// roles, so a nil-or-empty slice must never be readable as "no invitation" —
-	// that overloading is what decides AllowCreate, and on a zero-admin instance
-	// a wrong answer grants admin.
+	// that overloading is what decides AllowCreate, and a wrong answer creates
+	// an account signup policy would have refused.
 	ResolveForIdentity(ctx context.Context, handle string, claims *entity.OAuthIDTokenClaims) (*entity.ResolvedInvitation, error)
+	// ResolveByToken is ResolveForIdentity for a password acceptance: the raw
+	// link token names the invitation, and its email is the identity. Every
+	// refusal is apperr.ErrInvalidInvitation.
+	ResolveByToken(ctx context.Context, rawToken string) (*entity.Invitation, error)
 	// ClaimForUser runs AFTER the user exists. It flips pending→accepted and
 	// assigns the invitation's roles in ONE transaction, so an accepted
-	// invitation never leaves a user without its roles. The updated user it
-	// returns is not needed here: the dance issued its pair in phase 1.
+	// invitation never leaves a user without its roles. The dance issues its
+	// pair from the user it returns, so the token carries those roles.
 	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error)
 }
 

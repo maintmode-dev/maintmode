@@ -15,7 +15,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xcripto"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
@@ -61,80 +60,28 @@ func TestLoginWithPassword_RefusedWhenMethodDisabled(t *testing.T) {
 		"a correct password must not sign anyone in while the method is off")
 }
 
-// Criterion 5: break-glass still works when email_password is disabled, tested
-// against a bootstrap admin WHO ALSO HAS A STORED PASSWORD.
-//
-// That qualifier is what makes the test worth writing. An admin without a
-// stored password skips the stored-password step regardless, so the test would
-// pass under every candidate placement of the gate -- including the one that
-// locks the instance out. With a stored password, a gate that refused INSIDE
-// that step would own the outcome and never reach break-glass, which is exactly
-// the lockout this pins against.
-func TestLoginWithPassword_BreakGlassSurvivesMethodDisabled(t *testing.T) {
-	// NOT parallel: the break-glass path shares one user across this package.
-	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	// The break-glass admin also has an ordinary password, which is the
-	// documented normal state of that account after its first sign-in.
-	//
-	// Seeded FIRST, because the subject resolves to one shared user whose
-	// address is fixed by whoever created it; the provider is then configured
-	// for that address so break-glass and the stored credential are the same
-	// account. Configuring the other way round would leave them on different
-	// users and the test would prove nothing.
-	seeder, _ := initServiceWithUnrelatedBootstrap(t)
-	personal := "personal-" + xuuid.NewString()
-	email := seedStoredPasswordFor(ctx, t, seeder, personal)
-
-	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailPassword: false,
-	}))
-
-	pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
-		Password: breakGlass,
-	})
-	require.NoError(t, err, "break-glass must answer even with password sign-in disabled")
-	require.NotEmpty(t, pair.AccessToken)
-
-	// ...while the same admin's PERSONAL password is refused, because that is
-	// the method the admin turned off.
-	_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
-		Password: personal,
-	})
-	require.ErrorIs(t, err, apperr.ErrInvalidCredentials)
-}
-
 // Criterion 15: an unreadable flag refuses ordinary sign-in and leaves
 // break-glass working.
 //
-// Both clauses are scoped the way criteria 4 and 5 are: the ordinary user has a
-// correct password, and the bootstrap admin has a stored one. Without those
-// qualifiers the test is green against an implementation with no gate.
+// The ordinary user has a CORRECT password: against a wrong one the refusal
+// proves nothing about the gate.
 func TestLoginWithPassword_UnreadableFlagFailsClosedButKeepsBreakGlass(t *testing.T) {
-	// NOT parallel: break-glass path.
+	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	seeder, _ := initServiceWithUnrelatedBootstrap(t)
-	personal := "personal-" + xuuid.NewString()
-	email := seedStoredPasswordFor(ctx, t, seeder, personal)
-
 	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, stubMethodFlags{fail: true})
+	srv, _ := initServiceWithBreakGlass(t, newTestBreakGlass(breakGlass), stubMethodFlags{fail: true})
+	personal := "personal-" + xuuid.NewString()
+	user := makePasswordUser(ctx, t, srv, personal)
 
 	_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
+		Email:    user.Email,
 		Password: personal,
 	})
 	require.ErrorIs(t, err, apperr.ErrInvalidCredentials,
 		"an unreadable flag must fail closed, not open")
 
-	pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
-		Password: breakGlass,
-	})
+	pair, err := srv.LoginWithBreakGlass(ctx, &entity.LoginWithBreakGlassCmd{Password: breakGlass})
 	require.NoError(t, err, "break-glass does not read the table, so it must survive its outage")
 	require.NotEmpty(t, pair.AccessToken)
 }
@@ -173,9 +120,8 @@ func TestLoginWithPassword_DisabledRefusalDoesNotRevealThePassword(t *testing.T)
 	require.Equal(t, spy.reasons[0], spy.reasons[1],
 		"the audit reason must not depend on whether the password was right")
 
-	// The ORDINARY reason, not a disabled-method one. loginWithSeed publishes
-	// one reason unconditionally so the break-glass address cannot be picked out
-	// of the audit log, and a disabled method does not get to vary it. The
+	// The ORDINARY reason, not a disabled-method one:
+	// a disabled method does not get to vary it. The
 	// refusal is reported on the caller's log line instead.
 	require.Equal(t, entity.AuditFailureInvalidCredentials, spy.reasons[0])
 
@@ -184,7 +130,7 @@ func TestLoginWithPassword_DisabledRefusalDoesNotRevealThePassword(t *testing.T)
 	//
 	// Without it the test is green against a gate placed INSIDE the
 	// stored-password step that refuses after comparing -- both refusals would
-	// still route through loginWithSeed with the same threaded reason, so the
+	// still answer with the same reason, so the
 	// response and the audit record would look identical while the credential
 	// was being read on every attempt. That is the misplacement the gate's
 	// placement exists to avoid, and this is the only assertion that sees it.
@@ -215,44 +161,6 @@ func spyOnFailures(srv *Service) *reasonSpy {
 	srv.auditPublisher = spy
 
 	return spy
-}
-
-// seedStoredPasswordFor gives the break-glass admin an ordinary password
-// credential, which is what makes its state the documented one: personal
-// credential present, break-glass still answering.
-//
-// The address it seeds is NOT the one passed to initServiceWithBootstrap.
-// entity.BootstrapSubject is a fixed per-instance constant, so every
-// break-glass login in this package resolves to the SAME user row -- the one
-// created by whichever test got there first -- and its email is that test's
-// address, not this one's. Seeding by the requested address would silently
-// write the credential onto a different user, and the test would then pass
-// against an admin who has no stored password at all: exactly the variant that
-// proves nothing. So the subject is resolved first and the credential follows
-// it.
-//
-// Returns the address that actually answers, which is what the caller must
-// submit.
-func seedStoredPasswordFor(ctx context.Context, t *testing.T, srv *Service, password string) string {
-	t.Helper()
-
-	user, err := srv.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodBootstrap,
-		&entity.OAuthProviderUserInfo{
-			ID:    entity.BootstrapSubject,
-			Email: bootstrapAddress(),
-			Name:  "break-glass admin",
-		}, entity.UserCreationPolicy{AllowCreate: true, GrantRoles: []entity.Role{entity.RoleAdmin}})
-	require.NoError(t, err)
-
-	hash, err := xcripto.HashPassword(password)
-	require.NoError(t, err)
-	require.NoError(t, srv.passwords.UpsertPassword(ctx, user.ID, hash))
-
-	// The guarantee the tests depend on: this user HAS a stored password now.
-	_, err = srv.passwords.GetPasswordByUserID(ctx, user.ID)
-	require.NoError(t, err, "the break-glass admin must have a stored password, or the test proves nothing")
-
-	return user.Email
 }
 
 // Criterion 8: changing your own password still works while password SIGN-IN is
@@ -319,23 +227,16 @@ func TestDisablingAMethod_DoesNotEndExistingSessions(t *testing.T) {
 // configuration the removal of that guard relies on being survivable. Hence a
 // test rather than a comment.
 func TestBreakGlass_SurvivesEverythingDisabled(t *testing.T) {
-	// NOT parallel: break-glass path.
+	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	seeder, _ := initServiceWithUnrelatedBootstrap(t)
-	personal := "personal-" + xuuid.NewString()
-	email := seedStoredPasswordFor(ctx, t, seeder, personal)
-
 	breakGlass := "the-break-glass-" + xuuid.NewString()
-	srv, _ := initServiceWithBootstrapFlags(t, email, breakGlass, flagsWith(map[entity.AuthMethodName]bool{
+	srv, _ := initServiceWithBreakGlass(t, newTestBreakGlass(breakGlass), flagsWith(map[entity.AuthMethodName]bool{
 		entity.AuthMethodNameEmailPassword: false,
 		entity.AuthMethodNameEmailOTP:      false,
 	}))
 
-	pair, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
-		Password: breakGlass,
-	})
+	pair, err := srv.LoginWithBreakGlass(ctx, &entity.LoginWithBreakGlassCmd{Password: breakGlass})
 	require.NoError(t, err, "break-glass is the documented recovery from a total lockout")
 	require.NotEmpty(t, pair.AccessToken)
 }
@@ -364,51 +265,6 @@ func countCredentialReads(srv *Service) *credentialReadCounter {
 	srv.passwords = counter
 
 	return counter
-}
-
-// loginWithSeed's two publish sites stay indistinguishable while the method is
-// disabled.
-//
-// Those sites -- "not the break-glass address" and "the address matched but the
-// password was wrong" -- publish the same reason so nobody reading the audit log
-// can sort failures by reason and learn WHICH address the break-glass credential
-// answers for. Anything that made the pair differ would have that address as its
-// differing bit.
-//
-// A disabled method is the configuration most likely to break that, because it
-// is the one thing the caller knows and the publish sites do not. So the test
-// submits the break-glass ADDRESS with a wrong password while the method is off,
-// and requires the same reason an ordinary address produces.
-func TestLoginWithPassword_DisabledRefusalIsUniformAcrossPublishSites(t *testing.T) {
-	// NOT parallel: break-glass path.
-	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	seeder, _ := initServiceWithUnrelatedBootstrap(t)
-	email := seedStoredPasswordFor(ctx, t, seeder, "personal-"+xuuid.NewString())
-
-	srv, _ := initServiceWithBootstrapFlags(t, email, "the-break-glass-"+xuuid.NewString(), flagsWith(map[entity.AuthMethodName]bool{
-		entity.AuthMethodNameEmailPassword: false,
-	}))
-	spy := spyOnFailures(srv)
-
-	// The break-glass ADDRESS, a wrong password: reaches the second site.
-	_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    email,
-		Password: "wrong-" + xuuid.NewString(),
-	})
-	require.Error(t, err)
-
-	// An address that is not the break-glass one: reaches the first site.
-	_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
-		Email:    xuuid.NewString() + "@example.com",
-		Password: "wrong-" + xuuid.NewString(),
-	})
-	require.Error(t, err)
-
-	require.Len(t, spy.reasons, 2)
-	require.Equal(t, spy.reasons[0], spy.reasons[1],
-		"the break-glass address must not be distinguishable by its audit reason")
-	require.Equal(t, entity.AuditFailureInvalidCredentials, spy.reasons[0])
 }
 
 // A password installed through RESET is still refused when email_password is

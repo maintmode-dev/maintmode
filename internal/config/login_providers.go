@@ -1,10 +1,5 @@
 package config
 
-import (
-	"errors"
-	"fmt"
-)
-
 // LoginFacts is what is known about a sign-in provider regardless of who
 // operates it: the parts an operator should not have to look up, and could get
 // subtly wrong. The deployment config ships them for the well-known providers,
@@ -75,40 +70,14 @@ func (f LoginFacts) Fields() map[string]string {
 // LoginProvider is one provider's section, flat like Grafana's [auth.github]:
 // the facts, `enabled`, and every other setting side by side.
 //
-// ManagedBy says who owns the provider, and is required -- there is no default,
-// so no entry falls into a mode by omission:
-//
-//   - config: the provider is declared HERE. The integration service writes it
-//     into the registry at startup, serves it from memory, and refuses every
-//     admin write to it. Enabled is required; credentials only when it is true;
-//   - ui: an admin creates and runs the provider in the UI. Only the facts are
-//     read -- everything else in the entry is ignored -- and they are copied
-//     into the provider at create and cannot be changed through the API.
-//
-// Either way its facts are what an admin-created provider of that name takes,
-// including one handed back to the UI by switching config to ui.
+// Who owns it is ManagedEntry's managed_by. Under ui only the facts are read --
+// they are copied into the provider at create and cannot be changed through
+// the API. Either way its facts are what an admin-created provider of that
+// name takes, including one handed back to the UI by switching config to ui.
 type LoginProvider struct {
-	LoginFacts `mapstructure:",squash"`
-	// ManagedBy is ManagedByConfig or ManagedByUI.
-	ManagedBy string `mapstructure:"managed_by"`
-	// Enabled is on/off, and nothing else. Required under config, ignored
-	// under ui, where the UI switches the provider.
-	Enabled *bool `mapstructure:"enabled"`
-	// Settings is every other key, flat: client_id, redirect_uri, scopes, ...
-	// After prepareProviders it holds no <secret:KEY> reference.
-	Settings map[string]any `mapstructure:",remain"`
-	// Secrets is the keys whose value is a <secret:KEY> reference, moved out of
-	// Settings at load so the secret resolver -- which rewrites
-	// map[string]string values -- resolves them. Never decoded from the file
-	// directly.
-	Secrets map[string]string `mapstructure:"-"`
+	LoginFacts   `mapstructure:",squash"`
+	ManagedEntry `mapstructure:",squash"`
 }
-
-// The two owners of a provider.
-const (
-	ManagedByConfig = "config"
-	ManagedByUI     = "ui"
-)
 
 // LoginProviders is every provider section, keyed by the registry's system
 // name.
@@ -130,73 +99,8 @@ func (p LoginProviders) For(key string) (LoginProvider, bool) {
 }
 
 // prepareProviders checks every provider section's mode and moves its
-// <secret:KEY> references from Settings into Secrets. It runs BEFORE the
-// secrets are applied: telling a reference from a literal is only possible
-// while the reference is still there, and the resolver only reaches Secrets.
+// <secret:KEY> references from Settings into Secrets. See prepareEntries.
 func (p OauthProviders) prepareProviders() error {
-	var errs error
-	for name, provider := range p.Providers {
-		field := "oauth_providers.providers." + name
-
-		if err := checkMode(provider); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("%s: %w", field, err))
-			continue
-		}
-
-		// Under ui everything but the facts is ignored -- the UI supplies it --
-		// secrets included: a leftover <secret:...> must not fail startup over
-		// a key the secrets file no longer carries.
-		if provider.ManagedBy != ManagedByConfig {
-			continue
-		}
-
-		moveSecrets(&provider)
-
-		p.Providers[name] = provider
-	}
-
-	return errs
-}
-
-// moveSecrets moves every key whose value is a <secret:KEY> reference from
-// Settings into Secrets. What is a secret is what the file marks as one: the
-// config cannot know which fields a provider treats as secret -- the provider's
-// kind does, and the integration service holds the entry to it.
-//
-// The move is needed because the secret resolver rewrites map[string]string
-// values but cannot reach a value inside map[string]any: a reference left in
-// Settings would stay the literal text "<secret:...>".
-func moveSecrets(provider *LoginProvider) {
-	for key, value := range provider.Settings {
-		ref, ok := value.(string)
-		if !ok || !secretRegexp.MatchString(ref) {
-			continue
-		}
-
-		if provider.Secrets == nil {
-			provider.Secrets = map[string]string{}
-		}
-		provider.Secrets[key] = ref
-		delete(provider.Settings, key)
-	}
-}
-
-// checkMode holds an entry to the rules of its managed_by. A missing or
-// misspelled mode fails startup rather than quietly deciding who owns a
-// provider.
-func checkMode(provider LoginProvider) error {
-	switch provider.ManagedBy {
-	case ManagedByConfig:
-		if provider.Enabled == nil {
-			return errors.New("enabled must be set when managed_by is config")
-		}
-
-		return nil
-
-	case ManagedByUI:
-		return nil
-
-	default:
-		return fmt.Errorf("managed_by must be config or ui, got %q", provider.ManagedBy)
-	}
+	return prepareEntries("oauth_providers.providers", p.Providers,
+		func(provider *LoginProvider) *ManagedEntry { return &provider.ManagedEntry })
 }

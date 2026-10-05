@@ -50,6 +50,7 @@ func (clientBoundKind) Parse(config json.RawMessage, _ map[string]string) (integ
 }
 
 func (clientBoundKind) Validate(integrationkinds.Settings) error { return nil }
+func (clientBoundKind) EmptySettings() integrationkinds.Settings { return &clientBoundSettings{} }
 
 // plainKind is any kind whose secrets are bound by (kind, key) alone -- every
 // delivery integration that exists today.
@@ -63,6 +64,7 @@ func (plainKind) Parse(json.RawMessage, map[string]string) (integrationkinds.Set
 	return plainSettings{}, nil
 }
 func (plainKind) Validate(integrationkinds.Settings) error { return nil }
+func (plainKind) EmptySettings() integrationkinds.Settings { return &plainSettings{} }
 
 type plainSettings struct{}
 

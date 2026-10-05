@@ -53,14 +53,12 @@ func TestNewService_UnusableSigningKey(t *testing.T) {
 }
 
 // newTestVerifier builds the verifier the way production does: the key comes from
-// config.JWT, not from the JWKS URL. jwksURL is still passed so tests can point it
-// at a server that fails on contact and prove the network path is gone.
-func newTestVerifier(ctx context.Context, t *testing.T, jwksURL string, key *ecdsa.PrivateKey, kid string) *Service {
+// config.JWT.
+func newTestVerifier(ctx context.Context, t *testing.T, key *ecdsa.PrivateKey, kid string) *Service {
 	t.Helper()
 
 	verifier, err := NewService(ctx, config.JWTVerifierConfig{
 		JWTIssuer: testIssuer,
-		JWKSURL:   jwksURL,
 		JWTLeeway: 30 * time.Second,
 	}, testJWTConfig(key, kid))
 	require.NoError(t, err)

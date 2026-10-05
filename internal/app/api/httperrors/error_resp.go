@@ -30,6 +30,7 @@ var (
 	ErrInvitationInvalid ErrorCode = "invalid"
 	ErrEmailMismatch     ErrorCode = "email_mismatch"
 	ErrEmailNotVerified  ErrorCode = "email_not_verified"
+	ErrMethodDisabled    ErrorCode = "method_disabled"
 
 	// License enforcement codes. Stable machine-readable contract for
 	// the frontend: organization_suspended drives the full-screen suspended page

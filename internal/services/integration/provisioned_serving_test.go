@@ -146,9 +146,8 @@ func TestProvision_DisabledEntryNeedsNoCredentials(t *testing.T) {
 	ctx := context.Background()
 	_, kinds, _ := initService(t)
 	svc, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: {
-		LoginFacts: config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
-		ManagedBy:  config.ManagedByConfig,
-		Enabled:    lo.ToPtr(false),
+		LoginFacts:   config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
+		ManagedEntry: config.ManagedEntry{ManagedBy: config.ManagedByConfig, Enabled: lo.ToPtr(false)},
 	}})
 
 	require.NoError(t, svc.Provision(ctx))

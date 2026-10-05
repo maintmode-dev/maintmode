@@ -11,6 +11,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/services/dekrotator"
 
 	"github.com/ruko1202/maintmode/internal/config"
+	"github.com/ruko1202/maintmode/internal/entity"
 	licensegw "github.com/ruko1202/maintmode/internal/gateways/license"
 	"github.com/ruko1202/maintmode/internal/gateways/notifytransport"
 	"github.com/ruko1202/maintmode/internal/gateways/oidcdiscovery"
@@ -490,7 +491,7 @@ func initAuthMethods(cfg *config.AppConfig) *authmethod.Methods {
 	// The provider is registered either way, and Authenticate refuses every
 	// candidate when the password is empty, so the attempt stays
 	// indistinguishable from one against a wrong address.
-	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, cfg.Bootstrap.Password))
+	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap.Password, entity.BreakGlassEmail))
 
 	// The gateways -- the confidential half -- are not available here: they hold
 	// the client secret and are built in main, where it is resolved. So this
@@ -549,14 +550,16 @@ func newIntegrationService(
 		auditPublisher,
 		stores.UserIdentities,
 		cfg.OauthProviders.Providers,
+		cfg.NotifyTransport.Transports,
 	)
 
-	// Write the config file's login providers into the registry before the
-	// service is handed out: nothing may serve or consume it first -- the task
-	// processors, or the login reloader's first build, which serves provisioned
-	// providers from what this call validated. A bad entry fails startup here.
+	// Write the config file's login providers and notify transports into the
+	// registry before the service is handed out: nothing may serve or consume
+	// it first -- the task processors, the transport resolver, or the login
+	// reloader's first build, all of which serve provisioned entries from what
+	// this call validated. A bad entry fails startup here.
 	if err := srv.Provision(ctx); err != nil {
-		return nil, fmt.Errorf("provision login providers: %w", err)
+		return nil, fmt.Errorf("provision config-declared integrations: %w", err)
 	}
 
 	return srv, nil

@@ -86,8 +86,6 @@ func TestMain(m *testing.M) {
 	// The suite mints synthetic JWTs locally and never completes a real login,
 	// so without this the users table is empty and every maintenance-create
 	// helper fails at resolveEligibleApprover ("no eligible approver in auth").
-	// This seed also deterministically settles the first-admin bootstrap
-	// before any suite runs — see seedEligibleApprover.
 	if err := seedEligibleApprover(ctx); err != nil {
 		xlog.Panic(ctx, "Failed to seed eligible approver", xfield.Error(err))
 	}
@@ -184,16 +182,6 @@ var seededUserID string
 // backend create that user and grant it admin, so it shows up in the
 // assignable-users picker that resolveEligibleApprover reads and is a valid
 // token subject for introspect.
-//
-// This call also deterministically settles the first-admin bootstrap BEFORE
-// any suite runs: signup is invite-only in the API test stack
-// (allow_open_signup: false), so on a clean database the first successful
-// exchange wins the first-login bootstrap and becomes admin. Making that
-// exchange happen here — with X-Test-Roles: admin, so the seed succeeds and
-// ends up admin even when a previous run already left an admin behind —
-// guarantees the database contains an active admin after TestMain. No test's
-// exchange can then win the bootstrap race, which would otherwise make
-// guest/role assertions depend on test order (-p 2 -count=2).
 func seedEligibleApprover(ctx context.Context) error {
 	authc := newAuthTestClient("")
 

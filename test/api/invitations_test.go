@@ -189,7 +189,7 @@ func TestAuthAPIInvitations_AcceptRejectsStubProvider(t *testing.T) {
 // address, and a fresh random one otherwise. provisionUser and the TestMain
 // seed both depend on the random branch — two calls must not collide on one
 // user. An email-shaped token would make them silently share an identity and
-// break the first-admin bootstrap.
+// break the seeded approver.
 //
 // This scans the suite's source rather than listing tokens: a hand-copied list
 // is a snapshot that goes stale the moment someone adds a login in another

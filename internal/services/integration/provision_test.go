@@ -31,14 +31,16 @@ import (
 func declared(clientID string) config.LoginProvider {
 	return config.LoginProvider{
 		LoginFacts: config.LoginFacts{DisplayName: "Test IdP", IssuerURL: testPresetIssuer},
-		ManagedBy:  config.ManagedByConfig,
-		Enabled:    lo.ToPtr(true),
-		Settings: map[string]any{
-			"client_id":    clientID,
-			"redirect_uri": "https://app.example/auth/callback",
-			"jwtverifier":  map[string]any{"allowed_hosted_domains": []any{"example.com"}},
+		ManagedEntry: config.ManagedEntry{
+			ManagedBy: config.ManagedByConfig,
+			Enabled:   lo.ToPtr(true),
+			Settings: map[string]any{
+				"client_id":    clientID,
+				"redirect_uri": "https://app.example/auth/callback",
+				"jwtverifier":  map[string]any{"allowed_hosted_domains": []any{"example.com"}},
+			},
+			Secrets: map[string]string{"client_secret": "from-the-secrets-file"},
 		},
-		Secrets: map[string]string{"client_secret": "from-the-secrets-file"},
 	}
 }
 
@@ -135,6 +137,25 @@ func TestProvision_ReleasesAProviderDroppedFromConfig(t *testing.T) {
 	require.Equal(t, uuid.Nil, mocks.identities.unlinkedFrom, "identities are untouched")
 }
 
+// Release reaches only the names this service's registry holds. Another run's
+// renamed kinds -- or a stand's real rows on the same database -- are not this
+// config's to release, even though they are provisioned and undeclared here.
+func TestProvision_ReleaseLeavesUnregisteredNamesAlone(t *testing.T) {
+	ctx := context.Background()
+	_, kinds, _ := initService(t)
+	owner, _ := newServiceFor(t, kinds, nil, config.LoginProviders{kinds.oidc: declared("cfg-client")})
+	require.NoError(t, owner.Provision(ctx))
+
+	_, otherKinds, _ := initService(t)
+	stranger, _ := newServiceFor(t, otherKinds, nil, config.LoginProviders{})
+	require.NoError(t, stranger.Provision(ctx))
+
+	row, found := readRow(ctx, t, kinds.login, kinds.oidc)
+	require.True(t, found)
+	require.True(t, row.Provisioned, "a name outside the registry is not released")
+	require.True(t, row.Enabled)
+}
+
 func TestProvision_InvalidEntryChangesNothing(t *testing.T) {
 	cases := []struct {
 		name string
@@ -168,6 +189,14 @@ func TestProvision_InvalidEntryChangesNothing(t *testing.T) {
 				bad.Enabled = lo.ToPtr(false)
 				bad.Secrets = nil
 				bad.Settings["client_secret"] = "from-the-secrets-file"
+				return config.LoginProviders{kinds.oidc: bad}
+			},
+		},
+		{
+			name: "unknown key",
+			decl: func(kinds testKinds) config.LoginProviders {
+				bad := declared("cfg-client")
+				bad.Settings["client_secret_typo"] = "from-the-secrets-file"
 				return config.LoginProviders{kinds.oidc: bad}
 			},
 		},

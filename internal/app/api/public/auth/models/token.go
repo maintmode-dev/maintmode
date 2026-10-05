@@ -53,15 +53,11 @@ type ConnectProviderDanceResponse struct {
 }
 
 // LoginWithPasswordRequest is a sign-in with a password rather than an upstream
-// token. Today it is served by the break-glass bootstrap admin; email_password
-// joins it later on the same endpoint, which is why the shape already carries
-// fields bootstrap does not use.
+// token: the user's own stored password (email_password).
 type LoginWithPasswordRequest struct {
 	// Email is REQUIRED and must be a well-formed address of at most 254
-	// characters, even though the bootstrap method ignores it when deciding who
-	// signs in — that identity comes from configuration. It is required because
-	// a failed attempt is attributed to it in the audit trail, and because the
-	// later email_password method identifies by it.
+	// characters: it selects the account, and a failed attempt is attributed to
+	// it in the audit trail.
 	//
 	// Saying so here matters more than usual: every failure of this endpoint
 	// answers with the same opaque 401, so a client that omits the field gets
@@ -71,10 +67,25 @@ type LoginWithPasswordRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// AcceptInvitationWithPasswordRequest accepts an invitation by choosing a
+// password. There is no email field: the account takes the invited address.
+type AcceptInvitationWithPasswordRequest struct {
+	// InvitationToken is the raw token from the invitation link.
+	InvitationToken string `json:"invitation_token" binding:"required"`
+	// Password must be 12 to 256 bytes of UTF-8.
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginWithBreakGlassRequest is a break-glass sign-in: the configured password
+// and nothing else.
+type LoginWithBreakGlassRequest struct {
+	Password string `json:"password" binding:"required"`
+}
+
 // ChangePasswordRequest sets the caller's own password.
 //
 // CurrentPassword is required when the account already has one and must be
-// omitted when it does not -- the state right after a break-glass sign-in.
+// omitted when it does not -- the state of a provider-only account.
 // Sending it in the wrong case is a 400 rather than a silently ignored field,
 // so a client learns which state it is in.
 //

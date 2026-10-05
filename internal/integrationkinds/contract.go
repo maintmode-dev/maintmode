@@ -118,6 +118,11 @@ type Integration interface {
 	// between. Semantic validation (required fields, formats) is done in
 	// Validate.
 	Parse(config json.RawMessage, secrets map[string]string) (Settings, error)
+	// EmptySettings returns a pointer to the kind's zero Settings: the shape its
+	// config decodes into. For a caller that must hold a config to that shape
+	// directly -- refusing keys the kind does not read -- rather than through
+	// Parse, which ignores them.
+	EmptySettings() Settings
 	// Validate checks a parsed Settings for semantic correctness. Secrets must
 	// be judged by PRESENCE (empty vs non-empty), never by format/content: during
 	// an update's re-validation an unchanged secret is represented by an opaque

@@ -296,13 +296,29 @@ type ChangePasswordCmd struct {
 }
 
 // LoginWithPasswordCmd is a sign-in with a password rather than an upstream
-// token: either the user's own stored password, or the break-glass one.
+// token: the user's own stored password.
 type LoginWithPasswordCmd struct {
-	// Email selects which credential answers: a user's own stored password, or
-	// the break-glass one when it matches the configured bootstrap address.
-	// It is no longer ignored -- a break-glass password submitted against some
-	// other address signs nobody in.
+	// Email selects the account whose stored password is checked.
 	Email     string
+	Password  string
+	ClientIP  string
+	UserAgent string
+}
+
+// AcceptInvitationWithPasswordCmd accepts an invitation by choosing a password
+// instead of signing in through a provider. The invitation's own email is the
+// account's address; there is none to submit.
+type AcceptInvitationWithPasswordCmd struct {
+	// Token is the raw token from the invitation link.
+	Token     string
+	Password  string
+	ClientIP  string
+	UserAgent string
+}
+
+// LoginWithBreakGlassCmd is a break-glass sign-in: the configured password and
+// nothing else -- there is no address to submit.
+type LoginWithBreakGlassCmd struct {
 	Password  string
 	ClientIP  string
 	UserAgent string

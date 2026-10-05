@@ -41,6 +41,30 @@ func (s *Service) SignInWithVerifiedClaims(
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.SignInWithVerifiedClaims")
 	defer span.End()
 
+	user, err := s.resolveSignInUser(ctx, provider, claims, policy, meta)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pair, err := s.issueSignInPair(ctx, user, meta)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return pair, user, nil
+}
+
+// resolveSignInUser is the first half of SignInWithVerifiedClaims: find or
+// create the user, auditing a refusal. Split out so the invited dance can grant
+// the invitation's roles BEFORE issueSignInPair -- the access token carries the
+// roles the user holds when it is minted.
+func (s *Service) resolveSignInUser(
+	ctx context.Context,
+	provider entity.AuthMethod,
+	claims *entity.OAuthIDTokenClaims,
+	policy entity.UserCreationPolicy,
+	meta *entity.AuditMetadata,
+) (*entity.User, error) {
 	user, err := s.usersSrv.GetOrCreateByAuthInfo(ctx, provider, &entity.OAuthProviderUserInfo{
 		ID:    claims.Subject,
 		Email: claims.Email,
@@ -53,14 +77,22 @@ func (s *Service) SignInWithVerifiedClaims(
 		s.publishLoginFailure(ctx, &entity.User{Email: claims.Email, Name: claims.Name},
 			meta, provisioningFailureReason(err))
 
-		return nil, nil, fmt.Errorf("get or create user: %w", err)
+		return nil, fmt.Errorf("get or create user: %w", err)
 	}
 
+	return user, nil
+}
+
+// issueSignInPair is the second half of SignInWithVerifiedClaims: mint the pair
+// for the resolved user and audit the outcome.
+func (s *Service) issueSignInPair(
+	ctx context.Context, user *entity.User, meta *entity.AuditMetadata,
+) (*entity.TokenPair, error) {
 	pair, err := s.IssueTokenPair(ctx, user, meta.IP)
 	if err != nil {
 		s.publishLoginFailure(ctx, user, meta, issuanceFailureReason(err))
 
-		return nil, nil, fmt.Errorf("issue token pair: %w", err)
+		return nil, fmt.Errorf("issue token pair: %w", err)
 	}
 
 	// Published here rather than by the caller: the SessionID that correlates a
@@ -72,5 +104,5 @@ func (s *Service) SignInWithVerifiedClaims(
 
 	s.publishAudit(ctx, audit.LoginSuccess{User: user, Meta: &success})
 
-	return pair, user, nil
+	return pair, nil
 }

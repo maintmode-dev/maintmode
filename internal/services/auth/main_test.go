@@ -105,37 +105,46 @@ func initServiceWith(t *testing.T, methodID entity.AuthMethod, allowOpenSignup b
 	return initServiceWithDeps(t, methodID, serviceDeps{inviteOnly: !allowOpenSignup})
 }
 
-// initServiceWithBootstrap builds the service around a REAL break-glass
-// provider answering for the given address and password.
+// testBreakGlass is the REAL break-glass provider over an account of its own.
 //
-// The mock AuthMethod cannot stand in here: the seed path needs the provider to
-// report which address it serves and whether its password is durable, and a
-// bare AuthMethod says neither. Substituting a mock would make every seed test
-// silently take the "not the bootstrap address" branch.
-func initServiceWithBootstrap(t *testing.T, email, password string) (*Service, *serviceMocks) {
-	t.Helper()
-
-	return initServiceWithBootstrapFlags(t, email, password, nil)
+// Production has one break-glass account per instance (entity.BreakGlassEmail).
+// This package shares one database -- the dev stand's -- so every test signs in
+// under its own address in the reserved domain instead: otherwise each would
+// sign in to, and block, the same account, the dev stand's real one included.
+type testBreakGlass struct {
+	*bootstrapauth.Service
+	email    string
+	password string
 }
 
-// initServiceWithBootstrapFlags is initServiceWithBootstrap with the built-in
-// method flags the sign-in gates read. Nil means every built-in is offered.
-func initServiceWithBootstrapFlags(
-	t *testing.T, email, password string, flags AuthMethodFlags,
+func newTestBreakGlass(password string) *testBreakGlass {
+	email := xuuid.NewString() + "@maintmode.invalid"
+
+	return &testBreakGlass{
+		Service:  bootstrapauth.NewService(password, email),
+		email:    email,
+		password: password,
+	}
+}
+
+// initServiceWithBreakGlass builds the service around a break-glass provider
+// and the built-in method flags the sign-in gates read. Nil flags means every
+// built-in is offered.
+func initServiceWithBreakGlass(
+	t *testing.T, breakGlass *testBreakGlass, flags AuthMethodFlags,
 ) (*Service, *serviceMocks) {
 	t.Helper()
 
 	return initServiceWithDeps(t, entity.AuthMethodBootstrap, serviceDeps{
-		concrete: bootstrapauth.NewService(config.BootstrapConfig{Email: email}, password),
+		concrete: breakGlass,
 		flags:    flags,
 	})
 }
 
 // initServiceWithUnrelatedBootstrap builds the service for a test that exercises
 // something other than the break-glass path -- an ordinary password login, a
-// change, a reset. A real bootstrap provider still has to be registered, since
-// the fallback branch consults it on every login, so it answers for an address
-// and a password no test in this package submits.
+// change, a reset. A real bootstrap provider is still registered, as in
+// production, with a password no test in this package submits.
 func initServiceWithUnrelatedBootstrap(t *testing.T) (*Service, *serviceMocks) {
 	t.Helper()
 
@@ -147,7 +156,7 @@ func initServiceWithUnrelatedBootstrap(t *testing.T) (*Service, *serviceMocks) {
 func initServiceWithUnrelatedBootstrapFlags(t *testing.T, flags AuthMethodFlags) (*Service, *serviceMocks) {
 	t.Helper()
 
-	return initServiceWithBootstrapFlags(t, bootstrapAddress(), "unrelated-"+xuuid.NewString(), flags)
+	return initServiceWithBreakGlass(t, newTestBreakGlass("unrelated-"+xuuid.NewString()), flags)
 }
 
 // serviceDeps are the constructor arguments a test may replace. A zero field

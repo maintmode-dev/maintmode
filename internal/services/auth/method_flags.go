@@ -18,14 +18,13 @@ import (
 // switches off under load is not a control.
 //
 // What makes failing closed survivable is that break-glass does not read this
-// table: the password gate skips the stored-credential step and falls through
-// to it, so an outage refuses ordinary sign-ins and leaves the emergency
+// table, so an outage refuses ordinary sign-ins and leaves the emergency
 // entrance open.
 //
 // The reason is LOGGED HERE rather than returned, because here is the only
 // place it is known and the only thing anyone does with it. Callers cannot act
-// on it: the response is uniform by design, and so is the audit record (see
-// loginWithSeed), so an operator correlating "sign-ins started failing at
+// on it: the response is uniform by design, and so is the audit record,
+// so an operator correlating "sign-ins started failing at
 // 14:32" against a change has this line and nothing else.
 func (s *Service) methodOffered(
 	ctx context.Context,

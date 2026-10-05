@@ -47,6 +47,20 @@ func TestCreate(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrValidation)
 	})
 
+	// The address names no person: an account accepted on it would hold the
+	// address break-glass signs in to.
+	t.Run("the break-glass address rejected, in any case", func(t *testing.T) {
+		t.Parallel()
+		svc, _ := initService(t)
+
+		_, err := svc.Create(ctx, &entity.CreateInvitationCmd{
+			Actor: makeAdmin(ctx, t, svc),
+			Email: "Break-Glass@MaintMode.invalid",
+			Roles: []entity.Role{entity.RoleEditor},
+		})
+		require.ErrorIs(t, err, apperr.ErrValidation)
+	})
+
 	t.Run("invalid role rejected", func(t *testing.T) {
 		t.Parallel()
 		svc, _ := initService(t)
