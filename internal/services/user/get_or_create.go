@@ -19,9 +19,10 @@ import (
 
 // GetOrCreateByAuthInfo looks up a user by the provider identity (provider +
 // subject). If no identity exists, the creation decision is: policy.AllowCreate
-// (break-glass, an invitation) > open signup > refuse with
+// (an invitation, dev test roles) > open signup > refuse with
 // apperr.ErrSignupDisabled, leaving zero rows behind. The whole decision runs
-// in one transaction. The first admin of an instance is created by break-glass.
+// in one transaction. The first admin of an instance is created by break-glass,
+// which does not come through here: see EnsureBreakGlassAccount.
 func (s *Service) GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error) {
 	// Frozen telemetry identifier: the span name keeps its old spelling after the
 	// method was renamed, so existing dashboards and saved queries keep matching.
@@ -98,7 +99,7 @@ func (s *Service) getUserByIdentity(ctx context.Context, provider entity.AuthMet
 // branch and decides whether this login may create the user.
 //
 // There is no first-admin branch: an instance with no admins is entered
-// through break-glass, whose policy carries AllowCreate with the admin role.
+// through break-glass, which creates its account in EnsureBreakGlassAccount.
 // Any other login on such an instance is held to the same rules as on one with
 // admins -- an invitation or open signup -- so the first stranger to reach a
 // fresh instance does not become its admin.
