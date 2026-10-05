@@ -48,9 +48,8 @@ func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 
 	cmd := &entity.LoginWithPasswordCmd{
 		// Normalized like every other auth entry point. Without it a trailing
-		// zero-width character survives into the EqualFold against the
-		// configured bootstrap address, diverting that login into the
-		// not-the-break-glass-address branch.
+		// zero-width character survives into the account lookup and the
+		// address misses its account.
 		Email:     xemail.Normalize(body.Email),
 		Password:  body.Password,
 		ClientIP:  c.RealIP(),

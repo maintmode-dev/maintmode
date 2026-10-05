@@ -364,7 +364,7 @@ crypto:
   local_keys:
     "local-kms://local-1": <secret:crypto/kek/local-1>
 
-# Break-glass admin sign-in (POST /api/v1/login/password).
+# Break-glass admin sign-in (POST /api/v1/login/break-glass).
 #
 # The password is a secret and lives in app.secrets.yaml under
 # "bootstrap/password", alongside every other credential — not inline here, and
@@ -380,5 +380,4 @@ crypto:
 # Set a real value on any deployment that needs an emergency entrance: without
 # one there is no way in should the ordinary methods become unusable.
 bootstrap:
-  email: admin@example.com
   password: <secret:bootstrap/password>

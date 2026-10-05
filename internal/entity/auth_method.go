@@ -1,17 +1,16 @@
 package entity
 
-import "slices"
+import "strings"
 
 // AuthMethod names a way a user can authenticate. Today every method is an
 // OAuth provider, but the vocabulary is deliberately wider: later work adds a
 // password and an emailed code, neither of which is a provider.
 //
-// The string values are DATA, not just identifiers. A built-in method's literal
-// is written to user_identities.builtin_method, which a CHECK constrains to a
-// closed set; every other value is matched against integration_settings.name to
-// find the row an identity references. Both reach the wire as the
-// oauth_provider and connected_providers JSON fields. Changing a literal would
-// not fail loudly — it would silently stop matching existing rows.
+// The string values are DATA, not just identifiers: a provider's value is
+// matched against integration_settings.name to find the row an identity
+// references, and reaches the wire as the oauth_provider and
+// connected_providers JSON fields. Changing a literal would not fail loudly —
+// it would silently stop matching existing rows.
 type AuthMethod string
 
 const (
@@ -29,8 +28,8 @@ const (
 	// never accepted from a request — Methods.Parse rejects it — but for the
 	// opposite reason: the stub is refused because it verifies nothing, while
 	// bootstrap is refused because it carries privileges no other method has (an
-	// identity resolved by configured email, and an admin grant that skips the
-	// seats cap). Those are safe only on the endpoint that gates them behind the
+	// account at a reserved address, and an admin grant that skips the seats
+	// cap). Those are safe only on the endpoint that gates them behind the
 	// break-glass secret, so the method is reachable by that endpoint naming it
 	// directly, never by a client naming it in a body.
 	//
@@ -60,43 +59,26 @@ const (
 	AuthMethodUnknown AuthMethod = "unknown"
 )
 
-// BootstrapSubject is the user_identities.subject of the break-glass admin.
+// BreakGlassEmail is the address of the break-glass account.
 //
-// Every other method takes its subject from an upstream provider; bootstrap has
-// no upstream, so the value is a constant. That constancy is what makes a
-// repeat break-glass login resolve to the same user instead of creating a new
-// one, and it is DATA in the same sense as the AuthMethod literals above: it is
-// matched against existing user_identities rows, so changing it would silently
-// orphan the admin identity rather than fail loudly.
-const BootstrapSubject = "bootstrap"
+// The account needs one -- users.email is NOT NULL UNIQUE -- but it must not be
+// a mailbox anyone reads. An emailed code or a password reset sent to a real
+// address would be a way into the instance's emergency admin that outlives a
+// change of the break-glass password. .invalid is reserved (RFC 2606) and never
+// resolves, so the password is the only way in.
+const BreakGlassEmail = "break-glass@" + breakGlassDomain
 
-// builtinAuthMethods are the methods that authenticate without a registry row.
-//
-// This is the only place the set lives. user_identities.builtin_method carries
-// no CHECK enum, matching integration_settings.kind and AuthMethodName: which
-// methods exist is a fact about the code, and a second copy in the schema would
-// be a second place to change.
-//
-// The list is deliberately short -- one entry. Break-glass is the only method
-// that signs people in with no registry row behind it. The dev stub does not
-// qualify: use_stub substitutes it inside Methods.Get while the caller keeps
-// the original provider name, so those identities are written against that
-// provider's row. A password and an emailed code write no identity at all
-// today; break-glass is how a password reaches this table.
-var builtinAuthMethods = []AuthMethod{AuthMethodBootstrap}
+const breakGlassDomain = "maintmode.invalid"
 
-// IsBuiltin reports whether the method signs users in without an
-// integration_settings row behind it.
-//
-// This is the branch the identity write takes: a built-in method is stored by
-// name in builtin_method, everything else is resolved to a registry row id.
-// Resolving a built-in would fail -- there is no row -- and demoting an
-// unresolvable provider to this branch would create an account outside any
-// provider, so the question is asked here rather than inferred from a failed
-// lookup.
-func (m AuthMethod) IsBuiltin() bool {
-	return slices.Contains(builtinAuthMethods, m)
+// IsBreakGlassEmail reports whether an address is in the domain reserved for
+// the break-glass account -- the whole domain, so tests can sign in through
+// break-glass under addresses of their own.
+func IsBreakGlassEmail(email string) bool {
+	return strings.HasSuffix(strings.ToLower(strings.TrimSpace(email)), "@"+breakGlassDomain)
 }
+
+// BreakGlassName is the display name of the break-glass account.
+const BreakGlassName = "Break-glass admin"
 
 // PrimaryAuthMethod returns the user's primary method — the first linked
 // one — or AuthMethodUnknown when the list is empty. Used to populate the

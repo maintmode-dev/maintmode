@@ -12,41 +12,19 @@
 package bootstrapauth
 
 import (
-	"fmt"
-
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// bootstrapUserName is the display name given to the break-glass admin when it
-// is first created. It carries the address so that break-glass accounts read
-// apart in user lists and the audit log rather than all as "Bootstrap Admin".
-// Derived rather than a config key: it has exactly one consumer (users.name on
-// creation) and no second one in sight.
-func bootstrapUserName(email string) string {
-	return fmt.Sprintf("Bootstrap Admin (%s)", email)
-}
-
-// Service verifies the break-glass password and reports the configured admin
+// Service verifies the break-glass password and reports the break-glass
 // identity. The password comes from configuration and is held in memory; an
 // empty one means this instance has no break-glass, and Authenticate then
 // refuses every candidate.
 type Service struct {
-	email    string
 	password string
 }
 
-func NewService(cfg config.BootstrapConfig, password string) *Service {
-	return &Service{
-		email:    cfg.Email,
-		password: password,
-	}
-}
-
-// Email is the address the break-glass admin signs in as. The login path needs
-// it to decide whether an incoming address is even a candidate for this method.
-func (s *Service) Email() string {
-	return s.email
+func NewService(password string) *Service {
+	return &Service{password: password}
 }
 
 func (s *Service) MethodID() entity.AuthMethod {

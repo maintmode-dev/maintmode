@@ -104,18 +104,9 @@ func NewService(
 	}
 }
 
-// methodRef addresses a sign-in method for the store: a built-in method by
-// name, anything else by the id of the registry row that vouches for it.
-//
-// The branch is decided from the method itself, never from a failed lookup. A
-// registry name that resolves to nothing is an error the caller must see -- the
-// alternative, treating it as built-in, would write an identity that no
-// provider stands behind.
+// methodRef addresses a sign-in method for the store by the id of the registry
+// row that vouches for it.
 func (s *Service) methodRef(ctx context.Context, method entity.AuthMethod) (entity.SignInMethodRef, error) {
-	if method.IsBuiltin() {
-		return entity.SignInByBuiltin(method), nil
-	}
-
 	id, err := s.providers.ResolveID(ctx, method)
 	if errors.Is(err, apperr.ErrIntegrationNotFound) {
 		// The method is registered in the auth snapshot but its registry row is

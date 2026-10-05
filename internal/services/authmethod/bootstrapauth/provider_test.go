@@ -12,12 +12,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
-	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/services/authmethod/bootstrapauth"
 )
-
-const testEmail = "admin@example.com"
 
 // observedCtx returns a context whose logger writes into the returned sink, so
 // a test can assert on what did — and did not — reach the log.
@@ -28,10 +25,9 @@ func observedCtx(t *testing.T) (context.Context, *observer.ObservedLogs) {
 	return xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zap.New(core))), logs
 }
 
-// newService builds the break-glass method with the shared test email and the
-// given resolved password.
+// newService builds the break-glass method with the given resolved password.
 func newService(password string) *bootstrapauth.Service {
-	return bootstrapauth.NewService(config.BootstrapConfig{Email: testEmail}, password)
+	return bootstrapauth.NewService(password)
 }
 
 func loggedText(logs *observer.ObservedLogs) string {
@@ -67,11 +63,10 @@ func TestServiceAuthenticate(t *testing.T) {
 
 		claims, err := svc.Authenticate(ctx, password)
 		require.NoError(t, err)
-		require.Equal(t, entity.BootstrapSubject, claims.Subject)
-		require.Equal(t, testEmail, claims.Email)
-		require.Equal(t, "Bootstrap Admin ("+testEmail+")", claims.Name)
-		// The address comes from configuration, so whoever controls the
-		// deployment has asserted it. Left at the zero value it would read as
+		require.Equal(t, "break-glass@maintmode.invalid", claims.Email)
+		require.Equal(t, "Break-glass admin", claims.Name)
+		// The address is fixed by the code, so nothing upstream has to vouch
+		// for it. Left at the zero value it would read as
 		// an upstream reporting the address unverified, and break-glass has no
 		// upstream to report anything.
 		require.True(t, claims.EmailVerified)

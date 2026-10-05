@@ -119,8 +119,8 @@ secret APIs itself.
 ## First login
 
 A fresh installation has no users and no login providers. The way in is the
-break-glass admin: set `bootstrap.email` in `app.config.yaml` and the
-`bootstrap/password` secret, then sign in with that address and password on the
+break-glass admin: set the
+`bootstrap/password` secret, then sign in with that password alone on the
 login page. An empty password turns break-glass off, so set one before the first
 start. Whoever signs in while the instance has no active administrator becomes
 one, whatever the method.

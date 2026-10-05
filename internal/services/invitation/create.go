@@ -44,6 +44,13 @@ func (s *Service) Create(ctx context.Context, cmd *entity.CreateInvitationCmd) (
 		}
 	}
 
+	// The break-glass account's reserved address names no person. An account
+	// accepted on it would hold the address break-glass signs in to, and
+	// break-glass would then fail to create its own.
+	if entity.IsBreakGlassEmail(cmd.Email) {
+		return nil, fmt.Errorf("%w: %s is reserved for the break-glass account", apperr.ErrValidation, entity.BreakGlassEmail)
+	}
+
 	// Reject invitations to an already-registered email. This is a best-effort
 	// pre-check, not a hard guarantee: there is no cross-table constraint tying
 	// user_invitations to users, so a user created between this check and the

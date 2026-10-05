@@ -220,15 +220,20 @@ components:
                     type: array
                     uniqueItems: false
             type: object
+        apiauthmodels.LoginWithBreakGlassRequest:
+            properties:
+                password:
+                    type: string
+            required:
+                - password
+            type: object
         apiauthmodels.LoginWithPasswordRequest:
             properties:
                 email:
                     description: |-
                         Email is REQUIRED and must be a well-formed address of at most 254
-                        characters, even though the bootstrap method ignores it when deciding who
-                        signs in — that identity comes from configuration. It is required because
-                        a failed attempt is attributed to it in the audit trail, and because the
-                        later email_password method identifies by it.
+                        characters: it selects the account, and a failed attempt is attributed to
+                        it in the audit trail.
 
                         Saying so here matters more than usual: every failure of this endpoint
                         answers with the same opaque 401, so a client that omits the field gets
@@ -953,6 +958,38 @@ paths:
             summary: Get licensed seat usage
             tags:
                 - Users
+    /api/v1/login/break-glass:
+        post:
+            description: Issues a backend token pair for the break-glass admin account. The body carries the configured break-glass password and nothing else -- there is no address. Every failure (wrong password, break-glass switched off, blocked account, malformed body) answers with the same 401.
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.LoginWithBreakGlassRequest'
+                description: Break-glass password
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Authentication failed
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+            summary: Sign in with the break-glass password
+            tags:
+                - Auth
     /api/v1/login/oauth/{provider}/callback:
         get:
             description: |-

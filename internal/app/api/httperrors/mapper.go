@@ -65,7 +65,6 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
-		errors.Is(err, apperr.ErrCannotDisconnectBuiltinMethod),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
@@ -241,8 +240,7 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
 
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
-		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
-		errors.Is(err, apperr.ErrCannotDisconnectBuiltinMethod):
+		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
 	// One fixed message for both. The sentinels' own text says whether the

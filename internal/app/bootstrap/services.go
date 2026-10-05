@@ -490,7 +490,7 @@ func initAuthMethods(cfg *config.AppConfig) *authmethod.Methods {
 	// The provider is registered either way, and Authenticate refuses every
 	// candidate when the password is empty, so the attempt stays
 	// indistinguishable from one against a wrong address.
-	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap, cfg.Bootstrap.Password))
+	methods = append(methods, bootstrapauth.NewService(cfg.Bootstrap.Password))
 
 	// The gateways -- the confidential half -- are not available here: they hold
 	// the client secret and are built in main, where it is resolved. So this
