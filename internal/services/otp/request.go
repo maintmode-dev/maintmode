@@ -51,6 +51,16 @@ func (s *Service) Request(ctx context.Context, email string, purpose entity.OTPP
 		return "", fmt.Errorf("generate session nonce: %w", err)
 	}
 
+	// The break-glass account is signed into with its password alone. A code --
+	// for a sign-in or a password reset -- would be a second way in that
+	// outlives a change of that password, so none is issued, answered like an
+	// unknown address. Its reserved address has no mailbox, but a relay that
+	// bounces the message back would still carry the code.
+	if entity.IsBreakGlassEmail(email) {
+		xlog.Warn(ctx, "otp code not issued: break-glass account")
+		return nonce, nil
+	}
+
 	user, err := s.userSrv.GetByEmail(ctx, email)
 	switch {
 	case errors.Is(err, apperr.ErrUserNotFound):
