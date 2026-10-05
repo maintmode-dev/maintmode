@@ -69,12 +69,10 @@ func buildIdentity(ctx context.Context, t *testing.T, providerID uuid.UUID) *ent
 		xuuid.NewString()+"@delete-order-test.com", "Delete Order Test").Scan(&userID)
 	require.NoError(t, err)
 
-	identity := &entity.UserIdentity{
-		UserID:  userID,
-		Subject: xuuid.NewString(),
-		Email:   xuuid.NewString() + "@delete-order-test.com",
+	return &entity.UserIdentity{
+		UserID:        userID,
+		IntegrationID: providerID,
+		Subject:       xuuid.NewString(),
+		Email:         xuuid.NewString() + "@delete-order-test.com",
 	}
-	entity.SignInByIntegration(providerID).Apply(identity)
-
-	return identity
 }

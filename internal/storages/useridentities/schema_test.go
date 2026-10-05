@@ -13,7 +13,7 @@ import (
 )
 
 // TestIntegrationID_IsRequired proves the schema refuses an identity that
-// names no provider. entity.SignInMethodRef cannot express one, so the row is
+// names no provider. entity.UserIdentity cannot express one, so the row is
 // inserted with raw SQL: the constraint protects the table from a writer that
 // does not go through it.
 func TestIntegrationID_IsRequired(t *testing.T) {
@@ -33,15 +33,14 @@ func TestUniqueness_BySubject(t *testing.T) {
 	ctx := context.Background()
 
 	providerID := seedProvider(ctx, t)
-	method := entity.SignInByIntegration(providerID)
 
-	first := identity(seedUser(ctx, t), method)
+	first := identity(seedUser(ctx, t), providerID)
 	_, err := store.Create(ctx, first)
 	require.NoError(t, err)
 
 	// Another user, same provider, same subject: the subject is the
 	// provider's own key for a person, so this is the same person twice.
-	second := identity(seedUser(ctx, t), method)
+	second := identity(seedUser(ctx, t), providerID)
 	second.Subject = first.Subject
 
 	_, err = store.Create(ctx, second)
@@ -56,14 +55,14 @@ func TestUniqueness_ByUserAndMethod(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedUser(ctx, t)
-	method := entity.SignInByIntegration(seedProvider(ctx, t))
+	providerID := seedProvider(ctx, t)
 
-	_, err := store.Create(ctx, identity(userID, method))
+	_, err := store.Create(ctx, identity(userID, providerID))
 	require.NoError(t, err)
 
 	// Same user and provider under a DIFFERENT subject: a second account at
 	// the same provider, which the count-based guard must never see.
-	_, err = store.Create(ctx, identity(userID, method))
+	_, err = store.Create(ctx, identity(userID, providerID))
 	require.ErrorIs(t, err, apperr.ErrProviderAlreadyConnected)
 }
 
@@ -78,7 +77,7 @@ func TestForeignKey_RestrictsProviderDelete(t *testing.T) {
 	ctx := context.Background()
 	providerID := seedProvider(ctx, t)
 
-	_, err := store.Create(ctx, identity(seedUser(ctx, t), entity.SignInByIntegration(providerID)))
+	_, err := store.Create(ctx, identity(seedUser(ctx, t), providerID))
 	require.NoError(t, err)
 
 	_, err = db.ExecContext(ctx, `DELETE FROM integration_settings WHERE id = $1`, providerID)
@@ -115,7 +114,7 @@ func TestListMethods_ReportsRegistryProvidersOnly(t *testing.T) {
 	early := entity.AuthMethod("a-provider-" + suffix)
 	for _, name := range []entity.AuthMethod{late, early} {
 		providerID := seedNamedProvider(ctx, t, string(name))
-		_, err := store.Create(ctx, identity(userID, entity.SignInByIntegration(providerID)))
+		_, err := store.Create(ctx, identity(userID, providerID))
 		require.NoError(t, err)
 	}
 	want := []entity.AuthMethod{early, late}

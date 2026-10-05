@@ -104,9 +104,9 @@ func NewService(
 	}
 }
 
-// methodRef addresses a sign-in method for the store by the id of the registry
-// row that vouches for it.
-func (s *Service) methodRef(ctx context.Context, method entity.AuthMethod) (entity.SignInMethodRef, error) {
+// integrationID resolves a sign-in method to the id of the registry row that
+// vouches for it -- the key identities are stored under.
+func (s *Service) integrationID(ctx context.Context, method entity.AuthMethod) (uuid.UUID, error) {
 	id, err := s.providers.ResolveID(ctx, method)
 	if errors.Is(err, apperr.ErrIntegrationNotFound) {
 		// The method is registered in the auth snapshot but its registry row is
@@ -121,13 +121,13 @@ func (s *Service) methodRef(ctx context.Context, method entity.AuthMethod) (enti
 		// while what they named was a provider the instance was still
 		// advertising. The 404 is addressed to an admin reading about an
 		// integration; the caller here is a user holding a login button.
-		return entity.SignInMethodRef{}, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, method)
+		return uuid.Nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, method)
 	}
 	if err != nil {
-		return entity.SignInMethodRef{}, fmt.Errorf("resolve login provider %q: %w", method, err)
+		return uuid.Nil, fmt.Errorf("resolve login provider %q: %w", method, err)
 	}
 
-	return entity.SignInByIntegration(id), nil
+	return id, nil
 }
 
 // publishAudit publishes an audited action to the durable outbox. A failed

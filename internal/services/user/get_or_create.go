@@ -76,12 +76,12 @@ func (s *Service) GetOrCreateByAuthInfo(ctx context.Context, provider entity.Aut
 // it as-is (no role changes). Used both on the ordinary login lookup and to
 // recover the winner after a concurrent same-subject race.
 func (s *Service) getUserByIdentity(ctx context.Context, provider entity.AuthMethod, subject string) (*entity.User, error) {
-	method, err := s.methodRef(ctx, provider)
+	integrationID, err := s.integrationID(ctx, provider)
 	if err != nil {
 		return nil, err
 	}
 
-	identity, err := s.identitiesStore.GetByMethodSubject(ctx, method, subject)
+	identity, err := s.identitiesStore.GetByMethodSubject(ctx, integrationID, subject)
 	if err != nil {
 		return nil, fmt.Errorf("get identity after race: %w", err)
 	}
@@ -205,25 +205,21 @@ func (s *Service) grantRolesUnguarded(ctx context.Context, userID uuid.UUID, rol
 	return user, nil
 }
 
-// createIdentity writes one identity, resolving the method to whichever column
-// identifies it. Shared by the three write paths so the branch is decided in
-// one place: a caller assembling the struct itself could set neither column and
-// be refused by the CHECK, or set the wrong one and link the account to another
-// provider entirely.
+// createIdentity writes one identity under the registry row of its provider.
 func (s *Service) createIdentity(
 	ctx context.Context, userID uuid.UUID, provider entity.AuthMethod, subject, email string,
 ) error {
-	method, err := s.methodRef(ctx, provider)
+	integrationID, err := s.integrationID(ctx, provider)
 	if err != nil {
 		return err
 	}
 
 	identity := &entity.UserIdentity{
-		UserID:  userID,
-		Subject: subject,
-		Email:   email,
+		UserID:        userID,
+		IntegrationID: integrationID,
+		Subject:       subject,
+		Email:         email,
 	}
-	method.Apply(identity)
 
 	if _, err := s.identitiesStore.Create(ctx, identity); err != nil {
 		return err

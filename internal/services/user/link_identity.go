@@ -22,7 +22,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 	)
 	defer span.End()
 
-	method, err := s.methodRef(ctx, provider)
+	integrationID, err := s.integrationID(ctx, provider)
 	if err != nil {
 		xlog.Error(ctx, "failed to resolve provider", xfield.Error(err))
 
@@ -59,7 +59,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 		}
 
 		// Reject if this provider subject is already linked anywhere.
-		bySubject, err := s.identitiesStore.GetByMethodSubject(ctx, method, claims.Subject)
+		bySubject, err := s.identitiesStore.GetByMethodSubject(ctx, integrationID, claims.Subject)
 		switch {
 		case err == nil && bySubject.UserID == userID:
 			return apperr.ErrProviderAlreadyConnected
@@ -74,7 +74,7 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 		// Reject if this user already has an identity for this provider (under a
 		// different subject). One identity per (user, provider) keeps the
 		// disconnect lockout guard sound.
-		_, err = s.identitiesStore.GetByUserAndMethod(ctx, userID, method)
+		_, err = s.identitiesStore.GetByUserAndMethod(ctx, userID, integrationID)
 		switch {
 		case err == nil:
 			return apperr.ErrProviderAlreadyConnected
@@ -88,11 +88,11 @@ func (s *Service) LinkIdentity(ctx context.Context, userID uuid.UUID, provider e
 		// surfaces ErrProviderAlreadyConnected from the unique index — that's
 		// already the 409 we want, so no special handling is needed here.
 		identity := &entity.UserIdentity{
-			UserID:  userID,
-			Subject: claims.Subject,
-			Email:   claims.Email,
+			UserID:        userID,
+			IntegrationID: integrationID,
+			Subject:       claims.Subject,
+			Email:         claims.Email,
 		}
-		method.Apply(identity)
 
 		if _, err = s.identitiesStore.Create(ctx, identity); err != nil {
 			return fmt.Errorf("create identity: %w", err)

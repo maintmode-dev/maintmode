@@ -96,7 +96,7 @@ func TestGetOrCreateByAuthInfo_CreationPolicy(t *testing.T) {
 		_, err = users.NewStore(db).GetByEmail(ctx, info.Email)
 		require.ErrorIs(t, err, apperr.ErrUserNotFound)
 		_, err = useridentities.NewStore(db).GetByMethodSubject(ctx,
-			entity.SignInByIntegration(loginProviders.ID(entity.AuthMethodGoogle)), info.ID)
+			loginProviders.ID(entity.AuthMethodGoogle), info.ID)
 		require.ErrorIs(t, err, apperr.ErrProviderNotConnected)
 	})
 
