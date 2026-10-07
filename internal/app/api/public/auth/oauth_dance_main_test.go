@@ -249,7 +249,7 @@ func initDanceImplWith(t *testing.T, redirectURI string, gateway auth.DanceGatew
 			FrontendURL:       testFrontendURL,
 			OAuthCallbackPath: cfg.App.OAuthCallbackPath,
 			OAuthCookiePath:   testCookiePath,
-		}, config.DevEnvironment)
+		})
 }
 
 // newDiscoveryStubFor serves a well-known document naming authURL as the
@@ -319,7 +319,7 @@ func initMultiInstanceDance(t *testing.T) *Implementation {
 			FrontendURL:       testFrontendURL,
 			OAuthCallbackPath: cfg.App.OAuthCallbackPath,
 			OAuthCookiePath:   testCookiePath,
-		}, config.DevEnvironment)
+		})
 }
 
 // gatewayOverride serves one provider's confidential half from a test's own

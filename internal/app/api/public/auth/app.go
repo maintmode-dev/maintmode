@@ -40,11 +40,6 @@ type Implementation struct {
 	// otpResponseFloor is the minimum time RequestOTP takes to answer. It closes
 	// a timing oracle rather than throttling anything; see acceptedOTPRequest.
 	otpResponseFloor time.Duration
-	// clientCredentials allows the legacy modes that take a provider credential
-	// from the CLIENT (connect with an id_token). Off in prod: the backend runs
-	// the dance itself, and for an OAuth2 provider a client-supplied token can
-	// belong to any application the victim ever authorized.
-	clientCredentials bool
 }
 
 // defaultOTPResponseFloor is the floor when auth.otp_response_floor is unset.
@@ -86,7 +81,6 @@ func New(
 	authMethods *authmethod.Methods,
 	authSettings AuthSettings,
 	appCfg config.App,
-	env config.Environment,
 ) *Implementation {
 	return &Implementation{
 		authMethods:          authMethods,
@@ -99,7 +93,6 @@ func New(
 		frontendURL:          appCfg.FrontendURL,
 		frontendCallbackPath: appCfg.OAuthCallbackPath,
 		otpResponseFloor:     otpResponseFloorFrom(cfg),
-		clientCredentials:    !env.IsProd(),
 	}
 }
 

@@ -65,7 +65,6 @@ func newAuthHandlers(
 		services.AuthMethods,
 		services.AuthSettings,
 		cfg.App,
-		cfg.Environment,
 	)
 
 	// The reloader owns the login snapshot from here on. Its one source is the

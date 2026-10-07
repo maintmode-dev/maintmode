@@ -246,11 +246,8 @@ func NewServices(ctx context.Context,
 		stores.TxManager,
 		stores.UserInvitations,
 		userSrv,
-		authSrv,
-		authMethods,
 		messageSender,
 		enforcement,
-		invitationClaimer,
 	)
 
 	core, err := newCoreServices(ctx, cfg, stores, queue)

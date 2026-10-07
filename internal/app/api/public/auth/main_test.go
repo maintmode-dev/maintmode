@@ -91,7 +91,7 @@ func initImplWithoutBuiltins(t *testing.T) *Implementation {
 	authSrv := newAuthService(stores, services, noBuiltins{}, services.AuthMethods)
 
 	return New(cfg.Auth, authSrv, services.Token, services.User, services.OTP,
-		services.AuthMethods, authflags.NewAllEnabled(), config.App{}, config.DevEnvironment)
+		services.AuthMethods, authflags.NewAllEnabled(), config.App{})
 }
 
 // noBuiltins answers every built-in method as not offered.
@@ -141,7 +141,7 @@ func newImpl(
 	}
 
 	return New(authCfg, authSrv, services.Token, services.User, services.OTP,
-		methods, settings, config.App{}, config.DevEnvironment)
+		methods, settings, config.App{})
 }
 
 // newAuthService rebuilds the auth service from the real graph, the way

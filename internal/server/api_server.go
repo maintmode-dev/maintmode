@@ -232,8 +232,6 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
-	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation,
-		middlewares.NotAllowedInProd(env))
 	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword)
 }
 
