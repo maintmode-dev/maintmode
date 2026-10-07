@@ -40,6 +40,8 @@ func TestClient_Send_DeliversToSMTPServer(t *testing.T) {
 		Port:      port,
 		From:      "noreply@maintmode.test",
 		TLSPolicy: "none", // plaintext: the mock server speaks no TLS
+		// The mock server listens on loopback.
+		AllowInternalHosts: true,
 	})
 	require.NoError(t, err)
 
@@ -89,6 +91,8 @@ func TestClient_Send_PlainTextIsNotWrapped(t *testing.T) {
 		Port:      port,
 		From:      "noreply@maintmode.test",
 		TLSPolicy: "none",
+		// The mock server listens on loopback.
+		AllowInternalHosts: true,
 	})
 	require.NoError(t, err)
 

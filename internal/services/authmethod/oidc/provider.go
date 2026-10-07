@@ -12,10 +12,12 @@
 // belongs to us rather than to the token's shape.
 //
 // This half never talks to the token endpoint: no client secret, no outbound
-// call beyond discovery and JWKS. gateways/oidc is the confidential-client half
-// and holds the secret. The split is deliberate — verification is offline,
-// exchange is a network call with a credential — and this half is reachable
-// from BOTH sign-in paths, so the audience and issuer checks have one home.
+// call beyond discovery and JWKS, and the JWKS fetch goes through the client
+// discovery hands out, under the same dial guard. gateways/oidc is the
+// confidential-client half and holds the secret. The split is deliberate —
+// verification is offline, exchange is a network call with a credential — and
+// this half is reachable from BOTH sign-in paths, so the audience and issuer
+// checks have one home.
 package oidc
 
 import (
@@ -100,14 +102,24 @@ func (s *Service) resolveVerifier(ctx context.Context) (*gooidc.IDTokenVerifier,
 
 		xlog.Info(ctx, "oidc provider resolved", xfield.String("provider", string(s.name)))
 
+		// Without a client in its context go-oidc fetches keys with
+		// http.DefaultClient, which reaches any address the document names and
+		// follows any redirect. Refusing here, rather than letting the library
+		// fall back, keeps that from happening silently.
+		if provider.KeySetClient == nil {
+			return nil, fmt.Errorf("resolve discovery for %s: no key set client", s.name)
+		}
+
 		// SupportedSigningAlgs is set rather than left to the library's default
 		// so the accepted set is the one this backend decided on, not one that
 		// widens when a dependency updates.
 		//
-		// The key set uses context.Background(): it outlives whichever request
-		// happened to trigger this, and its refreshes must not be canceled when
-		// that request ends.
-		return provider.OIDC.VerifierContext(context.Background(), &gooidc.Config{
+		// The key set context derives from context.Background(): it outlives
+		// whichever request happened to trigger this, and its refreshes must not
+		// be canceled when that request ends.
+		keySetCtx := gooidc.ClientContext(context.Background(), provider.KeySetClient)
+
+		return provider.OIDC.VerifierContext(keySetCtx, &gooidc.Config{
 			ClientID:             s.clientID,
 			SupportedSigningAlgs: []string{gooidc.RS256, gooidc.ES256},
 		}), nil

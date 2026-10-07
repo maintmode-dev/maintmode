@@ -71,7 +71,8 @@ func (s *slackStub) recorded() []postCall {
 }
 
 func (s *slackStub) client() *Client {
-	return New(Params{BotToken: "xoxb-test", APIURL: s.serveURL})
+	// The stub listens on loopback.
+	return New(Params{BotToken: "xoxb-test", APIURL: s.serveURL, AllowInternalHosts: true})
 }
 
 // okResponse is the Slack success envelope. The channel is fixed: nothing reads
@@ -282,7 +283,7 @@ func TestSend_TransportFailureDoesNotDuplicate(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	client := New(Params{BotToken: "xoxb-test", APIURL: srv.URL + "/"})
+	client := New(Params{BotToken: "xoxb-test", APIURL: srv.URL + "/", AllowInternalHosts: true})
 
 	res, err := client.Send(context.Background(), "C123", testMsg,
 		&entity.MessageRef{MessageID: "1503435956.000247"})

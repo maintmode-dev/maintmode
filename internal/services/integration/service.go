@@ -75,6 +75,10 @@ type Service struct {
 	// login providers they carry no catalog; only the managed_by: config
 	// entries matter, and Provision validates, writes and serves them.
 	notifyTransports config.NotifyTransportEntries
+	// allowInternalHosts lifts the probe's dial guard, the same switch the
+	// delivery transports obey: a host the transport may deliver to is one the
+	// probe may test.
+	allowInternalHosts bool
 	// provisioned is the managed_by: config entries of every category after
 	// validation, keyed by category and then by name -- the (kind, name) a row
 	// is addressed by: what a provisioned row is served from, secret included
@@ -96,7 +100,8 @@ type Service struct {
 
 // NewService builds the integration registry service.
 //
-// notifyTransports may be empty: every transport is then managed in the UI.
+// notifyTransport.Transports may be empty: every transport is then managed in
+// the UI.
 // loginProviders may be empty, and that is a valid catalog rather than a missing
 // one: only `custom` can then be created, and every preset-backed name is
 // refused (see presetAndConfig).
@@ -110,7 +115,7 @@ func NewService(
 	auditPublisher AuditPublisher,
 	identities IdentitiesStore,
 	loginProviders config.LoginProviders,
-	notifyTransports config.NotifyTransportEntries,
+	notifyTransport config.NotifyTransportConfig,
 ) *Service {
 	return &Service{
 		txManager:      txManager,
@@ -124,8 +129,9 @@ func NewService(
 		// The managed entries are validated and applied by Provision, not
 		// here: validation needs the registry's rules and the rows need a
 		// transaction.
-		loginProviders:   loginProviders,
-		notifyTransports: notifyTransports,
+		loginProviders:     loginProviders,
+		notifyTransports:   notifyTransport.Transports,
+		allowInternalHosts: notifyTransport.AllowInternalHosts,
 	}
 }
 

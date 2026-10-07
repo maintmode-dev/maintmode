@@ -26,15 +26,24 @@ type Builder func(settings integrationkinds.Settings) (notifytransport.Transport
 // pinned by TestBuilders_AlignWithIntegrationKinds). A
 // kind registered without a builder is a valid non-delivery integration (it
 // just never resolves a transport).
-func Builders() map[entity.NotifyTransport]Builder {
+//
+// allowInternalHosts lifts every transport's dial guard; see
+// config.NotifyTransportConfig.AllowInternalHosts.
+func Builders(allowInternalHosts bool) map[entity.NotifyTransport]Builder {
 	return map[entity.NotifyTransport]Builder{
-		entity.NotifyTransportSlack:    buildSlack,
-		entity.NotifyTransportTelegram: buildTelegram,
-		entity.NotifyTransportEmail:    buildEmail,
+		entity.NotifyTransportSlack: func(s integrationkinds.Settings) (notifytransport.Transport, error) {
+			return buildSlack(s, allowInternalHosts)
+		},
+		entity.NotifyTransportTelegram: func(s integrationkinds.Settings) (notifytransport.Transport, error) {
+			return buildTelegram(s, allowInternalHosts)
+		},
+		entity.NotifyTransportEmail: func(s integrationkinds.Settings) (notifytransport.Transport, error) {
+			return buildEmail(s, allowInternalHosts)
+		},
 	}
 }
 
-func buildSlack(settings integrationkinds.Settings) (notifytransport.Transport, error) {
+func buildSlack(settings integrationkinds.Settings, allowInternalHosts bool) (notifytransport.Transport, error) {
 	s, ok := settings.(integrationkinds.SlackSettings)
 	if !ok {
 		return nil, fmt.Errorf("slack: unexpected settings type %T", settings)
@@ -44,13 +53,14 @@ func buildSlack(settings integrationkinds.Settings) (notifytransport.Transport, 
 		return nil, fmt.Errorf("slack: %w", err)
 	}
 	return slacktransport.New(slacktransport.Params{
-		BotToken: s.BotToken,
-		APIURL:   s.APIURL,
-		Timeout:  timeout,
+		BotToken:           s.BotToken,
+		APIURL:             s.APIURL,
+		Timeout:            timeout,
+		AllowInternalHosts: allowInternalHosts,
 	}), nil
 }
 
-func buildTelegram(settings integrationkinds.Settings) (notifytransport.Transport, error) {
+func buildTelegram(settings integrationkinds.Settings, allowInternalHosts bool) (notifytransport.Transport, error) {
 	s, ok := settings.(integrationkinds.TelegramSettings)
 	if !ok {
 		return nil, fmt.Errorf("telegram: unexpected settings type %T", settings)
@@ -60,13 +70,14 @@ func buildTelegram(settings integrationkinds.Settings) (notifytransport.Transpor
 		return nil, fmt.Errorf("telegram: %w", err)
 	}
 	return telegramtransport.New(telegramtransport.Params{
-		BotToken: s.BotToken,
-		APIURL:   s.APIURL,
-		Timeout:  timeout,
+		BotToken:           s.BotToken,
+		APIURL:             s.APIURL,
+		Timeout:            timeout,
+		AllowInternalHosts: allowInternalHosts,
 	})
 }
 
-func buildEmail(settings integrationkinds.Settings) (notifytransport.Transport, error) {
+func buildEmail(settings integrationkinds.Settings, allowInternalHosts bool) (notifytransport.Transport, error) {
 	s, ok := settings.(integrationkinds.EmailSettings)
 	if !ok {
 		return nil, fmt.Errorf("email: unexpected settings type %T", settings)
@@ -76,13 +87,14 @@ func buildEmail(settings integrationkinds.Settings) (notifytransport.Transport, 
 		return nil, fmt.Errorf("email: %w", err)
 	}
 	return emailtransport.New(emailtransport.Params{
-		Host:      s.Host,
-		Port:      s.Port,
-		Username:  s.Username,
-		Password:  s.Password,
-		From:      s.From,
-		ReplyTo:   s.ReplyTo,
-		TLSPolicy: s.TLSPolicy,
-		Timeout:   timeout,
+		Host:               s.Host,
+		Port:               s.Port,
+		Username:           s.Username,
+		Password:           s.Password,
+		From:               s.From,
+		ReplyTo:            s.ReplyTo,
+		TLSPolicy:          s.TLSPolicy,
+		Timeout:            timeout,
+		AllowInternalHosts: allowInternalHosts,
 	})
 }

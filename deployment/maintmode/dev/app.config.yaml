@@ -259,6 +259,12 @@ notify_transport:
   # Per-transport credentials (Slack/Telegram/SMTP) are entered in the admin
   # UI or declared under transports below.
   use_stub: false
+  # allow_internal_hosts lets the transports (and the SMTP probe) connect to
+  # loopback, private and other internal addresses. Off by default: the
+  # Slack/Telegram api_url and the SMTP host are typed by an admin, and with it
+  # on they reach whatever this process can reach. On here because mailpit
+  # lives on the compose network.
+  allow_internal_hosts: true
   # One section per notify transport (slack, telegram, email), flat: managed_by,
   # enabled and the transport's settings side by side. A transport with no
   # section is managed in the UI.

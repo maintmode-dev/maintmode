@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -104,6 +105,32 @@ func TestClient_Send(t *testing.T) {
 			HTTPTimeout:   0,
 		}).Send(ctx, report)
 		require.ErrorContains(t, err, "401")
+	})
+
+	// The bearer token is attached by a transport hook, which runs on redirect
+	// hops too: following one would send the token to the redirect's host.
+	t.Run("a redirect is not followed", func(t *testing.T) {
+		t.Parallel()
+
+		var targetHits atomic.Int64
+		target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			targetHits.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "active", "seats_purchased": 1})
+		}))
+		defer target.Close()
+
+		origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, target.URL+r.URL.Path, http.StatusTemporaryRedirect)
+		}))
+		defer origin.Close()
+
+		_, err := NewClient(config.LicenseConfig{
+			URL:           origin.URL,
+			InstanceToken: "tok",
+			HTTPTimeout:   time.Second,
+		}).Send(ctx, report)
+		require.ErrorContains(t, err, "307")
+		require.Zero(t, targetHits.Load())
 	})
 
 	t.Run("unknown status is passed through, not an error", func(t *testing.T) {

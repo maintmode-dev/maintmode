@@ -57,6 +57,8 @@ func TestSend_TransportError_NeverLeaksBotToken(t *testing.T) {
 	c, err := New(Params{
 		BotToken: leakTestToken,
 		APIURL:   deadAPIURL(t),
+		// A refused dial, not a guard refusal, is the failure under test.
+		AllowInternalHosts: true,
 	})
 	require.NoError(t, err)
 
