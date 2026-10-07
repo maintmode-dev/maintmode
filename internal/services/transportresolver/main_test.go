@@ -90,10 +90,10 @@ func initResolver(t *testing.T) harness {
 		// config, so every one resolves from its row.
 		nil,
 		nil,
-		nil,
+		config.NotifyTransportConfig{},
 	)
 
-	builders := transportresolver.Builders()
+	builders := transportresolver.Builders(false)
 	builders[entity.NotifyTransport(kind)] = buildResolvable
 	resolver := transportresolver.New(registry, builders)
 	registry.AddOnChange(func(_, name string) { resolver.Invalidate(name) })

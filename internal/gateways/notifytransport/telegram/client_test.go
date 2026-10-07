@@ -1,10 +1,15 @@
 package telegram
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
+	"github.com/ruko1202/xhttp/dialguard"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -56,4 +61,68 @@ func TestParams_HasNoSecretLeakingSerializer(t *testing.T) {
 	require.False(t, isStringer, "Params must not implement fmt.Stringer (would risk logging the token)")
 	_, isMarshaler := p.(json.Marshaler)
 	require.False(t, isMarshaler, "Params must not implement json.Marshaler (would risk serializing the token)")
+}
+
+// countingServer answers every request with handler and counts the requests
+// that reached it.
+func countingServer(t *testing.T, handler http.HandlerFunc) (url string, hits *atomic.Int64) {
+	t.Helper()
+
+	hits = new(atomic.Int64)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		handler(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	return srv.URL, hits
+}
+
+const okSendMessage = `{"ok":true,"result":{"message_id":1,"date":0,"chat":{"id":-100500,"type":"group"}}}`
+
+// api_url is typed by an admin. By default it must not reach an internal
+// address: the server below is live and would answer, so the only thing that
+// can keep the request from arriving is the dial guard.
+func TestNew_RefusesAnInternalAPIURLByDefault(t *testing.T) {
+	t.Parallel()
+
+	url, hits := countingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(okSendMessage))
+	})
+
+	c, err := New(Params{BotToken: leakTestToken, APIURL: url})
+	require.NoError(t, err)
+
+	_, err = c.Send(context.Background(), "-100500", testMsg, nil)
+
+	require.ErrorContains(t, err, dialguard.ErrBlockedAddress.Error())
+	require.NotContains(t, err.Error(), leakTestToken)
+	require.Zero(t, hits.Load())
+}
+
+// The request path carries the bot token, so a redirect would hand it to a
+// host the admin never named.
+//
+// 302, not 307: the SDK streams its body through a pipe, which net/http cannot
+// replay, so a 307 is never followed anyway. A 302 is followed as a bodiless
+// GET -- to a URL still carrying the token.
+func TestNew_DoesNotFollowRedirects(t *testing.T) {
+	t.Parallel()
+
+	target, targetHits := countingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(okSendMessage))
+	})
+	origin, _ := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target+r.URL.Path, http.StatusFound)
+	})
+
+	c, err := New(Params{BotToken: leakTestToken, APIURL: origin, AllowInternalHosts: true})
+	require.NoError(t, err)
+
+	_, err = c.Send(context.Background(), "-100500", testMsg, nil)
+
+	require.Error(t, err)
+	require.Zero(t, targetHits.Load(), "the redirect must not be followed")
 }

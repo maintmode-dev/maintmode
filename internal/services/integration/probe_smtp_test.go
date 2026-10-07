@@ -112,7 +112,7 @@ func TestProbeEmail(t *testing.T) {
 	// wire in the clear -- but a hostile host advertising CRAM-MD5 still walks
 	// away with a challenge/response pair that brute-forces offline. Since the
 	// host is caller-supplied, that is a credential-exposure path, distinct from
-	// the SSRF risk that was accepted deliberately.
+	// the SSRF risk the dial guard covers.
 	t.Run("credentials are refused over an unencrypted channel", func(t *testing.T) {
 		t.Parallel()
 

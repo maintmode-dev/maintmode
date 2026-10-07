@@ -373,6 +373,13 @@ type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.
 	UseStub bool `mapstructure:"use_stub"`
+	// AllowInternalHosts lets the transports connect to loopback, private,
+	// link-local and other internal addresses. Off by default: an admin types
+	// the Slack/Telegram api_url and the SMTP host, so with it on, those fields
+	// reach whatever this process can reach. Turn it on for a relay or a mock
+	// that genuinely lives on the internal network (mailpit in dev, a
+	// corporate SMTP relay on 10.x).
+	AllowInternalHosts bool `mapstructure:"allow_internal_hosts"`
 	// Transports is one flat section per notify transport, keyed by registry
 	// system name (slack, telegram, email). See NotifyTransportEntry.
 	Transports NotifyTransportEntries `mapstructure:"transports"`

@@ -22,6 +22,9 @@ type Params struct {
 	BotToken string
 	APIURL   string
 	Timeout  time.Duration
+	// AllowInternalHosts lifts the dial guard. See
+	// config.NotifyTransportConfig.AllowInternalHosts.
+	AllowInternalHosts bool
 }
 
 type Client struct {
@@ -31,11 +34,21 @@ type Client struct {
 // New constructs the transport. Returns a nil-api client (Send reports
 // it at runtime) when bot_token is empty — keeps startup resilient.
 func New(cfg Params) *Client {
+	// api_url is typed by an admin, so the client must not become a way to
+	// reach this process's neighbors: internal addresses are refused at dial
+	// time, and a redirect cannot carry the request (bot token included)
+	// anywhere the admin did not name.
+	httpOpts := []client.Option{
+		client.WithTimeout(cmp.Or(cfg.Timeout, defaultTimeout)),
+		client.WithSanitizer(xsanitize.New()),
+		client.WithoutRedirect(),
+	}
+	if !cfg.AllowInternalHosts {
+		httpOpts = append(httpOpts, client.WithoutInternalHosts())
+	}
+
 	opts := []slackgo.Option{
-		slackgo.OptionHTTPClient(client.NewClient(
-			client.WithTimeout(cmp.Or(cfg.Timeout, defaultTimeout)),
-			client.WithSanitizer(xsanitize.New()),
-		)),
+		slackgo.OptionHTTPClient(client.NewClient(httpOpts...)),
 	}
 	if cfg.APIURL != "" {
 		opts = append(opts, slackgo.OptionAPIURL(cfg.APIURL))

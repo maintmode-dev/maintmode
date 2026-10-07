@@ -550,7 +550,7 @@ func newIntegrationService(
 		auditPublisher,
 		stores.UserIdentities,
 		cfg.OauthProviders.Providers,
-		cfg.NotifyTransport.Transports,
+		cfg.NotifyTransport,
 	)
 
 	// Write the config file's login providers and notify transports into the
@@ -598,7 +598,7 @@ func initTransportResolver(cfg *config.AppConfig, integrationSrv *integration.Se
 	// kind->builder mapping and the delivery cache. The registry's post-commit
 	// onChange hook drives the resolver's cache invalidation. Dev use_stub swaps
 	// in the stub implementation once here — no per-delivery branch.
-	liveResolver := transportresolver.New(integrationSrv, transportresolver.Builders())
+	liveResolver := transportresolver.New(integrationSrv, transportresolver.Builders(cfg.NotifyTransport.AllowInternalHosts))
 
 	integrationSrv.AddOnChange(invalidateOnChange(liveResolver))
 

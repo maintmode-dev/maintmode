@@ -12,9 +12,13 @@ package emailtransport
 
 import (
 	"cmp"
+	"context"
 	"fmt"
+	"net"
+	"syscall"
 	"time"
 
+	"github.com/ruko1202/xhttp/dialguard"
 	"github.com/wneessen/go-mail"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -38,6 +42,9 @@ type Params struct {
 	ReplyTo   string
 	TLSPolicy string
 	Timeout   time.Duration
+	// AllowInternalHosts lifts the dial guard. See
+	// config.NotifyTransportConfig.AllowInternalHosts.
+	AllowInternalHosts bool
 }
 
 type Client struct {
@@ -59,6 +66,13 @@ func New(cfg Params) (*Client, error) {
 		mail.WithTimeout(cmp.Or(cfg.Timeout, defaultTimeout)),
 		mail.WithTLSPortPolicy(tlsPolicy(cfg.TLSPolicy)),
 	}
+	// The host is typed by an admin, and the probe endpoint dials it on
+	// request, so without a guard the transport is a port scanner for the
+	// internal network. The guard judges the resolved address, which a check
+	// on the configured string cannot: a public name can resolve inward.
+	if !cfg.AllowInternalHosts {
+		opts = append(opts, mail.WithDialContextFunc(guardedDial()))
+	}
 	if cfg.Username != "" {
 		opts = append(opts,
 			mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover),
@@ -73,6 +87,24 @@ func New(cfg Params) (*Client, error) {
 	}
 
 	return &Client{client: c, from: cfg.From, replyTo: cfg.ReplyTo}, nil
+}
+
+// guardedDial is a plain TCP dial that refuses internal addresses after the
+// name is resolved and before the connection is made, on every address the
+// resolver returned.
+//
+// It replaces go-mail's default dialer, which would also wrap the connection
+// in TLS for implicit-TLS ports. That path is never taken here: the TLS policy
+// is always STARTTLS-or-none (WithTLSPortPolicy), never WithSSL.
+func guardedDial() mail.DialContextFunc {
+	guard := dialguard.Blocking(dialguard.InternalPrefixes()...)
+	dialer := &net.Dialer{
+		ControlContext: func(_ context.Context, network, address string, _ syscall.RawConn) error {
+			return guard(network, address)
+		},
+	}
+
+	return dialer.DialContext
 }
 
 func (*Client) TransportID() entity.NotifyTransport {

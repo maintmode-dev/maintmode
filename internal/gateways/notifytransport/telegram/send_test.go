@@ -85,6 +85,8 @@ func (s *tgStub) client(t *testing.T) *Client {
 	c, err := New(Params{
 		BotToken: "123456:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		APIURL:   s.serveURL,
+		// The stub listens on loopback.
+		AllowInternalHosts: true,
 	})
 	require.NoError(t, err)
 

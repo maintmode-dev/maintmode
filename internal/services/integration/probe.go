@@ -117,14 +117,15 @@ func (s *Service) probeEmail(
 	}
 
 	client, err := emailtransport.New(emailtransport.Params{
-		Host:      settings.Host,
-		Port:      settings.Port,
-		Username:  settings.Username,
-		Password:  settings.Password,
-		From:      settings.From,
-		ReplyTo:   settings.ReplyTo,
-		TLSPolicy: settings.TLSPolicy,
-		Timeout:   timeout,
+		Host:               settings.Host,
+		Port:               settings.Port,
+		Username:           settings.Username,
+		Password:           settings.Password,
+		From:               settings.From,
+		ReplyTo:            settings.ReplyTo,
+		TLSPolicy:          settings.TLSPolicy,
+		Timeout:            timeout,
+		AllowInternalHosts: s.allowInternalHosts,
 	})
 	if err != nil {
 		return fmt.Errorf("%w: %w", apperr.ErrValidation, err)

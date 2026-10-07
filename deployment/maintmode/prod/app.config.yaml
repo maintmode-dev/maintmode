@@ -280,6 +280,12 @@ notify_transport:
   # transports below. In prod the stub is never used; every delivery resolves
   # the real transport.
   use_stub: false
+  # allow_internal_hosts lets the transports (and the SMTP probe) connect to
+  # loopback, private and other internal addresses. Leave it off unless a
+  # transport genuinely lives on the internal network (e.g. a corporate SMTP
+  # relay on 10.x): the Slack/Telegram api_url and the SMTP host are typed by
+  # an admin, and with it on they reach whatever this process can reach.
+  allow_internal_hosts: false
   # One section per notify transport (slack, telegram, email), flat: managed_by,
   # enabled and the transport's settings side by side. A transport with no
   # section is managed in the UI.

@@ -12,7 +12,7 @@ import (
 
 func TestBuilders_ConstructWorkingClients(t *testing.T) {
 	t.Parallel()
-	b := transportresolver.Builders()
+	b := transportresolver.Builders(false)
 
 	slackTr, err := b["slack"](integrationkinds.SlackSettings{BotToken: "xoxb-1", APIURL: "https://slack.test"})
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestBuilders_ConstructWorkingClients(t *testing.T) {
 
 func TestBuilders_RejectForeignSettings(t *testing.T) {
 	t.Parallel()
-	b := transportresolver.Builders()
+	b := transportresolver.Builders(false)
 
 	_, err := b["slack"](integrationkinds.TelegramSettings{BotToken: "x"})
 	require.Error(t, err, "a foreign Settings type must be rejected, not panic")
@@ -46,7 +46,7 @@ func TestBuilders_RejectForeignSettings(t *testing.T) {
 func TestBuilders_EmailInvalidConfigErrors(t *testing.T) {
 	t.Parallel()
 	// Missing From makes the underlying email client construction fail (not panic).
-	_, err := transportresolver.Builders()["email"](integrationkinds.EmailSettings{Host: "smtp.test"})
+	_, err := transportresolver.Builders(false)["email"](integrationkinds.EmailSettings{Host: "smtp.test"})
 	require.Error(t, err)
 }
 
@@ -59,7 +59,7 @@ func TestBuilders_EmailInvalidConfigErrors(t *testing.T) {
 // drop (see Service.Get).
 func TestBuilders_AlignWithIntegrationKinds(t *testing.T) {
 	t.Parallel()
-	b := transportresolver.Builders()
+	b := transportresolver.Builders(false)
 
 	deliveryKinds := []integrationkinds.Integration{integrationkinds.Slack, integrationkinds.Telegram, integrationkinds.Email}
 	require.Len(t, b, len(deliveryKinds), "every builder must correspond to a delivery-capable kind")

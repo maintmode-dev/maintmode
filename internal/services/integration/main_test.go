@@ -259,7 +259,9 @@ func newServiceDeclaring(
 		mocks.audit,
 		identities,
 		providersWithCatalog(provisioned),
-		transports,
+		// Internal hosts allowed: the probe tests aim at an SMTP stub on
+		// loopback. The guard itself is the email transport's to test.
+		config.NotifyTransportConfig{Transports: transports, AllowInternalHosts: true},
 	)
 
 	return svc, mocks
