@@ -390,6 +390,12 @@ type ApiauthmodelsChangePasswordRequest struct {
 	RefreshToken    *string `json:"refresh_token,omitempty"`
 }
 
+// ApiauthmodelsCompleteLinkRequest defines model for apiauthmodels.CompleteLinkRequest.
+type ApiauthmodelsCompleteLinkRequest struct {
+	BindingProof *string `json:"binding_proof,omitempty"`
+	LinkCode     *string `json:"link_code,omitempty"`
+}
+
 // ApiauthmodelsConnectProviderDanceResponse defines model for apiauthmodels.ConnectProviderDanceResponse.
 type ApiauthmodelsConnectProviderDanceResponse struct {
 	LinkUrl *string `json:"link_url,omitempty"`
@@ -409,7 +415,8 @@ type ApiauthmodelsExchangeIDTokenRequest struct {
 
 // ApiauthmodelsExchangeOAuthCodeRequest defines model for apiauthmodels.ExchangeOAuthCodeRequest.
 type ApiauthmodelsExchangeOAuthCodeRequest struct {
-	Code *string `json:"code,omitempty"`
+	BindingProof *string `json:"binding_proof,omitempty"`
+	Code         *string `json:"code,omitempty"`
 }
 
 // ApiauthmodelsJWKSResponse defines model for apiauthmodels.JWKSResponse.
@@ -726,6 +733,9 @@ type GetApiV1LoginOauthProviderStartParams struct {
 
 	// Link Link ticket from POST /me/providers/{provider}/connect, to attach this provider to an existing account instead of signing in
 	Link *string `form:"link,omitempty" json:"link,omitempty"`
+
+	// Binding Browser binding: unpadded base64url of SHA-256 over a nonce the caller keeps. The one-time code this dance yields redeems only with that nonce. Missing or malformed redirects to the frontend with error=state_invalid
+	Binding string `form:"binding" json:"binding"`
 }
 
 // PostApiV1LogoutParams defines parameters for PostApiV1Logout.
@@ -805,6 +815,9 @@ type PatchApiV1MeJSONRequestBody = ApiauthmodelsUpdateMeRequest
 
 // PostApiV1MePasswordJSONRequestBody defines body for PostApiV1MePassword for application/json ContentType.
 type PostApiV1MePasswordJSONRequestBody = ApiauthmodelsChangePasswordRequest
+
+// PostApiV1MeProvidersLinkCompleteJSONRequestBody defines body for PostApiV1MeProvidersLinkComplete for application/json ContentType.
+type PostApiV1MeProvidersLinkCompleteJSONRequestBody = ApiauthmodelsCompleteLinkRequest
 
 // PostApiV1MeProvidersProviderConnectJSONRequestBody defines body for PostApiV1MeProvidersProviderConnect for application/json ContentType.
 type PostApiV1MeProvidersProviderConnectJSONRequestBody = ApiauthmodelsConnectProviderRequest
@@ -982,6 +995,11 @@ type ClientInterface interface {
 	PostApiV1MePasswordWithBody(ctx context.Context, params *PostApiV1MePasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1MePassword(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1MeProvidersLinkCompleteWithBody request with any body
+	PostApiV1MeProvidersLinkCompleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1MeProvidersLinkComplete(ctx context.Context, body PostApiV1MeProvidersLinkCompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1MeProvidersProviderConnectWithBody request with any body
 	PostApiV1MeProvidersProviderConnectWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1397,6 +1415,30 @@ func (c *Client) PostApiV1MePasswordWithBody(ctx context.Context, params *PostAp
 
 func (c *Client) PostApiV1MePassword(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1MePasswordRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1MeProvidersLinkCompleteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MeProvidersLinkCompleteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1MeProvidersLinkComplete(ctx context.Context, body PostApiV1MeProvidersLinkCompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1MeProvidersLinkCompleteRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2276,6 +2318,14 @@ func NewGetApiV1LoginOauthProviderStartRequest(server string, provider string, p
 
 		}
 
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "binding", params.Binding, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -2621,6 +2671,46 @@ func NewPostApiV1MePasswordRequestWithBody(server string, params *PostApiV1MePas
 		req.Header.Set("Authorization", headerParam0)
 
 	}
+
+	return req, nil
+}
+
+// NewPostApiV1MeProvidersLinkCompleteRequest calls the generic PostApiV1MeProvidersLinkComplete builder with application/json body
+func NewPostApiV1MeProvidersLinkCompleteRequest(server string, body PostApiV1MeProvidersLinkCompleteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1MeProvidersLinkCompleteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1MeProvidersLinkCompleteRequestWithBody generates requests for PostApiV1MeProvidersLinkComplete with any type of body
+func NewPostApiV1MeProvidersLinkCompleteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/providers/link/complete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3556,6 +3646,11 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1MePasswordWithResponse(ctx context.Context, params *PostApiV1MePasswordParams, body PostApiV1MePasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MePasswordResponse, error)
 
+	// PostApiV1MeProvidersLinkCompleteWithBodyWithResponse request with any body
+	PostApiV1MeProvidersLinkCompleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersLinkCompleteResponse, error)
+
+	PostApiV1MeProvidersLinkCompleteWithResponse(ctx context.Context, body PostApiV1MeProvidersLinkCompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersLinkCompleteResponse, error)
+
 	// PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with any body
 	PostApiV1MeProvidersProviderConnectWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersProviderConnectResponse, error)
 
@@ -4235,6 +4330,38 @@ func (r PostApiV1MePasswordResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1MePasswordResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1MeProvidersLinkCompleteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON409      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1MeProvidersLinkCompleteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1MeProvidersLinkCompleteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1MeProvidersLinkCompleteResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5122,6 +5249,23 @@ func (c *ClientWithResponses) PostApiV1MePasswordWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParsePostApiV1MePasswordResponse(rsp)
+}
+
+// PostApiV1MeProvidersLinkCompleteWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersLinkCompleteResponse
+func (c *ClientWithResponses) PostApiV1MeProvidersLinkCompleteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersLinkCompleteResponse, error) {
+	rsp, err := c.PostApiV1MeProvidersLinkCompleteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MeProvidersLinkCompleteResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1MeProvidersLinkCompleteWithResponse(ctx context.Context, body PostApiV1MeProvidersLinkCompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1MeProvidersLinkCompleteResponse, error) {
+	rsp, err := c.PostApiV1MeProvidersLinkComplete(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1MeProvidersLinkCompleteResponse(rsp)
 }
 
 // PostApiV1MeProvidersProviderConnectWithBodyWithResponse request with arbitrary body returning *PostApiV1MeProvidersProviderConnectResponse
@@ -6128,6 +6272,46 @@ func ParsePostApiV1MePasswordResponse(rsp *http.Response) (*PostApiV1MePasswordR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1MeProvidersLinkCompleteResponse parses an HTTP response from a PostApiV1MeProvidersLinkCompleteWithResponse call
+func ParsePostApiV1MeProvidersLinkCompleteResponse(rsp *http.Response) (*PostApiV1MeProvidersLinkCompleteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1MeProvidersLinkCompleteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 

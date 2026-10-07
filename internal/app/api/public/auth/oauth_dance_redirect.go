@@ -19,10 +19,13 @@ const (
 	// logs (see the request sanitizer): the ticket attaches a sign-in method to
 	// an account, so a log line holding one is a standing grant.
 	paramLink = "link"
-	// paramLinked reports a completed link on the frontend redirect. Named apart
-	// from paramLink on purpose: same origin, and one carries a secret while the
-	// other carries a flag.
-	paramLinked = "linked"
+	// paramLinkCode carries the one-time code of a pending link on the frontend
+	// redirect; the BFF redeems it from the owner's session. Masked in request
+	// logs like the other secrets.
+	paramLinkCode = "link_code"
+	// paramBinding carries the browser binding into /start: the hash of a nonce
+	// the BFF keeps, never the nonce itself.
+	paramBinding = "binding"
 )
 
 // Redirect codes the frontend renders: a closed, stable set that RUK-292 maps

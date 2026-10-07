@@ -74,7 +74,7 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			AnyTimes()
 
 		// No handle, so resolveInvitation returns nil and the policy stays empty.
-		_, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "", meta)
+		_, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", entity.DanceCallback{}, meta)
 
 		require.ErrorIs(t, err, apperr.ErrSignupDisabled,
 			"an uninvited dance must not create an account on an invite-only instance")
@@ -102,12 +102,13 @@ func TestInvitedDanceAllowCreateGate(t *testing.T) {
 			}, nil).
 			AnyTimes()
 
-		outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "a-handle", meta)
+		outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token",
+			entity.DanceCallback{InvitationHandle: "a-handle"}, meta)
 
 		require.NoError(t, err, "a resolved invitation must authorize creation")
 		require.NotNil(t, outcome)
 		assert.NotEmpty(t, outcome.Code)
-		assert.False(t, outcome.Linked, "an invited sign-in is not a link")
+		assert.Empty(t, outcome.LinkCode, "an invited sign-in is not a link")
 		assert.True(t, claimer.claimed, "phase 2 must spend the invitation")
 	})
 }
@@ -142,15 +143,66 @@ func TestInvitedDanceTokenCarriesInvitationRoles(t *testing.T) {
 		}, nil).
 		AnyTimes()
 
-	outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token", "", "a-handle",
+	outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token",
+		entity.DanceCallback{InvitationHandle: "a-handle"},
 		&entity.AuditMetadata{IP: "127.0.0.1"})
 	require.NoError(t, err)
 
-	pair, err := codes.ConsumeCode(ctx, outcome.Code)
+	entry, err := codes.ConsumeCode(ctx, outcome.Code)
 	require.NoError(t, err)
 
-	access, err := svc.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
+	access, err := svc.tokenSrv.VerifyAccessToken(ctx, entry.Pair.AccessToken)
 	require.NoError(t, err)
 	require.Contains(t, access.UserRoles, entity.RoleAdmin,
 		"the access token must carry the invitation's roles")
+}
+
+// The second half of the planted-link attack. Once someone's provider identity
+// is linked to the attacker's account, the invitation later sent to that person
+// resolves -- its email matches the identity's -- while the user the identity
+// signs in as is the ATTACKER, found by subject. Granting the roles there hands
+// the invitee's admin role to the attacker. The address on the account found is
+// what gives it away, so the dance refuses instead of claiming.
+func TestInvitedDanceRefusesAnIdentityLinkedUnderAnotherEmail(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	claimer := &stubClaimer{resolved: &entity.ResolvedInvitation{
+		ID:    uuid.New(),
+		Roles: []entity.Role{entity.RoleAdmin},
+	}}
+	svc, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{
+		inviteOnly:  true,
+		codes:       oauthdance.NewStore(valkey, cfg.Auth.DanceStateTTL()),
+		invitations: claimer,
+	})
+
+	// The victim's provider identity, already attached to the attacker's account.
+	subject := uuid.NewString()
+	attacker, err := svc.usersSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle,
+		&entity.OAuthProviderUserInfo{ID: subject, Email: uuid.NewString() + "@attacker.test", Name: "Attacker"},
+		entity.UserCreationPolicy{AllowCreate: true})
+	require.NoError(t, err)
+
+	mocks.authMethod.EXPECT().
+		Authenticate(gomock.Any(), gomock.Any()).
+		Return(&entity.OAuthIDTokenClaims{
+			Subject:       subject,
+			Email:         uuid.NewString() + "@invitee.test",
+			Name:          "Invitee",
+			EmailVerified: true,
+		}, nil).
+		AnyTimes()
+
+	outcome, err := svc.issueDanceCode(ctx, entity.AuthMethodGoogle, "id-token",
+		entity.DanceCallback{InvitationHandle: "a-handle", Binding: testDanceBinding},
+		&entity.AuditMetadata{IP: "127.0.0.1"})
+
+	require.ErrorIs(t, err, apperr.ErrEmailMismatch)
+	assert.Nil(t, outcome, "no session for the account the identity was planted on")
+	assert.False(t, claimer.claimed, "the invitation must not be spent on someone else's account")
+
+	roles, err := svc.usersSrv.GetRoles(ctx, attacker.ID)
+	require.NoError(t, err)
+	assert.NotContains(t, roles, entity.RoleAdmin)
 }

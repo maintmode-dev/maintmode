@@ -64,6 +64,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrAuthUnavailable),
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
+		errors.Is(err, apperr.ErrLinkCodeInvalid),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
 		errors.Is(err, apperr.ErrReauthenticationRequired),
 		errors.Is(err, apperr.ErrInvitationNotFound),
@@ -243,6 +244,12 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 
 	case errors.Is(err, apperr.ErrReauthenticationRequired):
 		return http.StatusForbidden, NewErrorResponse(ErrReauthenticationRequired, apperr.ErrReauthenticationRequired.Error())
+
+	// A pending link this caller may not complete. A fixed message: the causes
+	// are deliberately one answer. 400 rather than 401, because the caller's
+	// session is fine and a 401 would make the BFF sign them out.
+	case errors.Is(err, apperr.ErrLinkCodeInvalid):
+		return http.StatusBadRequest, NewErrorResponse(ErrLinkInvalid, "the link could not be completed")
 
 	// One fixed message for both. The sentinels' own text says whether the
 	// provider account is linked here or to somebody else, which the dance's

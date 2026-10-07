@@ -33,7 +33,8 @@ func danceContext(t *testing.T, rec *httptest.ResponseRecorder, provider string)
 	t.Helper()
 
 	return echotest.ContextConfig{
-		Request:    httptest.NewRequest(http.MethodGet, "/login/oauth/"+provider+"/start", http.NoBody),
+		Request: httptest.NewRequest(http.MethodGet,
+			"/login/oauth/"+provider+"/start?"+url.Values{paramBinding: {testBinding}}.Encode(), http.NoBody),
 		Response:   rec,
 		PathValues: echo.PathValues{{Name: "provider", Value: provider}},
 	}.ToContext(t)
@@ -84,9 +85,11 @@ func TestStartSetsBothDanceCookies(t *testing.T) {
 	rec := startRequest(t, impl)
 	cookies := danceCookies(t, rec)
 
-	require.Len(t, cookies, 2, "the dance needs the state signature and the verifier, and nothing else")
+	require.Len(t, cookies, 3, "the dance needs the state signature, the verifier and the browser binding, and nothing else")
+	assert.Equal(t, testBinding, cookies[oauthBindingCookie].Value,
+		"the binding cookie carries what the BFF sent, so the callback can put it on the code")
 
-	for _, name := range []string{oauthStateCookie, oauthVerifierCookie} {
+	for _, name := range []string{oauthStateCookie, oauthVerifierCookie, oauthBindingCookie} {
 		cookie, ok := cookies[name]
 		require.True(t, ok, "missing cookie %s", name)
 
@@ -141,7 +144,10 @@ func TestStartCookieCarriesTheSignatureNotTheState(t *testing.T) {
 	_, q := redirectResult(t, callbackRequest(t, impl, url.Values{
 		"code":  {"provider-auth-code"},
 		"state": {state},
-	}, danceRun{state: state, signature: stateCookie.Value, verifier: cookies[oauthVerifierCookie].Value}))
+	}, danceRun{
+		state: state, signature: stateCookie.Value,
+		verifier: cookies[oauthVerifierCookie].Value, binding: cookies[oauthBindingCookie].Value,
+	}))
 
 	assert.NotEmpty(t, q.Get("code"), "the callback must accept the signature /start issued")
 	assert.Empty(t, q.Get("error"))
@@ -194,7 +200,7 @@ func TestStartSecureFlagFollowsTheRedirectScheme(t *testing.T) {
 			impl := initDanceImplForRedirectURI(t, tt.redirectURI)
 
 			cookies := danceCookies(t, startRequest(t, impl))
-			require.Len(t, cookies, 2)
+			require.Len(t, cookies, 3)
 
 			for cookieName, cookie := range cookies {
 				assert.Equal(t, tt.want, cookie.Secure, cookieName)
@@ -294,4 +300,37 @@ func TestStartSendsEachInstanceToItsOwnProvider(t *testing.T) {
 	// the right host with the wrong identity.
 	require.Equal(t, "google-client-id", googleTarget.Query().Get("client_id"))
 	require.Equal(t, "acme-client-id", acmeTarget.Query().Get("client_id"))
+}
+
+// /start without a usable browser binding refuses before the person is sent to
+// the provider: a dance whose code nothing could redeem is a dead end, and one
+// whose code redeems without proof is the login-CSRF the binding closes. It
+// answers with a redirect, because the person is mid-navigation and the
+// provider is already known to be ours.
+func TestStartRefusesADanceWithoutABinding(t *testing.T) {
+	impl := initDanceImpl(t)
+
+	for name, binding := range map[string]string{
+		"absent":         "",
+		"not base64url":  "not a digest!",
+		"wrong length":   "c2hvcnQ",
+		"padded base64":  testBinding + "=",
+		"the raw nonce?": testBindingNonce,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c := echotest.ContextConfig{
+				Request: httptest.NewRequest(http.MethodGet,
+					"/login/oauth/google/start?"+url.Values{paramBinding: {binding}}.Encode(), http.NoBody),
+				Response:   rec,
+				PathValues: echo.PathValues{{Name: "provider", Value: string(entity.AuthMethodGoogle)}},
+			}.ToContext(t)
+			require.NoError(t, impl.StartOAuthDance(c))
+
+			require.Equal(t, http.StatusFound, rec.Code)
+			_, q := redirectResult(t, rec)
+			assert.Equal(t, errCodeStateInvalid, q.Get(paramError))
+			assert.Empty(t, danceCookies(t, rec), "a refused dance plants nothing")
+		})
+	}
 }

@@ -53,6 +53,9 @@ var (
 	// ErrReauthenticationRequired asks the client to sign the person in again
 	// before an operation that needs a recent sign-in.
 	ErrReauthenticationRequired ErrorCode = "reauthentication_required"
+
+	// ErrLinkInvalid answers a pending provider link the caller cannot complete.
+	ErrLinkInvalid ErrorCode = "link_invalid"
 )
 
 type ErrorResponse struct {

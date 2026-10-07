@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -38,7 +39,7 @@ func danceFailureReason(t *testing.T, verifyErr error) entity.AuditFailureReason
 
 	// No link ticket and no invitation handle: this exercises the ordinary
 	// sign-in path's credential-verification failure.
-	_, err := srv.issueDanceCode(t.Context(), entity.AuthMethodGithub, "credential", "", "",
+	_, err := srv.issueDanceCode(t.Context(), entity.AuthMethodGithub, "credential", entity.DanceCallback{},
 		&entity.AuditMetadata{IP: "203.0.113.9"})
 	require.Error(t, err)
 
@@ -130,7 +131,7 @@ func TestStartDanceRefusesOnALinkTicketStoreFailure(t *testing.T) {
 		PeekLinkTicket(gomock.Any(), "some-ticket").
 		Return(nil, errors.New("valkey is unreachable"))
 
-	_, err := srv.StartDance(t.Context(), string(entity.AuthMethodGithub), "", "some-ticket")
+	_, err := srv.StartDance(t.Context(), string(entity.AuthMethodGithub), "", "some-ticket", testDanceBinding)
 
 	require.Error(t, err, "a store failure must refuse, never fall through to sign-in")
 	assert.NotErrorIs(t, err, apperr.ErrLinkTicketUnusable,
@@ -202,8 +203,8 @@ func TestCompleteLinkAuditsByAction(t *testing.T) {
 	// other trace of.
 	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "spent").Return(nil, nil)
 
-	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "spent",
-		&entity.OAuthIDTokenClaims{Subject: "1", Email: "a@example.com"},
+	_, err := srv.parkLink(t.Context(), entity.AuthMethodGithub, "spent",
+		&entity.OAuthIDTokenClaims{Subject: "1", Email: "a@example.com"}, testDanceBinding,
 		&entity.AuditMetadata{IP: "203.0.113.9"})
 	require.ErrorIs(t, err, apperr.ErrLinkTicketUnusable)
 
@@ -274,18 +275,24 @@ func TestCompleteLinkAuditsAConflictAsProviderLinked(t *testing.T) {
 	publisher := newRecordingAuditPublisher()
 	srv.auditPublisher = publisher
 
-	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
+	codes.EXPECT().ConsumeLinkCode(gomock.Any(), "link-code").Return(&entity.PendingLink{
 		UserID:   owner.ID,
 		Provider: entity.AuthMethodGithub,
+		Claims:   *claims,
+		Binding:  testDanceBinding,
 	}, nil)
 
-	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket", claims,
-		&entity.AuditMetadata{IP: "203.0.113.9"})
+	err := srv.CompleteLink(t.Context(), &entity.CompleteLinkCmd{
+		UserID:       owner.ID,
+		LinkCode:     "link-code",
+		BindingProof: testDanceNonce,
+		Meta:         &entity.AuditMetadata{IP: "203.0.113.9"},
+	})
 
 	require.ErrorIs(t, err, apperr.ErrProviderAlreadyConnected)
-	// NOT wrapped in ErrLinkTicketUnusable: a conflict maps to link_conflict, and
-	// rewrapping would send it to state_invalid instead.
-	assert.NotErrorIs(t, err, apperr.ErrLinkTicketUnusable)
+	// NOT folded into ErrLinkCodeInvalid: a conflict maps to 409, which the owner
+	// can act on, and folding it would answer link_invalid instead.
+	assert.NotErrorIs(t, err, apperr.ErrLinkCodeInvalid)
 
 	rows := linkAuditRows(t, publisher.actions())
 	require.Len(t, rows, 1, "a refused link publishes exactly one provider.linked row")
@@ -314,21 +321,12 @@ func TestCompleteLinkAuditsSuccess(t *testing.T) {
 	publisher := newRecordingAuditPublisher()
 	srv.auditPublisher = publisher
 
-	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
-		UserID:   user.ID,
-		Provider: entity.AuthMethodGithub,
-	}, nil)
-
-	outcome, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
-		&entity.OAuthIDTokenClaims{
-			Subject:       xuuid.NewString(),
-			Email:         xuuid.NewString() + "@example.com",
-			EmailVerified: true,
-		},
-		&entity.AuditMetadata{IP: "203.0.113.9"})
-
+	err := completePendingLink(t, srv, codes, user.ID, &entity.OAuthIDTokenClaims{
+		Subject:       xuuid.NewString(),
+		Email:         xuuid.NewString() + "@example.com",
+		EmailVerified: true,
+	})
 	require.NoError(t, err)
-	require.True(t, outcome.Linked)
 
 	rows := linkAuditRows(t, publisher.actions())
 	require.Len(t, rows, 1)
@@ -356,9 +354,9 @@ func TestCompleteLinkRefusesOnARedeemStoreFailure(t *testing.T) {
 		ConsumeLinkTicket(gomock.Any(), "ticket").
 		Return(nil, errors.New("valkey is unreachable"))
 
-	outcome, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
+	outcome, err := srv.parkLink(t.Context(), entity.AuthMethodGithub, "ticket",
 		&entity.OAuthIDTokenClaims{Subject: "1", Email: "a@example.com", EmailVerified: true},
-		&entity.AuditMetadata{IP: "203.0.113.9"})
+		testDanceBinding, &entity.AuditMetadata{IP: "203.0.113.9"})
 
 	require.Error(t, err, "a store failure must refuse, never fall through")
 	assert.Nil(t, outcome, "no outcome may be produced -- least of all a sign-in")
@@ -390,21 +388,41 @@ func TestCompleteLinkRefusesASecondGithubIdentity(t *testing.T) {
 			EmailVerified: true,
 		}))
 
-	codes.EXPECT().ConsumeLinkTicket(gomock.Any(), "ticket").Return(&entity.LinkIntent{
-		UserID:   user.ID,
-		Provider: entity.AuthMethodGithub,
-	}, nil)
-
 	// A different GitHub account entirely -- a new subject, a new address.
-	_, err := srv.completeLink(t.Context(), entity.AuthMethodGithub, "ticket",
-		&entity.OAuthIDTokenClaims{
-			Subject:       xuuid.NewString(),
-			Email:         xuuid.NewString() + "@example.com",
-			EmailVerified: true,
-		},
-		&entity.AuditMetadata{IP: "203.0.113.9"})
+	err := completePendingLink(t, srv, codes, user.ID, &entity.OAuthIDTokenClaims{
+		Subject:       xuuid.NewString(),
+		Email:         xuuid.NewString() + "@example.com",
+		EmailVerified: true,
+	})
 
 	require.ErrorIs(t, err, apperr.ErrProviderAlreadyConnected)
+}
+
+// completePendingLink redeems a github link parked for owner, from owner's own
+// session and with the right binding proof -- the path on which only the link
+// itself can still fail.
+func completePendingLink(
+	t *testing.T,
+	srv *Service,
+	codes *mock_auth.MockDanceCodeStore,
+	owner uuid.UUID,
+	claims *entity.OAuthIDTokenClaims,
+) error {
+	t.Helper()
+
+	codes.EXPECT().ConsumeLinkCode(gomock.Any(), "link-code").Return(&entity.PendingLink{
+		UserID:   owner,
+		Provider: entity.AuthMethodGithub,
+		Claims:   *claims,
+		Binding:  testDanceBinding,
+	}, nil)
+
+	return srv.CompleteLink(t.Context(), &entity.CompleteLinkCmd{
+		UserID:       owner,
+		LinkCode:     "link-code",
+		BindingProof: testDanceNonce,
+		Meta:         &entity.AuditMetadata{IP: "203.0.113.9"},
+	})
 }
 
 // danceableMethods makes one provider danceable without a registry row.

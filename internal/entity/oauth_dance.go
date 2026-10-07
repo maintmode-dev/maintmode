@@ -45,20 +45,51 @@ type DanceStart struct {
 	// secret: it already points at a server-side entry, so the browser learns
 	// nothing from holding it.
 	LinkTicket string
+	// Binding is the browser binding the BFF presented, echoed back for the
+	// oauth_binding cookie. See DanceCode.
+	Binding string
+}
+
+// DanceCode is what a one-time sign-in code redeems: the pair, and the browser
+// binding the dance began with.
+//
+// The binding is the hash of a nonce the BFF holds in the browser that started
+// the dance. Without it a code is a bearer credential anyone can be handed: a
+// member who stops their own dance at the redirect can send the code to a
+// colleague and sign them into the sender's account. With it, only the BFF that
+// holds the nonce can redeem the code.
+type DanceCode struct {
+	Pair    *TokenPair
+	Binding string
+}
+
+// PendingLink is a link the provider has vouched for but the account owner has
+// not yet confirmed. The callback parks it behind a one-time code; it becomes a
+// linked identity only when the owner's own session redeems it.
+//
+// Completing at the callback is what let a ticket be planted: the callback is a
+// browser navigation that proves nothing about who is driving the browser, so a
+// victim sent someone else's link URL attached THEIR provider account to the
+// SENDER's profile.
+type PendingLink struct {
+	UserID   uuid.UUID
+	Provider AuthMethod
+	Claims   OAuthIDTokenClaims
+	Binding  string
 }
 
 // DanceOutcome is what a completed dance produced.
 //
-// Two fields rather than one string because "no code" is ambiguous with a bug:
-// an empty Code could mean a link succeeded or that the sign-in path failed to
-// mint one. The handler chooses between ?code= and ?linked=1, so it needs the
-// intent stated rather than inferred.
+// Exactly one field is set. They are separate because they redeem at different
+// endpoints and the handler sends them under different names (?code= and
+// ?link_code=), so the kind has to be stated rather than inferred.
 type DanceOutcome struct {
 	// Code is the one-time sign-in code, empty on a link.
 	Code string
-	// Linked reports that this dance attached an identity instead of signing a
-	// user in. No token pair was minted; the person already had a session.
-	Linked bool
+	// LinkCode is the one-time code for a pending link, empty on a sign-in. No
+	// token pair was minted; the person already has a session, and that session
+	// is what redeems it.
+	LinkCode string
 }
 
 // DanceCallback is what a browser brings back from the provider.
@@ -87,4 +118,16 @@ type DanceCallback struct {
 	// bounds it is that it is opaque and single-use -- redeeming it is the only
 	// way to learn which invitation it names, and it names one at most once.
 	InvitationHandle string
+	// Binding arrives in the oauth_binding cookie /start planted. It is carried
+	// onto the one-time code, not checked here: only the BFF can prove it.
+	Binding string
+}
+
+// CompleteLinkCmd redeems a pending link from the account owner's session.
+type CompleteLinkCmd struct {
+	// UserID is the session's user, from the access token.
+	UserID       uuid.UUID
+	LinkCode     string
+	BindingProof string
+	Meta         *AuditMetadata
 }

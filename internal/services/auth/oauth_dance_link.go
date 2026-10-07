@@ -25,11 +25,15 @@ import (
 // mints a session and knows nothing about tickets; this one mints nothing and
 // spends a ticket.
 //
-// The split is by reading order, not by boundary: the only two entries from
-// outside are verifyLinkTicket, called by StartDance, and completeLink, called
-// by issueDanceCode -- which CompleteDance reaches, though it is worth naming
-// the actual caller rather than the endpoint. Everything else here is internal
-// to this file, and moving it changed no logic.
+// A link runs in three steps. /start checks the ticket (verifyLinkTicket); the
+// callback spends it and parks what the provider vouched for behind a one-time
+// link code (parkLink); and only the account owner's own session, redeeming that
+// code with the dance's browser binding, attaches the identity (CompleteLink).
+//
+// The third step is the point. The callback is a browser navigation that proves
+// nothing about who is driving the browser: completing there let anyone who
+// minted a ticket send the /start URL to a colleague and have the colleague's
+// provider account attached to the sender's profile.
 
 // verifyLinkTicket checks that a presented ticket exists and was minted for this
 // provider, without spending it.
@@ -76,20 +80,22 @@ func (s *Service) verifyLinkTicket(
 	return nil
 }
 
-// completeLink attaches the authenticated identity to the account the ticket
-// names.
+// parkLink spends the ticket and parks the identity the provider vouched for
+// behind a one-time link code, for the owner's session to redeem.
 //
-// No token pair and no one-time code: the person already has a session, which is
-// how they minted the ticket in the first place.
-func (s *Service) completeLink(
+// No token pair and no sign-in code: the person already has a session, which is
+// how they minted the ticket in the first place, and which is what has to
+// complete the link.
+func (s *Service) parkLink(
 	ctx context.Context,
 	provider entity.AuthMethod,
 	linkTicket string,
 	claims *entity.OAuthIDTokenClaims,
+	binding string,
 	meta *entity.AuditMetadata,
 ) (*entity.DanceOutcome, error) {
-	// GETDEL: the single spend in the whole flow. /start only peeked, so this is
-	// what makes a captured cookie useless the second time.
+	// GETDEL: /start only peeked, so this is what makes a captured cookie
+	// useless the second time.
 	intent, err := s.danceCodes.ConsumeLinkTicket(ctx, linkTicket)
 	if err != nil {
 		// A store failure is NOT a miss. Falling through to sign-in here would
@@ -114,9 +120,9 @@ func (s *Service) completeLink(
 	}
 
 	// A ticket minted for another provider cannot arrive here -- /start refuses
-	// it -- but the check is repeated because this is where the identity is
-	// actually attached, and a guard that only exists upstream is one refactor
-	// away from not existing.
+	// it -- but the check is repeated because this is what decides which
+	// provider the identity is parked under, and a guard that only exists
+	// upstream is one refactor away from not existing.
 	if intent.Provider != provider {
 		xlog.Warn(ctx, "link ticket names another provider",
 			xfield.String("minted_for", string(intent.Provider)))
@@ -125,27 +131,33 @@ func (s *Service) completeLink(
 		return nil, apperr.ErrLinkTicketUnusable
 	}
 
-	if err := s.usersSrv.LinkIdentity(ctx, intent.UserID, provider, claims); err != nil {
-		return nil, s.refuseLink(ctx, intent.UserID, meta, err)
+	code, err := newDanceSecret()
+	if err != nil {
+		return nil, fmt.Errorf("mint one-time link code: %w", err)
 	}
 
-	s.publishLinked(ctx, intent.UserID, meta)
+	if err := s.danceCodes.PutLinkCode(ctx, code, entity.PendingLink{
+		UserID:   intent.UserID,
+		Provider: provider,
+		Claims:   *claims,
+		Binding:  binding,
+	}); err != nil {
+		return nil, fmt.Errorf("store one-time link code: %w", err)
+	}
 
-	return &entity.DanceOutcome{Linked: true}, nil
+	return &entity.DanceOutcome{LinkCode: code}, nil
 }
 
-// refuseLink turns a LinkIdentity failure into the error the redirect maps, and
-// records it.
+// refuseLink turns a LinkIdentity failure into the error CompleteLink answers
+// with, and records it.
 //
-// A gone or blocked user is wrapped in ErrLinkTicketUnusable rather than left
-// as-is: danceFailureCode is a free function over one error and cannot know
-// which branch produced it, so ErrUserBlocked would reach the arm that answers
-// access_denied -- "you may not sign in", which is not what happened. On a link
-// the condition is that this ticket can no longer be used.
+// A gone or blocked user is ErrLinkCodeInvalid rather than left as-is:
+// ErrUserBlocked would map to a 401, which tells the BFF the caller's own
+// session is dead. On a link the condition is that this code can no longer be
+// used.
 //
-// The conflict sentinels pass through untouched: they already map to
-// link_conflict, and rewrapping them would lose the distinction the audit row
-// keeps.
+// The conflict sentinels pass through untouched: they map to 409, and
+// rewrapping them would lose the distinction the audit row keeps.
 func (s *Service) refuseLink(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -156,7 +168,9 @@ func (s *Service) refuseLink(
 		xlog.Warn(ctx, "link refused: the account is gone or blocked", xfield.Error(err))
 		s.publishLinkRefused(ctx, meta)
 
-		return fmt.Errorf("%w: %w", apperr.ErrLinkTicketUnusable, err)
+		// %v, not %w: the cause must not reach the mapper, where ErrUserBlocked
+		// would answer 401 and sign the caller out.
+		return fmt.Errorf("%w: %v", apperr.ErrLinkCodeInvalid, err) //nolint:errorlint // see above
 	}
 
 	xlog.Warn(ctx, "link refused", xfield.Error(err))

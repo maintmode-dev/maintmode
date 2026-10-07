@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ruko1202/xlog"
@@ -21,6 +22,7 @@ func (s *Service) StartDance(
 	providerSegment string,
 	invitationToken string,
 	linkTicket string,
+	binding string,
 ) (*entity.DanceStart, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.StartDance",
 		xfield.String("provider", providerSegment))
@@ -31,6 +33,12 @@ func (s *Service) StartDance(
 	provider, ok := s.authMethods.DanceProvider(providerSegment)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", apperr.ErrUnsupportedProvider, providerSegment)
+	}
+
+	// A dance without a browser binding could never be redeemed, so it is
+	// refused before the person is sent through the provider for nothing.
+	if !validDanceBinding(binding) {
+		return nil, fmt.Errorf("%w: missing or malformed browser binding", apperr.ErrOAuthDanceStateInvalid)
 	}
 
 	// Both at once is refused rather than resolved in favor of one. Link mode
@@ -84,6 +92,7 @@ func (s *Service) StartDance(
 		TTL:              s.danceStateTTL,
 		InvitationHandle: invitationHandle,
 		LinkTicket:       linkTicket,
+		Binding:          binding,
 	}, nil
 }
 
@@ -122,20 +131,31 @@ func (s *Service) mintInvitationHandle(ctx context.Context, invitationToken stri
 	return handle, nil
 }
 
-// RedeemDanceCode trades a one-time opaque code for the pair parked behind it.
-// A nil pair with no error means nothing to redeem — unknown, expired or spent,
-// deliberately indistinguishable. The consume is atomic, so N concurrent
-// redemptions yield one winner.
-func (s *Service) RedeemDanceCode(ctx context.Context, code string) (*entity.TokenPair, error) {
+// RedeemDanceCode trades a one-time opaque code for the pair parked behind it,
+// provided proof is the nonce the dance was bound to. A nil pair with no error
+// means nothing to redeem -- unknown, expired, spent or bound to another
+// browser, deliberately indistinguishable. The consume is atomic, so N
+// concurrent redemptions yield one winner, and a wrong proof spends the code
+// like a right one: a code gets one guess.
+func (s *Service) RedeemDanceCode(ctx context.Context, code, proof string) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.RedeemDanceCode")
 	defer span.End()
 
-	pair, err := s.danceCodes.ConsumeCode(ctx, code)
+	entry, err := s.danceCodes.ConsumeCode(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("consume one-time dance code: %w", err)
 	}
+	if entry == nil {
+		return nil, nil //nolint:nilnil // nothing to redeem; see the doc comment
+	}
 
-	return pair, nil
+	if !danceBindingProven(entry.Binding, proof) {
+		xlog.Warn(ctx, "one-time dance code presented without its browser binding")
+
+		return nil, nil //nolint:nilnil // a code bound elsewhere redeems nothing; see the doc comment
+	}
+
+	return entry.Pair, nil
 }
 
 // oauthErrorAccessDenied is the RFC 6749 §4.1.2.1 error code a provider
@@ -207,7 +227,7 @@ func (s *Service) CompleteDance(
 		return nil, fmt.Errorf("%w: %w", apperr.ErrOAuthExchangeFailed, err)
 	}
 
-	return s.issueDanceCode(ctx, provider, credential, callback.LinkTicket, callback.InvitationHandle, meta)
+	return s.issueDanceCode(ctx, provider, credential, callback, meta)
 }
 
 // isOurDance reports whether a callback carries a state this backend signed,
@@ -282,6 +302,13 @@ func (s *Service) verifyDanceOrigin(
 		return "", s.refuseDance(ctx, meta, "no authorization code", apperr.ErrOAuthDanceStateInvalid)
 	}
 
+	// /start refuses a dance without one, so an absent binding here is a cookie
+	// lost in transit or a hand-built request. Either way the code it would get
+	// could not be redeemed, so the provider is not asked for it.
+	if callback.Binding == "" {
+		return "", s.refuseDance(ctx, meta, "no browser binding", apperr.ErrOAuthDanceStateInvalid)
+	}
+
 	return provider, nil
 }
 
@@ -318,8 +345,7 @@ func (s *Service) issueDanceCode(
 	ctx context.Context,
 	provider entity.AuthMethod,
 	credential string,
-	linkTicket string,
-	invitationHandle string,
+	callback entity.DanceCallback,
 	meta *entity.AuditMetadata,
 ) (*entity.DanceOutcome, error) {
 	// The SAME verifier the BFF path uses: a second one would be a second place
@@ -347,14 +373,14 @@ func (s *Service) issueDanceCode(
 	// yields. Once a browser has presented one, the person asked to link, and no
 	// redeem result may turn that back into a sign-in -- a spent or unknown
 	// ticket is a refusal, not an absent one.
-	if linkTicket != "" {
-		return s.completeLink(ctx, provider, linkTicket, claims, meta)
+	if callback.LinkTicket != "" {
+		return s.parkLink(ctx, provider, callback.LinkTicket, claims, callback.Binding, meta)
 	}
 
 	// PHASE 0, before anything is written: resolve the invitation and enforce
 	// the email match. A refusal here means no account is created and no session
 	// issued, which is the whole reason it precedes sign-in.
-	invitation, err := s.resolveInvitation(ctx, invitationHandle, claims, meta)
+	invitation, err := s.resolveInvitation(ctx, callback.InvitationHandle, claims, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -382,6 +408,18 @@ func (s *Service) issueDanceCode(
 	// spent, but the account then exists with its roles and an ordinary sign-in
 	// reaches it.
 	if invitation != nil {
+		// The invitation was matched against the identity's email, but the user
+		// was found by the identity's SUBJECT. They differ when this identity is
+		// linked to an account under another address -- and that link may have
+		// been planted -- so the invitation's roles would land on an account the
+		// invitee never was. Refused rather than granted.
+		if !strings.EqualFold(user.Email, claims.Email) {
+			xlog.Warn(ctx, "invited identity is linked to an account under another email")
+			s.publishLoginFailure(ctx, user, meta, entity.AuditFailureInvitationRefused)
+
+			return nil, fmt.Errorf("claim invitation: %w", apperr.ErrEmailMismatch)
+		}
+
 		claimed, claimErr := s.invitations.ClaimForUser(ctx, invitation, user.ID)
 		if claimErr != nil {
 			s.publishLoginFailure(ctx, user, meta, entity.AuditFailureUserProvisioning)
@@ -405,7 +443,7 @@ func (s *Service) issueDanceCode(
 	// Minting and storing stay in one function: the code is worthless without
 	// the entry and the entry unreachable without the code, so a caller able to
 	// do one without the other could only get it wrong.
-	if err := s.danceCodes.PutCode(ctx, code, pair); err != nil {
+	if err := s.danceCodes.PutCode(ctx, code, entity.DanceCode{Pair: pair, Binding: callback.Binding}); err != nil {
 		return nil, fmt.Errorf("store one-time dance code: %w", err)
 	}
 
