@@ -150,6 +150,11 @@ var (
 	ErrLastAdmin  = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
 	ErrSelfBlock  = fmt.Errorf("%w: cannot block yourself", ErrValidation)
 	ErrSelfRevoke = fmt.Errorf("%w: cannot revoke a role from yourself", ErrValidation)
+	// ErrSelfUnblock and ErrSelfAssign close the other half of the same rule: an
+	// actor never changes their own access, so a blocked or demoted admin whose
+	// token is still in flight cannot undo what another admin just did to them.
+	ErrSelfUnblock = fmt.Errorf("%w: cannot unblock yourself", ErrValidation)
+	ErrSelfAssign  = fmt.Errorf("%w: cannot assign a role to yourself", ErrValidation)
 	// ErrInvalidTimezone is returned when a timezone preference is not a valid
 	// IANA identifier (checked via time.LoadLocation). Wraps ErrValidation → 400.
 	ErrInvalidTimezone = fmt.Errorf("%w: invalid timezone", ErrValidation)

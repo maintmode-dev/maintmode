@@ -175,10 +175,17 @@ func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFun
 	return middlewares.RequireScenario(s.security.Authorizer, scenario)
 }
 
-func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{
-		middlewares.RequireActiveToken(s.security.TokenChecker),
-		s.scenarioMW(scenario),
+// requireActiveUser authenticates the request and, for every non-safe method,
+// re-checks the token against server-side state (see RequireActiveToken). It is
+// one middleware rather than two so that a group cannot be given the first half
+// without the second: RBAC on a write must see the user's stored roles, never
+// the ones a revoked or blocked user's token still carries.
+func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
+	authenticate := middlewares.RequireAccessToken(s.security.TokenVerifier)
+	ensureActive := middlewares.RequireActiveToken(s.security.TokenChecker)
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return authenticate(ensureActive(next))
 	}
 }
 
@@ -338,7 +345,7 @@ func (s *APIServer) providersRoute(gr *echo.Group, meta *buildmeta.AppBuildMeta)
 // so a member of a blocked org still sees their data but cannot change it. On
 // self-hosted the provider is license.Noop, whose nil license passes everything.
 func (s *APIServer) apiV1Group(gr *echo.Group) {
-	requireToken := middlewares.RequireAccessToken(s.security.TokenVerifier)
+	requireToken := s.requireActiveUser()
 	gr = gr.Group("", middlewares.RequireLicenseNotSuspended(s.security.License))
 
 	// maint API group
@@ -349,19 +356,19 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		maintAPI.Add(http.MethodPost, "/:id/edit", s.handlers.Maint.UpdateDraftMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceEdit))
 		maintAPI.Add(http.MethodPost, "/:id/start", s.handlers.Maint.StartMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStart)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStart))
 		maintAPI.Add(http.MethodPost, "/:id/cancel", s.handlers.Maint.CancelMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceCancel)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceCancel))
 		maintAPI.Add(http.MethodPost, "/:id/complete", s.handlers.Maint.CompleteMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceComplete)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceComplete))
 		maintAPI.Add(http.MethodPost, "/:id/approve", s.handlers.Maint.ApproveMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceApprove)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceApprove))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/start", s.handlers.Maint.StartStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepStart)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepStart))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/complete", s.handlers.Maint.CompleteStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepComplete)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepComplete))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/cancel", s.handlers.Maint.CancelStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepCancel)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepCancel))
 		maintAPI.Add(http.MethodGet, "/:id", s.handlers.Maint.GetMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		maintAPI.Add(http.MethodGet, "/cancel-reasons", s.handlers.Maint.CancelMaintReasons,
@@ -492,11 +499,16 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 // That grouping is a readability convention, not a correctness guard — see the
 // note at the /users/:id registration for what the router actually does.
 func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
-	withAuthorize := gr.Group("",
+	// Logout alone skips the active-token check: it only takes access away, and
+	// refusing it for an already revoked token or a blocked user would leave the
+	// caller unable to finish clearing its own session.
+	session := gr.Group("",
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
 	)
+	session.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
 
-	withAuthorize.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
+	withAuthorize := gr.Group("", s.requireActiveUser())
+
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.handlers.Auth.LogoutAll)
 	withAuthorize.Add(http.MethodGet, "/me", s.handlers.Auth.Me)
 	withAuthorize.Add(http.MethodPost, "/me/password", s.handlers.Auth.ChangePassword)

@@ -199,8 +199,8 @@ func TestNotifyChannelsAPI_Archive_Forbidden(t *testing.T) {
 func TestNotifyChannelsAPI_Create_RecordsAuthor(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 
-	authorID := xuuid.NewString()
-	apiClient := setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(authorID, entity.RoleAdmin))
+	apiClient, author := provisionUser(ctx, t, entity.RoleAdmin)
+	authorID := author.String()
 
 	resp, err := apiClient.PostApiV1NotificationsChannelsWithResponse(ctx,
 		maintmodeclient.PostApiV1NotificationsChannelsJSONRequestBody{
@@ -265,8 +265,8 @@ func TestNotifyChannelsAPI_Get_NotFound(t *testing.T) {
 func TestNotifyChannelsAPI_Update_HappyPath(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 
-	editorID := xuuid.NewString()
-	apiClient := setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(editorID, entity.RoleAdmin))
+	apiClient, editor := provisionUser(ctx, t, entity.RoleAdmin)
+	editorID := editor.String()
 
 	channelID, _ := createChannel(ctx, t, apiClient)
 

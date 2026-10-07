@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,9 +88,9 @@ func TestMain(m *testing.M) {
 	// The suite mints synthetic JWTs locally and never completes a real login,
 	// so without this the users table is empty and every maintenance-create
 	// helper fails at resolveEligibleApprover ("no eligible approver in auth").
-	if err := seedEligibleApprover(ctx); err != nil {
-		xlog.Panic(ctx, "Failed to seed eligible approver", xfield.Error(err))
-	}
+	// The shared admin doubles as that approver: it is a persisted admin, so the
+	// assignable-users picker lists it.
+	roleUserSubject([]entity.Role{entity.RoleAdmin})
 
 	code := m.Run()
 	os.Exit(code)
@@ -164,46 +166,6 @@ func seedIntegrationRequest(ctx context.Context, method, path, body string) (sta
 	}
 
 	return resp.StatusCode, string(raw), nil
-}
-
-// seededUserID is the id of the persisted admin user provisioned in TestMain.
-// The default test clients act as this user so that introspected critical
-// mutations (start/approve/complete/steps) pass the auth service's
-// isSubjectActive check, which requires the token subject to be a real,
-// non-blocked user. Tests that must act as a different identity (e.g. the
-// assigned approver) still mint a token via mustTestAccessTokenForUser.
-var seededUserID string
-
-// seedEligibleApprover provisions a persisted, active admin user by driving the
-// public OAuth token-exchange endpoint and records its id in seededUserID. In
-// the dev/test environment the auth service routes every provider to the stub
-// verifier (use_stub: true), which accepts any non-sentinel id_token and mints
-// a fresh synthetic identity. The X-Test-Roles header (dev-only) makes the
-// backend create that user and grant it admin, so it shows up in the
-// assignable-users picker that resolveEligibleApprover reads and is a valid
-// token subject for introspect.
-func seedEligibleApprover(ctx context.Context) error {
-	authc := newAuthTestClient("")
-
-	resp, err := authc.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
-		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
-			IdToken: lo.ToPtr("api-test-seed-approver"),
-		},
-		testRolesEditor(entity.RoleAdmin),
-	)
-	if err != nil {
-		return fmt.Errorf("exchange id token: %w", err)
-	}
-	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-		return fmt.Errorf("seed approver exchange returned %d: %s", resp.StatusCode(), resp.Body)
-	}
-
-	subject, err := subjectFromAccessToken(lo.FromPtr(resp.JSON200.AccessToken))
-	if err != nil {
-		return fmt.Errorf("extract seeded user id: %w", err)
-	}
-	seededUserID = subject
-	return nil
 }
 
 // subjectFromAccessToken parses the (already-trusted, just-minted) access token
@@ -358,17 +320,62 @@ func newAuthTestClient(token string) *authclient.ClientWithResponses {
 	return c
 }
 
-// mustTestAccessToken mints a token for the seeded, persisted admin user. Using
-// the seeded subject (rather than a fresh random uuid) lets introspected
-// critical mutations pass the auth isSubjectActive check. seededUserID is set in
-// TestMain before any test runs; fall back to a random subject only if seeding
-// was skipped, so read-only suites still work.
+// mustTestAccessToken mints a token for a persisted, active user whose STORED
+// roles are the requested ones. Writes are authorized on the roles in the user
+// store, not on the token's claims (see middlewares.RequireActiveToken), so a
+// token claiming roles its subject does not hold would test nothing: a "guest"
+// token for the seeded admin would be authorized as an admin on every write.
+//
+// One user per role set, provisioned on first use and shared for the rest of
+// the process.
 func mustTestAccessToken(roles ...entity.Role) string {
-	subject := seededUserID
-	if subject == "" {
-		subject = xuuid.NewString()
+	if len(roles) == 0 {
+		roles = []entity.Role{entity.RoleAdmin}
 	}
-	return mustTestAccessTokenForUser(subject, roles...)
+	return mustTestAccessTokenForUser(roleUserSubject(roles), roles...)
+}
+
+var roleUsers = struct {
+	sync.Mutex
+	byRoles map[string]string
+}{byRoles: map[string]string{}}
+
+// roleUserSubject returns the id of the shared test user holding exactly the
+// given roles (plus the default guest role every account carries).
+func roleUserSubject(roles []entity.Role) string {
+	names := make([]string, 0, len(roles))
+	for _, role := range roles {
+		names = append(names, string(role))
+	}
+	slices.Sort(names)
+	key := strings.Join(names, ",")
+
+	roleUsers.Lock()
+	defer roleUsers.Unlock()
+	if subject, ok := roleUsers.byRoles[key]; ok {
+		return subject
+	}
+
+	ctx := context.Background()
+	resp, err := newAuthTestClient("").PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
+		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
+			IdToken: lo.ToPtr("api-test-roles-" + xuuid.NewString()),
+		},
+		testRolesEditor(roles...),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("provision %q test user: %v", key, err))
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		panic(fmt.Sprintf("provision %q test user returned %d: %s", key, resp.StatusCode(), resp.Body))
+	}
+	subject, err := subjectFromAccessToken(lo.FromPtr(resp.JSON200.AccessToken))
+	if err != nil {
+		panic(fmt.Sprintf("extract %q test user id: %v", key, err))
+	}
+
+	roleUsers.byRoles[key] = subject
+	return subject
 }
 
 // mustTestAccessTokenForUser mints a signed access token for a specific subject
