@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -61,6 +62,47 @@ func TestProbeEmail(t *testing.T) {
 		})
 		require.ErrorIs(t, err, apperr.ErrIntegrationProbeFailed)
 		require.ErrorContains(t, err, "connect")
+	})
+
+	// Whatever listens at the caller's host and port answers first, and it need
+	// not be an SMTP server. Its greeting must not come back in the error: that
+	// is how the probe read service banners off internal ports.
+	t.Run("a non-SMTP greeting is not reflected", func(t *testing.T) {
+		t.Parallel()
+
+		srv, kinds, _ := initService(t)
+		host, port := newGreetingServer(t, "* OK [CAPABILITY IMAP4rev1] mail-07.corp.internal ready")
+
+		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
+			Name:    kinds.email,
+			Config:  emailConfig(t, host, port, nil),
+			Secrets: map[string]string{},
+			To:      "admin@example.com",
+			Actor:   testActor(),
+		})
+		require.ErrorIs(t, err, apperr.ErrIntegrationProbeFailed)
+		require.NotContains(t, err.Error(), "IMAP4rev1")
+		require.NotContains(t, err.Error(), "mail-07.corp.internal")
+	})
+
+	// An SMTP refusal is reduced to its code: enough for an admin to look the
+	// failure up, without repeating the server's free text.
+	t.Run("an SMTP refusal is reported by its code only", func(t *testing.T) {
+		t.Parallel()
+
+		srv, kinds, _ := initService(t)
+		host, port := newGreetingServer(t, "554 5.3.2 relay-04.corp.internal is not accepting mail")
+
+		err := srv.Probe(ctx, &entity.ProbeIntegrationCmd{
+			Name:    kinds.email,
+			Config:  emailConfig(t, host, port, nil),
+			Secrets: map[string]string{},
+			To:      "admin@example.com",
+			Actor:   testActor(),
+		})
+		require.ErrorIs(t, err, apperr.ErrIntegrationProbeFailed)
+		require.ErrorContains(t, err, "554")
+		require.NotContains(t, err.Error(), "relay-04.corp.internal")
 	})
 
 	t.Run("settings the kind rejects never reach the transport", func(t *testing.T) {
@@ -249,6 +291,34 @@ func newMockSMTPServer(t *testing.T, c chan<- capturedEnvelope) (host string, po
 		}
 		defer conn.Close()
 		_ = handleSMTP(conn, c)
+	}()
+
+	var portStr string
+	host, portStr, err = net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, err)
+	port, err = strconv.Atoi(portStr)
+	require.NoError(t, err)
+
+	return host, port
+}
+
+// newGreetingServer answers one connection with greeting and then waits for
+// the client to hang up.
+func newGreetingServer(t *testing.T, greeting string) (host string, port int) {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ln.Close() })
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return // listener closed by cleanup
+		}
+		defer conn.Close()
+		_, _ = conn.Write([]byte(greeting + "\r\n"))
+		_, _ = io.Copy(io.Discard, conn)
 	}()
 
 	var portStr string
