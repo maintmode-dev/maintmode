@@ -33,6 +33,13 @@ func TestSanitizeURLMasksBotToken(t *testing.T) {
 		{
 			// Only the first segment is the credential; a "bot"-prefixed
 			// segment further down is a route, not a token.
+			// An api_url with a path of its own moves the token out of the first
+			// segment; it must be found by its shape wherever it is.
+			name: "token behind a proxy path is masked",
+			in:   "https://proxy.corp/telegram/bot" + botToken + "/sendMessage",
+			want: "https://proxy.corp/telegram/bot[REDACTED]/sendMessage",
+		},
+		{
 			name: "later bot-prefixed segments are left alone",
 			in:   "https://api.telegram.org/bot" + botToken + "/botinfo",
 			want: "https://api.telegram.org/bot[REDACTED]/botinfo",
