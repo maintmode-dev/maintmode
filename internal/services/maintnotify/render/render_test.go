@@ -357,3 +357,37 @@ func TestRenderCancelledWithOwnerAndReason(t *testing.T) {
 			"Details: https://maintmode.test/maintenance/11111111-2222-3333-4444-555555555555",
 		msg.Body)
 }
+
+// An editor's free text must not become Slack markup in a message the bot
+// posts: "<!channel>" would ping everyone, and "<https://evil|Open>" would show
+// a link whose target the reader cannot see. Other transports get the text as
+// typed -- they do not parse it, and escaping would show them "&lt;".
+func TestRenderEscapesSlackMarkupInFreeText(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	svc, err := New()
+	require.NoError(t, err)
+
+	evt := testEvent(entity.NotifyEventMaintCancelled)
+	evt.MaintTitle = "<!channel> <https://evil.test|Open>"
+	evt.CancelReason = entity.MaintenanceCancelReasonIncident
+	evt.CancelReasonComment = "<!here>"
+
+	slackMsg, err := svc.Render(ctx, entity.NotifyTransportSlack, evt)
+	require.NoError(t, err)
+	assert.NotContains(t, slackMsg.Body, "<!channel>")
+	assert.NotContains(t, slackMsg.Body, "<https://evil.test")
+	assert.NotContains(t, slackMsg.Body, "<!here>")
+	assert.Contains(t, slackMsg.Body, "&lt;!channel&gt; &lt;https://evil.test|Open&gt;")
+
+	tgMsg, err := svc.Render(ctx, entity.NotifyTransportTelegram, evt)
+	require.NoError(t, err)
+	assert.Contains(t, tgMsg.Body, "<!channel> <https://evil.test|Open>")
+
+	step := testEvent(entity.NotifyEventStepStarted)
+	step.StepDescription = "restart <!everyone>"
+	stepMsg, err := svc.Render(ctx, entity.NotifyTransportSlack, step)
+	require.NoError(t, err)
+	assert.NotContains(t, stepMsg.Body, "<!everyone>")
+}
