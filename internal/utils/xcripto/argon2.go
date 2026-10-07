@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -57,6 +58,27 @@ var (
 	ErrPasswordPolicy = errors.New("password does not meet the length policy")
 )
 
+// argon2Slots bounds how many argon2id derivations run at once, process-wide.
+// Each one allocates its whole arena (64 MiB at the current parameters) up
+// front, and the sign-in endpoint lets an anonymous caller start one per
+// request: without a bound, a burst of parallel attempts is a burst of 64 MiB
+// allocations, and a small host is out of memory well before the per-IP rate
+// limiter has said no. With it, memory is capped at slots x arena and the
+// excess waits its turn instead.
+//
+// One slot per usable CPU: the derivation is CPU-bound, so more slots than
+// cores would add memory without adding throughput.
+var argon2Slots = make(chan struct{}, max(1, runtime.GOMAXPROCS(0)))
+
+// deriveKey is the only caller of argon2.IDKey, so every derivation -- hashing a
+// new password, verifying one, burning the decoy -- passes through the bound.
+func deriveKey(password string, salt []byte, iterations, memory uint32, parallelism uint8) []byte {
+	argon2Slots <- struct{}{}
+	defer func() { <-argon2Slots }()
+
+	return argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, argon2KeyBytes)
+}
+
 // phcPrefix is what a password hash must start with. The column also holds
 // sha256 hex digests for one-time codes, so the algorithm has to be readable
 // out of the value itself rather than inferred from which query found it.
@@ -95,7 +117,7 @@ func HashPassword(password string) (string, error) {
 		return "", fmt.Errorf("generate password salt: %w", err)
 	}
 
-	key := argon2.IDKey([]byte(password), salt, argon2Iterations, argon2Memory, argon2Parallelism, argon2KeyBytes)
+	key := deriveKey(password, salt, argon2Iterations, argon2Memory, argon2Parallelism)
 
 	return fmt.Sprintf(
 		"%sv=%d$m=%d,t=%d,p=%d$%s$%s",
@@ -115,13 +137,22 @@ func HashPassword(password string) (string, error) {
 // a well-formed argon2id string. Parsing is strict on purpose: falling back to
 // the current constants on a malformed field would silently check a password
 // against the wrong work factor.
+//
+// A password longer than the policy allows is a mismatch without a derivation:
+// no stored password can be that long, so spending an argon2 slot on it would
+// only serve whoever sent it. Skipping the work leaks nothing, because the
+// length is the caller's own input and not a property of the account.
 func VerifyPassword(stored, password string) (bool, error) {
 	rec, err := parsePHC(stored)
 	if err != nil {
 		return false, err
 	}
 
-	got := argon2.IDKey([]byte(password), rec.salt, rec.iterations, rec.memory, rec.parallelism, argon2KeyBytes)
+	if len(password) > maxPasswordLen {
+		return false, nil
+	}
+
+	got := deriveKey(password, rec.salt, rec.iterations, rec.memory, rec.parallelism)
 
 	return subtle.ConstantTimeCompare(got, rec.key) == 1, nil
 }

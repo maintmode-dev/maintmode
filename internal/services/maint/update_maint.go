@@ -246,7 +246,11 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 
 		// validate only if changed
 		validation.Field(&cmd.Resources, validation.Each(validation.By(xvalidation.UUIDNotNil))),
-		validation.Field(&cmd.Steps, validation.Each(validation.WithContext(validateStepInput))),
+		// Same ceiling as create; nil means "steps unchanged" and passes.
+		validation.Field(&cmd.Steps,
+			validation.Length(0, maxSteps),
+			validation.Each(validation.WithContext(validateStepInput)),
+		),
 		validation.Field(&cmd.NotifyTargets,
 			validation.Length(0, maxNotifyTargets),
 			validation.Each(validation.WithContext(validateNotifyTargetsInput)),

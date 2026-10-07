@@ -3,6 +3,7 @@ package xcripto
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -87,4 +88,75 @@ func TestValidatePasswordPolicy(t *testing.T) {
 	// on record rather than a detail someone rediscovers.
 	require.NoError(t, ValidatePasswordPolicy(strings.Repeat("п", 6)))
 	require.ErrorIs(t, ValidatePasswordPolicy(strings.Repeat("п", 5)), ErrPasswordPolicy)
+}
+
+// fillArgon2Slots takes every derivation slot and returns the function that
+// gives them back. Tests using it must not run in parallel: they own the
+// process-wide bound for their duration.
+func fillArgon2Slots(t *testing.T) func() {
+	t.Helper()
+
+	for range cap(argon2Slots) {
+		argon2Slots <- struct{}{}
+	}
+
+	return func() {
+		for range cap(argon2Slots) {
+			<-argon2Slots
+		}
+	}
+}
+
+// With every slot taken, a derivation waits instead of allocating another
+// arena, and proceeds once a slot is given back.
+//
+//nolint:paralleltest // owns the process-wide argon2 bound
+func TestVerifyPasswordWaitsForAFreeSlot(t *testing.T) {
+	const legacy = "$argon2id$v=19$m=19456,t=2,p=1$" +
+		"v+Tg1zKdll8ln5IGsyc4Tw$3I1qqjgOW8G0+tL7swEkdlrWzrTD3HG8dIfjxB6sUzs"
+
+	release := fillArgon2Slots(t)
+
+	done := make(chan bool, 1)
+	go func() {
+		ok, err := VerifyPassword(legacy, "legacy password")
+		require.NoError(t, err)
+		done <- ok
+	}()
+
+	select {
+	case <-done:
+		release()
+		t.Fatal("verification ran while every argon2 slot was taken")
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	release()
+	require.True(t, <-done)
+}
+
+// A password no policy could have stored is a mismatch without spending a
+// derivation: with every slot taken, it must still answer at once.
+//
+//nolint:paralleltest // owns the process-wide argon2 bound
+func TestVerifyPasswordRejectsAnOverlongPasswordWithoutDeriving(t *testing.T) {
+	hash, err := HashPassword(strings.Repeat("p", maxPasswordLen))
+	require.NoError(t, err)
+
+	release := fillArgon2Slots(t)
+	defer release()
+
+	done := make(chan bool, 1)
+	go func() {
+		ok, err := VerifyPassword(hash, strings.Repeat("p", maxPasswordLen+1))
+		require.NoError(t, err)
+		done <- ok
+	}()
+
+	select {
+	case ok := <-done:
+		require.False(t, ok)
+	case <-time.After(5 * time.Second):
+		t.Fatal("an over-long password waited for an argon2 slot")
+	}
 }
