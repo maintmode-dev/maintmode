@@ -88,9 +88,9 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 		// returned the raw token to the first caller. Subsequent callers
 		// within the grace window get a fresh access token but must reuse
 		// the refresh token they already have.
-		rt, err := s.tokenSrv.GetRefreshTokenByHash(ctx, lo.FromPtr(rt.ReplacedBy))
+		rt, err := s.liveSuccessor(ctx, rt)
 		if err != nil {
-			return nil, apperr.ErrRefreshTokenNotFound
+			return nil, err
 		}
 
 		ttls, err := s.sessionTTLsFor(ctx, rt.UserID)
@@ -214,4 +214,40 @@ func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID
 
 func distributedLockKey(key string) string {
 	return "refresh:" + key
+}
+
+// maxGraceHops bounds the walk down a rotation chain. A grace window is
+// seconds long, so a chain more than a few rotations deep inside one is not a
+// client racing itself, and it is refused rather than followed.
+const maxGraceHops = 8
+
+// liveSuccessor follows a revoked token's replacements to the end of its chain
+// and returns that end only if the session is still alive there.
+//
+// The grace window answers a client that refreshed twice in one rotation, and
+// it must not outlive the session: logout revokes only the CURRENT token, so
+// without this walk a predecessor rotated a moment earlier kept minting access
+// tokens through its window -- a stolen copy surviving the very logout meant to
+// end it.
+func (s *Service) liveSuccessor(ctx context.Context, rt *entity.RefreshToken) (*entity.RefreshToken, error) {
+	for range maxGraceHops {
+		next, err := s.tokenSrv.GetRefreshTokenByHash(ctx, lo.FromPtr(rt.ReplacedBy))
+		if err != nil {
+			return nil, apperr.ErrRefreshTokenNotFound
+		}
+
+		switch {
+		case !next.Revoked:
+			return next, nil
+		case next.ReplacedBy == nil:
+			// Revoked without a successor: the session was ended there.
+			return nil, apperr.ErrLogoutAlready
+		}
+
+		rt = next
+	}
+
+	xlog.Warn(ctx, "rotation chain too deep for a grace refresh")
+
+	return nil, apperr.ErrInvalidRefreshToken
 }
