@@ -202,9 +202,14 @@ oauth_providers:
     google:
       display_name: Google
       issuer_url: https://accounts.google.com
-      managed_by: ui
-      # To declare it here instead:
-      # managed_by: config
+      # Declared here so it exists from startup. The API suite signs every test
+      # user in through it (use_stub), and on a fresh database there is no admin
+      # yet who could create it through the API: writes are authorized on the
+      # caller's STORED roles, so a minted token for a user who does not exist
+      # cannot. Disabled: the stub needs only the registry row.
+      managed_by: config
+      enabled: false
+      # To enable it for real:
       # enabled: true
       # client_id: "1234.apps.googleusercontent.com"
       # redirect_uri: "https://maint.example.com/auth/api/v1/login/oauth/google/callback"
