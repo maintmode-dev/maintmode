@@ -191,13 +191,18 @@ func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []ec
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
 // /users/:id/... param routes, so the static segment is not shadowed.
-func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta *buildmeta.AppBuildMeta) {
+func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
-	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
+	// The legacy routes that take a provider credential from the CLIENT are
+	// dev-only: in prod the backend runs the dance itself, and an OAuth2
+	// provider's token from a client can belong to any application its owner
+	// ever authorized. The dev "sign in as" toolbar still drives this one.
+	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
+		middlewares.NotAllowedInProd(env))
 	s.oauthDanceRoutes(loginOAuthGr)
 
 	// The password sign-ins. Break-glass is registered in every environment: it is
@@ -233,7 +238,6 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
-	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
 	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword)
 }
 

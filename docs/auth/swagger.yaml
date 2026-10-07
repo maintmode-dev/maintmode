@@ -192,13 +192,8 @@ components:
             type: object
         apiauthmodels.ConnectProviderRequest:
             properties:
-                id_token:
-                    type: string
                 mode:
-                    description: |-
-                        Mode selects the backend-driven flow. The only accepted value is "dance";
-                        anything else is refused rather than ignored, so a typo does not silently
-                        fall back to the other branch.
+                    description: Mode must be "dance"; anything else is refused rather than ignored.
                     type: string
             type: object
         apiauthmodels.ExchangeIDTokenRequest:
@@ -346,13 +341,6 @@ components:
                     description: SessionNonce binds the redemption to the client that asked for the code.
                     type: string
             type: object
-        apimodels.AcceptInvitationRequest:
-            properties:
-                invitation_token:
-                    type: string
-                oauth_payload:
-                    $ref: '#/components/schemas/apimodels.OAuthPayload'
-            type: object
         apimodels.AssignRoleRequest:
             properties:
                 role:
@@ -457,14 +445,6 @@ components:
                         $ref: '#/components/schemas/apimodels.User'
                     type: array
                     uniqueItems: false
-            type: object
-        apimodels.OAuthPayload:
-            properties:
-                id_token:
-                    type: string
-                provider:
-                    example: google
-                    type: string
             type: object
         apimodels.RevokeRoleRequest:
             properties:
@@ -1423,10 +1403,8 @@ paths:
     /api/v1/me/providers/{provider}/connect:
         post:
             description: |-
-                Attaches an additional sign-in provider to the authenticated user, in one of two ways.
-                Posting an id_token is the BFF flow: the frontend ran the provider's dance itself, and this links the identity immediately (204).
-                Posting {"mode":"dance"} asks the backend to run the dance instead, and answers 200 with a RELATIVE link_url to follow (nothing is linked on this request).
-                Exactly one of the two must be present. The link_url must be followed by a top-level browser navigation, not fetch: the dance cookies are SameSite=Lax.
+                Starts attaching an additional sign-in provider to the authenticated user. The body must be {"mode":"dance"}: the backend runs the provider's dance, and this answers 200 with a RELATIVE link_url to follow (nothing is linked on this request).
+                The link_url must be followed by a top-level browser navigation, not fetch: the dance cookies are SameSite=Lax.
             parameters:
                 - description: Configured provider instance name, e.g. google
                   in: path
@@ -1439,7 +1417,7 @@ paths:
                     application/json:
                         schema:
                             $ref: '#/components/schemas/apiauthmodels.ConnectProviderRequest'
-                description: Provider ID token, or dance mode
+                description: Dance mode
                 required: true
             responses:
                 "200":
@@ -1448,26 +1426,18 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/apiauthmodels.ConnectProviderDanceResponse'
                     description: Link ticket minted; follow link_url
-                "204":
-                    description: Provider connected
                 "400":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Invalid provider or OAuth payload
+                    description: Invalid provider or mode
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
                     description: Unauthorized
-                "409":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Provider already connected or linked to another user
                 "500":
                     content:
                         application/json:
@@ -2082,39 +2052,6 @@ paths:
             security:
                 - BearerAuth: []
             summary: Revoke an invitation
-            tags:
-                - Users
-    /api/v1/users/invitations/accept:
-        post:
-            deprecated: true
-            description: 'DEPRECATED — prefer GET /api/v1/login/oauth/{provider}/start?invitation=<token>, which completes the invitation as part of the backend OAuth dance and needs no provider id_token from the caller. This endpoint stays live because the dance routes are registered only when the dance is configured: on an instance without it, this is the only way to accept an invitation. Accepts an invitation by completing OAuth: verifies the token, checks the OAuth email matches the invited email, creates the user with pre-assigned roles, and returns a token pair (like login). PUBLIC — no auth required. All 4xx failures return only a status code ("invalid" / "email_mismatch") with no message, so no invitation detail leaks.'
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/apimodels.AcceptInvitationRequest'
-                description: Accept request
-                required: true
-            responses:
-                "200":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
-                    description: OK
-                "400":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: 'code: invalid | email_mismatch'
-                "500":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Internal error
-            summary: Accept an invitation (public, deprecated)
             tags:
                 - Users
     /api/v1/users/invitations/accept/password:

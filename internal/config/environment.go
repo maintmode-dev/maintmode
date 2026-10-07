@@ -40,14 +40,16 @@ func ContextWithEnv(ctx context.Context, env Environment) context.Context {
 }
 
 func EnvFromContext(ctx context.Context) Environment {
+	// Fail closed: a context that never had the environment set is treated as
+	// prod, so a dev-only gate reading it can only ever be too strict.
 	val := ctx.Value(envCtxKey)
 	if val == nil {
-		return DevEnvironment
+		return ProdEnvironment
 	}
 
 	env, ok := val.(Environment)
 	if !ok {
-		return DevEnvironment
+		return ProdEnvironment
 	}
 
 	return env

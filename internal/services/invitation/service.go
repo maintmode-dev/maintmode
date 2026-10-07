@@ -19,7 +19,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 )
 
@@ -41,20 +40,6 @@ type Store interface {
 // UserService is the subset of user.Service used by the invitation flow.
 type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*entity.User, error)
-	GetOrCreateByAuthInfo(ctx context.Context, provider entity.AuthMethod, info *entity.OAuthProviderUserInfo, policy entity.UserCreationPolicy) (*entity.User, error)
-}
-
-// TokenIssuer mints a backend token pair for an authenticated user. Implemented
-// by auth.Service.IssueTokenPair.
-type TokenIssuer interface {
-	IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error)
-}
-
-// Claimer spends an invitation and grants its roles in one transaction.
-// Implemented by claimer.Claimer, which the invited dance claims through too,
-// so the transaction and its ordering invariant exist once.
-type Claimer interface {
-	ClaimForUser(ctx context.Context, inv *entity.ResolvedInvitation, userID uuid.UUID) (*entity.User, error)
 }
 
 // SeatGuard is the seats-cap guard Create calls inside its tx before inserting a
@@ -90,32 +75,20 @@ type Service struct {
 	txManager   *dbtx.TxManager
 	store       Store
 	userSrv     UserService
-	tokenIssuer TokenIssuer
-	authMethods *authmethod.Methods
 	sender      MessageSender
 	seatGuard   SeatGuard
-	claimer     Claimer
 	ttl         time.Duration
 	frontendURL string
 }
 
 // NewService builds the invitation service.
-//
-// claimer must be built from the SAME txManager, store and user service passed
-// here: Accept spends the invitation through the claimer's transaction, and the
-// seat guard that runs inside it has to count against the rows this service
-// reads. Two different instances would leave the claim and the lookup that
-// precedes it looking at different things.
 func NewService(
 	cfg *config.AppConfig,
 	txManager *dbtx.TxManager,
 	store Store,
 	userSrv UserService,
-	tokenIssuer TokenIssuer,
-	authMethods *authmethod.Methods,
 	sender MessageSender,
 	seatGuard SeatGuard,
-	claimer Claimer,
 ) *Service {
 	invitationTTL := cfg.App.InvitationTTL
 	if invitationTTL <= 0 {
@@ -126,11 +99,8 @@ func NewService(
 		txManager:   txManager,
 		store:       store,
 		userSrv:     userSrv,
-		tokenIssuer: tokenIssuer,
-		authMethods: authMethods,
 		sender:      sender,
 		seatGuard:   seatGuard,
-		claimer:     claimer,
 		ttl:         invitationTTL,
 		frontendURL: cfg.App.FrontendURL,
 	}

@@ -44,11 +44,12 @@ func TestConnectProviderHandler(t *testing.T) {
 
 	impl := initImpl(t)
 
+	dance, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{Mode: apiauthmodels.ConnectProviderDanceMode})
+
 	t.Run("missing user in context -> 401", func(t *testing.T) {
 		t.Parallel()
 
-		body, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{IDToken: "tok"})
-		c, rec := providerCtx(t, "google", body)
+		c, rec := providerCtx(t, "google", dance)
 
 		require.NoError(t, impl.ConnectProvider(c))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
@@ -57,19 +58,17 @@ func TestConnectProviderHandler(t *testing.T) {
 	t.Run("invalid provider -> 400", func(t *testing.T) {
 		t.Parallel()
 
-		body, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{IDToken: "tok"})
-		c, rec := providerCtx(t, "facebook", body)
+		c, rec := providerCtx(t, "facebook", dance)
 		xecho.UserToEchoCtx(c, makeTestUser(ctx, t, impl))
 
 		require.NoError(t, impl.ConnectProvider(c))
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
-	t.Run("missing id_token -> 400", func(t *testing.T) {
+	t.Run("missing mode -> 400", func(t *testing.T) {
 		t.Parallel()
 
-		body, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{})
-		c, rec := providerCtx(t, "github", body)
+		c, rec := providerCtx(t, "github", []byte(`{}`))
 		xecho.UserToEchoCtx(c, makeTestUser(ctx, t, impl))
 
 		require.NoError(t, impl.ConnectProvider(c))
@@ -77,28 +76,26 @@ func TestConnectProviderHandler(t *testing.T) {
 		require.Contains(t, rec.Body.String(), "cannot be blank")
 	})
 
-	// Both fields present. Untested before this case existed, and the branch it
-	// covers is the one a silent preference would hide: a caller that sent both
-	// must be refused, not served whichever the handler happens to check first.
-	t.Run("both id_token and mode -> 400", func(t *testing.T) {
+	// The id_token flow is gone: a client credential could be any token for the
+	// provider, held by any application. An old body carrying one is refused,
+	// never linked.
+	t.Run("legacy id_token body -> 400", func(t *testing.T) {
 		t.Parallel()
 
-		body, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{
-			IDToken: "tok", Mode: apiauthmodels.ConnectProviderDanceMode,
-		})
-		c, rec := providerCtx(t, "github", body)
-		xecho.UserToEchoCtx(c, makeTestUser(ctx, t, impl))
+		user := makeTestUser(ctx, t, impl)
+		c, rec := providerCtx(t, "github", []byte(`{"id_token":"tok"}`))
+		xecho.UserToEchoCtx(c, user)
 
 		require.NoError(t, impl.ConnectProvider(c))
 		require.Equal(t, http.StatusBadRequest, rec.Code)
-		// The MESSAGE, not just the status: an unconfigured provider answers 400
-		// too, so a status-only assertion passes with the validation deleted.
-		require.Contains(t, rec.Body.String(), "must be blank")
+		require.Contains(t, rec.Body.String(), "cannot be blank")
+
+		providers, err := impl.userSrv.ListConnectedProviders(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotContains(t, providers, entity.AuthMethodGithub)
 	})
 
-	// An unrecognized mode must be refused rather than fall through to the
-	// id_token branch, which would answer a caller who asked for a dance with a
-	// complaint about a field they never sent.
+	// An unrecognized mode is refused rather than ignored.
 	t.Run("unsupported mode -> 400", func(t *testing.T) {
 		t.Parallel()
 
@@ -114,8 +111,7 @@ func TestConnectProviderHandler(t *testing.T) {
 	t.Run("stub provider rejected -> 400", func(t *testing.T) {
 		t.Parallel()
 
-		body, _ := json.Marshal(apiauthmodels.ConnectProviderRequest{IDToken: "tok"})
-		c, rec := providerCtx(t, "stub", body)
+		c, rec := providerCtx(t, "stub", dance)
 		xecho.UserToEchoCtx(c, makeTestUser(ctx, t, impl))
 
 		require.NoError(t, impl.ConnectProvider(c))

@@ -56,15 +56,3 @@ type InvitationPreviewResponse struct {
 	Status            string  `json:"status" example:"valid"`
 	SuggestedProvider *string `json:"suggested_provider"`
 }
-
-// OAuthPayload is the provider + signed ID token completed by the frontend.
-type OAuthPayload struct {
-	Provider string `json:"provider" example:"google"`
-	IDToken  string `json:"id_token"`
-}
-
-// AcceptInvitationRequest is the public accept body.
-type AcceptInvitationRequest struct {
-	InvitationToken string       `json:"invitation_token"`
-	OAuthPayload    OAuthPayload `json:"oauth_payload"`
-}

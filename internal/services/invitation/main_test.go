@@ -20,10 +20,7 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
-	mock_authmethod "github.com/ruko1202/maintmode/internal/pkg/generated/mocks/services/authmethod"
 	"github.com/ruko1202/maintmode/internal/services/auditpublisher"
-	"github.com/ruko1202/maintmode/internal/services/authmethod"
-	"github.com/ruko1202/maintmode/internal/services/invitation/claimer"
 	"github.com/ruko1202/maintmode/internal/services/user"
 	"github.com/ruko1202/maintmode/internal/storages/useridentities"
 	"github.com/ruko1202/maintmode/internal/storages/userinvitations"
@@ -59,13 +56,11 @@ func TestMain(m *testing.M) {
 var loginProviders *testdbutils.LoginProviders
 
 type serviceMocks struct {
-	authMethod   *mock_authmethod.MockAuthMethod
-	tokenIssuer  *mock_invitation.MockTokenIssuer
 	tokenRevoker *mock_user.MockTokenRevoker
 	sender       *mock_invitation.MockMessageSender
 
-	// seatGuard is the seats-cap guard shared by the invitation service (Create)
-	// and the underlying user service (Accept → AssignRoles). Tests flip its err
+	// seatGuard is the seats-cap guard of the invitation service (Create). Tests
+	// flip its err
 	// to simulate a full cap and read called to assert whether the guard fired.
 	seatGuard *fakeSeatGuard
 
@@ -108,17 +103,11 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 	txManager := dbtx.NewTxManager(db)
 
 	mocks := &serviceMocks{
-		tokenIssuer:  mock_invitation.NewMockTokenIssuer(ctrl),
 		tokenRevoker: mock_user.NewMockTokenRevoker(ctrl),
-		authMethod:   mock_authmethod.NewMockAuthMethod(ctrl),
 		sender:       mock_invitation.NewMockMessageSender(ctrl),
 		seatGuard:    &fakeSeatGuard{}, // passes by default; cap tests flip err
 		sentEmail:    &sentEmail{},
 	}
-	mocks.authMethod.EXPECT().
-		MethodID().Return(entity.AuthMethodGoogle).
-		AnyTimes()
-
 	// SendAsync captures the enqueued message for assertions and succeeds. The
 	// invitation flow enqueues inside its tx (transactional outbox) under the
 	// dedicated invitation.email task type.
@@ -138,8 +127,8 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		useridentities.NewStore(db),
 		newTestAuditPublisher(t),
 		mocks.tokenRevoker,
-		mocks.seatGuard, // Accept → AssignRoles runs the guard through the user service
-		false,           // allowOpenSignup: the accept flow must authorize creation itself
+		mocks.seatGuard,
+		false, // allowOpenSignup
 		loginProviders,
 	)
 	svc := NewService(
@@ -147,14 +136,8 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		txManager,
 		store,
 		userSrv,
-		mocks.tokenIssuer,
-		authmethod.NewAuthMethods(cfg, []authmethod.AuthMethod{mocks.authMethod}),
 		mocks.sender,
 		mocks.seatGuard, // Create runs the guard directly
-		// Built from the same tx manager, store and user service, as
-		// claimer.New requires; Accept never reaches the dance, so no handle
-		// store.
-		claimer.New(txManager, store, userSrv, nil),
 	)
 
 	return svc, mocks
@@ -177,15 +160,12 @@ func uniqueEmail(t *testing.T) string {
 	return xuuid.NewString() + "@invite-test.com"
 }
 
-func mustCreate(ctx context.Context, t *testing.T, s *Service, emailAddr string, roles ...entity.Role) *entity.Invitation {
+func mustCreate(ctx context.Context, t *testing.T, s *Service, emailAddr string) *entity.Invitation {
 	t.Helper()
-	if len(roles) == 0 {
-		roles = []entity.Role{entity.RoleEditor}
-	}
 	inv, err := s.Create(ctx, &entity.CreateInvitationCmd{
 		Actor: makeAdmin(ctx, t, s),
 		Email: emailAddr,
-		Roles: roles,
+		Roles: []entity.Role{entity.RoleEditor},
 	})
 	require.NoError(t, err)
 	return inv
@@ -217,7 +197,9 @@ func newUUID() uuid.UUID {
 // makeAdmin creates a real user to act as the inviter (invited_by_id FK).
 func makeAdmin(ctx context.Context, t *testing.T, s *Service) *entity.User {
 	t.Helper()
-	u, err := s.userSrv.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
+	realUsers, ok := s.userSrv.(*user.Service)
+	require.True(t, ok, "initService wires the real user service")
+	u, err := realUsers.GetOrCreateByAuthInfo(ctx, entity.AuthMethodGoogle, &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "@admin-test.com",
 		Name:  "Inviter",

@@ -27,7 +27,7 @@ func TestAuthAPI_ConnectProvider_Unauthorized(t *testing.T) {
 		// generated client no longer carries an enum of compiled-in names.
 		"google",
 		authclient.PostApiV1MeProvidersProviderConnectJSONRequestBody{
-			IdToken: lo.ToPtr("tok"),
+			Mode: lo.ToPtr("dance"),
 		})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode(), "unexpected status: %s", resp.Body)
