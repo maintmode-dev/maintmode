@@ -401,7 +401,9 @@ const (
 //   - replaced: Roles (resulting set), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
 //   - blocked / unblocked: TargetEmail, TargetDisplayName;
 //   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
-//     TargetDisplayName.
+//     TargetDisplayName;
+//   - integration.updated: Changes (before/after per changed config field and
+//     the enabled flag; a changed secret as a name-only flag, never a value).
 type AuditMetadata struct {
 	IP            string             `json:"ip,omitempty"`
 	UserAgent     string             `json:"user_agent,omitempty"`
@@ -436,7 +438,7 @@ type AuditMetadata struct {
 }
 
 // AuditFieldChange is one before/after entry in a diff (maintenance.updated,
-// user.tags_changed). Old/New are rendered string snapshots of a scalar field
+// user.tags_changed, integration.updated). Old/New are rendered string snapshots of a scalar field
 // (title, planned window, scope, impact, approver; messenger tags). An empty
 // Old or New means the field was unset on that side. Collection fields (steps,
 // targets) record a changed flag via Field with empty Old/New rather than noisy
