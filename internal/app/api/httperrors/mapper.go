@@ -244,17 +244,17 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 
-	// One fixed message for both. The sentinels' own text says whether the
-	// provider account is linked here or to somebody else, which the dance's
-	// link_conflict deliberately does not: it would tell a caller that a
-	// provider account they hold is registered on this instance to another
-	// person. The audit trail keeps the distinction.
 	// A pending link this caller may not complete. A fixed message: the causes
 	// are deliberately one answer. 400 rather than 401, because the caller's
 	// session is fine and a 401 would make the BFF sign them out.
 	case errors.Is(err, apperr.ErrLinkCodeInvalid):
 		return http.StatusBadRequest, NewErrorResponse(ErrLinkInvalid, "the link could not be completed")
 
+	// One fixed message for both. The sentinels' own text says whether the
+	// provider account is linked here or to somebody else, which the dance's
+	// link_conflict deliberately does not: it would tell a caller that a
+	// provider account they hold is registered on this instance to another
+	// person. The audit trail keeps the distinction.
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, "this provider account cannot be linked to your profile")
