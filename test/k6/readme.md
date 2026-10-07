@@ -6,14 +6,14 @@
 
 ```bash
 # Start the application + monitoring (Grafana, Victoria Metrics)
-make app-with-monitoring-up
+make app-up
 ```
 
 ### Get an authorization token
 
 The API requires a Bearer token. Signup is invite-only by default (a plain
-exchange through the stub yields a rejection, a guest or — on an empty database
-only — the bootstrap admin), so the token is minted through the OAuth stub
+exchange through the stub yields a rejection or, with open signup, a guest), so
+the token is minted through the OAuth stub
 **with the dev-only `X-Test-Roles` header** — it creates a stub user and grants
 the roles the scenarios need (admin covers every write). The token has a limited
 TTL — for long soak runs, re-mint it right before starting:

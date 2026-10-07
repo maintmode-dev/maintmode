@@ -183,7 +183,7 @@ infra_server:
 # Graceful-shutdown drain delay. On SIGTERM the process reports
 # Readiness=503 and waits this long before closing the HTTP server, so
 # Caddy ejects the replica from its pool before connections stop. Must
-# exceed Caddy's active health_interval (see Caddyfile.prod). Basis for
+# exceed Caddy's active health_interval (2s in deployment/caddy/Caddyfile). Basis for
 # zero-downtime rolling deploys.
 shutdown:
   drain_timeout: 6s

@@ -4,7 +4,10 @@ app:
   # Used by the auth OAuth callback/exchange to redirect back to the frontend.
   # Moved in from the auth config — the merged process serves the auth
   # routes, so it needs this or those redirects target an empty URL.
-  frontend_url: http://localhost:9000
+  #
+  # The UI dev server: `make run` serves this backend bare on :8000, and the
+  # frontend runs on its own origin.
+  frontend_url: http://localhost:3000
   # The frontend route the OAuth dance sends the browser back to, appended to
   # frontend_url. It belongs to the frontend rather than to this service, so a
   # rename there needs no backend release.
@@ -31,7 +34,11 @@ app:
   # empty is not inert — the attribute is then omitted and the browser scopes
   # the cookie to the internal request path, which is exactly the value that
   # never comes back. So an empty value leaves the dance unregistered instead.
-  oauth_cookie_path: /auth/api/v1/login/oauth
+  #
+  # This stand has no Caddy in front: the browser reaches :8000 directly (see
+  # the redirect_uri values below), so the external path has no /auth prefix.
+  # The UI's MAINTMODE_AUTH_PUBLIC_BASE_URL is then http://localhost:8000.
+  oauth_cookie_path: /api/v1/login/oauth
 
 auth:
   # Open self-registration: an unknown, uninvited user signs in as guest. Keep

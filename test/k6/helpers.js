@@ -42,8 +42,8 @@ export function generateDateRange(daysBack = 7, daysForward = 30) {
 // AUTH_TOKEN: the API requires a Bearer token since auth landed; mint one via
 // the OAuth stub (dev) and pass it as `k6 run -e AUTH_TOKEN=...`.
 //
-// Signup is invite-only by default, so a plain stub exchange yields a refusal,
-// a guest (open signup), or — only on an empty database — the bootstrap admin.
+// Signup is invite-only by default, so a plain stub exchange yields a refusal
+// or, with open signup, a guest.
 // Mint the token WITH the dev-only X-Test-Roles header instead: it creates
 // the stub user and grants the roles the scenarios need (admin covers the
 // resource/maintenance/channel writes). From the host go through the proxy:
