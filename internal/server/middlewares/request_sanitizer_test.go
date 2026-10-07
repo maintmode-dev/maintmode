@@ -155,6 +155,10 @@ func TestSanitizeBodyMasksTokenPairs(t *testing.T) {
 			// outlives the stand it came from.
 			"client_secret": `{"client_secret":"SECRET-VALUE"}`,
 			"bot_token":     `{"bot_token":"SECRET-VALUE"}`,
+			// The password change and the link URL the connect endpoint answers.
+			"current_password": `{"current_password":"SECRET-VALUE"}`,
+			"new_password":     `{"new_password":"SECRET-VALUE"}`,
+			"link_url":         `{"link_url":"/start?link=SECRET-VALUE"}`,
 		}
 
 		for field, body := range fields {

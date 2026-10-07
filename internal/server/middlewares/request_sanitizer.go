@@ -78,6 +78,12 @@ var sensitiveBodyFields = map[string]struct{}{
 	"client_secret":    {},
 	"bot_token":        {},
 	"invitation_token": {},
+	// The password-change body: the old password proves the account, the new one
+	// is the account from now on.
+	"current_password": {},
+	"new_password":     {},
+	// The connect response: a /start URL carrying a live link ticket.
+	"link_url": {},
 }
 
 var _ sanitize.Sanitizer = RequestSanitizer{}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -445,4 +446,39 @@ func (m danceableMethods) DanceGateway(method entity.AuthMethod) (authmethod.Gat
 	}
 
 	return m.inner.DanceGateway(method)
+}
+
+// /callback?error=x is reachable by anyone, cookie or not. A provider error is
+// audited only when it arrives on a dance this backend signed; a stranger's
+// request is logged and answered, but leaves no row in the year-long trail.
+func TestProviderErrorIsAuditedOnlyForOurDance(t *testing.T) {
+	t.Parallel()
+
+	srv, _ := initServiceWithDeps(t, entity.AuthMethodGithub, serviceDeps{
+		wrapMethods: func(inner AuthMethods) AuthMethods {
+			return danceableMethods{inner: inner, method: entity.AuthMethodGithub}
+		},
+	})
+	publisher := newRecordingAuditPublisher()
+	srv.auditPublisher = publisher
+
+	meta := &entity.AuditMetadata{IP: "203.0.113.9"}
+
+	_, err := srv.CompleteDance(t.Context(), entity.DanceCallback{
+		Provider:      string(entity.AuthMethodGithub),
+		ProviderError: "server_error",
+		State:         "forged",
+	}, meta)
+	require.Error(t, err)
+	assert.Empty(t, publisher.actions(), "a callback with no dance of ours must not reach the audit trail")
+
+	state := "our-state"
+	_, err = srv.CompleteDance(t.Context(), entity.DanceCallback{
+		Provider:       string(entity.AuthMethodGithub),
+		ProviderError:  "server_error",
+		State:          state,
+		StateSignature: srv.danceSigner.Sign(string(entity.AuthMethodGithub), state, time.Now().Add(time.Minute)),
+	}, meta)
+	require.Error(t, err)
+	assert.Len(t, loginFailureRows(publisher.actions()), 1, "a provider error on our own dance is audited")
 }

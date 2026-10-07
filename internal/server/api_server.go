@@ -516,9 +516,12 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 		s.handlers.Roles.Revoke,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthRolesManage),
 	)
+	// Anyone may read their own roles; reading someone else's needs the same
+	// right as listing users.
 	withAuthorize.Add(http.MethodGet, "/user/:id/roles",
 		s.handlers.Roles.ListRoles,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUserRolesRead),
+		middlewares.RequireScenarioUnlessSelf(s.security.Authorizer, entity.AuthzScenarioAuthUsersRead, "id"),
 	)
 
 	// STATIC /users/... routes first.

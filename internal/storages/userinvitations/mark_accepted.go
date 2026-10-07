@@ -23,6 +23,8 @@ func (s *Store) MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.UserInvitations.MarkAccepted")
 	defer span.End()
 
+	now := xtime.UTCNow()
+
 	stmt := table.UserInvitations.
 		UPDATE(
 			table.UserInvitations.Status,
@@ -30,13 +32,14 @@ func (s *Store) MarkAccepted(ctx context.Context, id uuid.UUID) (bool, error) {
 		).
 		SET(
 			postgres.String(string(entity.InvitationStatusAccepted)),
-			postgres.TimestampzT(xtime.UTCNow()),
+			postgres.TimestampzT(now),
 		).
 		WHERE(
 			table.UserInvitations.ID.EQ(postgres.UUID(id)).
 				AND(table.UserInvitations.Status.EQ(
 					postgres.String(string(entity.InvitationStatusPending)),
-				)),
+				)).
+				AND(table.UserInvitations.ExpiresAt.GT(postgres.TimestampzT(now))),
 		)
 
 	res, err := stmt.ExecContext(ctx, s.db.Executor(ctx))

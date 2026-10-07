@@ -167,7 +167,15 @@ func (s *Service) CompleteDance(
 	if callback.ProviderError != "" {
 		xlog.Warn(ctx, "oauth provider reported an error",
 			xfield.String("provider_error", callback.ProviderError))
-		s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderDenied)
+
+		// Audited only when the callback carries a dance this backend began.
+		// /callback?error=x is reachable by anyone with no cookie at all, and
+		// auditing that would let a stranger fill the year-long trail with rows
+		// whose only content is an IP -- the rule verifyDanceOrigin applies to
+		// every other refusal.
+		if s.isOurDance(callback) {
+			s.publishLoginFailure(ctx, &entity.User{}, meta, entity.AuditFailureProviderDenied)
+		}
 
 		// Matched exactly: the error parameter is a registered code, and a
 		// substring match would let "access_denied_by_policy" -- a provider
@@ -200,6 +208,17 @@ func (s *Service) CompleteDance(
 	}
 
 	return s.issueDanceCode(ctx, provider, credential, callback.LinkTicket, callback.InvitationHandle, meta)
+}
+
+// isOurDance reports whether a callback carries a state this backend signed,
+// for the one branch that runs before verifyDanceOrigin.
+func (s *Service) isOurDance(callback entity.DanceCallback) bool {
+	provider, ok := s.authMethods.DanceProvider(callback.Provider)
+	if !ok || callback.StateSignature == "" {
+		return false
+	}
+
+	return s.danceSigner.Verify(callback.StateSignature, string(provider), callback.State, time.Now())
 }
 
 // verifyDanceOrigin decides whether this callback belongs to a dance this
