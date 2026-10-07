@@ -62,6 +62,10 @@ func (i *Implementation) ConnectProvider(c *echo.Context) error {
 		return i.mintLinkTicket(ctx, c, op, ctxUser.ID, c.Param("provider"))
 	}
 
+	if !i.clientCredentials {
+		return httperrors.ToAPIError(c, op, apperr.ErrMethodNotAllowedInProd)
+	}
+
 	err := i.authSrv.ConnectProvider(ctx, &entity.ConnectProviderCmd{
 		UserID:   ctxUser.ID,
 		Provider: c.Param("provider"),
