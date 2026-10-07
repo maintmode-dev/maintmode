@@ -43,6 +43,35 @@ func NewRateLimiter(appName string, rdb *valkeylib.Client, cfg config.RateLimite
 	)
 }
 
+// NewIPRateLimiter is the per-client limit for the unauthenticated sign-in
+// surface: the store of NewRateLimiter, bucketed by clientIPRateLimitKey
+// instead of echo's default c.RealIP().
+func NewIPRateLimiter(appName string, rdb *valkeylib.Client, cfg config.RateLimiterConfig) echo.MiddlewareFunc {
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store:               NewRateLimiter(appName, rdb, cfg),
+		IdentifierExtractor: clientIPRateLimitKey,
+	})
+}
+
+// forwardedClientIP reads the client address from X-Forwarded-For, trusting
+// the header only when the hops that wrote it are loopback, link-local or
+// private (echo's defaults) — the proxies in front of this service. A request
+// arriving from a public address is keyed on that address, whatever it claims.
+var forwardedClientIP = echo.ExtractIPFromXFFHeader()
+
+// clientIPRateLimitKey buckets a request by the client behind the proxies.
+//
+// c.RealIP() is the connecting peer here — no IPExtractor is set — and every
+// caller of the sign-in surface connects through one: the gateway for the OAuth
+// dance, the frontend server for everything else. Keyed on that, the limit is
+// one bucket for all users, and anyone can spend it for everyone.
+//
+// RealIP itself stays the peer on purpose: refresh tokens are bound to it
+// (services/auth Refresh), and moving it would sign every session out.
+func clientIPRateLimitKey(c *echo.Context) (string, error) {
+	return forwardedClientIP(c.Request()), nil
+}
+
 // NewUIRateLimiter builds the rate-limiting middleware for the /ui/v1 screen
 // group. It reuses the whole hybrid store (Valkey, with the per-replica
 // in-memory fallback on a Valkey outage) and differs from NewRateLimiter in the

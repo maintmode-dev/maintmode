@@ -47,8 +47,8 @@ COMPOSE_PROFILES_FLAGS ?= --profile storages --profile app --profile monitoring
 COMPOSE_PROFILES_STORAGES ?= --profile storages
 # Local app stack = the base profiles plus the dev-only `mail` profile, which
 # brings up the MailPit email sink (inbox at http://localhost:9001/mail/ via
-# Caddy, or http://localhost:8025/mail/ direct). prod-up uses COMPOSE_PROFILES_FLAGS
-# without `mail`, so MailPit never ships to production.
+# Caddy, or http://localhost:8025/mail/ direct). Only the local app targets add
+# `mail`, so MailPit never ships to a real deployment.
 COMPOSE_PROFILES_FLAGS_APP ?= $(COMPOSE_PROFILES_FLAGS) --profile mail
 
 # -------------------------------------

@@ -2,16 +2,21 @@
 #
 # Public API on :3000 (mapped to host :9000 in compose.yaml).
 # Infra / status API on :3001 (mapped to host :9001).
-# No TLS locally. Routing mirrors the legacy deployment/nginx.conf.
+# No TLS locally. The production gateway is not in this repository: it lives
+# with the rest of the production deployment in the private deployment repo.
 #
-# For production HTTPS use deployment/caddy/Caddyfile.prod via the
-# compose.app.prod.yaml overlay.
+# The whole /auth/* surface is public here because the UI's server side, the
+# API tests and k6 all reach the backend through this listener. A production
+# gateway exposes only what a browser needs — GET
+# /auth/api/v1/login/oauth/{provider}/start and /callback — and lets the UI's
+# server reach the rest over the internal network (README, "How provider
+# sign-in works").
 #
 # Upstream uses docker service DNS (maintmode). The single maintmode
 # process serves both the /auth/* and /maintmode/* surfaces. With
 # `docker compose up --scale maintmode=N`, the name resolves to all
-# replica IPs; the lb_* directives spread requests across them. Mirrors
-# Caddyfile.prod so dev exercises the same health logic.
+# replica IPs; the lb_* directives spread requests across them. The
+# production gateway uses the same health logic.
 #
 # Active health polls /readiness on the infra port (8001) every 2s and
 # drops a replica that reports not-200 — including one that flipped to 503
@@ -24,13 +29,15 @@
 # on the external /auth/* surface, provided by the caddy-ratelimit module
 # (baked into our custom image — see deployment/caddy/Dockerfile). This is
 # defense-in-depth IN FRONT of, not a replacement for, the app-level
-# Valkey-backed business limiter on /login/oauth (30 RPM/IP):
+# Valkey-backed business limiter on the sign-in routes (30 RPM per client, one
+# bucket shared by all of them, keyed on the client address this proxy writes
+# into X-Forwarded-For):
 #   - app limiter  : precise business limit, replica-shared via Valkey
 #   - this limiter : coarse anti-flood before traffic reaches the app,
 #                    Caddy in-memory (single Caddy per VM → consistent)
 #
 # Client IP: keyed on {http.request.remote.host}. In prod Caddy is the
-# internet edge (see Caddyfile.prod), so that is the real client IP. We
+# internet edge, so that is the real client IP. We
 # deliberately do NOT key on X-Forwarded-For / X-Real-IP and set no
 # `trusted_proxies` — those headers are client-spoofable and would let an
 # attacker forge a new IP per request to bypass the limit. If a trusted L7

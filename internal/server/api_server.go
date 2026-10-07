@@ -195,7 +195,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
 	s.oauthDanceRoutes(loginOAuthGr)
@@ -205,14 +205,14 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	// instance, so gating it would recreate the lockout it exists to prevent.
 	//
 	// NOTE: this is a third limiter instance over the SAME bucket, not an
-	// independent one. NewRateLimiter sets no IdentifierExtractor, so echo keys
-	// on the client IP and HybridRateLimiter builds "ratelimit:<app>:<ip>" with
+	// independent one. NewIPRateLimiter keys on the client IP alone and
+	// HybridRateLimiter builds "ratelimit:<app>:<ip>" with
 	// no group component — login/oauth, users/invitations and these routes share
 	// one per-IP budget. Brute-forcing these endpoints therefore also exhausts the
 	// OAuth and invitation budgets for that IP, which is acceptable (same
 	// attacker, same address) but is not the isolation the shape suggests.
 	loginPasswordGr := gr.Group("/login",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword)
 	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass)
@@ -224,7 +224,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
 
 	invitesGr := gr.Group("/users/invitations",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
 	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
@@ -244,7 +244,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 //
 // The routes share the group's per-IP limiter with /exchange/google. That is
 // deliberate: they are the same surface for the same anonymous caller, and
-// NewRateLimiter keys on the client IP with no route component anyway.
+// NewIPRateLimiter keys on the client IP with no route component anyway.
 //
 // STATIC BEFORE PARAM. /code/exchange is a literal segment in the same position
 // as {provider}, and echo prefers static segments, but the ordering is written
@@ -270,7 +270,7 @@ func (s *APIServer) oauthDanceRoutes(loginOAuthGr *echo.Group) {
 // The three tiers do different jobs and none subsumes another. Per-IP is the
 // existing shared bucket: it stops one address hammering the endpoint, and it is
 // shared with login/oauth, login/password and users/invitations because
-// NewRateLimiter sets no IdentifierExtractor. Per-address stops someone grinding
+// NewIPRateLimiter keys on the IP alone. Per-address stops someone grinding
 // one victim's code from many IPs. Instance-wide is the only one that sees a
 // sweep spread across both addresses and IPs, which is the shape an invite-only
 // deployment is otherwise defenseless against.
@@ -279,7 +279,7 @@ func (s *APIServer) oauthDanceRoutes(loginOAuthGr *echo.Group) {
 // reads and restores it, and the global one is a constant.
 func (s *APIServer) otpRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 	loginOTPGr := gr.Group("/login/otp",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter),
 		NewOTPGlobalRateLimiter(meta.AppName, s.valkey, s.cfg.OTPGlobalRateLimiter),
 	)
@@ -295,7 +295,7 @@ func (s *APIServer) otpRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 // one victim's code attempts.
 func (s *APIServer) passwordResetRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 	resetGr := gr.Group("/password/reset",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter),
 		NewOTPGlobalRateLimiter(meta.AppName, s.valkey, s.cfg.OTPGlobalRateLimiter),
 	)
@@ -310,11 +310,11 @@ func (s *APIServer) passwordResetRoutes(gr *echo.Group, meta *buildmeta.AppBuild
 // and the instance-wide tier is sized for the guessing surface rather than for a
 // list the login page fetches on every visit. The shared budget does mean a user
 // who reloads the login page several times spends from the same bucket their
-// sign-in attempt needs — a known consequence of NewRateLimiter carrying no
+// sign-in attempt needs — a known consequence of NewIPRateLimiter carrying no
 // route component, not something this route introduces.
 func (s *APIServer) providersRoute(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 	providersGr := gr.Group("/auth/providers",
-		middleware.RateLimiter(NewRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter)),
+		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	providersGr.Add(http.MethodGet, "", s.handlers.Auth.ListAuthMethods)
 }

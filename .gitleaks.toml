@@ -25,10 +25,11 @@
 [extend]
 useDefault = true
 
-# A Google client secret is never legitimate anywhere in this repo: the BFF
-# (maintmode-ui) holds the only copy, and this service verifies id_tokens with
-# no secret at all. The GOCSPX- prefix is unambiguous, and no allowlist entry
-# matches it, so this fires in every file.
+# A Google client secret is never legitimate anywhere in this repo: this
+# service holds it at runtime only, from a gitignored secrets file or encrypted
+# in the database, and every committed config refers to it as a <secret:...>
+# reference. The GOCSPX- prefix is unambiguous, and no allowlist entry matches
+# it, so this fires in every file.
 #
 # This rule exists because the leak that prompted all of this was exactly that:
 # a GOCSPX- value sitting in a committed secrets file.

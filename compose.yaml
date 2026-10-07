@@ -149,8 +149,8 @@ services:
     image: axllent/mailpit:latest
     container_name: mailpit
     # Own "mail" profile, not "app": the dev/local stacks opt in (see the
-    # Makefile app targets), while prod-up — which passes storages/app/
-    # monitoring but not mail — never starts this dev-only email sink.
+    # Makefile app targets); nothing else enables it, so this dev-only email
+    # sink never ships to a real deployment.
     profiles: ["mail"]
     restart: unless-stopped
     # MP_WEBROOT mounts the UI under /mail so Caddy can reverse-proxy it on
@@ -437,9 +437,9 @@ services:
       - theapp
 
   # vmalert — evaluates Prometheus alert rules against VictoriaMetrics.
-  # Base compose targets the dev environment: fired alerts are tagged
-  # env=dev, which Alertmanager routes to the dev topic in the shared
-  # Telegram chat. compose.app.prod.yaml overrides this to env=prod.
+  # Fired alerts carry an env label (see --external.label below), which
+  # Alertmanager routes to the matching topic in the shared Telegram chat.
+  # Real deployments set their own env in the private deployment repo.
   vmalert:
     image: victoriametrics/vmalert:v1.103.0
     container_name: vmalert
@@ -469,9 +469,9 @@ services:
       - theapp
 
   # alertmanager — routes alerts to the Telegram supergroup, dispatching
-  # by env label to the right topic. Same alertmanager.yml is mounted in
-  # prod via compose.app.prod.yaml; only the bot-token secret differs
-  # per environment (deployment/infra/{dev,prod}/telegram_bot_token).
+  # by env label to the right topic. Real deployments mount the same
+  # alertmanager.yml from the private deployment repo; only the bot-token
+  # secret differs per environment.
   alertmanager:
     image: prom/alertmanager:v0.28.0
     container_name: alertmanager

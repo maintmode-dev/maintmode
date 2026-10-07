@@ -1,13 +1,13 @@
 # Alertmanager config — shared by ALL real deployments (local dev,
-# dev VM, prod VM). The same file is mounted by both compose.yaml and
-# compose.app.prod.yaml so dev and prod can never drift.
+# dev VM, prod VM). compose.yaml here and the private deployment repo mount
+# this same file, so dev and prod can never drift.
 #
 # Routing strategy
 # ----------------
 # Both environments push to the same Telegram supergroup (chat_id
 # below), but to different topics (threads) so the channel UI stays
 # tidy. vmalert tags every fired alert with --external.label=env=<env>
-# (dev in base compose.yaml, prod in compose.app.prod.yaml), and the
+# (set per deployment), and the
 # top-level route dispatches on that label:
 #
 #   env=dev   -> telegram-dev   -> message_thread_id 3
