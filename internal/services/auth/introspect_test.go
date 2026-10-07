@@ -153,7 +153,39 @@ func TestEnsureActiveToken(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken))
+		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
+		require.NoError(t, err)
+	})
+
+	t.Run("returns stored roles, not token roles", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		exchangeIDTokenMock(mocks, 1)
+
+		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+			Provider: entity.AuthMethodGoogle,
+			IDToken:  "id-token",
+			ClientIP: "10.0.0.1",
+		})
+		require.NoError(t, err)
+		claims, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
+		require.NoError(t, err)
+		require.NotContains(t, claims.UserRoles, entity.RoleEditor)
+
+		// A role change after issuance must be what a write is authorized on.
+		userID, err := uuid.Parse(claims.Subject)
+		require.NoError(t, err)
+		_, err = srv.usersSrv.AssignRoles(ctx, &entity.AssignRolesCmd{
+			Actor:  &entity.User{ID: uuid.New(), Roles: []entity.Role{entity.RoleAdmin}},
+			UserID: userID,
+			Roles:  []entity.Role{entity.RoleEditor},
+		})
+		require.NoError(t, err)
+
+		roles, err := srv.EnsureActiveToken(ctx, pair.AccessToken)
+		require.NoError(t, err)
+		require.Contains(t, roles, entity.RoleEditor)
 	})
 
 	t.Run("blacklisted token is rejected", func(t *testing.T) {
@@ -174,7 +206,8 @@ func TestEnsureActiveToken(t *testing.T) {
 			RefreshToken: pair.RefreshToken,
 		}))
 
-		require.ErrorIs(t, srv.EnsureActiveToken(ctx, pair.AccessToken), apperr.ErrInvalidAccessToken)
+		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
 
 	t.Run("blocked-user token is rejected", func(t *testing.T) {
@@ -189,7 +222,8 @@ func TestEnsureActiveToken(t *testing.T) {
 			ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
-		require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken))
+		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
+		require.NoError(t, err)
 
 		report, err := srv.Introspect(ctx, pair.AccessToken)
 		require.NoError(t, err)
@@ -200,13 +234,15 @@ func TestEnsureActiveToken(t *testing.T) {
 			UserID: userID,
 		}))
 
-		require.ErrorIs(t, srv.EnsureActiveToken(ctx, pair.AccessToken), apperr.ErrInvalidAccessToken)
+		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
 
 	t.Run("invalid token is rejected", func(t *testing.T) {
 		t.Parallel()
 
 		srv, _ := initService(t)
-		require.ErrorIs(t, srv.EnsureActiveToken(ctx, "garbage-token"), apperr.ErrInvalidAccessToken)
+		_, err := srv.EnsureActiveToken(ctx, "garbage-token")
+		require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
 	})
 }

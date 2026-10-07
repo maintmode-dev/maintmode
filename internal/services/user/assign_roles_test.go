@@ -92,6 +92,23 @@ func TestAssignRoles(t *testing.T) {
 		require.ErrorIs(t, err, apperr.ErrInvalidRole)
 	})
 
+	t.Run("self-assign rejected", func(t *testing.T) {
+		t.Parallel()
+
+		demoted := makeUser(ctx, t, srv, entity.RoleEditor)
+
+		_, err := srv.AssignRoles(ctx, &entity.AssignRolesCmd{
+			Actor:  demoted,
+			Roles:  []entity.Role{entity.RoleAdmin},
+			UserID: demoted.ID,
+		})
+		require.ErrorIs(t, err, apperr.ErrSelfAssign)
+
+		roles, err := srv.GetRoles(ctx, demoted.ID)
+		require.NoError(t, err)
+		require.NotContains(t, roles, entity.RoleAdmin)
+	})
+
 	t.Run("user not found", func(t *testing.T) {
 		t.Parallel()
 

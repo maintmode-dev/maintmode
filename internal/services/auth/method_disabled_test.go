@@ -215,8 +215,8 @@ func TestDisablingAMethod_DoesNotEndExistingSessions(t *testing.T) {
 	switched[entity.AuthMethodNameEmailOTP] = false
 
 	// The token issued before the change still authenticates afterwards.
-	require.NoError(t, srv.EnsureActiveToken(ctx, pair.AccessToken),
-		"a session open before the change must survive it")
+	_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
+	require.NoError(t, err, "a session open before the change must survive it")
 }
 
 // Criterion 18: with every built-in off and no working provider, break-glass

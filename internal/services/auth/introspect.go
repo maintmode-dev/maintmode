@@ -13,22 +13,24 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// EnsureActiveToken reports nil when the access token is active and an error
-// otherwise — the active-token gate the API middleware applies to critical
-// mutations. "Active" is the full check (JWT + blacklist + blocked-user): an
-// inactive token yields ErrInvalidAccessToken, while a transient store failure
-// propagates so the middleware fails closed. It is the in-process replacement
-// for the S2S introspect the middleware used to call; the caller only needs the
-// yes/no answer, so no claims are returned.
-func (s *Service) EnsureActiveToken(ctx context.Context, tokenString string) error {
+// EnsureActiveToken reports the token subject's CURRENT roles when the access
+// token is active, and an error otherwise — the active-token gate the API
+// middleware applies to every mutation. "Active" is the full check (JWT +
+// blacklist + blocked-user): an inactive token yields ErrInvalidAccessToken,
+// while a transient store failure propagates so the middleware fails closed.
+//
+// The roles come from the user store, not from the token claims: a role revoked
+// after the token was minted must stop authorizing writes now, not when the
+// token expires.
+func (s *Service) EnsureActiveToken(ctx context.Context, tokenString string) ([]entity.Role, error) {
 	report, err := s.Introspect(ctx, tokenString)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !report.Active {
-		return apperr.ErrInvalidAccessToken
+		return nil, apperr.ErrInvalidAccessToken
 	}
-	return nil
+	return report.Roles, nil
 }
 
 // Introspect checks if an access token is active (not blacklisted).
@@ -65,11 +67,13 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 	// introspected (critical-mutation) request, not only after they expire.
 	// Issuance is already barred (token.IssueAccessToken); this closes the
 	// window for tokens minted before the block.
-	if active, err := s.isSubjectActive(ctx, claims.Subject); err != nil {
+	user, err := s.activeSubject(ctx, claims.Subject)
+	if err != nil {
 		// Transient user-store error: fail closed via the error (the gateway
 		// rejects with 503) rather than silently treating the token as active.
 		return nil, err
-	} else if !active {
+	}
+	if user == nil {
 		xlog.Warn(ctx, "access token subject is not an active user", xfield.String("subject", claims.Subject))
 		return &entity.IntrospectReport{
 			Active: false,
@@ -82,34 +86,39 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 		JTI:     claims.ID,
 		Subject: claims.Subject,
 		Email:   claims.UserEmail,
-		Roles:   claims.UserRoles,
-		Exp:     claims.ExpiresAt.Unix(),
+		// Stored roles, not claims: see EnsureActiveToken.
+		Roles: user.Roles,
+		Exp:   claims.ExpiresAt.Unix(),
 	}, nil
 }
 
-// isSubjectActive reports whether the JWT subject maps to a real, non-blocked
-// user. It fails closed: a subject we issued is always a valid user UUID and
-// always resolves, so a malformed subject or a missing user means the token is
-// not trustworthy (broken issuance, deleted account, or a token we shouldn't
-// honor) — treat it as inactive rather than waving it through. Only a transient
-// store error propagates, so the caller can reject with 503 instead of guessing.
-func (s *Service) isSubjectActive(ctx context.Context, subject string) (bool, error) {
+// activeSubject returns the real, non-blocked user the JWT subject maps to, or
+// nil when there is none. It fails closed: a subject we issued is always a valid
+// user UUID and always resolves, so a malformed subject or a missing user means
+// the token is not trustworthy (broken issuance, deleted account, or a token we
+// shouldn't honor) — treat it as inactive rather than waving it through. Only a
+// transient store error propagates, so the caller can reject with 503 instead
+// of guessing.
+func (s *Service) activeSubject(ctx context.Context, subject string) (*entity.User, error) {
 	userID, err := uuid.Parse(subject)
 	if err != nil {
 		xlog.Warn(ctx, "access token subject is not a valid uuid", xfield.String("subject", subject))
 		// Fail closed: a malformed subject is not a transient failure to surface,
 		// it means the token is not trustworthy — report inactive, not an error.
-		return false, nil //nolint:nilerr // intentional fail-closed, see func doc
+		return nil, nil //nolint:nilerr,nilnil // intentional fail-closed, see func doc
 	}
 
 	user, err := s.usersSrv.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, apperr.ErrUserNotFound) {
-			return false, nil
+			return nil, nil //nolint:nilnil // a missing subject is inactive, not an error
 		}
 		xlog.Error(ctx, "failed to load user for introspect block check", xfield.Error(err))
-		return false, fmt.Errorf("load user: %w", err)
+		return nil, fmt.Errorf("load user: %w", err)
+	}
+	if user.IsBlocked() {
+		return nil, nil //nolint:nilnil // a blocked subject is inactive, not an error
 	}
 
-	return !user.IsBlocked(), nil
+	return user, nil
 }

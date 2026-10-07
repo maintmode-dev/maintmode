@@ -45,6 +45,22 @@ func TestUnblockUser(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, got.IsBlocked())
 	})
+
+	t.Run("self-unblock rejected", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+		admin := makeUser(ctx, t, srv, entity.RoleAdmin)
+		blocked := makeUser(ctx, t, srv, entity.RoleAdmin)
+		require.NoError(t, srv.BlockUser(ctx, &entity.BlockUserCmd{Actor: admin, UserID: blocked.ID}))
+
+		err := srv.UnblockUser(ctx, &entity.UnblockUserCmd{Actor: blocked, UserID: blocked.ID})
+		require.ErrorIs(t, err, apperr.ErrSelfUnblock)
+
+		got, err := srv.GetByID(ctx, blocked.ID)
+		require.NoError(t, err)
+		require.True(t, got.IsBlocked())
+	})
 }
 
 func TestUnblockUser_SeatCap(t *testing.T) {
