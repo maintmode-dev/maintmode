@@ -125,3 +125,97 @@ func newEchoContextForTest(t *testing.T) *echo.Context {
 
 	return e.NewContext(req, httptest.NewRecorder())
 }
+
+// TestClientIPRateLimitKey pins whose address the sign-in limiter buckets by.
+// Every caller of the sign-in surface connects through a proxy — the gateway
+// for the OAuth dance, the frontend server for the rest — so the connecting
+// address is the same for all users and cannot be the key.
+func TestClientIPRateLimitKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		remoteAddr string
+		xff        string
+		want       string
+	}{
+		{
+			name:       "client behind the gateway",
+			remoteAddr: "172.18.0.3:41000",
+			xff:        "203.0.113.7",
+			want:       "203.0.113.7",
+		},
+		{
+			name:       "client behind the frontend server and an internal proxy",
+			remoteAddr: "172.18.0.3:41000",
+			xff:        "203.0.113.7, 172.18.0.5",
+			want:       "203.0.113.7",
+		},
+		{
+			name:       "public peer cannot claim another address",
+			remoteAddr: "198.51.100.9:41000",
+			xff:        "203.0.113.7",
+			want:       "198.51.100.9",
+		},
+		{
+			name:       "no header means the peer",
+			remoteAddr: "172.18.0.3:41000",
+			want:       "172.18.0.3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/login/password", http.NoBody)
+			req.RemoteAddr = tt.remoteAddr
+			if tt.xff != "" {
+				req.Header.Set(echo.HeaderXForwardedFor, tt.xff)
+			}
+
+			got, err := clientIPRateLimitKey(echo.New().NewContext(req, httptest.NewRecorder()))
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestNewIPRateLimiterSeparatesClientsBehindAProxy is the property the key
+// exists for: one client spending its budget does not spend anyone else's,
+// though both arrive from the same proxy.
+func TestNewIPRateLimiterSeparatesClientsBehindAProxy(t *testing.T) {
+	t.Parallel()
+
+	e := echo.New()
+	handler := NewIPRateLimiter("test", unreachableValkey(t), config.RateLimiterConfig{
+		RequestsPerMinute: 1,
+		Burst:             1,
+		ExpiresIn:         time.Minute,
+		Timeout:           200 * time.Millisecond,
+	})(func(c *echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	})
+
+	call := func(clientIP string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/login/password", http.NoBody)
+		req.RemoteAddr = "172.18.0.3:41000"
+		req.Header.Set(echo.HeaderXForwardedFor, clientIP)
+		rec := httptest.NewRecorder()
+
+		if err := handler(e.NewContext(req, rec)); err != nil {
+			var httpErr *echo.HTTPError
+			if errors.As(err, &httpErr) {
+				return httpErr.Code
+			}
+
+			return http.StatusInternalServerError
+		}
+
+		return rec.Code
+	}
+
+	require.Equal(t, http.StatusOK, call("203.0.113.7"))
+	require.Equal(t, http.StatusTooManyRequests, call("203.0.113.7"), "the first client's budget is spent")
+	require.Equal(t, http.StatusOK, call("203.0.113.8"), "another client behind the same proxy is unaffected")
+}
