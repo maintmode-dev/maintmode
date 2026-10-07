@@ -250,7 +250,13 @@ func (j JWT) GeneratePrivateKey() *ecdsa.PrivateKey {
 	return key
 }
 
+// Tracer configures span export to an OTLP collector. Export is opt-in: with
+// Enabled false (the zero value, so an absent `tracer:` block) no exporter is
+// built and nothing is dialed, which is what a deployment without a collector
+// — self-hosted included — needs. Spans are still created, so trace ids keep
+// correlating log lines.
 type Tracer struct {
+	Enabled       bool   `mapstructure:"enabled"`
 	CollectorHost string `mapstructure:"collector_host"`
 	CollectorPort int32  `mapstructure:"collector_port"`
 }
@@ -774,6 +780,10 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
+	if err := cfg.validateTracerConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
 	if err := cfg.validateBootstrapConfig(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
@@ -940,6 +950,28 @@ func (c *AppConfig) validateUseStubInDev() error {
 // the rename because a stale `redis:` block is the overwhelmingly likely cause
 // and is otherwise invisible. It panics-via-caller (initConfig) so the
 // misconfiguration surfaces at startup.
+// validateTracerConfig rejects an enabled tracer with nowhere to send spans.
+// Without it the exporter dials ":0" and reports a failed export every few
+// seconds instead of failing once at startup.
+func (c *AppConfig) validateTracerConfig() error {
+	if !c.Tracer.Enabled {
+		return nil
+	}
+
+	if c.Tracer.CollectorHost == "" {
+		return fmt.Errorf("tracer.collector_host must not be empty when tracer.enabled is true")
+	}
+
+	if c.Tracer.CollectorPort <= 0 || c.Tracer.CollectorPort > 65535 {
+		return fmt.Errorf(
+			"tracer.collector_port must be in 1..65535 when tracer.enabled is true, got %d",
+			c.Tracer.CollectorPort,
+		)
+	}
+
+	return nil
+}
+
 func (c *AppConfig) validateValkeyConfig() error {
 	if c.Valkey.Address == "" {
 		return fmt.Errorf(

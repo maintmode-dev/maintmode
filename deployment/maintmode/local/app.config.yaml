@@ -167,6 +167,7 @@ db:
   connection_max_idle_time: 5m
 
 tracer:
+  enabled: true
   collector_host: localhost
   collector_port: 4317
 
