@@ -75,7 +75,7 @@ func (r *Service) render(
 	}
 
 	data := templateData{
-		NotifyEvent:  evt,
+		NotifyEvent:  escapeFreeText(transport, evt),
 		MaintURL:     maintURL,
 		OwnerMention: ownerMention(ctx, transport, evt.OwnerMention),
 		Mentions:     mentionsLine(ctx, transport, evt.Mentions),
@@ -87,6 +87,28 @@ func (r *Service) render(
 	}
 
 	return buf.String(), nil
+}
+
+// escapeFreeText neutralizes Slack markup in the free text an editor types --
+// the title, a step's description, a cancellation comment.
+//
+// The Slack gateway posts with slack-go's escaping off, so "<!channel>" in a
+// title pinged the whole channel from the bot, and "<https://evil|Open>" put a
+// disguised link in front of everyone. Escaping the angle brackets turns both
+// into the text that was typed. Slack only: Telegram sends without a parse
+// mode, and the email template escapes for itself -- escaping here as well would
+// show those readers a literal "&lt;".
+func escapeFreeText(transport entity.NotifyTransport, evt entity.NotifyEvent) entity.NotifyEvent {
+	if transport != entity.NotifyTransportSlack {
+		return evt
+	}
+
+	escape := strings.NewReplacer("<", "&lt;", ">", "&gt;").Replace
+	evt.MaintTitle = escape(evt.MaintTitle)
+	evt.StepDescription = escape(evt.StepDescription)
+	evt.CancelReasonComment = escape(evt.CancelReasonComment)
+
+	return evt
 }
 
 func buildMaintURL(base, maintID string) (string, error) {

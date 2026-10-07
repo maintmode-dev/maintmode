@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/ruko1202/xhttp/sanitize"
@@ -20,6 +21,12 @@ const botPathPrefix = "bot"
 // "bot"+opaque-looking text as a hardcoded credential; there is no secret here,
 // only its replacement.
 const maskedTokenSegment = botPathPrefix + "[REDACTED]"
+
+// tokenSegment is the shape of a token segment: "bot", the bot's numeric id, a
+// colon. The shape rather than the position is what identifies it, because an
+// api_url with a path of its own -- a corporate proxy at /telegram -- moves the
+// token out of the first segment.
+var tokenSegment = regexp.MustCompile(`^` + botPathPrefix + `\d+:`)
 
 var _ sanitize.Sanitizer = sanitizer{}
 
@@ -44,8 +51,10 @@ type sanitizer struct {
 //	https://api.telegram.org/bot123:AAH.../sendMessage
 //	→ https://api.telegram.org/bot[REDACTED]/sendMessage
 //
-// Only the first path segment is examined, because that is where the Bot API
-// puts the token; a "bot"-prefixed segment anywhere else is not a credential.
+// Every path segment is examined, not only the first: an api_url with a path of
+// its own (https://proxy.corp/telegram) puts the token deeper, and a sanitizer
+// that only looked first leaked it into error logs and spans. A segment is
+// masked by the token's shape, so an ordinary "bot"-prefixed word is left alone.
 //
 // The URL is rebuilt by hand rather than through url.URL.String(), which would
 // percent-escape the brackets in the marker into %5BREDACTED%5D. A log line is
@@ -62,14 +71,17 @@ func (s sanitizer) SanitizeURL(rawURL string) string {
 		return s.Sanitizer.SanitizeURL(rawURL)
 	}
 
-	// Split on the leading slash: index 0 is the empty string before it, so the
-	// first real segment is index 1.
 	segments := strings.Split(u.Path, "/")
-	if len(segments) < 2 || !strings.HasPrefix(segments[1], botPathPrefix) {
+	masked := false
+	for i, segment := range segments {
+		if tokenSegment.MatchString(segment) {
+			segments[i] = maskedTokenSegment
+			masked = true
+		}
+	}
+	if !masked {
 		return s.Sanitizer.SanitizeURL(rawURL)
 	}
-
-	segments[1] = maskedTokenSegment
 
 	var b strings.Builder
 
