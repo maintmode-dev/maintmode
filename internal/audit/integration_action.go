@@ -8,11 +8,13 @@ import (
 )
 
 // Integration registry audited actions. Each records that Actor created,
-// updated or deleted one integration. The snapshot deliberately carries only
-// its identity (kind and name) and the enabled flag — never config values and
-// never secret values — so a credential can't leak into the durable audit
-// trail. The name is an identifier, already visible in every URL that addresses
-// the row, and without it two providers of one kind are indistinguishable here.
+// updated or deleted one integration: its identity (kind and name) and the
+// enabled flag, and for an update what changed. Never a secret value -- a
+// changed secret appears by name only -- so a credential can't leak into the
+// durable audit trail. Config values may appear: a config holds no secret, and
+// GET already returns it verbatim to the same admins. The name is an
+// identifier, already visible in every URL that addresses the row, and without
+// it two providers of one kind are indistinguishable here.
 
 // IntegrationCreated records that Actor created an integration.
 type IntegrationCreated struct {
@@ -27,11 +29,15 @@ func (IntegrationCreated) auditAction() entity.AuditAction {
 }
 
 // IntegrationUpdated records that Actor updated (or toggled) an integration.
+// Changes is what the update moved: config fields before and after, the enabled
+// flag, and each secret replaced or cleared, by name only. Empty for a toggle,
+// whose whole change is the flag in Enabled.
 type IntegrationUpdated struct {
 	Actor   *entity.User
 	Kind    string
 	Name    string
 	Enabled bool
+	Changes []entity.AuditFieldChange
 }
 
 func (IntegrationUpdated) auditAction() entity.AuditAction {
@@ -51,15 +57,18 @@ func (IntegrationDeleted) auditAction() entity.AuditAction {
 	return entity.AuditActionIntegrationDeleted
 }
 
-// fillIntegrationPayload renders an integration action to its snapshot. Only the
-// identity, enabled flag, and actor are recorded — no config, no secrets — so
-// the durable audit trail can never carry a credential.
+// fillIntegrationPayload renders an integration action to its snapshot: the
+// identity, enabled flag and actor, plus an update's changes. No secret value
+// is ever recorded, so the durable audit trail can never carry a credential.
 func fillIntegrationPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case IntegrationCreated:
 		fillIntegrationAction(payload, a.Actor, a.Kind, a.Name, a.Enabled, "created")
 	case IntegrationUpdated:
 		fillIntegrationAction(payload, a.Actor, a.Kind, a.Name, a.Enabled, "updated")
+		if len(a.Changes) > 0 {
+			payload.Metadata = &entity.AuditMetadata{Changes: a.Changes}
+		}
 	case IntegrationDeleted:
 		fillIntegrationDeleteAction(payload, a.Actor, a.Kind, a.Name)
 	default:

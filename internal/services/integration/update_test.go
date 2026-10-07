@@ -222,6 +222,13 @@ func TestService_UpdatePublishesAuditAndReusesDEK(t *testing.T) {
 	upd := lastUpdated(t, mocks.audit.Actions())
 	require.Equal(t, kinds.slack, upd.Name)
 	require.NotContains(t, fmt.Sprintf("%+v", upd), "new-tok")
+
+	// The trail records where the integration was pointed before and after,
+	// and that the secret changed -- by name, never by value.
+	require.Equal(t, []entity.AuditFieldChange{
+		{Field: "api_url", Old: "https://a.test", New: "https://b.test"},
+		{Field: "secrets.bot_token"},
+	}, upd.Changes)
 }
 
 // Update/Toggle on a never-created kind surface ErrIntegrationNotFound from the

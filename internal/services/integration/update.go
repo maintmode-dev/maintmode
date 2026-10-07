@@ -92,6 +92,8 @@ func (s *Service) Update(ctx context.Context, cmd *entity.UpdateIntegrationCmd) 
 		//
 		// Nothing else depends on the old order: the merge takes its DEK from
 		// current.DEKID, which the patch does not touch.
+		before := *current
+
 		applyUpdateIntegrationCmd(current, cmd)
 
 		merged, mergeErr := s.mergeSecrets(ctx, in, current, intents)
@@ -111,7 +113,17 @@ func (s *Service) Update(ctx context.Context, cmd *entity.UpdateIntegrationCmd) 
 			return valErr
 		}
 
-		s.publishAudit(ctx, audit.IntegrationUpdated{Actor: cmd.Actor, Kind: cmd.Kind, Name: cmd.Name, Enabled: current.Enabled})
+		changes := enabledChange(before.Enabled, current.Enabled)
+		changes = append(changes, configChanges(before.Config, current.Config)...)
+		changes = append(changes, secretChanges(in, intents)...)
+
+		s.publishAudit(ctx, audit.IntegrationUpdated{
+			Actor:   cmd.Actor,
+			Kind:    cmd.Kind,
+			Name:    cmd.Name,
+			Enabled: current.Enabled,
+			Changes: changes,
+		})
 		return nil
 	})
 
