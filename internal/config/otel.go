@@ -39,33 +39,41 @@ func InitTracerResource(meta *buildmeta.AppBuildMeta) (*resource.Resource, error
 	return res, nil
 }
 
-// InitTracerProvider sets up everything: trace exporter and pull-based metric exporter
+// InitTracerProvider sets up the tracer provider. The OTLP exporter is attached
+// only when tracer.Enabled; otherwise spans are created (trace ids still reach
+// the logs) but never leave the process.
 func InitTracerProvider(ctx context.Context, res *resource.Resource, tracer Tracer) (*sdktrace.TracerProvider, error) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 		logger := xlog.LoggerFromContext(ctx)
 		logger.Error("ALERT: Internal OpenTelemetry error", xfield.Error(err))
 	}))
 
-	// --- TRACES ---
-	// gRPC exporter to OTel Collector
-	traceExporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", tracer.CollectorHost, tracer.CollectorPort)),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
-	}
-	bsp := sdktrace.NewBatchSpanProcessor(
-		traceExporter,
-		sdktrace.WithMaxQueueSize(sdktrace.DefaultMaxQueueSize),
-		sdktrace.WithMaxExportBatchSize(sdktrace.DefaultMaxExportBatchSize),
-	)
-
-	tracerProvider := sdktrace.NewTracerProvider(
+	opts := []sdktrace.TracerProviderOption{
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSpanProcessor(bsp),
 		sdktrace.WithResource(res),
-	)
+	}
+
+	// --- TRACES ---
+	if tracer.Enabled {
+		// gRPC exporter to OTel Collector
+		traceExporter, err := otlptracegrpc.New(ctx,
+			otlptracegrpc.WithInsecure(),
+			otlptracegrpc.WithEndpoint(fmt.Sprintf("%s:%d", tracer.CollectorHost, tracer.CollectorPort)),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		}
+		bsp := sdktrace.NewBatchSpanProcessor(
+			traceExporter,
+			sdktrace.WithMaxQueueSize(sdktrace.DefaultMaxQueueSize),
+			sdktrace.WithMaxExportBatchSize(sdktrace.DefaultMaxExportBatchSize),
+		)
+		opts = append(opts, sdktrace.WithSpanProcessor(bsp))
+	} else {
+		xlog.Info(ctx, "trace export disabled (tracer.enabled is false)")
+	}
+
+	tracerProvider := sdktrace.NewTracerProvider(opts...)
 	otel.SetTracerProvider(tracerProvider)
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
