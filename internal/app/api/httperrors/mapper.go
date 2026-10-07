@@ -65,6 +65,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrReauthenticationRequired),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
@@ -248,6 +249,9 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	// link_conflict deliberately does not: it would tell a caller that a
 	// provider account they hold is registered on this instance to another
 	// person. The audit trail keeps the distinction.
+	case errors.Is(err, apperr.ErrReauthenticationRequired):
+		return http.StatusForbidden, NewErrorResponse(ErrReauthenticationRequired, apperr.ErrReauthenticationRequired.Error())
+
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, "this provider account cannot be linked to your profile")

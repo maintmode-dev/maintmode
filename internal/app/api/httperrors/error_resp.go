@@ -49,6 +49,10 @@ var (
 	// message carries the far end's own text for an admin to read. Splitting the
 	// two means a library rewording its errors cannot break a UI.
 	ErrIntegrationProbeFailed ErrorCode = "probe_failed"
+
+	// ErrReauthenticationRequired asks the client to sign the person in again
+	// before an operation that needs a recent sign-in.
+	ErrReauthenticationRequired ErrorCode = "reauthentication_required"
 )
 
 type ErrorResponse struct {

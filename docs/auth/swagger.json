@@ -2034,6 +2034,16 @@
                         },
                         "description": "Unauthorized"
                     },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "reauthentication_required: setting a first password needs refresh_token of a session that signed in within the last 10 minutes"
+                    },
                     "500": {
                         "content": {
                             "application/json": {

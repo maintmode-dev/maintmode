@@ -89,9 +89,11 @@ type LoginWithBreakGlassRequest struct {
 // Sending it in the wrong case is a 400 rather than a silently ignored field,
 // so a client learns which state it is in.
 //
-// RefreshToken names the session to keep alive. It is optional: omitting it
-// revokes every session, including the caller's, which is how an admin who has
-// lost their refresh token can still set a password.
+// RefreshToken names the session to keep alive. When replacing a password it is
+// optional: omitting it revokes every session, including the caller's, which is
+// how an admin who has lost their refresh token can still change it. When
+// setting a FIRST password it is required, and its session must have signed in
+// within the last ten minutes -- otherwise 403 reauthentication_required.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password" binding:"required"`
