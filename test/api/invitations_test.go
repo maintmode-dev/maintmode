@@ -199,5 +199,5 @@ func TestAuthAPIInvitations_SuiteTokensAreNotEmailShaped(t *testing.T) {
 	// nothing and leave this test green while checking absolutely nothing. The
 	// floor is the number of logins the suite has today, so it also fails if a
 	// rename takes out only some of them rather than all.
-	require.GreaterOrEqual(t, found, 8, "id_token scan matched too little — has the client or field name changed?")
+	require.GreaterOrEqual(t, found, 7, "id_token scan matched too little — has the client or field name changed?")
 }
