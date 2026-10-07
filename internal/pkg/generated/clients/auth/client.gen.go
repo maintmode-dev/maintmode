@@ -4213,6 +4213,7 @@ type PostApiV1MePasswordResponse struct {
 	HTTPResponse *http.Response
 	JSON400      *HttperrorsErrorResponse
 	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
 	JSON500      *HttperrorsErrorResponse
 }
 
@@ -6113,6 +6114,13 @@ func ParsePostApiV1MePasswordResponse(rsp *http.Response) (*PostApiV1MePasswordR
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest HttperrorsErrorResponse

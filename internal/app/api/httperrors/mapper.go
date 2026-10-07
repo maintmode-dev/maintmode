@@ -65,6 +65,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrReauthenticationRequired),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
@@ -242,6 +243,9 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
+
+	case errors.Is(err, apperr.ErrReauthenticationRequired):
+		return http.StatusForbidden, NewErrorResponse(ErrReauthenticationRequired, apperr.ErrReauthenticationRequired.Error())
 
 	// One fixed message for both. The sentinels' own text says whether the
 	// provider account is linked here or to somebody else, which the dance's

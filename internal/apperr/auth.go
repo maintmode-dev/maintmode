@@ -138,6 +138,12 @@ var (
 // and keep access it is meant to revoke. Wraps ErrForbidden => HTTP 403.
 var ErrBreakGlassPersonalSignIn = fmt.Errorf("%w: the break-glass account has no personal sign-in", ErrForbidden)
 
+// ErrReauthenticationRequired refuses an operation that needs a recent
+// sign-in -- setting a first password -- from a session that signed in too long
+// ago. NOT an auth failure: the session is valid, and a 401 would make the
+// client discard it instead of asking the person to sign in again.
+var ErrReauthenticationRequired = errors.New("sign in again to set a password")
+
 // User management lockout protection. Both wrap ErrValidation so the HTTP layer
 // maps them to 400 (see httperrors.ToAPIError).
 var (

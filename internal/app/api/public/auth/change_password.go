@@ -25,6 +25,7 @@ import (
 // @Success 204 "Password changed"
 // @Failure 400 {object} httperrors.ErrorResponse "Validation failed"
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
+// @Failure 403 {object} httperrors.ErrorResponse "reauthentication_required: setting a first password needs refresh_token of a session that signed in within the last 10 minutes"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/me/password [post]
 //
