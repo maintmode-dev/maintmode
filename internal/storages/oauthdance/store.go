@@ -43,6 +43,9 @@ const (
 	// each other: these entries hold different things and a shared namespace
 	// would let one be read as another.
 	linkPrefix = "oauth:link:"
+	// linkCodePrefix holds a pending link waiting for its owner's session -- a
+	// different thing from the ticket that started it, so a different namespace.
+	linkCodePrefix = "oauth:linkcode:"
 )
 
 // Store is the Valkey-backed dance store.
@@ -98,4 +101,9 @@ func invitationKey(handle string) string {
 // sign-in method to an account, so a KEYS scan must not yield a usable one.
 func linkKey(ticket string) string {
 	return linkPrefix + xhash.HashSha256([]byte(ticket))
+}
+
+// linkCodeKey hashes the one-time link code like every other secret here.
+func linkCodeKey(code string) string {
+	return linkCodePrefix + xhash.HashSha256([]byte(code))
 }

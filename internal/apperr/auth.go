@@ -93,6 +93,15 @@ var (
 	// apart. A STORE failure stays unwrapped, so an actual outage still answers
 	// 500.
 	ErrLinkTicketUnusable = fmt.Errorf("%w: link ticket is not usable", ErrValidation)
+	// ErrLinkCodeInvalid marks a pending link its redeemer may not complete: the
+	// code is unknown, expired or spent, the browser binding does not match, the
+	// link was started by another account, or that account is gone or blocked.
+	// One answer for all of them, like every refusal in this flow.
+	//
+	// Deliberately NOT an auth failure: the caller holds a valid session, and a
+	// 401 would tell the BFF its token is dead and sign the person out over a
+	// link that merely did not apply. The mapper answers it with a fixed 400.
+	ErrLinkCodeInvalid = errors.New("link code is not redeemable")
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next

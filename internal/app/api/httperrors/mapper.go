@@ -64,6 +64,7 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrAuthUnavailable),
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
+		errors.Is(err, apperr.ErrLinkCodeInvalid),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
@@ -248,6 +249,12 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 	// link_conflict deliberately does not: it would tell a caller that a
 	// provider account they hold is registered on this instance to another
 	// person. The audit trail keeps the distinction.
+	// A pending link this caller may not complete. A fixed message: the causes
+	// are deliberately one answer. 400 rather than 401, because the caller's
+	// session is fine and a 401 would make the BFF sign them out.
+	case errors.Is(err, apperr.ErrLinkCodeInvalid):
+		return http.StatusBadRequest, NewErrorResponse(ErrLinkInvalid, "the link could not be completed")
+
 	case errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser):
 		return http.StatusConflict, NewErrorResponse(ErrConflict, "this provider account cannot be linked to your profile")

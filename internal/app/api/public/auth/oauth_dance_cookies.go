@@ -29,6 +29,10 @@ const (
 	// pointer to a server-side entry, so the browser learns nothing from it and
 	// no extra secret enters the design.
 	oauthLinkCookie = "oauth_link"
+
+	// oauthBindingCookie carries the browser binding from /start to the
+	// callback, which puts it on the one-time code.
+	oauthBindingCookie = "oauth_binding"
 )
 
 // danceCookieValue reads one dance cookie, treating "absent" and "empty" as the
@@ -63,7 +67,7 @@ func (i *Implementation) setDanceCookie(c *echo.Context, name, value string, ttl
 // and the provider burning the authorization code are what cover that case.
 func (i *Implementation) expireDanceCookies(c *echo.Context) {
 	for _, name := range []string{
-		oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie,
+		oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie, oauthBindingCookie,
 	} {
 		i.expireDanceCookie(c, name)
 	}

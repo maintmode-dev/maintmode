@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -19,6 +20,7 @@ import (
 // @Param provider path string true "Configured provider instance name, e.g. google"
 // @Param invitation query string false "Invitation token, when signing in from an invitation link"
 // @Param link query string false "Link ticket from POST /me/providers/{provider}/connect, to attach this provider to an existing account instead of signing in"
+// @Param binding query string true "Browser binding: unpadded base64url of SHA-256 over a nonce the caller keeps. The one-time code this dance yields redeems only with that nonce. Missing or malformed redirects to the frontend with error=state_invalid"
 // @Success 302 "Redirect to the provider's authorization endpoint"
 // @Failure 400 {object} httperrors.ErrorResponse "Unsupported provider"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
@@ -59,9 +61,17 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	// invitation token is: validation belongs to the service, which owns the
 	// store. It is masked in request logs by name (see the request sanitizer).
 	dance, err := i.authSrv.StartDance(ctx,
-		c.Param("provider"), c.QueryParam("invitation"), c.QueryParam(paramLink))
+		c.Param("provider"), c.QueryParam("invitation"), c.QueryParam(paramLink), c.QueryParam(paramBinding))
 	if err != nil {
 		xlog.Error(ctx, "failed to start the oauth dance", xfield.Error(err))
+
+		// A missing binding is the one /start refusal that is answered with a
+		// redirect: the provider is known to be ours by now, the target is the
+		// configured frontend, and the person is mid-navigation.
+		if errors.Is(err, apperr.ErrOAuthDanceStateInvalid) {
+			return i.redirectFailure(c, errCodeStateInvalid)
+		}
+
 		return httperrors.ToAPIError(c, op, err)
 	}
 
@@ -100,6 +110,8 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	} else {
 		i.setDanceCookie(c, oauthLinkCookie, dance.LinkTicket, dance.TTL)
 	}
+
+	i.setDanceCookie(c, oauthBindingCookie, dance.Binding, dance.TTL)
 
 	return c.Redirect(http.StatusFound, dance.AuthorizationURL)
 }

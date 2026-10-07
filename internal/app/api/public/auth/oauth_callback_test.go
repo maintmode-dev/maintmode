@@ -25,6 +25,7 @@ type danceRun struct {
 	state     string
 	signature string
 	verifier  string
+	binding   string
 }
 
 // runStart drives /start and collects both halves of the dance, so the callback
@@ -38,12 +39,13 @@ func runStart(t *testing.T, impl *Implementation) danceRun {
 	require.NoError(t, err)
 
 	cookies := danceCookies(t, rec)
-	require.Len(t, cookies, 2)
+	require.Len(t, cookies, 3)
 
 	return danceRun{
 		state:     target.Query().Get("state"),
 		signature: cookies[oauthStateCookie].Value,
 		verifier:  cookies[oauthVerifierCookie].Value,
+		binding:   cookies[oauthBindingCookie].Value,
 	}
 }
 
@@ -77,6 +79,10 @@ func callbackRequestAs(
 		cookies = append(cookies, &http.Cookie{Name: oauthVerifierCookie, Value: run.verifier})
 	}
 
+	if run.binding != "" {
+		cookies = append(cookies, &http.Cookie{Name: oauthBindingCookie, Value: run.binding})
+	}
+
 	return driveCallback(t, impl, provider, query, cookies)
 }
 
@@ -101,6 +107,7 @@ func callbackWithEmptyStateCookie(
 	return driveCallback(t, impl, string(entity.AuthMethodGoogle), query, []*http.Cookie{
 		{Name: oauthStateCookie, Value: ""},
 		{Name: oauthVerifierCookie, Value: run.verifier},
+		{Name: oauthBindingCookie, Value: run.binding},
 	})
 }
 
@@ -174,7 +181,7 @@ func TestCallbackHappyPathRedirectsWithAOneTimeCode(t *testing.T) {
 
 	// The opaque code must be redeemable exactly once, and for the pair this
 	// dance minted.
-	pair, err := impl.authSrv.RedeemDanceCode(t.Context(), q.Get("code"))
+	pair, err := impl.authSrv.RedeemDanceCode(t.Context(), q.Get("code"), testBindingNonce)
 	require.NoError(t, err)
 	require.NotNil(t, pair)
 	assert.NotEmpty(t, pair.AccessToken)
@@ -597,4 +604,22 @@ func TestStartAdvertisesTheS256TransformOfTheCookieVerifier(t *testing.T) {
 		"the advertised challenge must be the S256 transform of the cookie's verifier")
 	assert.NotEqual(t, verifier.Value, challenge,
 		"a challenge equal to the verifier is the `plain` method, which PKCE exists to avoid")
+}
+
+// A callback whose binding cookie did not come back mints nothing: the code it
+// would carry could not be redeemed by anyone, and asking the provider for it
+// would spend an outbound request on a dance already lost.
+func TestCallbackRefusesADanceWithoutItsBinding(t *testing.T) {
+	impl := initDanceImpl(t)
+
+	run := runStart(t, impl)
+	run.binding = ""
+
+	_, q := redirectResult(t, callbackRequest(t, impl, url.Values{
+		"code":  {"provider-auth-code"},
+		"state": {run.state},
+	}, run))
+
+	assert.Equal(t, errCodeStateInvalid, q.Get(paramError))
+	assert.Empty(t, q.Get(paramCode))
 }

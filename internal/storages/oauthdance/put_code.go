@@ -10,14 +10,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// PutCode parks a minted token pair under the hash of the one-time opaque code
-// the browser carries to the frontend.
+// PutCode parks a minted token pair, with the browser binding it can only be
+// redeemed against, under the hash of the one-time opaque code the browser
+// carries to the frontend.
 //
 // The pair is encoded from the ENTITY, deliberately, and never from the API
 // response DTO. entity.TokenPair.SessionID is documented as never appearing in
 // the API response, so a DTO round trip would drop it silently — and SessionID
 // is what ties a login to its audit record.
-func (s *Store) PutCode(ctx context.Context, code string, pair *entity.TokenPair) error {
+func (s *Store) PutCode(ctx context.Context, code string, entry entity.DanceCode) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.OAuthDance.PutCode")
 	defer span.End()
 
@@ -25,9 +26,9 @@ func (s *Store) PutCode(ctx context.Context, code string, pair *entity.TokenPair
 	// redeems. It is held for 60 seconds under a hashed key, which is the whole
 	// design, so the marshal-a-secret warning has nothing to add here.
 	//nolint:gosec // G117: storing the token pair IS the purpose of this store
-	encoded, err := json.Marshal(pair)
+	encoded, err := json.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("marshal token pair: %w", err)
+		return fmt.Errorf("marshal dance code: %w", err)
 	}
 
 	if err := s.db.Set(ctx, codeKey(code), encoded, s.codeTTL).Err(); err != nil {

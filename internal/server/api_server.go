@@ -492,6 +492,7 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 	withAuthorize.Add(http.MethodPost, "/me/password", s.handlers.Auth.ChangePassword)
 	withAuthorize.Add(http.MethodPatch, "/me", s.handlers.Auth.UpdateMe)
 	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.handlers.Auth.ConnectProvider)
+	withAuthorize.Add(http.MethodPost, "/me/providers/link/complete", s.handlers.Auth.CompleteLink)
 	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.handlers.Auth.DisconnectProvider)
 
 	withAuthorize.Add(http.MethodGet, "/roles",

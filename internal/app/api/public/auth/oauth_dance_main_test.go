@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -68,6 +70,15 @@ func (f *fakeDanceGateway) Exchange(_ context.Context, code, verifier string) (s
 // the cookies carry Secure and the assertions match what production emits.
 func testEnv() string { return testRedirectURI }
 
+// testBindingNonce is the nonce a test BFF keeps for the browser it drives;
+// testBinding is what that BFF hands /start.
+const testBindingNonce = "test-bff-binding-nonce"
+
+var testBinding = func() string {
+	sum := sha256.Sum256([]byte(testBindingNonce))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}()
+
 // danceCookies indexes the LIVE dance cookies a response set, by name.
 //
 // A cookie the handler expired is deliberately excluded. Clearing a cookie is
@@ -81,7 +92,7 @@ func danceCookies(t *testing.T, rec *httptest.ResponseRecorder) map[string]*http
 
 	for _, cookie := range rec.Result().Cookies() {
 		switch cookie.Name {
-		case oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie:
+		case oauthStateCookie, oauthVerifierCookie, oauthInvitationCookie, oauthLinkCookie, oauthBindingCookie:
 		default:
 			continue
 		}

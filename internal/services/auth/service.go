@@ -94,8 +94,8 @@ type Service struct {
 // bearer credential with a multi-day life. Only the handle reaches the browser;
 // only the id reaches Valkey.
 type DanceCodeStore interface {
-	PutCode(ctx context.Context, code string, pair *entity.TokenPair) error
-	ConsumeCode(ctx context.Context, code string) (*entity.TokenPair, error)
+	PutCode(ctx context.Context, code string, entry entity.DanceCode) error
+	ConsumeCode(ctx context.Context, code string) (*entity.DanceCode, error)
 	PutInvitationHandle(ctx context.Context, handle string, invitationID uuid.UUID) error
 	// ConsumeInvitationHandle returns nil with no error when there is nothing to
 	// redeem. That is the ordinary path for a dead or forged invitation, not a
@@ -113,8 +113,12 @@ type DanceCodeStore interface {
 	// from an error, and the two must stay apart: reading a store failure as "no
 	// ticket" is what would turn an outage into a sign-in nobody asked for.
 	PeekLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error)
-	// ConsumeLinkTicket redeems a ticket, and is the only spend in the link flow.
+	// ConsumeLinkTicket redeems a ticket at the callback.
 	ConsumeLinkTicket(ctx context.Context, ticket string) (*entity.LinkIntent, error)
+	// PutLinkCode parks a link the provider vouched for until its owner's
+	// session redeems it; ConsumeLinkCode is that redemption, nil on a miss.
+	PutLinkCode(ctx context.Context, code string, link entity.PendingLink) error
+	ConsumeLinkCode(ctx context.Context, code string) (*entity.PendingLink, error)
 }
 
 // InvitationClaimer is the invitation side of an invited dance.

@@ -49,6 +49,9 @@ var (
 	// message carries the far end's own text for an admin to read. Splitting the
 	// two means a library rewording its errors cannot break a UI.
 	ErrIntegrationProbeFailed ErrorCode = "probe_failed"
+
+	// ErrLinkInvalid answers a pending provider link the caller cannot complete.
+	ErrLinkInvalid ErrorCode = "link_invalid"
 )
 
 type ErrorResponse struct {

@@ -56,6 +56,9 @@ var sensitiveQueryParams = map[string]struct{}{
 	// minted for. The endpoint that mints it answers with the ticket in a URL, so
 	// it reaches a query string by construction rather than by accident.
 	"link": {},
+	// The one-time code of a pending link on the frontend redirect. Within its
+	// minute it completes a link for whoever also holds the binding nonce.
+	"link_code": {},
 }
 
 // sensitiveBodyFields are masked in logged request and response bodies.
@@ -78,6 +81,8 @@ var sensitiveBodyFields = map[string]struct{}{
 	"client_secret":    {},
 	"bot_token":        {},
 	"invitation_token": {},
+	"link_code":        {},
+	"binding_proof":    {},
 }
 
 var _ sanitize.Sanitizer = RequestSanitizer{}
