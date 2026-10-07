@@ -214,7 +214,13 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	loginPasswordGr := gr.Group("/login",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
-	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword)
+	// The password sign-in also takes the per-address tier the one-time codes
+	// use: per-IP alone let a distributed guesser try one account from as many
+	// addresses as it had. Route-level, not on the group, because break-glass
+	// carries no address -- every attempt would land in the shared "unparseable"
+	// bucket, and anyone could hold the emergency way in at 429 for everyone.
+	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword,
+		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
 	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass)
 
 	s.otpRoutes(gr, meta)
