@@ -16,6 +16,7 @@ func archive(t *testing.T, impl *Implementation, id uuid.UUID) {
 	t.Helper()
 
 	c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+	seedUser(t, c)
 	c.SetPathValues(echo.PathValues{{Name: "id", Value: id.String()}})
 
 	require.NoError(t, impl.ArchiveResource(c))
@@ -26,6 +27,7 @@ func unarchive(t *testing.T, impl *Implementation, id string) *httptest.Response
 	t.Helper()
 
 	c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+	seedUser(t, c)
 	c.SetPathValues(echo.PathValues{{Name: "id", Value: id}})
 
 	require.NoError(t, impl.UnarchiveResource(c))

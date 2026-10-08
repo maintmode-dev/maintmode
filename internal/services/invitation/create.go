@@ -14,6 +14,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -117,6 +118,8 @@ func (s *Service) Create(ctx context.Context, cmd *entity.CreateInvitationCmd) (
 		xlog.Error(ctx, "create invitation failed", xfield.Error(err))
 		return nil, err
 	}
+
+	s.publishAudit(ctx, audit.InvitationCreated{Actor: cmd.Actor, Invitation: created})
 
 	return created, nil
 }

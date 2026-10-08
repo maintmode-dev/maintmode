@@ -89,7 +89,7 @@ func (i *Implementation) UpdateChannel(c *echo.Context) error {
 		Name:               req.Name,
 		Description:        req.Description,
 		TransportChannelID: req.TransportChannelID,
-		UpdatedByUserID:    editor.ID,
+		Actor:              editor,
 	})
 	if err != nil {
 		xlog.Error(ctx, "update channel failed", xfield.Error(err))

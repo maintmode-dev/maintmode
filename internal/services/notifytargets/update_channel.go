@@ -7,6 +7,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 	"github.com/samber/lo"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -18,7 +19,10 @@ func (s *Service) UpdateChannel(ctx context.Context, cmd *entity.UpdateNotifyCha
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Notifytargets.UpdateChannel")
 	defer span.End()
 
-	var updated *entity.NotifyChannel
+	var (
+		updated *entity.NotifyChannel
+		changes []entity.AuditFieldChange
+	)
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		channel, err := s.channelCatalog.GetForUpdate(ctx, cmd.ID)
@@ -26,7 +30,9 @@ func (s *Service) UpdateChannel(ctx context.Context, cmd *entity.UpdateNotifyCha
 			return err
 		}
 
+		before := *channel
 		applyChannel(channel, cmd)
+		changes = channelChanges(&before, channel)
 
 		updated, err = s.channelCatalog.Update(ctx, channel)
 		if err != nil {
@@ -43,7 +49,24 @@ func (s *Service) UpdateChannel(ctx context.Context, cmd *entity.UpdateNotifyCha
 		return nil, err
 	}
 
+	s.publishAudit(ctx, audit.NotifyChannelUpdated{Actor: cmd.Actor, Channel: updated, Changes: changes})
+
 	return updated, nil
+}
+
+// channelChanges lists the editable fields an update moved, before and after.
+func channelChanges(before, after *entity.NotifyChannel) []entity.AuditFieldChange {
+	var changes []entity.AuditFieldChange
+	add := func(field, oldValue, newValue string) {
+		if oldValue != newValue {
+			changes = append(changes, entity.AuditFieldChange{Field: field, Old: oldValue, New: newValue})
+		}
+	}
+	add("name", before.Name, after.Name)
+	add("description", before.Description, after.Description)
+	add("transport_channel_id", before.TransportChannelID, after.TransportChannelID)
+
+	return changes
 }
 
 func applyChannel(channel *entity.NotifyChannel, cmd *entity.UpdateNotifyChannelCmd) {
@@ -57,5 +80,5 @@ func applyChannel(channel *entity.NotifyChannel, cmd *entity.UpdateNotifyChannel
 		channel.TransportChannelID = lo.FromPtr(cmd.TransportChannelID)
 	}
 
-	channel.UpdatedByUserID = &cmd.UpdatedByUserID
+	channel.UpdatedByUserID = &cmd.Actor.ID
 }

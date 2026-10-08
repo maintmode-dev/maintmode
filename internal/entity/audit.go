@@ -63,6 +63,29 @@ const (
 	// security event, and it is the one record that survives a rollback of the
 	// table itself.
 	AuditActionAuthMethodToggled AuditAction = "auth_method.toggled"
+
+	// Invitation actions. An invitation is a pending account: it names an
+	// address and the roles it will hold, so issuing or withdrawing one is a
+	// users event even though no user row exists yet. Re-inviting an address
+	// supersedes its pending invitation inside invitation.created; only an
+	// admin's explicit revoke is invitation.revoked.
+	AuditActionInvitationCreated AuditAction = "invitation.created"
+	AuditActionInvitationRevoked AuditAction = "invitation.revoked"
+
+	// Resource catalog actions: the admin-maintained list of things a
+	// maintenance can affect. Archive is soft (the row stays resolvable for
+	// maintenances that reference it), and unarchive reverses it.
+	AuditActionResourceCreated    AuditAction = "resource.created"
+	AuditActionResourceUpdated    AuditAction = "resource.updated"
+	AuditActionResourceArchived   AuditAction = "resource.archived"
+	AuditActionResourceUnarchived AuditAction = "resource.unarchived"
+
+	// Notify channel catalog actions: the destinations maintenance
+	// notifications can be sent to. Same soft archive as resources.
+	AuditActionNotifyChannelCreated    AuditAction = "notify_channel.created"
+	AuditActionNotifyChannelUpdated    AuditAction = "notify_channel.updated"
+	AuditActionNotifyChannelArchived   AuditAction = "notify_channel.archived"
+	AuditActionNotifyChannelUnarchived AuditAction = "notify_channel.unarchived"
 )
 
 // IsValid reports whether the action is one this deployment writes.
@@ -100,7 +123,17 @@ func (a AuditAction) IsValid() bool {
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
 		AuditActionIntegrationDeleted,
-		AuditActionAuthMethodToggled:
+		AuditActionAuthMethodToggled,
+		AuditActionInvitationCreated,
+		AuditActionInvitationRevoked,
+		AuditActionResourceCreated,
+		AuditActionResourceUpdated,
+		AuditActionResourceArchived,
+		AuditActionResourceUnarchived,
+		AuditActionNotifyChannelCreated,
+		AuditActionNotifyChannelUpdated,
+		AuditActionNotifyChannelArchived,
+		AuditActionNotifyChannelUnarchived:
 		return true
 	default:
 		return false
@@ -118,6 +151,12 @@ const (
 	// the row against the admin who threw the switch would make "what happened
 	// to this instance's sign-in configuration" unanswerable by entity.
 	AuditEntityTypeAuthSetting AuditEntityType = "auth_setting"
+	// AuditEntityTypeInvitation, AuditEntityTypeResource and
+	// AuditEntityTypeNotifyChannel key the invitation, resource-catalog and
+	// channel-catalog rows by the row's own id.
+	AuditEntityTypeInvitation    AuditEntityType = "invitation"
+	AuditEntityTypeResource      AuditEntityType = "resource"
+	AuditEntityTypeNotifyChannel AuditEntityType = "notify_channel"
 )
 
 // AuditEntry represents a structured audit log record.
@@ -403,7 +442,11 @@ const (
 //   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
 //     TargetDisplayName;
 //   - integration.updated: Changes (before/after per changed config field and
-//     the enabled flag; a changed secret as a name-only flag, never a value).
+//     the enabled flag; a changed secret as a name-only flag, never a value);
+//   - invitation.created / invitation.revoked: TargetEmail (the invited
+//     address), Roles (the roles the invitation grants);
+//   - resource.* / notify_channel.*: TargetDisplayName (the row's name at
+//     event time), plus Changes on *.updated.
 type AuditMetadata struct {
 	IP            string             `json:"ip,omitempty"`
 	UserAgent     string             `json:"user_agent,omitempty"`
@@ -468,7 +511,8 @@ const (
 	// credentials, or linked sign-in providers.
 	AuditCategoryUsers AuditCategory = "users"
 	// AuditCategorySettings is the instance's own configuration changing:
-	// which sign-in methods it accepts and which integrations it talks to.
+	// which sign-in methods it accepts, which integrations it talks to, and
+	// the resource and notify-channel catalogs maintenances draw from.
 	AuditCategorySettings    AuditCategory = "settings"
 	AuditCategoryMaintenance AuditCategory = "maintenance"
 )
@@ -491,6 +535,10 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	// category up BEFORE dispatching and answers ErrUnsupportedEvent when it is
 	// missing, so the renderer arm is never reached.
 	AuditActionProviderLinked: AuditCategoryUsers,
+	// An invitation is an account that does not exist yet: issuing one decides
+	// who may get in and with which roles.
+	AuditActionInvitationCreated: AuditCategoryUsers,
+	AuditActionInvitationRevoked: AuditCategoryUsers,
 
 	// Toggling a sign-in method is a settings event, not a sign-in: it changes
 	// which credentials the whole instance accepts, the same kind of change as
@@ -500,6 +548,16 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionIntegrationCreated: AuditCategorySettings,
 	AuditActionIntegrationUpdated: AuditCategorySettings,
 	AuditActionIntegrationDeleted: AuditCategorySettings,
+	// The catalogs are configuration too: what a maintenance can affect and
+	// where its notifications can go.
+	AuditActionResourceCreated:         AuditCategorySettings,
+	AuditActionResourceUpdated:         AuditCategorySettings,
+	AuditActionResourceArchived:        AuditCategorySettings,
+	AuditActionResourceUnarchived:      AuditCategorySettings,
+	AuditActionNotifyChannelCreated:    AuditCategorySettings,
+	AuditActionNotifyChannelUpdated:    AuditCategorySettings,
+	AuditActionNotifyChannelArchived:   AuditCategorySettings,
+	AuditActionNotifyChannelUnarchived: AuditCategorySettings,
 
 	AuditActionMaintCreated:       AuditCategoryMaintenance,
 	AuditActionMaintUpdated:       AuditCategoryMaintenance,
@@ -535,12 +593,22 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		// Without this entry the row exists, renders, and is invisible under the
 		// users filter -- this map is what the category filter reads.
 		AuditActionProviderLinked,
+		AuditActionInvitationCreated,
+		AuditActionInvitationRevoked,
 	},
 	AuditCategorySettings: {
 		AuditActionAuthMethodToggled,
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
 		AuditActionIntegrationDeleted,
+		AuditActionResourceCreated,
+		AuditActionResourceUpdated,
+		AuditActionResourceArchived,
+		AuditActionResourceUnarchived,
+		AuditActionNotifyChannelCreated,
+		AuditActionNotifyChannelUpdated,
+		AuditActionNotifyChannelArchived,
+		AuditActionNotifyChannelUnarchived,
 	},
 	AuditCategoryMaintenance: {
 		AuditActionMaintCreated,

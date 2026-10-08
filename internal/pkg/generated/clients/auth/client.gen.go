@@ -111,29 +111,39 @@ func (e ApimodelsRole) Valid() bool {
 
 // Defines values for EntityAuditAction.
 const (
-	AuditActionAuthMethodToggled  EntityAuditAction = "auth_method.toggled"
-	AuditActionIntegrationCreated EntityAuditAction = "integration.created"
-	AuditActionIntegrationDeleted EntityAuditAction = "integration.deleted"
-	AuditActionIntegrationUpdated EntityAuditAction = "integration.updated"
-	AuditActionLoginFailed        EntityAuditAction = "login.failed"
-	AuditActionLoginSuccess       EntityAuditAction = "login.success"
-	AuditActionLogoutSuccess      EntityAuditAction = "logout.success"
-	AuditActionMaintApproved      EntityAuditAction = "maintenance.approved"
-	AuditActionMaintCanceled      EntityAuditAction = "maintenance.canceled"
-	AuditActionMaintCompleted     EntityAuditAction = "maintenance.completed"
-	AuditActionMaintCreated       EntityAuditAction = "maintenance.created"
-	AuditActionMaintStarted       EntityAuditAction = "maintenance.started"
-	AuditActionMaintStepCanceled  EntityAuditAction = "maintenance_step.canceled"
-	AuditActionMaintStepCompleted EntityAuditAction = "maintenance_step.completed"
-	AuditActionMaintStepStarted   EntityAuditAction = "maintenance_step.started"
-	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
-	AuditActionPasswordChanged    EntityAuditAction = "password.changed"
-	AuditActionPasswordReset      EntityAuditAction = "password.reset"
-	AuditActionProviderLinked     EntityAuditAction = "provider.linked"
-	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
-	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
-	AuditActionUserTagsChanged    EntityAuditAction = "user.tags_changed"
-	AuditActionUserUnblocked      EntityAuditAction = "user.unblocked"
+	AuditActionAuthMethodToggled       EntityAuditAction = "auth_method.toggled"
+	AuditActionIntegrationCreated      EntityAuditAction = "integration.created"
+	AuditActionIntegrationDeleted      EntityAuditAction = "integration.deleted"
+	AuditActionIntegrationUpdated      EntityAuditAction = "integration.updated"
+	AuditActionInvitationCreated       EntityAuditAction = "invitation.created"
+	AuditActionInvitationRevoked       EntityAuditAction = "invitation.revoked"
+	AuditActionLoginFailed             EntityAuditAction = "login.failed"
+	AuditActionLoginSuccess            EntityAuditAction = "login.success"
+	AuditActionLogoutSuccess           EntityAuditAction = "logout.success"
+	AuditActionMaintApproved           EntityAuditAction = "maintenance.approved"
+	AuditActionMaintCanceled           EntityAuditAction = "maintenance.canceled"
+	AuditActionMaintCompleted          EntityAuditAction = "maintenance.completed"
+	AuditActionMaintCreated            EntityAuditAction = "maintenance.created"
+	AuditActionMaintStarted            EntityAuditAction = "maintenance.started"
+	AuditActionMaintStepCanceled       EntityAuditAction = "maintenance_step.canceled"
+	AuditActionMaintStepCompleted      EntityAuditAction = "maintenance_step.completed"
+	AuditActionMaintStepStarted        EntityAuditAction = "maintenance_step.started"
+	AuditActionMaintUpdated            EntityAuditAction = "maintenance.updated"
+	AuditActionNotifyChannelArchived   EntityAuditAction = "notify_channel.archived"
+	AuditActionNotifyChannelCreated    EntityAuditAction = "notify_channel.created"
+	AuditActionNotifyChannelUnarchived EntityAuditAction = "notify_channel.unarchived"
+	AuditActionNotifyChannelUpdated    EntityAuditAction = "notify_channel.updated"
+	AuditActionPasswordChanged         EntityAuditAction = "password.changed"
+	AuditActionPasswordReset           EntityAuditAction = "password.reset"
+	AuditActionProviderLinked          EntityAuditAction = "provider.linked"
+	AuditActionResourceArchived        EntityAuditAction = "resource.archived"
+	AuditActionResourceCreated         EntityAuditAction = "resource.created"
+	AuditActionResourceUnarchived      EntityAuditAction = "resource.unarchived"
+	AuditActionResourceUpdated         EntityAuditAction = "resource.updated"
+	AuditActionRolesChanged            EntityAuditAction = "roles.changed"
+	AuditActionUserBlocked             EntityAuditAction = "user.blocked"
+	AuditActionUserTagsChanged         EntityAuditAction = "user.tags_changed"
+	AuditActionUserUnblocked           EntityAuditAction = "user.unblocked"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
@@ -146,6 +156,10 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionIntegrationDeleted:
 		return true
 	case AuditActionIntegrationUpdated:
+		return true
+	case AuditActionInvitationCreated:
+		return true
+	case AuditActionInvitationRevoked:
 		return true
 	case AuditActionLoginFailed:
 		return true
@@ -171,11 +185,27 @@ func (e EntityAuditAction) Valid() bool {
 		return true
 	case AuditActionMaintUpdated:
 		return true
+	case AuditActionNotifyChannelArchived:
+		return true
+	case AuditActionNotifyChannelCreated:
+		return true
+	case AuditActionNotifyChannelUnarchived:
+		return true
+	case AuditActionNotifyChannelUpdated:
+		return true
 	case AuditActionPasswordChanged:
 		return true
 	case AuditActionPasswordReset:
 		return true
 	case AuditActionProviderLinked:
+		return true
+	case AuditActionResourceArchived:
+		return true
+	case AuditActionResourceCreated:
+		return true
+	case AuditActionResourceUnarchived:
+		return true
+	case AuditActionResourceUpdated:
 		return true
 	case AuditActionRolesChanged:
 		return true
@@ -192,10 +222,13 @@ func (e EntityAuditAction) Valid() bool {
 
 // Defines values for EntityAuditEntityType.
 const (
-	AuditEntityTypeAuthSetting EntityAuditEntityType = "auth_setting"
-	AuditEntityTypeIntegration EntityAuditEntityType = "integration"
-	AuditEntityTypeMaintenance EntityAuditEntityType = "maintenance"
-	AuditEntityTypeUser        EntityAuditEntityType = "user"
+	AuditEntityTypeAuthSetting   EntityAuditEntityType = "auth_setting"
+	AuditEntityTypeIntegration   EntityAuditEntityType = "integration"
+	AuditEntityTypeInvitation    EntityAuditEntityType = "invitation"
+	AuditEntityTypeMaintenance   EntityAuditEntityType = "maintenance"
+	AuditEntityTypeNotifyChannel EntityAuditEntityType = "notify_channel"
+	AuditEntityTypeResource      EntityAuditEntityType = "resource"
+	AuditEntityTypeUser          EntityAuditEntityType = "user"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditEntityType enum.
@@ -205,7 +238,13 @@ func (e EntityAuditEntityType) Valid() bool {
 		return true
 	case AuditEntityTypeIntegration:
 		return true
+	case AuditEntityTypeInvitation:
+		return true
 	case AuditEntityTypeMaintenance:
+		return true
+	case AuditEntityTypeNotifyChannel:
+		return true
+	case AuditEntityTypeResource:
 		return true
 	case AuditEntityTypeUser:
 		return true

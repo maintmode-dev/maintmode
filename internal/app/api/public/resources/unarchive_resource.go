@@ -1,14 +1,7 @@
 package resourcesapi
 
 import (
-	"net/http"
-
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/ruko1202/xlog"
-	"github.com/ruko1202/xlog/xfield"
-
-	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 )
 
 // UnarchiveResource godoc
@@ -26,20 +19,5 @@ import (
 // @Security BearerAuth
 // @Router /api/v1/resource/{id}/unarchive [post]
 func (i *Implementation) UnarchiveResource(c *echo.Context) error {
-	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.UnarchiveResource")
-	defer span.End()
-	op := "unarchive resource"
-
-	resourceID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		xlog.Error(ctx, "parse resourceID failed", xfield.Error(err))
-		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
-	}
-
-	if err := i.resourcesSrv.UnarchiveResource(ctx, resourceID); err != nil {
-		xlog.Error(ctx, "unarchive resource failed", xfield.Error(err))
-		return httperrors.ToAPIError(c, op, err)
-	}
-
-	return c.NoContent(http.StatusNoContent)
+	return changeArchiveState(c, "api.Resources.UnarchiveResource", "unarchive resource", i.resourcesSrv.UnarchiveResource)
 }

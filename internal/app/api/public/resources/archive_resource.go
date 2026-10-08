@@ -1,14 +1,7 @@
 package resourcesapi
 
 import (
-	"net/http"
-
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
-	"github.com/ruko1202/xlog"
-	"github.com/ruko1202/xlog/xfield"
-
-	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 )
 
 // ArchiveResource godoc
@@ -26,20 +19,5 @@ import (
 // @Security BearerAuth
 // @Router /api/v1/resource/{id}/archive [post]
 func (i *Implementation) ArchiveResource(c *echo.Context) error {
-	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Resources.ArchiveResource")
-	defer span.End()
-	op := "archive resource"
-
-	resourceID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		xlog.Error(ctx, "parse resourceID failed", xfield.Error(err))
-		return httperrors.ToAPIError(c, op, httperrors.ErrInvalidUUID)
-	}
-
-	if err := i.resourcesSrv.ArchiveResource(ctx, resourceID); err != nil {
-		xlog.Error(ctx, "archive resource failed", xfield.Error(err))
-		return httperrors.ToAPIError(c, op, err)
-	}
-
-	return c.NoContent(http.StatusNoContent)
+	return changeArchiveState(c, "api.Resources.ArchiveResource", "archive resource", i.resourcesSrv.ArchiveResource)
 }

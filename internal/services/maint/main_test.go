@@ -109,6 +109,7 @@ func initService(t *testing.T) (*Service, serviceMocks) {
 			txManager,
 			notifychannel.NewStore(db),
 			notifyTargetsStore,
+			mocks.auditPublisher,
 		),
 		conflicts.NewService(
 			conflictsStore.NewStore(db),

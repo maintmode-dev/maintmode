@@ -107,17 +107,17 @@ func (m *MockchannelService) EXPECT() *MockchannelServiceMockRecorder {
 }
 
 // ArchiveChannel mocks base method.
-func (m *MockchannelService) ArchiveChannel(ctx context.Context, channelID uuid.UUID) error {
+func (m *MockchannelService) ArchiveChannel(ctx context.Context, actor *entity.User, channelID uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ArchiveChannel", ctx, channelID)
+	ret := m.ctrl.Call(m, "ArchiveChannel", ctx, actor, channelID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ArchiveChannel indicates an expected call of ArchiveChannel.
-func (mr *MockchannelServiceMockRecorder) ArchiveChannel(ctx, channelID any) *MockchannelServiceArchiveChannelCall {
+func (mr *MockchannelServiceMockRecorder) ArchiveChannel(ctx, actor, channelID any) *MockchannelServiceArchiveChannelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveChannel", reflect.TypeOf((*MockchannelService)(nil).ArchiveChannel), ctx, channelID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveChannel", reflect.TypeOf((*MockchannelService)(nil).ArchiveChannel), ctx, actor, channelID)
 	return &MockchannelServiceArchiveChannelCall{Call: call}
 }
 
@@ -133,13 +133,13 @@ func (c *MockchannelServiceArchiveChannelCall) Return(arg0 error) *MockchannelSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockchannelServiceArchiveChannelCall) Do(f func(context.Context, uuid.UUID) error) *MockchannelServiceArchiveChannelCall {
+func (c *MockchannelServiceArchiveChannelCall) Do(f func(context.Context, *entity.User, uuid.UUID) error) *MockchannelServiceArchiveChannelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockchannelServiceArchiveChannelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockchannelServiceArchiveChannelCall {
+func (c *MockchannelServiceArchiveChannelCall) DoAndReturn(f func(context.Context, *entity.User, uuid.UUID) error) *MockchannelServiceArchiveChannelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -262,17 +262,17 @@ func (c *MockchannelServiceGetChannelCall) DoAndReturn(f func(context.Context, u
 }
 
 // UnarchiveChannel mocks base method.
-func (m *MockchannelService) UnarchiveChannel(ctx context.Context, channelID uuid.UUID) error {
+func (m *MockchannelService) UnarchiveChannel(ctx context.Context, actor *entity.User, channelID uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnarchiveChannel", ctx, channelID)
+	ret := m.ctrl.Call(m, "UnarchiveChannel", ctx, actor, channelID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UnarchiveChannel indicates an expected call of UnarchiveChannel.
-func (mr *MockchannelServiceMockRecorder) UnarchiveChannel(ctx, channelID any) *MockchannelServiceUnarchiveChannelCall {
+func (mr *MockchannelServiceMockRecorder) UnarchiveChannel(ctx, actor, channelID any) *MockchannelServiceUnarchiveChannelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnarchiveChannel", reflect.TypeOf((*MockchannelService)(nil).UnarchiveChannel), ctx, channelID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnarchiveChannel", reflect.TypeOf((*MockchannelService)(nil).UnarchiveChannel), ctx, actor, channelID)
 	return &MockchannelServiceUnarchiveChannelCall{Call: call}
 }
 
@@ -288,13 +288,13 @@ func (c *MockchannelServiceUnarchiveChannelCall) Return(arg0 error) *Mockchannel
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockchannelServiceUnarchiveChannelCall) Do(f func(context.Context, uuid.UUID) error) *MockchannelServiceUnarchiveChannelCall {
+func (c *MockchannelServiceUnarchiveChannelCall) Do(f func(context.Context, *entity.User, uuid.UUID) error) *MockchannelServiceUnarchiveChannelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockchannelServiceUnarchiveChannelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockchannelServiceUnarchiveChannelCall {
+func (c *MockchannelServiceUnarchiveChannelCall) DoAndReturn(f func(context.Context, *entity.User, uuid.UUID) error) *MockchannelServiceUnarchiveChannelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

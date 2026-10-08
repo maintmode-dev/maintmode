@@ -166,6 +166,9 @@ func fillUsersPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 			TargetEmail:       a.Target.Email,
 			TargetDisplayName: a.Target.Name,
 		}
+	case InvitationCreated, InvitationRevoked:
+		// Sets EntityType itself -- see fillInvitationAction.
+		return fillInvitationPayload(payload, action)
 	default:
 		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
 	}
@@ -174,8 +177,8 @@ func fillUsersPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 }
 
 // fillSettingsPayload handles the settings category: the instance's own
-// configuration changing. Both halves already have their own renderer; this
-// only routes between them.
+// configuration changing. Each family has its own renderer; this only routes
+// between them.
 func fillSettingsPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case AuthMethodToggled:
@@ -184,6 +187,9 @@ func fillSettingsPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action 
 		return nil
 	case IntegrationCreated, IntegrationUpdated, IntegrationDeleted:
 		return fillIntegrationPayload(payload, action)
+	case ResourceCreated, ResourceUpdated, ResourceArchived, ResourceUnarchived,
+		NotifyChannelCreated, NotifyChannelUpdated, NotifyChannelArchived, NotifyChannelUnarchived:
+		return fillCatalogPayload(payload, action)
 	default:
 		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
 	}

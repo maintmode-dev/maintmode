@@ -10,6 +10,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -22,6 +23,9 @@ func (s *Service) Revoke(ctx context.Context, cmd *entity.RevokeInvitationCmd) e
 	)
 	defer span.End()
 
+	// revoked is the invitation this call revoked; nil for the idempotent
+	// repeat, which changes nothing and so records nothing.
+	var revoked *entity.Invitation
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		inv, err := s.store.GetForUpdateByID(ctx, cmd.ID)
 		if err != nil {
@@ -38,11 +42,16 @@ func (s *Service) Revoke(ctx context.Context, cmd *entity.RevokeInvitationCmd) e
 		if err := s.store.SetRevoked(ctx, inv.ID, xtime.UTCNow()); err != nil {
 			return fmt.Errorf("set revoked: %w", err)
 		}
+		revoked = inv
 		return nil
 	})
 	if err != nil {
 		xlog.Error(ctx, "revoke invitation failed", xfield.Error(err))
 		return err
+	}
+
+	if revoked != nil {
+		s.publishAudit(ctx, audit.InvitationRevoked{Actor: cmd.Actor, Invitation: revoked})
 	}
 
 	return nil

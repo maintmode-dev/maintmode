@@ -586,6 +586,16 @@ components:
                 - integration.updated
                 - integration.deleted
                 - auth_method.toggled
+                - invitation.created
+                - invitation.revoked
+                - resource.created
+                - resource.updated
+                - resource.archived
+                - resource.unarchived
+                - notify_channel.created
+                - notify_channel.updated
+                - notify_channel.archived
+                - notify_channel.unarchived
             type: string
             x-enum-varnames:
                 - AuditActionLoginSuccess
@@ -611,18 +621,34 @@ components:
                 - AuditActionIntegrationUpdated
                 - AuditActionIntegrationDeleted
                 - AuditActionAuthMethodToggled
+                - AuditActionInvitationCreated
+                - AuditActionInvitationRevoked
+                - AuditActionResourceCreated
+                - AuditActionResourceUpdated
+                - AuditActionResourceArchived
+                - AuditActionResourceUnarchived
+                - AuditActionNotifyChannelCreated
+                - AuditActionNotifyChannelUpdated
+                - AuditActionNotifyChannelArchived
+                - AuditActionNotifyChannelUnarchived
         entity.AuditEntityType:
             enum:
                 - user
                 - maintenance
                 - integration
                 - auth_setting
+                - invitation
+                - resource
+                - notify_channel
             type: string
             x-enum-varnames:
                 - AuditEntityTypeUser
                 - AuditEntityTypeMaintenance
                 - AuditEntityTypeIntegration
                 - AuditEntityTypeAuthSetting
+                - AuditEntityTypeInvitation
+                - AuditEntityTypeResource
+                - AuditEntityTypeNotifyChannel
         entity.JWK:
             properties:
                 alg:

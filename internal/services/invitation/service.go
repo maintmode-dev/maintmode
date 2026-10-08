@@ -12,10 +12,14 @@ package invitation
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ruko1202/xlog"
+	"github.com/ruko1202/xlog/xfield"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/config"
 
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -68,6 +72,13 @@ type MessageSender interface {
 	) error
 }
 
+// AuditPublisher enqueues an audited action to the durable outbox. Defined
+// consumer-side so tests can record what was published; satisfied by
+// *auditpublisher.Publisher.
+type AuditPublisher interface {
+	Publish(ctx context.Context, action audit.Action) error
+}
+
 // defaultInvitationTTL is used when app.invitation_ttl is not configured.
 const defaultInvitationTTL = 7 * 24 * time.Hour
 
@@ -77,6 +88,7 @@ type Service struct {
 	userSrv     UserService
 	sender      MessageSender
 	seatGuard   SeatGuard
+	audit       AuditPublisher
 	ttl         time.Duration
 	frontendURL string
 }
@@ -89,6 +101,7 @@ func NewService(
 	userSrv UserService,
 	sender MessageSender,
 	seatGuard SeatGuard,
+	auditPublisher AuditPublisher,
 ) *Service {
 	invitationTTL := cfg.App.InvitationTTL
 	if invitationTTL <= 0 {
@@ -101,7 +114,21 @@ func NewService(
 		userSrv:     userSrv,
 		sender:      sender,
 		seatGuard:   seatGuard,
+		audit:       auditPublisher,
 		ttl:         invitationTTL,
 		frontendURL: cfg.App.FrontendURL,
+	}
+}
+
+// publishAudit enqueues an audited action after the invitation change has
+// committed. A failed enqueue is logged, not propagated: the invitation (and
+// its email) already exist, and failing the request now would invite a
+// duplicate retry (mirrors the maint/integration policy).
+func (s *Service) publishAudit(ctx context.Context, action audit.Action) {
+	if err := s.audit.Publish(ctx, action); err != nil {
+		xlog.Error(ctx, "failed to publish invitation audit action",
+			xfield.String("action", fmt.Sprintf("%T", action)),
+			xfield.Error(err),
+		)
 	}
 }

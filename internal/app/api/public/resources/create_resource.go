@@ -56,10 +56,10 @@ func (i *Implementation) CreateResource(c *echo.Context) error {
 	}
 
 	resource, err := i.resourcesSrv.CreateResource(ctx, &entity.CreateResourceCmd{
-		Name:            req.Name,
-		Description:     req.Description,
-		ExternalID:      req.ExternalID,
-		CreatedByUserID: author.ID,
+		Name:        req.Name,
+		Description: req.Description,
+		ExternalID:  req.ExternalID,
+		Actor:       author,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create resource failed", xfield.Error(err))

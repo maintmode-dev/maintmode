@@ -71,7 +71,7 @@ func (i *Implementation) CreateChannel(c *echo.Context) error {
 		TransportChannelID: req.TransportChannelID,
 		Name:               req.Name,
 		Description:        req.Description,
-		CreatedByUserID:    author.ID,
+		Actor:              author,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create channel failed", xfield.Error(err))

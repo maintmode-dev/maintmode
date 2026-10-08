@@ -32,6 +32,19 @@ func TestAuditActionWireValues(t *testing.T) {
 		AuditActionMaintStepStarted:   "maintenance_step.started",
 		AuditActionMaintStepCompleted: "maintenance_step.completed",
 		AuditActionMaintStepCanceled:  "maintenance_step.canceled",
+
+		AuditActionInvitationCreated: "invitation.created",
+		AuditActionInvitationRevoked: "invitation.revoked",
+
+		AuditActionResourceCreated:    "resource.created",
+		AuditActionResourceUpdated:    "resource.updated",
+		AuditActionResourceArchived:   "resource.archived",
+		AuditActionResourceUnarchived: "resource.unarchived",
+
+		AuditActionNotifyChannelCreated:    "notify_channel.created",
+		AuditActionNotifyChannelUpdated:    "notify_channel.updated",
+		AuditActionNotifyChannelArchived:   "notify_channel.archived",
+		AuditActionNotifyChannelUnarchived: "notify_channel.unarchived",
 	}
 
 	for action, str := range want {
@@ -94,6 +107,18 @@ func TestAuditActionCategories_Pinned(t *testing.T) {
 		AuditActionIntegrationCreated: "settings",
 		AuditActionIntegrationUpdated: "settings",
 		AuditActionIntegrationDeleted: "settings",
+
+		AuditActionInvitationCreated: "users",
+		AuditActionInvitationRevoked: "users",
+
+		AuditActionResourceCreated:         "settings",
+		AuditActionResourceUpdated:         "settings",
+		AuditActionResourceArchived:        "settings",
+		AuditActionResourceUnarchived:      "settings",
+		AuditActionNotifyChannelCreated:    "settings",
+		AuditActionNotifyChannelUpdated:    "settings",
+		AuditActionNotifyChannelArchived:   "settings",
+		AuditActionNotifyChannelUnarchived: "settings",
 
 		AuditActionMaintCreated:       "maintenance",
 		AuditActionMaintUpdated:       "maintenance",
@@ -193,6 +218,16 @@ func allAuditActions() []AuditAction {
 		AuditActionIntegrationUpdated,
 		AuditActionIntegrationDeleted,
 		AuditActionAuthMethodToggled,
+		AuditActionInvitationCreated,
+		AuditActionInvitationRevoked,
+		AuditActionResourceCreated,
+		AuditActionResourceUpdated,
+		AuditActionResourceArchived,
+		AuditActionResourceUnarchived,
+		AuditActionNotifyChannelCreated,
+		AuditActionNotifyChannelUpdated,
+		AuditActionNotifyChannelArchived,
+		AuditActionNotifyChannelUnarchived,
 	}
 }
 

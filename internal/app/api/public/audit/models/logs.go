@@ -36,7 +36,11 @@ type AuditLog struct {
 //   - logout_success: session_id, logout_kind (auto|manual);
 //   - assigned / revoked: roles, target_email, target_display_name;
 //   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;
-//   - blocked / unblocked: target_email, target_display_name.
+//   - blocked / unblocked: target_email, target_display_name;
+//   - invitation.created / invitation.revoked: target_email (the invited
+//     address), roles (the roles the invitation grants);
+//   - resource.* / notify_channel.*: target_display_name (the row's name at
+//     event time), plus changes on *.updated.
 type AuditLogMetadata struct {
 	IP            string `json:"ip,omitempty"`
 	UserAgent     string `json:"user_agent,omitempty"`
@@ -63,7 +67,9 @@ type AuditLogMetadata struct {
 	Changes    []AuditLogFieldChange `json:"changes,omitempty"`
 }
 
-// AuditLogFieldChange is one before/after entry in a maintenance.updated diff.
+// AuditLogFieldChange is one before/after entry in a diff (maintenance.updated,
+// user.tags_changed, integration.updated, resource.updated,
+// notify_channel.updated).
 type AuditLogFieldChange struct {
 	Field string `json:"field"`
 	Old   string `json:"old,omitempty"`
@@ -75,8 +81,11 @@ type AuditLogFieldChange struct {
 // toward exactly one category, so the four categories sum to All.
 //   - sign_in: login.success, login.failed, logout.success;
 //   - users: roles.changed, user.tags_changed, user.blocked, user.unblocked,
-//     password.changed, password.reset, provider.linked;
-//   - settings: auth_method.toggled, integration.created/updated/deleted;
+//     password.changed, password.reset, provider.linked,
+//     invitation.created/revoked;
+//   - settings: auth_method.toggled, integration.created/updated/deleted,
+//     resource.created/updated/archived/unarchived,
+//     notify_channel.created/updated/archived/unarchived;
 //   - maintenance: maintenance.* and maintenance_step.*.
 type AuditFacets struct {
 	All         int64 `json:"all" example:"123"`
