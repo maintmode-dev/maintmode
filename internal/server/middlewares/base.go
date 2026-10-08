@@ -5,7 +5,7 @@ package middlewares
 import (
 	"time"
 
-	echootel "github.com/labstack/echo-opentelemetry"
+	echootel "github.com/labstack/echo-otel/v5"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	xhttpserver "github.com/ruko1202/xhttp/server"
