@@ -10,7 +10,6 @@ import (
 
 	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
-	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 // countByMarker returns how many audit rows carry the given action marker. The
@@ -43,7 +42,7 @@ func countByMarker(ctx context.Context, t *testing.T, marker string) int64 {
 func TestPruneOlderThan_DeletesOnlyExpired(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
-	marker := "prune-expired-" + xuuid.NewString()
+	marker := newMarker(t, "prune-expired-")
 	now := xtime.UTCNow()
 
 	// 3 expired (older than the 30-day cutoff), 2 fresh.
@@ -69,7 +68,7 @@ func TestPruneOlderThan_DeletesOnlyExpired(t *testing.T) {
 func TestPruneOlderThan_RespectsLimit(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
-	marker := "prune-limit-" + xuuid.NewString()
+	marker := newMarker(t, "prune-limit-")
 	now := xtime.UTCNow()
 
 	// More expired rows than the batch limit. The shared DB may hold other expired
@@ -90,7 +89,7 @@ func TestPruneOlderThan_RespectsLimit(t *testing.T) {
 func TestPruneOlderThan_NothingExpired(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
-	marker := "prune-none-" + xuuid.NewString()
+	marker := newMarker(t, "prune-none-")
 	now := xtime.UTCNow()
 
 	insertLogAt(ctx, t, marker, now)

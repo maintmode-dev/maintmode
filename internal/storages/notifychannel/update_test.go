@@ -27,6 +27,7 @@ func TestStore_Create_RecordsAuthor(t *testing.T) {
 		CreatedByUserID:    &authorID,
 	})
 	require.NoError(t, err)
+	deleteChannelOnCleanup(t, channel.ID)
 	require.NotNil(t, channel.CreatedByUserID)
 	require.Equal(t, authorID, *channel.CreatedByUserID)
 	require.Nil(t, channel.UpdatedByUserID, "freshly created channel has no editor")
@@ -48,6 +49,7 @@ func TestStore_Update_EditableFields(t *testing.T) {
 		CreatedByUserID:    &authorID,
 	})
 	require.NoError(t, err)
+	deleteChannelOnCleanup(t, created.ID)
 
 	editorID := uuid.New()
 	created.Name = "after"
@@ -105,6 +107,7 @@ func TestStore_Update_DuplicateTransportChannelIsConflict(t *testing.T) {
 		Description:        "victim",
 	})
 	require.NoError(t, err)
+	deleteChannelOnCleanup(t, victim.ID)
 
 	// Point victim at existing's transport_channel_id → unique violation.
 	victim.TransportChannelID = existing.TransportChannelID

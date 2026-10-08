@@ -30,7 +30,7 @@ func TestLastActivityAt_AuthActionsExcluded(t *testing.T) {
 			require.NoError(t, store.AddLog(ctx, &entity.AuditEntry{
 				EventID:    xuuid.New(),
 				Action:     action,
-				Actor:      uniqueActor(),
+				Actor:      uniqueActor(t),
 				EntityID:   "e1",
 				EntityType: entity.AuditEntityTypeMaintenance,
 				Details:    "last-activity test",

@@ -73,8 +73,9 @@ func TestStore_GetResourcesLikeName(t *testing.T) {
 		}
 
 		for _, r := range resources {
-			_, err := store.Create(ctx, r)
+			created, err := store.Create(ctx, r)
 			require.NoError(t, err)
+			deleteResourceOnCleanup(t, created.ID)
 		}
 
 		results, err := store.GetResourcesLikeName(ctx, baseName)

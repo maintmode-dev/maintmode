@@ -5,11 +5,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-jet/jet/v2/postgres"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -43,6 +46,7 @@ func makeChannel(ctx context.Context, t *testing.T, transport entity.NotifyTrans
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
+	deleteChannelOnCleanup(t, channel.ID)
 
 	return channel
 }
@@ -66,6 +70,7 @@ func makeNamedChannel(ctx context.Context, t *testing.T, name string) *entity.No
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
+	deleteChannelOnCleanup(t, channel.ID)
 
 	return channel
 }
@@ -88,4 +93,20 @@ func listCmd(name string, limit, offset int64, includeArchived bool) *entity.Lis
 		Offset:          offset,
 		IncludeArchived: includeArchived,
 	}
+}
+
+// deleteChannelOnCleanup removes a channel the test created once the test ends.
+// These tests write to the shared dev database, where a leftover row shows up
+// in the dev stand's channel list and in anything captured from it. Nothing in
+// this package links a channel to a maintenance, so a delete by id is enough.
+func deleteChannelOnCleanup(t *testing.T, id uuid.UUID) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		// Not t.Context(): it is already canceled when cleanups run.
+		_, err := table.MessengerChannels.DELETE().
+			WHERE(table.MessengerChannels.ID.EQ(postgres.UUID(id))).
+			ExecContext(context.Background(), db)
+		require.NoError(t, err, "clean up notify channel %s", id)
+	})
 }
