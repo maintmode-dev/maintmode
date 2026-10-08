@@ -216,6 +216,12 @@ func (e EntityAuditEntityType) Valid() bool {
 
 // Defines values for GetApiV1AuditLogParamsAction.
 const (
+	AuthMethodToggled        GetApiV1AuditLogParamsAction = "auth_method.toggled"
+	IntegrationCreated       GetApiV1AuditLogParamsAction = "integration.created"
+	IntegrationDeleted       GetApiV1AuditLogParamsAction = "integration.deleted"
+	IntegrationUpdated       GetApiV1AuditLogParamsAction = "integration.updated"
+	InvitationCreated        GetApiV1AuditLogParamsAction = "invitation.created"
+	InvitationRevoked        GetApiV1AuditLogParamsAction = "invitation.revoked"
 	LoginFailed              GetApiV1AuditLogParamsAction = "login.failed"
 	LoginSuccess             GetApiV1AuditLogParamsAction = "login.success"
 	LogoutSuccess            GetApiV1AuditLogParamsAction = "logout.success"
@@ -228,14 +234,38 @@ const (
 	MaintenanceStepCompleted GetApiV1AuditLogParamsAction = "maintenance_step.completed"
 	MaintenanceStepStarted   GetApiV1AuditLogParamsAction = "maintenance_step.started"
 	MaintenanceUpdated       GetApiV1AuditLogParamsAction = "maintenance.updated"
+	NotifyChannelArchived    GetApiV1AuditLogParamsAction = "notify_channel.archived"
+	NotifyChannelCreated     GetApiV1AuditLogParamsAction = "notify_channel.created"
+	NotifyChannelUnarchived  GetApiV1AuditLogParamsAction = "notify_channel.unarchived"
+	NotifyChannelUpdated     GetApiV1AuditLogParamsAction = "notify_channel.updated"
+	PasswordChanged          GetApiV1AuditLogParamsAction = "password.changed"
+	PasswordReset            GetApiV1AuditLogParamsAction = "password.reset"
+	ProviderLinked           GetApiV1AuditLogParamsAction = "provider.linked"
+	ResourceArchived         GetApiV1AuditLogParamsAction = "resource.archived"
+	ResourceCreated          GetApiV1AuditLogParamsAction = "resource.created"
+	ResourceUnarchived       GetApiV1AuditLogParamsAction = "resource.unarchived"
+	ResourceUpdated          GetApiV1AuditLogParamsAction = "resource.updated"
 	RolesChanged             GetApiV1AuditLogParamsAction = "roles.changed"
 	UserBlocked              GetApiV1AuditLogParamsAction = "user.blocked"
+	UserTagsChanged          GetApiV1AuditLogParamsAction = "user.tags_changed"
 	UserUnblocked            GetApiV1AuditLogParamsAction = "user.unblocked"
 )
 
 // Valid indicates whether the value is a known member of the GetApiV1AuditLogParamsAction enum.
 func (e GetApiV1AuditLogParamsAction) Valid() bool {
 	switch e {
+	case AuthMethodToggled:
+		return true
+	case IntegrationCreated:
+		return true
+	case IntegrationDeleted:
+		return true
+	case IntegrationUpdated:
+		return true
+	case InvitationCreated:
+		return true
+	case InvitationRevoked:
+		return true
 	case LoginFailed:
 		return true
 	case LoginSuccess:
@@ -260,9 +290,33 @@ func (e GetApiV1AuditLogParamsAction) Valid() bool {
 		return true
 	case MaintenanceUpdated:
 		return true
+	case NotifyChannelArchived:
+		return true
+	case NotifyChannelCreated:
+		return true
+	case NotifyChannelUnarchived:
+		return true
+	case NotifyChannelUpdated:
+		return true
+	case PasswordChanged:
+		return true
+	case PasswordReset:
+		return true
+	case ProviderLinked:
+		return true
+	case ResourceArchived:
+		return true
+	case ResourceCreated:
+		return true
+	case ResourceUnarchived:
+		return true
+	case ResourceUpdated:
+		return true
 	case RolesChanged:
 		return true
 	case UserBlocked:
+		return true
+	case UserTagsChanged:
 		return true
 	case UserUnblocked:
 		return true
