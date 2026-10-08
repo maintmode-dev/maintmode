@@ -55,16 +55,14 @@ func facetsFromActionCounts(ctx context.Context, counts map[entity.AuditAction]i
 	for action, count := range counts {
 		facets.All += count
 		switch category, _ := entity.AuditActionCategory(action); category {
-		case entity.AuditCategoryAuth:
-			facets.Auth += count
-		case entity.AuditCategoryRoles:
-			facets.Roles += count
-		case entity.AuditCategoryBlock:
-			facets.Block += count
+		case entity.AuditCategorySignIn:
+			facets.SignIn += count
+		case entity.AuditCategoryUsers:
+			facets.Users += count
+		case entity.AuditCategorySettings:
+			facets.Settings += count
 		case entity.AuditCategoryMaintenance:
 			facets.Maintenance += count
-		case entity.AuditCategoryIntegration:
-			facets.Integration += count
 		default:
 			xlog.Warn(ctx, "unknown action category")
 		}

@@ -13,10 +13,11 @@ import (
 // The toggle must render with its OWN entity type.
 //
 // This is the assertion that catches the arm's one silent failure: Render seeds
-// the payload with AuditEntityTypeUser and every other arm of fillAuthPayload
-// relies on that default, so an arm that forgot to set it would produce a
-// well-formed row filed against the admin instead of the method -- correct
-// action, correct category, correct details, wrong entity, no symptom.
+// the payload with AuditEntityTypeUser and every arm of fillSignInPayload and
+// fillUsersPayload relies on that default, so an arm that forgot to set it
+// would produce a well-formed row filed against the admin instead of the
+// method -- correct action, correct category, correct details, wrong entity,
+// no symptom.
 func TestRender_AuthMethodToggled(t *testing.T) {
 	t.Parallel()
 

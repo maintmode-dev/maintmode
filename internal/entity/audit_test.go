@@ -3,6 +3,7 @@ package entity
 import (
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,19 +63,72 @@ func TestAuditMaintActions_ValidAndCategorized(t *testing.T) {
 	}
 }
 
-// TestAuditActionUserTagsChanged_ValidAndInRolesCategory guards the two lookups
-// the admin tag-edit action depends on: IsValid (else the read filter rejects
-// it) and the roles category in both directions — the action -> category map
-// feeds the facet counts, the reverse map expands the "roles" chip into the
-// action filter, so a one-sided entry would count entries the chip then hides.
-func TestAuditActionUserTagsChanged_ValidAndInRolesCategory(t *testing.T) {
-	require.True(t, AuditActionUserTagsChanged.IsValid())
+// TestAuditActionCategories_Pinned pins which chip every action belongs to.
+//
+// The category is product copy, not an implementation detail: it decides which
+// filter chip an operator must open to find a row, and the UI mirrors this
+// table action for action (maintmode-ui src/domain/audit/audit-presentation.ts).
+// A move between categories must therefore be a deliberate edit here, never a
+// side effect of touching the maps. The expected values are literal strings so
+// a renamed constant cannot carry the test along with it.
+//
+// It also enforces the grouping's one structural rule: every declared action is
+// in exactly one category, and no category exists beyond the four chips.
+func TestAuditActionCategories_Pinned(t *testing.T) {
+	t.Parallel()
 
-	category, ok := AuditActionCategory(AuditActionUserTagsChanged)
-	require.True(t, ok)
-	require.Equal(t, AuditCategoryRoles, category)
+	want := map[AuditAction]string{
+		AuditActionLoginSuccess:  "sign_in",
+		AuditActionLoginFailed:   "sign_in",
+		AuditActionLogoutSuccess: "sign_in",
 
-	require.Contains(t, AuditCategoryAction(AuditCategoryRoles), AuditActionUserTagsChanged)
+		AuditActionRolesChanged:    "users",
+		AuditActionUserTagsChanged: "users",
+		AuditActionUserBlocked:     "users",
+		AuditActionUserUnblocked:   "users",
+		AuditActionPasswordChanged: "users",
+		AuditActionPasswordReset:   "users",
+		AuditActionProviderLinked:  "users",
+
+		AuditActionAuthMethodToggled:  "settings",
+		AuditActionIntegrationCreated: "settings",
+		AuditActionIntegrationUpdated: "settings",
+		AuditActionIntegrationDeleted: "settings",
+
+		AuditActionMaintCreated:       "maintenance",
+		AuditActionMaintUpdated:       "maintenance",
+		AuditActionMaintApproved:      "maintenance",
+		AuditActionMaintStarted:       "maintenance",
+		AuditActionMaintCompleted:     "maintenance",
+		AuditActionMaintCanceled:      "maintenance",
+		AuditActionMaintStepStarted:   "maintenance",
+		AuditActionMaintStepCompleted: "maintenance",
+		AuditActionMaintStepCanceled:  "maintenance",
+	}
+
+	require.Len(t, want, len(allAuditActions()), "the pin table must list every declared action")
+	require.Len(t, auditActionCategories, len(want), "the forward map categorizes an action the pin table does not know")
+
+	for _, action := range allAuditActions() {
+		got, ok := AuditActionCategory(action)
+		require.Truef(t, ok, "%q has no category", action)
+		require.Equalf(t, want[action], string(got), "%q is in the wrong category", action)
+	}
+
+	require.ElementsMatch(t,
+		[]AuditCategory{"sign_in", "users", "settings", "maintenance"},
+		lo.Keys(auditCategoriesAction),
+		"the reverse map must carry exactly the four chip categories")
+
+	seen := make(map[AuditAction]AuditCategory, len(want))
+	for category, actions := range auditCategoriesAction {
+		for _, action := range actions {
+			prev, dup := seen[action]
+			require.Falsef(t, dup, "%q is listed under both %q and %q", action, prev, category)
+			seen[action] = category
+		}
+	}
+	require.Len(t, seen, len(want), "the reverse map must list every action exactly once")
 }
 
 // The two direction maps are maintained by hand and are consumed by different

@@ -187,9 +187,9 @@ func linkAuditRows(t *testing.T, published []audit.Action) []audit.ProviderLinke
 // TestCompleteLinkAuditsByAction is criterion 21, and it asserts the ACTION
 // rather than "a row appeared".
 //
-// "A row under the auth filter" is satisfied by login.failed too, which is
-// exactly the mistake the separate action exists to prevent: a link filed under
-// login.* corrupts the facet where a run of failures reads as someone guessing
+// "A row appeared" is satisfied by login.failed too, which is exactly the
+// mistake the separate action exists to prevent: a link filed under login.*
+// lands in the sign-in facet, where a run of failures reads as someone guessing
 // credentials. Asserting the concrete type is what catches that.
 func TestCompleteLinkAuditsByAction(t *testing.T) {
 	t.Parallel()
@@ -212,8 +212,8 @@ func TestCompleteLinkAuditsByAction(t *testing.T) {
 	require.Len(t, rows, 1, "a refused link must publish exactly one provider.linked row")
 
 	// The concrete TYPE is the assertion: a login failure carrying a link-shaped
-	// reason would satisfy "a row appeared" and "a row under the auth filter"
-	// alike, and it is precisely what the separate action exists to prevent.
+	// reason would satisfy "a row appeared", and it is precisely what the
+	// separate action exists to prevent.
 	require.NotNil(t, rows[0].Meta)
 	assert.Equal(t, entity.AuditFailureLinkUnusable, rows[0].Meta.FailureReason)
 }
@@ -224,7 +224,7 @@ func TestCompleteLinkAuditsByAction(t *testing.T) {
 // The action string and the IsValid arm are loud -- nothing compiles or passes
 // without them. The two category maps are not: without auditActionCategories the
 // renderer is never reached and the row never renders at all, and without
-// auditCategoriesAction the row renders and is invisible under the auth filter
+// auditCategoriesAction the row renders and is invisible under the users filter
 // an operator actually uses.
 func TestProviderLinkedIsRenderableAndFilterable(t *testing.T) {
 	t.Parallel()
@@ -233,11 +233,11 @@ func TestProviderLinkedIsRenderableAndFilterable(t *testing.T) {
 
 	category, ok := entity.AuditActionCategory(entity.AuditActionProviderLinked)
 	require.True(t, ok, "without a category the renderer is never reached and the row never renders")
-	assert.Equal(t, entity.AuditCategoryAuth, category)
+	assert.Equal(t, entity.AuditCategoryUsers, category)
 
-	assert.Contains(t, entity.AuditCategoryAction(entity.AuditCategoryAuth),
+	assert.Contains(t, entity.AuditCategoryAction(entity.AuditCategoryUsers),
 		entity.AuditActionProviderLinked,
-		"without the reverse map the row renders but is invisible under the auth filter")
+		"without the reverse map the row renders but is invisible under the users filter")
 }
 
 // TestCompleteLinkAuditsAConflictAsProviderLinked closes criterion 21's other

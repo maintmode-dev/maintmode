@@ -63,9 +63,10 @@ func TestAllAuthMethodNames_MatchesIsValid(t *testing.T) {
 //   - the action -> category map: fillPayload looks the category up BEFORE
 //     dispatching, so the row never renders at all.
 //   - the category -> actions map: the row exists, renders, and is invisible
-//     under the auth filter chip.
+//     under the settings filter chip.
 //   - EntityType: Renderer.Render defaults it to "user" and every arm of
-//     fillAuthPayload relies on that default, so a toggle would be filed
+//     fillSignInPayload and fillUsersPayload relies on that default, so a
+//     toggle would be filed
 //     against the admin who threw the switch instead of the method.
 //
 // This is not hypothetical. password.changed and password.reset are in both
@@ -80,10 +81,10 @@ func TestAuditActionAuthMethodToggled_ValidAndCategorized(t *testing.T) {
 
 	category, ok := entity.AuditActionCategory(action)
 	require.True(t, ok, "without a category the row never renders")
-	require.Equal(t, entity.AuditCategoryAuth, category)
+	require.Equal(t, entity.AuditCategorySettings, category)
 
-	require.Contains(t, entity.AuditCategoryAction(entity.AuditCategoryAuth), action,
-		"without this the row is invisible under the auth chip")
+	require.Contains(t, entity.AuditCategoryAction(entity.AuditCategorySettings), action,
+		"without this the row is invisible under the settings chip")
 }
 
 // The entity type must be its own value: reusing "user" would file the row

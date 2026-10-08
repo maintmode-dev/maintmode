@@ -54,16 +54,14 @@ func fillPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) 
 	}
 
 	switch category {
-	case entity.AuditCategoryAuth:
-		return fillAuthPayload(payload, action)
-	case entity.AuditCategoryRoles:
-		return fillRolesPayload(payload, action)
-	case entity.AuditCategoryBlock:
-		return fillBlockedPayload(payload, action)
+	case entity.AuditCategorySignIn:
+		return fillSignInPayload(payload, action)
+	case entity.AuditCategoryUsers:
+		return fillUsersPayload(payload, action)
+	case entity.AuditCategorySettings:
+		return fillSettingsPayload(payload, action)
 	case entity.AuditCategoryMaintenance:
 		return fillMaintPayload(payload, action)
-	case entity.AuditCategoryIntegration:
-		return fillIntegrationPayload(payload, action)
 	default:
 		// Unreachable: every category in auditActionCategories has a case above.
 		return fmt.Errorf("%w: category %q", apperr.ErrUnsupportedEvent, category)
@@ -83,7 +81,9 @@ func providerLinkDetails(meta *entity.AuditMetadata) string {
 	return "provider linked"
 }
 
-func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+// fillSignInPayload handles the sign-in category: sessions starting, being
+// refused, and ending.
+func fillSignInPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case LoginSuccess:
 		setActor(payload, a.User)
@@ -95,11 +95,6 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 		payload.EntityID = failedLoginEntityID(a.User)
 		payload.Details = failedLoginDetails(a.User)
 		payload.Metadata = sanitizeMetadata(a.Meta)
-	case ProviderLinked:
-		setActor(payload, a.User)
-		payload.EntityID = a.User.ID.String()
-		payload.Details = providerLinkDetails(a.Meta)
-		payload.Metadata = sanitizeMetadata(a.Meta)
 	case LogoutSuccess:
 		setActor(payload, a.User)
 		payload.EntityID = a.User.ID.String()
@@ -108,6 +103,23 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 			SessionID:  a.SessionID,
 			LogoutKind: entity.AuditLogoutKindManual,
 		}
+	default:
+		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
+	}
+
+	return nil
+}
+
+// fillUsersPayload handles the users category: one account changing. The
+// first three arms are the account owner acting on their own credentials, the
+// rest an admin acting on someone else's account.
+func fillUsersPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	switch a := action.(type) {
+	case ProviderLinked:
+		setActor(payload, a.User)
+		payload.EntityID = a.User.ID.String()
+		payload.Details = providerLinkDetails(a.Meta)
+		payload.Metadata = sanitizeMetadata(a.Meta)
 	case PasswordChanged:
 		setActor(payload, a.User)
 		payload.EntityID = a.User.ID.String()
@@ -118,23 +130,6 @@ func fillAuthPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Acti
 		payload.EntityID = a.User.ID.String()
 		payload.Details = fmt.Sprintf("password reset for %s", a.User.Email)
 		payload.Metadata = sanitizeMetadata(a.Meta)
-	case AuthMethodToggled:
-		// Sets EntityType itself -- see fillAuthMethodToggledPayload. Every arm
-		// above inherits the "user" default from Render, which is wrong here:
-		// the entity acted upon is the method, not the actor.
-		fillAuthMethodToggledPayload(payload, a)
-	default:
-		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
-	}
-
-	return nil
-}
-
-// fillRolesPayload handles the actions in the roles category. Despite the name
-// that is not only roles.changed: user.tags_changed shares the category (an
-// admin acting on someone else's profile), so it renders here too.
-func fillRolesPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
-	switch a := action.(type) {
 	case RolesChanged:
 		setActor(payload, a.Actor)
 		payload.EntityID = a.Target.ID.String()
@@ -155,15 +150,6 @@ func fillRolesPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 			TargetEmail:       a.Target.Email,
 			TargetDisplayName: a.Target.Name,
 		}
-	default:
-		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
-	}
-
-	return nil
-}
-
-func fillBlockedPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
-	switch a := action.(type) {
 	case UserBlocked:
 		setActor(payload, a.Actor)
 		payload.EntityID = a.Target.ID.String()
@@ -185,6 +171,22 @@ func fillBlockedPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action A
 	}
 
 	return nil
+}
+
+// fillSettingsPayload handles the settings category: the instance's own
+// configuration changing. Both halves already have their own renderer; this
+// only routes between them.
+func fillSettingsPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
+	switch a := action.(type) {
+	case AuthMethodToggled:
+		// Sets EntityType itself -- see fillAuthMethodToggledPayload.
+		fillAuthMethodToggledPayload(payload, a)
+		return nil
+	case IntegrationCreated, IntegrationUpdated, IntegrationDeleted:
+		return fillIntegrationPayload(payload, action)
+	default:
+		return fmt.Errorf("%w: %T", apperr.ErrUnsupportedEvent, a)
+	}
 }
 
 // fillMaintPayload handles the maintenance action cases, split out of

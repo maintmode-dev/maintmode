@@ -450,48 +450,56 @@ type AuditFieldChange struct {
 }
 
 // AuditCategory groups audit actions into the FE filter chips
-// (Auth / Roles / Block / Maintenance). The category -> actions mapping is owned
-// by the backend so facet counts and category expansion stay consistent.
+// (Sign-ins / Users / Settings / Maintenance). The category -> actions mapping
+// is owned by the backend so facet counts and category expansion stay
+// consistent. Every action belongs to exactly one category; none is left to
+// the "All" chip alone.
+//
+// The grouping answers "what was acted upon", not "which subsystem wrote the
+// row": a password reset is written by the auth module but changes one user's
+// account, so it sits with the other per-user changes.
 type AuditCategory string
 
 const (
-	AuditCategoryAuth        AuditCategory = "auth"
-	AuditCategoryRoles       AuditCategory = "roles"
-	AuditCategoryBlock       AuditCategory = "block"
+	// AuditCategorySignIn is sessions starting and ending: who got in, who was
+	// refused, who left.
+	AuditCategorySignIn AuditCategory = "sign_in"
+	// AuditCategoryUsers is an account changing: its roles, tags, block state,
+	// credentials, or linked sign-in providers.
+	AuditCategoryUsers AuditCategory = "users"
+	// AuditCategorySettings is the instance's own configuration changing:
+	// which sign-in methods it accepts and which integrations it talks to.
+	AuditCategorySettings    AuditCategory = "settings"
 	AuditCategoryMaintenance AuditCategory = "maintenance"
-	AuditCategoryIntegration AuditCategory = "integration"
 )
 
 var auditActionCategories = map[AuditAction]AuditCategory{
-	AuditActionLoginSuccess:  AuditCategoryAuth,
-	AuditActionLoginFailed:   AuditCategoryAuth,
-	AuditActionLogoutSuccess: AuditCategoryAuth,
+	AuditActionLoginSuccess:  AuditCategorySignIn,
+	AuditActionLoginFailed:   AuditCategorySignIn,
+	AuditActionLogoutSuccess: AuditCategorySignIn,
 
-	// Password events are auth, not "block": they are sign-in credential
-	// changes, and they belong on the same FE chip as the logins they affect.
-	AuditActionPasswordChanged: AuditCategoryAuth,
-	AuditActionPasswordReset:   AuditCategoryAuth,
+	AuditActionRolesChanged:    AuditCategoryUsers,
+	AuditActionUserTagsChanged: AuditCategoryUsers,
+	AuditActionUserBlocked:     AuditCategoryUsers,
+	AuditActionUserUnblocked:   AuditCategoryUsers,
+	// Password and provider-link events are users, not sign-in: they change an
+	// account's credentials rather than open or close a session, whether the
+	// owner did it or an admin did it for them.
+	AuditActionPasswordChanged: AuditCategoryUsers,
+	AuditActionPasswordReset:   AuditCategoryUsers,
 	// Without this entry the row never renders at all: fillPayload looks the
 	// category up BEFORE dispatching and answers ErrUnsupportedEvent when it is
 	// missing, so the renderer arm is never reached.
-	AuditActionProviderLinked: AuditCategoryAuth,
+	AuditActionProviderLinked: AuditCategoryUsers,
 
-	// Toggling a sign-in method is an auth event: it changes which credentials
-	// the instance accepts, so it belongs on the same chip as the sign-ins it
-	// governs.
-	AuditActionAuthMethodToggled: AuditCategoryAuth,
-
-	// user.tags_changed rides the roles category on purpose. Categories are the
-	// FE filter chips (see AuditCategory) and are fanned out by a switch in
-	// services/auditor/get_logs.go; a new category would need both that switch
-	// updated and a new chip in a UI that never asked for one. Roles is the
-	// closest fit in meaning — "an admin manages someone else's profile". Not
-	// Block: this is not a blocking action.
-	AuditActionRolesChanged:    AuditCategoryRoles,
-	AuditActionUserTagsChanged: AuditCategoryRoles,
-
-	AuditActionUserBlocked:   AuditCategoryBlock,
-	AuditActionUserUnblocked: AuditCategoryBlock,
+	// Toggling a sign-in method is a settings event, not a sign-in: it changes
+	// which credentials the whole instance accepts, the same kind of change as
+	// configuring an integration, and it belongs on the chip an operator opens
+	// to answer "who changed the configuration".
+	AuditActionAuthMethodToggled:  AuditCategorySettings,
+	AuditActionIntegrationCreated: AuditCategorySettings,
+	AuditActionIntegrationUpdated: AuditCategorySettings,
+	AuditActionIntegrationDeleted: AuditCategorySettings,
 
 	AuditActionMaintCreated:       AuditCategoryMaintenance,
 	AuditActionMaintUpdated:       AuditCategoryMaintenance,
@@ -502,10 +510,6 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionMaintStepStarted:   AuditCategoryMaintenance,
 	AuditActionMaintStepCompleted: AuditCategoryMaintenance,
 	AuditActionMaintStepCanceled:  AuditCategoryMaintenance,
-
-	AuditActionIntegrationCreated: AuditCategoryIntegration,
-	AuditActionIntegrationUpdated: AuditCategoryIntegration,
-	AuditActionIntegrationDeleted: AuditCategoryIntegration,
 }
 
 // AuditActionCategory returns the facet category of action.
@@ -516,24 +520,27 @@ func AuditActionCategory(action AuditAction) (AuditCategory, bool) {
 }
 
 var auditCategoriesAction = map[AuditCategory][]AuditAction{
-	AuditCategoryAuth: {
+	AuditCategorySignIn: {
 		AuditActionLoginSuccess,
 		AuditActionLoginFailed,
 		AuditActionLogoutSuccess,
+	},
+	AuditCategoryUsers: {
+		AuditActionRolesChanged,
+		AuditActionUserTagsChanged,
+		AuditActionUserBlocked,
+		AuditActionUserUnblocked,
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
 		// Without this entry the row exists, renders, and is invisible under the
-		// auth filter -- this map is what the category filter reads.
+		// users filter -- this map is what the category filter reads.
 		AuditActionProviderLinked,
+	},
+	AuditCategorySettings: {
 		AuditActionAuthMethodToggled,
-	},
-	AuditCategoryRoles: {
-		AuditActionRolesChanged,
-		AuditActionUserTagsChanged,
-	},
-	AuditCategoryBlock: {
-		AuditActionUserBlocked,
-		AuditActionUserUnblocked,
+		AuditActionIntegrationCreated,
+		AuditActionIntegrationUpdated,
+		AuditActionIntegrationDeleted,
 	},
 	AuditCategoryMaintenance: {
 		AuditActionMaintCreated,
@@ -545,11 +552,6 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		AuditActionMaintStepStarted,
 		AuditActionMaintStepCompleted,
 		AuditActionMaintStepCanceled,
-	},
-	AuditCategoryIntegration: {
-		AuditActionIntegrationCreated,
-		AuditActionIntegrationUpdated,
-		AuditActionIntegrationDeleted,
 	},
 }
 
@@ -583,11 +585,10 @@ func (f *AuditFilter) WithoutActions() *AuditFilter {
 // actor/date filter window. All is the count across every action.
 type AuditFacets struct {
 	All         int64
-	Auth        int64
-	Roles       int64
-	Block       int64
+	SignIn      int64
+	Users       int64
+	Settings    int64
 	Maintenance int64
-	Integration int64
 }
 
 // AuditLogsPage is one page of audit log entries plus pagination/facet

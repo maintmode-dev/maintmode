@@ -17,20 +17,17 @@ components:
                 all:
                     example: 123
                     type: integer
-                auth:
-                    example: 42
-                    type: integer
-                block:
-                    example: 1
-                    type: integer
-                integration:
-                    example: 3
-                    type: integer
                 maintenance:
                     example: 17
                     type: integer
-                roles:
-                    example: 8
+                settings:
+                    example: 4
+                    type: integer
+                sign_in:
+                    example: 42
+                    type: integer
+                users:
+                    example: 9
                     type: integer
             type: object
         apiauthmodels.AuditLog:
