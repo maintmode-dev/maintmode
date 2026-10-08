@@ -24,9 +24,9 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/redis/go-redis/v9 v9.23.0
-	github.com/ruko1202/goque v0.8.10
+	github.com/ruko1202/goque v0.8.11
 	github.com/ruko1202/swaggerui v0.5.0
-	github.com/ruko1202/xhttp v0.4.0
+	github.com/ruko1202/xhttp v0.4.1
 	github.com/ruko1202/xlog v0.5.1
 	github.com/samber/lo v1.53.0
 	github.com/slack-go/slack v0.30.1
