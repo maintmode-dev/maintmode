@@ -5,6 +5,7 @@ import (
 
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xcripto"
+	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 // ChangePassword sets the caller's own password.
@@ -75,9 +77,11 @@ func (s *Service) ChangePassword(ctx context.Context, cmd *entity.ChangePassword
 // password. A stolen access token must not be enough to rewrite the credential
 // it was minted from.
 //
-// When no password exists -- the state right after a break-glass login -- there
-// is nothing to prove and supplying one is a client error rather than a
-// silently ignored field.
+// When no password exists there is no old one to prove, and supplying one is a
+// client error rather than a silently ignored field. Setting a FIRST password
+// is no less sensitive for that: it turns whatever session the caller holds
+// into a standing way in. So it asks for the next best proof, a sign-in made
+// moments ago -- see requireFreshSession.
 func (s *Service) verifyCurrentPassword(ctx context.Context, cmd *entity.ChangePasswordCmd) error {
 	cred, err := s.passwords.GetPasswordByUserID(ctx, cmd.UserID)
 	if err != nil {
@@ -89,7 +93,7 @@ func (s *Service) verifyCurrentPassword(ctx context.Context, cmd *entity.ChangeP
 			return fmt.Errorf("%w: no password is set for this account", apperr.ErrValidation)
 		}
 
-		return nil
+		return s.requireFreshSession(ctx, cmd)
 	}
 
 	if cmd.CurrentPassword == "" {
@@ -104,6 +108,44 @@ func (s *Service) verifyCurrentPassword(ctx context.Context, cmd *entity.ChangeP
 
 	if !matches {
 		return apperr.ErrInvalidCredentials
+	}
+
+	return nil
+}
+
+// firstPasswordReauthWindow is how recently the session setting a first
+// password must have signed in.
+const firstPasswordReauthWindow = 10 * time.Minute
+
+// requireFreshSession admits a first password only from a session that signed
+// in within firstPasswordReauthWindow.
+//
+// Without it, anyone holding a provider-only account's session -- a browser
+// left open, a stolen cookie -- set a password of their own, and the change
+// then evicted the owner's other sessions: a temporary foothold turned into a
+// permanent one, with the owner signed out. A recent sign-in is the proof the
+// account has to offer when there is no old password to ask for, and the
+// owner gets it by signing in again.
+//
+// The age is the SESSION's, carried unchanged through every rotation, not the
+// current refresh token's: rotation would otherwise restart the window every
+// few minutes. The caller's refresh token is required for that reason -- it is
+// what names the session.
+func (s *Service) requireFreshSession(ctx context.Context, cmd *entity.ChangePasswordCmd) error {
+	if cmd.RefreshToken == "" {
+		return apperr.ErrReauthenticationRequired
+	}
+
+	rt, err := s.tokenSrv.GetRefreshToken(ctx, cmd.RefreshToken)
+	if err != nil || rt.UserID != cmd.UserID || rt.Revoked {
+		xlog.Warn(ctx, "first password requested without a live session of the account")
+		return apperr.ErrReauthenticationRequired
+	}
+
+	if age := xtime.UTCNow().Sub(rt.SessionStartedAt); age > firstPasswordReauthWindow {
+		xlog.Warn(ctx, "first password requested from a session that signed in too long ago",
+			xfield.String("session_age", age.String()))
+		return apperr.ErrReauthenticationRequired
 	}
 
 	return nil

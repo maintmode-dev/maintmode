@@ -3,14 +3,19 @@ package integration
 import (
 	"cmp"
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
-	"strings"
+	"net"
+	"net/textproto"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
+	"github.com/ruko1202/xhttp/dialguard"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/wneessen/go-mail"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
@@ -33,11 +38,6 @@ const (
 	// probe an unbounded dial while looking like it was capped.
 	probeTimeoutDefault = 10 * time.Second
 
-	// probeErrorLimit caps how much of the far end's error travels back in the
-	// response body. Long enough for an SMTP reply plus context, short enough
-	// that a pathological error cannot be reflected wholesale.
-	probeErrorLimit = 512
-
 	probeSubject = "MaintMode SMTP configuration test"
 	probeBody    = "This is a test message sent by MaintMode to check an SMTP configuration.\n" +
 		"No action is required."
@@ -53,8 +53,8 @@ const (
 // discovering it is broken when a user cannot sign in.
 //
 // Failures reaching the far end are wrapped in ErrIntegrationProbeFailed so the
-// API layer answers 502 with the detail intact; everything the caller could fix
-// by editing the form is ErrValidation.
+// API layer answers 502 with a categorized reason (see probeFailureReason);
+// everything the caller could fix by editing the form is ErrValidation.
 func (s *Service) Probe(ctx context.Context, cmd *entity.ProbeIntegrationCmd) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Integration.Probe",
 		xfield.String("name", cmd.Name),
@@ -117,14 +117,15 @@ func (s *Service) probeEmail(
 	}
 
 	client, err := emailtransport.New(emailtransport.Params{
-		Host:      settings.Host,
-		Port:      settings.Port,
-		Username:  settings.Username,
-		Password:  settings.Password,
-		From:      settings.From,
-		ReplyTo:   settings.ReplyTo,
-		TLSPolicy: settings.TLSPolicy,
-		Timeout:   timeout,
+		Host:               settings.Host,
+		Port:               settings.Port,
+		Username:           settings.Username,
+		Password:           settings.Password,
+		From:               settings.From,
+		ReplyTo:            settings.ReplyTo,
+		TLSPolicy:          settings.TLSPolicy,
+		Timeout:            timeout,
+		AllowInternalHosts: s.allowInternalHosts,
 	})
 	if err != nil {
 		return fmt.Errorf("%w: %w", apperr.ErrValidation, err)
@@ -150,26 +151,50 @@ func (s *Service) probeEmail(
 	// anyway.
 	if err != nil {
 		xlog.Warn(ctx, "smtp probe failed", xfield.Error(err))
-		return fmt.Errorf("%w: %s", apperr.ErrIntegrationProbeFailed, truncateError(err.Error()))
+		return fmt.Errorf("%w: %s", apperr.ErrIntegrationProbeFailed, probeFailureReason(err))
 	}
 
 	xlog.Info(ctx, "smtp probe delivered")
 	return nil
 }
 
-// truncateError bounds the far end's error without eating it.
+// probeFailureReason says what went wrong in words this package chose, never in
+// the far end's.
 //
-// ToValidUTF8 does both jobs at once: a byte the cut left dangling and a byte
-// the server never encoded properly are the same kind of invalid, and each is
-// replaced rather than dropped. An earlier version shortened the string until
-// the whole prefix parsed, which turned a latin-1 answer into "535 auth
-// failed" at best and into an empty string at worst -- losing the diagnostic
-// to a stray byte defeats the reason this text is returned at all.
-func truncateError(s string) string {
-	if len(s) > probeErrorLimit {
-		s = s[:probeErrorLimit]
+// The host and port are the caller's, so whatever answers there is not
+// necessarily an SMTP server, and its text is not ours to repeat: quoting it
+// turned the probe into a banner grabber (an SSH server's version line came
+// back in the 502). An SMTP reply is reduced to its code, which is what an
+// admin needs to look the failure up; the full error is in the log line the
+// caller writes.
+func probeFailureReason(err error) string {
+	var (
+		sendErr  *mail.SendError
+		replyErr *textproto.Error
+		opErr    *net.OpError
+		netErr   net.Error
+	)
+
+	switch {
+	case errors.Is(err, dialguard.ErrBlockedAddress):
+		return "the SMTP host resolves to an internal address, which notify_transport.allow_internal_hosts does not allow"
+	case errors.As(err, &opErr) && opErr.Op == "dial":
+		return "could not connect to the SMTP server"
+	case errors.As(err, &netErr) && netErr.Timeout():
+		return "the SMTP server did not answer in time"
+	case errors.As(err, new(*tls.CertificateVerificationError)):
+		return "the SMTP server's TLS certificate could not be verified"
+	// SendError's reason is go-mail's fixed vocabulary for the step that
+	// failed; its code is the server's reply code, 0 when there was none.
+	case errors.As(err, &sendErr) && sendErr.ErrorCode() != 0:
+		return fmt.Sprintf("the SMTP server refused the message while %s (code %d)", sendErr.Reason, sendErr.ErrorCode())
+	case errors.As(err, &sendErr):
+		return fmt.Sprintf("delivery failed while %s", sendErr.Reason)
+	case errors.As(err, &replyErr):
+		return fmt.Sprintf("the SMTP server replied with code %d", replyErr.Code)
+	default:
+		return "the SMTP conversation failed"
 	}
-	return strings.ToValidUTF8(s, "\uFFFD")
 }
 
 // probeTimeout resolves the dial timeout: the caller's value if they gave one,

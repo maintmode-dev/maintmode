@@ -175,10 +175,17 @@ func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFun
 	return middlewares.RequireScenario(s.security.Authorizer, scenario)
 }
 
-func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{
-		middlewares.RequireActiveToken(s.security.TokenChecker),
-		s.scenarioMW(scenario),
+// requireActiveUser authenticates the request and, for every non-safe method,
+// re-checks the token against server-side state (see RequireActiveToken). It is
+// one middleware rather than two so that a group cannot be given the first half
+// without the second: RBAC on a write must see the user's stored roles, never
+// the ones a revoked or blocked user's token still carries.
+func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
+	authenticate := middlewares.RequireAccessToken(s.security.TokenVerifier)
+	ensureActive := middlewares.RequireActiveToken(s.security.TokenChecker)
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return authenticate(ensureActive(next))
 	}
 }
 
@@ -191,13 +198,18 @@ func (s *APIServer) scenarioWithIntrospectMW(scenario entity.AuthzScenario) []ec
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
 // /users/:id/... param routes, so the static segment is not shadowed.
-func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta *buildmeta.AppBuildMeta) {
+func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
-	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken)
+	// The legacy routes that take a provider credential from the CLIENT are
+	// dev-only: in prod the backend runs the dance itself, and an OAuth2
+	// provider's token from a client can belong to any application its owner
+	// ever authorized. The dev "sign in as" toolbar still drives this one.
+	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
+		middlewares.NotAllowedInProd(env))
 	s.oauthDanceRoutes(loginOAuthGr)
 
 	// The password sign-ins. Break-glass is registered in every environment: it is
@@ -214,7 +226,13 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 	loginPasswordGr := gr.Group("/login",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
-	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword)
+	// The password sign-in also takes the per-address tier the one-time codes
+	// use: per-IP alone let a distributed guesser try one account from as many
+	// addresses as it had. Route-level, not on the group, because break-glass
+	// carries no address -- every attempt would land in the shared "unparseable"
+	// bucket, and anyone could hold the emergency way in at 429 for everyone.
+	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword,
+		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
 	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass)
 
 	s.otpRoutes(gr, meta)
@@ -227,7 +245,6 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, _ config.Environment, meta
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
-	invitesGr.Add(http.MethodPost, "/accept", s.handlers.Invitations.AcceptInvitation)
 	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword)
 }
 
@@ -328,7 +345,7 @@ func (s *APIServer) providersRoute(gr *echo.Group, meta *buildmeta.AppBuildMeta)
 // so a member of a blocked org still sees their data but cannot change it. On
 // self-hosted the provider is license.Noop, whose nil license passes everything.
 func (s *APIServer) apiV1Group(gr *echo.Group) {
-	requireToken := middlewares.RequireAccessToken(s.security.TokenVerifier)
+	requireToken := s.requireActiveUser()
 	gr = gr.Group("", middlewares.RequireLicenseNotSuspended(s.security.License))
 
 	// maint API group
@@ -339,19 +356,19 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 		maintAPI.Add(http.MethodPost, "/:id/edit", s.handlers.Maint.UpdateDraftMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceEdit))
 		maintAPI.Add(http.MethodPost, "/:id/start", s.handlers.Maint.StartMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStart)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStart))
 		maintAPI.Add(http.MethodPost, "/:id/cancel", s.handlers.Maint.CancelMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceCancel)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceCancel))
 		maintAPI.Add(http.MethodPost, "/:id/complete", s.handlers.Maint.CompleteMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceComplete)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceComplete))
 		maintAPI.Add(http.MethodPost, "/:id/approve", s.handlers.Maint.ApproveMaint,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceApprove)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceApprove))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/start", s.handlers.Maint.StartStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepStart)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepStart))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/complete", s.handlers.Maint.CompleteStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepComplete)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepComplete))
 		maintAPI.Add(http.MethodPost, "/:id/steps/:step_id/cancel", s.handlers.Maint.CancelStep,
-			s.scenarioWithIntrospectMW(entity.AuthzScenarioMaintenanceStepCancel)...)
+			s.scenarioMW(entity.AuthzScenarioMaintenanceStepCancel))
 		maintAPI.Add(http.MethodGet, "/:id", s.handlers.Maint.GetMaint,
 			s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 		maintAPI.Add(http.MethodGet, "/cancel-reasons", s.handlers.Maint.CancelMaintReasons,
@@ -482,16 +499,22 @@ func (s *APIServer) apiV1Group(gr *echo.Group) {
 // That grouping is a readability convention, not a correctness guard — see the
 // note at the /users/:id registration for what the router actually does.
 func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
-	withAuthorize := gr.Group("",
+	// Logout alone skips the active-token check: it only takes access away, and
+	// refusing it for an already revoked token or a blocked user would leave the
+	// caller unable to finish clearing its own session.
+	session := gr.Group("",
 		middlewares.RequireAccessToken(s.security.TokenVerifier),
 	)
+	session.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
 
-	withAuthorize.Add(http.MethodPost, "/logout", s.handlers.Auth.Logout)
+	withAuthorize := gr.Group("", s.requireActiveUser())
+
 	withAuthorize.Add(http.MethodPost, "/logout/all", s.handlers.Auth.LogoutAll)
 	withAuthorize.Add(http.MethodGet, "/me", s.handlers.Auth.Me)
 	withAuthorize.Add(http.MethodPost, "/me/password", s.handlers.Auth.ChangePassword)
 	withAuthorize.Add(http.MethodPatch, "/me", s.handlers.Auth.UpdateMe)
 	withAuthorize.Add(http.MethodPost, "/me/providers/:provider/connect", s.handlers.Auth.ConnectProvider)
+	withAuthorize.Add(http.MethodPost, "/me/providers/link/complete", s.handlers.Auth.CompleteLink)
 	withAuthorize.Add(http.MethodDelete, "/me/providers/:provider/disconnect", s.handlers.Auth.DisconnectProvider)
 
 	withAuthorize.Add(http.MethodGet, "/roles",
@@ -506,9 +529,12 @@ func (s *APIServer) authProtectedV1Group(gr *echo.Group) {
 		s.handlers.Roles.Revoke,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthRolesManage),
 	)
+	// Anyone may read their own roles; reading someone else's needs the same
+	// right as listing users.
 	withAuthorize.Add(http.MethodGet, "/user/:id/roles",
 		s.handlers.Roles.ListRoles,
 		middlewares.RequireScenario(s.security.Authorizer, entity.AuthzScenarioAuthUserRolesRead),
+		middlewares.RequireScenarioUnlessSelf(s.security.Authorizer, entity.AuthzScenarioAuthUsersRead, "id"),
 	)
 
 	// STATIC /users/... routes first.

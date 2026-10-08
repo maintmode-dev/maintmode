@@ -398,10 +398,10 @@ func (m *MockDanceCodeStore) EXPECT() *MockDanceCodeStoreMockRecorder {
 }
 
 // ConsumeCode mocks base method.
-func (m *MockDanceCodeStore) ConsumeCode(ctx context.Context, code string) (*entity.TokenPair, error) {
+func (m *MockDanceCodeStore) ConsumeCode(ctx context.Context, code string) (*entity.DanceCode, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConsumeCode", ctx, code)
-	ret0, _ := ret[0].(*entity.TokenPair)
+	ret0, _ := ret[0].(*entity.DanceCode)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -419,19 +419,19 @@ type MockDanceCodeStoreConsumeCodeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDanceCodeStoreConsumeCodeCall) Return(arg0 *entity.TokenPair, arg1 error) *MockDanceCodeStoreConsumeCodeCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) Return(arg0 *entity.DanceCode, arg1 error) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDanceCodeStoreConsumeCodeCall) Do(f func(context.Context, string) (*entity.TokenPair, error)) *MockDanceCodeStoreConsumeCodeCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) Do(f func(context.Context, string) (*entity.DanceCode, error)) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDanceCodeStoreConsumeCodeCall) DoAndReturn(f func(context.Context, string) (*entity.TokenPair, error)) *MockDanceCodeStoreConsumeCodeCall {
+func (c *MockDanceCodeStoreConsumeCodeCall) DoAndReturn(f func(context.Context, string) (*entity.DanceCode, error)) *MockDanceCodeStoreConsumeCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -471,6 +471,45 @@ func (c *MockDanceCodeStoreConsumeInvitationHandleCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDanceCodeStoreConsumeInvitationHandleCall) DoAndReturn(f func(context.Context, string) (*uuid.UUID, error)) *MockDanceCodeStoreConsumeInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ConsumeLinkCode mocks base method.
+func (m *MockDanceCodeStore) ConsumeLinkCode(ctx context.Context, code string) (*entity.PendingLink, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsumeLinkCode", ctx, code)
+	ret0, _ := ret[0].(*entity.PendingLink)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConsumeLinkCode indicates an expected call of ConsumeLinkCode.
+func (mr *MockDanceCodeStoreMockRecorder) ConsumeLinkCode(ctx, code any) *MockDanceCodeStoreConsumeLinkCodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeLinkCode", reflect.TypeOf((*MockDanceCodeStore)(nil).ConsumeLinkCode), ctx, code)
+	return &MockDanceCodeStoreConsumeLinkCodeCall{Call: call}
+}
+
+// MockDanceCodeStoreConsumeLinkCodeCall wrap *gomock.Call
+type MockDanceCodeStoreConsumeLinkCodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStoreConsumeLinkCodeCall) Return(arg0 *entity.PendingLink, arg1 error) *MockDanceCodeStoreConsumeLinkCodeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStoreConsumeLinkCodeCall) Do(f func(context.Context, string) (*entity.PendingLink, error)) *MockDanceCodeStoreConsumeLinkCodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStoreConsumeLinkCodeCall) DoAndReturn(f func(context.Context, string) (*entity.PendingLink, error)) *MockDanceCodeStoreConsumeLinkCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -554,17 +593,17 @@ func (c *MockDanceCodeStorePeekLinkTicketCall) DoAndReturn(f func(context.Contex
 }
 
 // PutCode mocks base method.
-func (m *MockDanceCodeStore) PutCode(ctx context.Context, code string, pair *entity.TokenPair) error {
+func (m *MockDanceCodeStore) PutCode(ctx context.Context, code string, entry entity.DanceCode) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutCode", ctx, code, pair)
+	ret := m.ctrl.Call(m, "PutCode", ctx, code, entry)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PutCode indicates an expected call of PutCode.
-func (mr *MockDanceCodeStoreMockRecorder) PutCode(ctx, code, pair any) *MockDanceCodeStorePutCodeCall {
+func (mr *MockDanceCodeStoreMockRecorder) PutCode(ctx, code, entry any) *MockDanceCodeStorePutCodeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutCode", reflect.TypeOf((*MockDanceCodeStore)(nil).PutCode), ctx, code, pair)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutCode", reflect.TypeOf((*MockDanceCodeStore)(nil).PutCode), ctx, code, entry)
 	return &MockDanceCodeStorePutCodeCall{Call: call}
 }
 
@@ -580,13 +619,13 @@ func (c *MockDanceCodeStorePutCodeCall) Return(arg0 error) *MockDanceCodeStorePu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDanceCodeStorePutCodeCall) Do(f func(context.Context, string, *entity.TokenPair) error) *MockDanceCodeStorePutCodeCall {
+func (c *MockDanceCodeStorePutCodeCall) Do(f func(context.Context, string, entity.DanceCode) error) *MockDanceCodeStorePutCodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDanceCodeStorePutCodeCall) DoAndReturn(f func(context.Context, string, *entity.TokenPair) error) *MockDanceCodeStorePutCodeCall {
+func (c *MockDanceCodeStorePutCodeCall) DoAndReturn(f func(context.Context, string, entity.DanceCode) error) *MockDanceCodeStorePutCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -625,6 +664,44 @@ func (c *MockDanceCodeStorePutInvitationHandleCall) Do(f func(context.Context, s
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDanceCodeStorePutInvitationHandleCall) DoAndReturn(f func(context.Context, string, uuid.UUID) error) *MockDanceCodeStorePutInvitationHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PutLinkCode mocks base method.
+func (m *MockDanceCodeStore) PutLinkCode(ctx context.Context, code string, link entity.PendingLink) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutLinkCode", ctx, code, link)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutLinkCode indicates an expected call of PutLinkCode.
+func (mr *MockDanceCodeStoreMockRecorder) PutLinkCode(ctx, code, link any) *MockDanceCodeStorePutLinkCodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutLinkCode", reflect.TypeOf((*MockDanceCodeStore)(nil).PutLinkCode), ctx, code, link)
+	return &MockDanceCodeStorePutLinkCodeCall{Call: call}
+}
+
+// MockDanceCodeStorePutLinkCodeCall wrap *gomock.Call
+type MockDanceCodeStorePutLinkCodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDanceCodeStorePutLinkCodeCall) Return(arg0 error) *MockDanceCodeStorePutLinkCodeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDanceCodeStorePutLinkCodeCall) Do(f func(context.Context, string, entity.PendingLink) error) *MockDanceCodeStorePutLinkCodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDanceCodeStorePutLinkCodeCall) DoAndReturn(f func(context.Context, string, entity.PendingLink) error) *MockDanceCodeStorePutLinkCodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

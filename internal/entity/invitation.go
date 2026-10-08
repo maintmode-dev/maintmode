@@ -132,19 +132,6 @@ type ResendInvitationCmd struct {
 	ID    uuid.UUID
 }
 
-// AcceptInvitationCmd is the public request to accept an invitation: the raw
-// token from the email link plus the OAuth payload completed by the frontend.
-type AcceptInvitationCmd struct {
-	Token string
-	// Provider is the raw name from the request. It stays a string here: the
-	// vocabulary is whatever is registered, which only the service's provider
-	// registry knows, so validating it in the handler would mean teaching the
-	// API layer about auth configuration.
-	Provider string
-	IDToken  string
-	ClientIP string
-}
-
 // ResolvedInvitation is what an invited dance learns about the invitation it is
 // completing, once the handle has been redeemed and the email match has passed.
 //

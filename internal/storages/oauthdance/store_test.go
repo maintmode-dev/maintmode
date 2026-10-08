@@ -49,12 +49,14 @@ func TestConsumeCodeRoundTripPreservesSessionID(t *testing.T) {
 		ExpiresIn:    900,
 		SessionID:    uuid.New(),
 	}
-	require.NoError(t, store.PutCode(ctx, code, want))
+	require.NoError(t, store.PutCode(ctx, code, entity.DanceCode{Pair: want, Binding: "the-binding"}))
 
-	got, err := store.ConsumeCode(ctx, code)
+	entry, err := store.ConsumeCode(ctx, code)
 	require.NoError(t, err)
-	require.NotNil(t, got)
+	require.NotNil(t, entry)
+	got := entry.Pair
 
+	assert.Equal(t, "the-binding", entry.Binding, "the binding must survive the round trip")
 	assert.Equal(t, want.AccessToken, got.AccessToken)
 	assert.Equal(t, want.RefreshToken, got.RefreshToken)
 	assert.Equal(t, want.ExpiresIn, got.ExpiresIn)
@@ -68,7 +70,7 @@ func TestConsumeCodeSingleUse(t *testing.T) {
 	store := newStore(t)
 	code := randomSecret(t)
 
-	require.NoError(t, store.PutCode(ctx, code, &entity.TokenPair{AccessToken: "a"}))
+	require.NoError(t, store.PutCode(ctx, code, entity.DanceCode{Pair: &entity.TokenPair{AccessToken: "a"}}))
 
 	got, err := store.ConsumeCode(ctx, code)
 	require.NoError(t, err)
@@ -107,7 +109,7 @@ func TestConsumeCodeConcurrent(t *testing.T) {
 
 	for round := range rounds {
 		code := randomSecret(t)
-		require.NoError(t, store.PutCode(ctx, code, &entity.TokenPair{AccessToken: "only-one"}))
+		require.NoError(t, store.PutCode(ctx, code, entity.DanceCode{Pair: &entity.TokenPair{AccessToken: "only-one"}}))
 
 		var (
 			wg      sync.WaitGroup
@@ -153,7 +155,7 @@ func TestKeysAreHashed(t *testing.T) {
 	store := newStore(t)
 	code := randomSecret(t)
 
-	require.NoError(t, store.PutCode(ctx, code, &entity.TokenPair{AccessToken: "a"}))
+	require.NoError(t, store.PutCode(ctx, code, entity.DanceCode{Pair: &entity.TokenPair{AccessToken: "a"}}))
 
 	found, err := valkey.Keys(ctx, "*"+code+"*").Result()
 	require.NoError(t, err)
@@ -177,7 +179,7 @@ func TestCodeExpires(t *testing.T) {
 	ctx := context.Background()
 	code := randomSecret(t)
 
-	require.NoError(t, newStore(t).PutCode(ctx, code, &entity.TokenPair{AccessToken: "a"}))
+	require.NoError(t, newStore(t).PutCode(ctx, code, entity.DanceCode{Pair: &entity.TokenPair{AccessToken: "a"}}))
 
 	ttl, err := valkey.TTL(ctx, codeKeyForTest(code)).Result()
 	require.NoError(t, err)

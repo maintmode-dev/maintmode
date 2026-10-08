@@ -67,8 +67,11 @@ func TestChangePassword_StatusesAreDistinguishable(t *testing.T) {
 		t.Parallel()
 
 		user := newUser(t)
+		session, err := impl.authSrv.IssueTokenPair(ctx, user, "10.0.0.1")
+		require.NoError(t, err)
 		require.NoError(t, impl.authSrv.ChangePassword(ctx, &entity.ChangePasswordCmd{
-			UserID: user.ID, NewPassword: "the-original-password", ClientIP: "10.0.0.1",
+			UserID: user.ID, NewPassword: "the-original-password",
+			RefreshToken: session.RefreshToken, ClientIP: "10.0.0.1",
 		}))
 
 		got := doChangePassword(t, impl, user,
@@ -87,8 +90,23 @@ func TestChangePassword_StatusesAreDistinguishable(t *testing.T) {
 	t.Run("setting a first password is 204", func(t *testing.T) {
 		t.Parallel()
 
-		got := doChangePassword(t, impl, newUser(t), `{"new_password":"a-perfectly-long-password"}`)
+		user := newUser(t)
+		session, err := impl.authSrv.IssueTokenPair(ctx, user, "10.0.0.1")
+		require.NoError(t, err)
+
+		got := doChangePassword(t, impl, user,
+			`{"new_password":"a-perfectly-long-password","refresh_token":"`+session.RefreshToken+`"}`)
 		require.Equal(t, http.StatusNoContent, got.status)
 		require.Empty(t, got.body)
+	})
+
+	// 403 with a code of its own, not 401: the session is valid, and a 401
+	// would make the BFF throw it away instead of asking for a fresh sign-in.
+	t.Run("a first password without a recent sign-in is 403 reauthentication_required", func(t *testing.T) {
+		t.Parallel()
+
+		got := doChangePassword(t, impl, newUser(t), `{"new_password":"a-perfectly-long-password"}`)
+		require.Equal(t, http.StatusForbidden, got.status)
+		require.Contains(t, got.body, `"code":"reauthentication_required"`)
 	})
 }

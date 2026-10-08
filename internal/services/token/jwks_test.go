@@ -12,7 +12,8 @@ func TestJWKS(t *testing.T) {
 	svc := initService(t)
 
 	t.Run("ok", func(t *testing.T) {
-		jwks := svc.JWKS(ctx)
+		jwks, err := svc.JWKS(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(jwks.Keys))
 
 		key := jwks.Keys[0]

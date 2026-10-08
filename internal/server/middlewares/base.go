@@ -18,6 +18,14 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
+// apiBodyLimit caps every request body. Without it the only bound is whatever a
+// handler's binder happens to read, and every public route -- sign-in included
+// -- would buffer an arbitrarily large body before validation could refuse it.
+// Text fields carry no length caps of their own, so the ceiling sits well above
+// the largest real write (a maintenance plan of a hundred steps); routes that
+// need less set their own, tighter limit.
+const apiBodyLimit int64 = 1 << 20 // 1 MiB
+
 // BaseAPIMiddlewares returns the basic set of middlewares (recover, secure, request ID) for public API
 //
 // TraceMiddleware must stay ahead of xhttpserver.RequestLoggingMiddleware: it
@@ -29,6 +37,7 @@ func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []
 	mw := append(xhttpserver.BaseMiddlewares(),
 		middleware.Recover(),
 		middleware.Secure(),
+		middleware.BodyLimit(apiBodyLimit),
 		echootel.NewMiddleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
 		TraceMiddleware(),

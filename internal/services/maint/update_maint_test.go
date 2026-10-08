@@ -259,3 +259,26 @@ func TestUpdateDraft(t *testing.T) {
 		})
 	})
 }
+
+// The update path takes the same step ceiling as create: it is the other way to
+// put steps on a maintenance, and without the cap an edit could carry any number.
+func TestValidateUpdateCapsSteps(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	steps := func(n int) []*entity.MaintenanceStepInput {
+		out := make([]*entity.MaintenanceStepInput, 0, n)
+		for i := range int32(n) { //nolint:gosec // n is a small test count
+			out = append(out, &entity.MaintenanceStepInput{
+				Order:               i + 1,
+				Description:         "step",
+				RollbackDescription: "rollback",
+				DurationMinutes:     minStepDurationsMinutes,
+			})
+		}
+		return out
+	}
+
+	require.NoError(t, validateUpdate(ctx, &entity.UpdateMaintenanceCmd{Steps: steps(maxSteps)}))
+	require.Error(t, validateUpdate(ctx, &entity.UpdateMaintenanceCmd{Steps: steps(maxSteps + 1)}))
+}

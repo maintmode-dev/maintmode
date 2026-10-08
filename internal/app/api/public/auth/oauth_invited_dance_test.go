@@ -36,7 +36,9 @@ func startInvited(t *testing.T, impl *Implementation, invitationToken string) in
 	rec := httptest.NewRecorder()
 	c := echotest.ContextConfig{
 		Request: httptest.NewRequest(http.MethodGet,
-			"/login/oauth/google/start?invitation="+url.QueryEscape(invitationToken), http.NoBody),
+			"/login/oauth/google/start?"+url.Values{
+				"invitation": {invitationToken}, paramBinding: {testBinding},
+			}.Encode(), http.NoBody),
 		Response:   rec,
 		PathValues: echo.PathValues{{Name: "provider", Value: "google"}},
 	}.ToContext(t)
@@ -52,6 +54,7 @@ func startInvited(t *testing.T, impl *Implementation, invitationToken string) in
 		state:     target.Query().Get("state"),
 		signature: cookies[oauthStateCookie].Value,
 		verifier:  cookies[oauthVerifierCookie].Value,
+		binding:   cookies[oauthBindingCookie].Value,
 	}}
 	if handle, ok := cookies[oauthInvitationCookie]; ok {
 		run.invitationHandle = handle.Value
@@ -72,6 +75,7 @@ func completeInvited(t *testing.T, impl *Implementation, run invitedRun) *httpte
 		}.Encode(), http.NoBody)
 	req.AddCookie(&http.Cookie{Name: oauthStateCookie, Value: run.signature})
 	req.AddCookie(&http.Cookie{Name: oauthVerifierCookie, Value: run.verifier})
+	req.AddCookie(&http.Cookie{Name: oauthBindingCookie, Value: run.binding})
 	if run.invitationHandle != "" {
 		req.AddCookie(&http.Cookie{Name: oauthInvitationCookie, Value: run.invitationHandle})
 	}

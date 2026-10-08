@@ -29,6 +29,11 @@ func (s *Service) AssignRoles(ctx context.Context, cmd *entity.AssignRolesCmd) (
 		}
 	}
 
+	// Mirrors the self-revoke guard: an actor never widens their own access.
+	if cmd.Actor != nil && cmd.Actor.ID == cmd.UserID {
+		return nil, apperr.ErrSelfAssign
+	}
+
 	var added []entity.Role
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		added = lo.Filter(cmd.Roles, func(role entity.Role, _ int) bool {

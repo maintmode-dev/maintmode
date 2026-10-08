@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -159,6 +160,18 @@ func newProvider(t *testing.T, clientID string) (*oidc.Service, *ecdsa.PrivateKe
 func newResolverMock(t *testing.T, issuer, jwksURL string) *mock_oidc.Mockresolver {
 	t.Helper()
 
+	// A plain client: the JWKS stub listens on loopback, which the resolver's
+	// own guarded client refuses. That guard is the resolver package's to test.
+	return newResolverMockWithKeySetClient(t, issuer, jwksURL, &http.Client{Timeout: 5 * time.Second})
+}
+
+// newResolverMockWithKeySetClient is newResolverMock with the client the
+// provider hands its verifier for JWKS fetches chosen by the caller.
+func newResolverMockWithKeySetClient(
+	t *testing.T, issuer, jwksURL string, keySetClient *http.Client,
+) *mock_oidc.Mockresolver {
+	t.Helper()
+
 	resolver := mock_oidc.NewMockresolver(gomock.NewController(t))
 	resolver.EXPECT().
 		Resolve(gomock.Any(), gomock.Any()).
@@ -170,7 +183,7 @@ func newResolverMock(t *testing.T, issuer, jwksURL string) *mock_oidc.Mockresolv
 				JWKSURL:   jwksURL,
 			}
 
-			return oidcdiscovery.Provider{OIDC: cfg.NewProvider(ctx), Issuer: issuer}, nil
+			return oidcdiscovery.Provider{OIDC: cfg.NewProvider(ctx), Issuer: issuer, KeySetClient: keySetClient}, nil
 		}).
 		AnyTimes()
 
@@ -226,6 +239,44 @@ func TestNewProvider(t *testing.T) {
 		require.Nil(t, claims)
 		require.ErrorIs(t, err, apperr.ErrAuthUnavailable)
 	})
+}
+
+// roundTripFunc adapts a function to http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// The JWKS is fetched by go-oidc long after discovery, and when its context
+// carries no client the library uses http.DefaultClient: no dial guard, no
+// timeout, redirects followed. The verifier must therefore fetch through the
+// client discovery handed out.
+//
+// The stub JWKS server is live and serves the right key, so a verifier that
+// ignored the provided client would fetch it with the default one and accept
+// the token. Only a fetch through the refusing client fails it.
+func TestServiceFetchesKeysThroughTheProvidersClient(t *testing.T) {
+	t.Parallel()
+	ctx := xlog.ContextWithLogger(t.Context(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
+
+	key := newTestKey(t)
+	issuer := "https://idp.example"
+
+	var fetches atomic.Int64
+	refusing := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		fetches.Add(1)
+		return nil, errors.New("refused by the provider's client")
+	})}
+
+	srv := oidc.NewProvider(
+		testProviderName,
+		config.OIDCProvider{ClientID: testClientID, IssuerURL: issuer, JWTVerify: newVerifierConfig()},
+		newResolverMockWithKeySetClient(t, issuer, newJWKSServer(t, key, testKID), refusing),
+	)
+
+	claims, err := srv.Authenticate(ctx, signToken(t, key, testKID, newValidClaims(issuer)))
+	require.Nil(t, claims)
+	require.ErrorIs(t, err, apperr.ErrInvalidAccessToken)
+	require.Positive(t, fetches.Load(), "the key set must be fetched through the provider's client")
 }
 
 func TestServiceAuthenticate(t *testing.T) {

@@ -32,6 +32,12 @@ func exchangeCode(t *testing.T, impl *Implementation, body string) *httptest.Res
 	return rec
 }
 
+// codeBody is the exchange request the BFF that started the dance sends: the
+// code, and the nonce the dance was bound to.
+func codeBody(code string) string {
+	return `{"code":"` + code + `","binding_proof":"` + testBindingNonce + `"}`
+}
+
 // danceToCode runs a full dance and returns the one-time code the browser would
 // carry to the frontend.
 func danceToCode(t *testing.T, impl *Implementation) string {
@@ -51,7 +57,7 @@ func TestExchangeCodeReturnsThePair(t *testing.T) {
 	impl := initDanceImpl(t)
 	code := danceToCode(t, impl)
 
-	rec := exchangeCode(t, impl, `{"code":"`+code+`"}`)
+	rec := exchangeCode(t, impl, codeBody(code))
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	var pair apiauthmodels.TokenPairResponse
@@ -68,9 +74,9 @@ func TestExchangeCodeIsSingleUse(t *testing.T) {
 	impl := initDanceImpl(t)
 	code := danceToCode(t, impl)
 
-	require.Equal(t, http.StatusOK, exchangeCode(t, impl, `{"code":"`+code+`"}`).Code)
+	require.Equal(t, http.StatusOK, exchangeCode(t, impl, codeBody(code)).Code)
 
-	second := exchangeCode(t, impl, `{"code":"`+code+`"}`)
+	second := exchangeCode(t, impl, codeBody(code))
 	assert.Equal(t, http.StatusUnauthorized, second.Code, "a redeemed code must never be redeemable again")
 	assert.NotContains(t, second.Body.String(), "access_token")
 }
@@ -109,7 +115,7 @@ func TestExchangeCodeConcurrentRedemption(t *testing.T) {
 
 				<-start
 
-				if exchangeCode(t, impl, `{"code":"`+code+`"}`).Code == http.StatusOK {
+				if exchangeCode(t, impl, codeBody(code)).Code == http.StatusOK {
 					mu.Lock()
 					granted++
 					mu.Unlock()
@@ -132,14 +138,16 @@ func TestExchangeCodeFailuresAreIndistinguishable(t *testing.T) {
 	impl := initDanceImpl(t)
 
 	spent := danceToCode(t, impl)
-	require.Equal(t, http.StatusOK, exchangeCode(t, impl, `{"code":"`+spent+`"}`).Code)
+	require.Equal(t, http.StatusOK, exchangeCode(t, impl, codeBody(spent)).Code)
 
 	bodies := map[string]string{
-		"unknown code":  `{"code":"never-issued-at-all"}`,
-		"already spent": `{"code":"` + spent + `"}`,
+		"unknown code":  codeBody("never-issued-at-all"),
+		"already spent": codeBody(spent),
 		"empty code":    `{"code":""}`,
 		"absent field":  `{}`,
 		"malformed":     `{not json`,
+		"wrong proof":   `{"code":"` + danceToCode(t, impl) + `","binding_proof":"another-browser"}`,
+		"no proof":      `{"code":"` + danceToCode(t, impl) + `"}`,
 	}
 
 	seen := map[string]struct{}{}
@@ -152,4 +160,21 @@ func TestExchangeCodeFailuresAreIndistinguishable(t *testing.T) {
 	}
 
 	assert.Len(t, seen, 1, "every failure must answer with one identical body")
+}
+
+// A code carried to another browser arrives without the nonce its dance was
+// bound to, and redeems nothing -- including afterwards with the right one: the
+// wrong guess spent it. This is the login-CSRF the binding exists to stop: a
+// member stopping their own dance at the redirect and sending the code to a
+// colleague.
+func TestExchangeCodeRequiresTheBindingProof(t *testing.T) {
+	impl := initDanceImpl(t)
+	code := danceToCode(t, impl)
+
+	rec := exchangeCode(t, impl, `{"code":"`+code+`","binding_proof":"the-victims-own-nonce"}`)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.NotContains(t, rec.Body.String(), "access_token")
+
+	assert.Equal(t, http.StatusUnauthorized, exchangeCode(t, impl, codeBody(code)).Code,
+		"a code presented with the wrong proof is spent")
 }

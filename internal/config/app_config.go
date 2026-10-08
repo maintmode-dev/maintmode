@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"path"
 	"reflect"
 	"strings"
@@ -373,6 +374,13 @@ type NotifyTransportConfig struct {
 	// UseStub, in a dev environment, routes every delivery to the stub transport
 	// instead of the real DB-resolved one — no external calls in local dev.
 	UseStub bool `mapstructure:"use_stub"`
+	// AllowInternalHosts lets the transports connect to loopback, private,
+	// link-local and other internal addresses. Off by default: an admin types
+	// the Slack/Telegram api_url and the SMTP host, so with it on, those fields
+	// reach whatever this process can reach. Turn it on for a relay or a mock
+	// that genuinely lives on the internal network (mailpit in dev, a
+	// corporate SMTP relay on 10.x).
+	AllowInternalHosts bool `mapstructure:"allow_internal_hosts"`
 	// Transports is one flat section per notify transport, keyed by registry
 	// system name (slack, telegram, email). See NotifyTransportEntry.
 	Transports NotifyTransportEntries `mapstructure:"transports"`
@@ -874,15 +882,20 @@ func (c *AppConfig) validateJWTKey() error {
 		return fmt.Errorf("jwt.issuer_private_key is unusable: %w", err)
 	}
 
-	if key.D.BitLen() < minSigningKeyBits {
+	// Bytes is the scalar at the curve's fixed width (32 bytes for P-256),
+	// left-padded, which is what both checks below read.
+	raw, err := key.Bytes()
+	if err != nil {
+		return fmt.Errorf("jwt.issuer_private_key is unusable: %w", err)
+	}
+
+	if bits := new(big.Int).SetBytes(raw).BitLen(); bits < minSigningKeyBits {
 		return fmt.Errorf(
 			"jwt.issuer_private_key is a placeholder: scalar has %d bits, expected at least %d",
-			key.D.BitLen(), minSigningKeyBits,
+			bits, minSigningKeyBits,
 		)
 	}
 
-	raw := make([]byte, signingKeyBytes)
-	key.D.FillBytes(raw)
 	if bytes.Count(raw, []byte{raw[0]}) == signingKeyBytes {
 		return fmt.Errorf(
 			"jwt.issuer_private_key is a placeholder: all %d bytes are 0x%02x",

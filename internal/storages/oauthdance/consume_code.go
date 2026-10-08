@@ -13,7 +13,8 @@ import (
 )
 
 // ConsumeCode redeems a one-time opaque code, returning nil when there is
-// nothing to redeem.
+// nothing to redeem. Checking the entry's binding is the caller's job; the code
+// is spent either way, so a wrong guess at the binding burns it.
 //
 // A nil pair covers unknown, expired and already-redeemed alike, and the caller
 // answers all three with one identical 401: telling them apart would tell an
@@ -23,7 +24,7 @@ import (
 // GETDEL, not GET-then-DEL. The single round trip is what makes the code truly
 // single-use: with two calls, N concurrent redemptions all read the same live
 // value before any of them deletes it, and every one of them gets a token pair.
-func (s *Store) ConsumeCode(ctx context.Context, code string) (*entity.TokenPair, error) {
+func (s *Store) ConsumeCode(ctx context.Context, code string) (*entity.DanceCode, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.OAuthDance.ConsumeCode")
 	defer span.End()
 
@@ -36,10 +37,10 @@ func (s *Store) ConsumeCode(ctx context.Context, code string) (*entity.TokenPair
 		return nil, fmt.Errorf("consume dance code: %w", err)
 	}
 
-	pair := new(entity.TokenPair)
-	if err := json.Unmarshal([]byte(encoded), pair); err != nil {
-		return nil, fmt.Errorf("unmarshal token pair: %w", err)
+	entry := new(entity.DanceCode)
+	if err := json.Unmarshal([]byte(encoded), entry); err != nil {
+		return nil, fmt.Errorf("unmarshal dance code: %w", err)
 	}
 
-	return pair, nil
+	return entry, nil
 }

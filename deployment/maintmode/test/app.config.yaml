@@ -202,9 +202,14 @@ oauth_providers:
     google:
       display_name: Google
       issuer_url: https://accounts.google.com
-      managed_by: ui
-      # To declare it here instead:
-      # managed_by: config
+      # Declared here so it exists from startup. The API suite signs every test
+      # user in through it (use_stub), and on a fresh database there is no admin
+      # yet who could create it through the API: writes are authorized on the
+      # caller's STORED roles, so a minted token for a user who does not exist
+      # cannot. Disabled: the stub needs only the registry row.
+      managed_by: config
+      enabled: false
+      # To enable it for real:
       # enabled: true
       # client_id: "1234.apps.googleusercontent.com"
       # redirect_uri: "https://maint.example.com/auth/api/v1/login/oauth/google/callback"
@@ -244,6 +249,13 @@ notify_transport:
   # a delivery resolves to disabled/unconfigured and drops best-effort —
   # the suite exercises the real DB-settings path without real transports.
   use_stub: false
+  # allow_internal_hosts lets the transports (and the SMTP probe) connect to
+  # loopback, private and other internal addresses. Off as in prod: no
+  # test points a transport at an internal address. Leave it off unless a
+  # transport genuinely lives on the internal network (e.g. a corporate SMTP
+  # relay on 10.x): the Slack/Telegram api_url and the SMTP host are typed by
+  # an admin, and with it on they reach whatever this process can reach.
+  allow_internal_hosts: false
   # One section per notify transport (slack, telegram, email), flat: managed_by,
   # enabled and the transport's settings side by side. A transport with no
   # section is managed in the UI.

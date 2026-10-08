@@ -20,6 +20,7 @@ package oidcdiscovery
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -57,6 +58,11 @@ const defaultCoolOff = 10 * time.Second
 // cache that only knows TTLs.
 const cacheForever = 100 * 365 * 24 * time.Hour
 
+// maxResponseBytes bounds a discovery document or a JWKS. Real ones are a few
+// kilobytes; the bound exists because both libraries reading them call
+// io.ReadAll, and the far end is whoever the issuer's document names.
+const maxResponseBytes = 1 << 20
+
 // Provider is a resolved OIDC provider: the library's own handle, which carries
 // the endpoints and mints verifiers, plus the issuer as the document declared
 // it.
@@ -67,6 +73,17 @@ const cacheForever = 100 * 365 * 24 * time.Hour
 type Provider struct {
 	OIDC   *oidc.Provider
 	Issuer string
+	// KeySetClient is the client the provider's JWKS must be fetched with.
+	//
+	// The JWKS location comes from the document, so it is exactly as
+	// attacker-steerable as the document's other endpoints, and its fetches
+	// happen long after discovery, from inside go-oidc's verifier. That
+	// library falls back to http.DefaultClient when its context carries no
+	// client -- no dial guard, no timeout, redirects followed, body unbounded --
+	// and it quotes the body of a failed fetch in its error. So the client is
+	// handed out with the provider rather than left for each verifier to build:
+	// it carries the same dial guard as discovery, plus no redirects.
+	KeySetClient *http.Client
 }
 
 // Endpoint returns the OAuth2 endpoints the discovery document declared.
@@ -85,6 +102,9 @@ func (p Provider) Endpoint() (authURL, tokenURL string) {
 // long enough to keep an outage from being amplified.
 type Resolver struct {
 	httpc *http.Client
+	// keysClient is what every resolved provider hands its verifier for JWKS
+	// fetches. See Provider.KeySetClient.
+	keysClient *http.Client
 
 	// resolved carries the cache AND the single-flight: GetOrLoad coalesces
 	// concurrent misses, which is what keeps a burst of sign-ins against a cold
@@ -136,16 +156,46 @@ func newResolver(coolOff time.Duration, dialPolicy client.Option) *Resolver {
 	}
 
 	return &Resolver{
-		httpc: client.NewClient(
-			client.WithTimeout(requestTimeout),
-			dialPolicy,
-			client.WithSanitizer(xsanitize.New()),
-		),
+		httpc: newHTTPClient(dialPolicy),
+		// A JWKS has no business redirecting, and a redirect is how a public
+		// jwks_uri would steer the fetch somewhere its document never named.
+		// The dial guard would still judge the target address; refusing the
+		// hop keeps the request on the host the document vouched for.
+		keysClient: newHTTPClient(dialPolicy, client.WithoutRedirect()),
 		// cacheForever: a successful discovery is good for the life of the
 		// process, so the TTL is one the process will never outlive.
 		resolved: xcache.New[string, Provider](cacheForever),
 		failedAt: xcache.New[string, struct{}](coolOff),
 	}
+}
+
+// newHTTPClient is the shape both of the resolver's clients share: one
+// timeout, one dial policy, one redaction policy, one response bound.
+func newHTTPClient(dialPolicy client.Option, extra ...client.Option) *http.Client {
+	opts := append([]client.Option{
+		client.WithTimeout(requestTimeout),
+		dialPolicy,
+		client.WithSanitizer(xsanitize.New()),
+		client.WithCallerAfterDo(limitResponseBody),
+	}, extra...)
+
+	return client.NewClient(opts...)
+}
+
+// limitResponseBody caps how much of a response the reader can consume.
+//
+// go-oidc reads both the document and the JWKS with io.ReadAll, so without
+// this a far end streaming forever holds memory until the request timeout
+// fires. A body cut short fails to parse, which is the right outcome for a
+// document a thousand times larger than any real one.
+func limitResponseBody(_ context.Context, resp *http.Response) {
+	resp.Body = limitedBody{Reader: io.LimitReader(resp.Body, maxResponseBytes), Closer: resp.Body}
+}
+
+// limitedBody reads through the limit and closes the original body.
+type limitedBody struct {
+	io.Reader
+	io.Closer
 }
 
 // NewAllowingLoopback builds a resolver whose dial guard permits loopback.
@@ -248,7 +298,7 @@ func (r *Resolver) discover(ctx context.Context, issuer string) (Provider, error
 
 	// The library refused the document unless its issuer equaled the string we
 	// asked with, so the normalized issuer IS what the provider mints.
-	return Provider{OIDC: provider, Issuer: issuer}, nil
+	return Provider{OIDC: provider, Issuer: issuer, KeySetClient: r.keysClient}, nil
 }
 
 // discoveredEndpoints is what the document has to supply, named so validation

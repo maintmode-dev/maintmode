@@ -21,6 +21,9 @@ type Params struct {
 	BotToken string
 	APIURL   string
 	Timeout  time.Duration
+	// AllowInternalHosts lifts the dial guard. See
+	// config.NotifyTransportConfig.AllowInternalHosts.
+	AllowInternalHosts bool
 }
 
 type Client struct {
@@ -34,14 +37,24 @@ type Client struct {
 func New(cfg Params) (*Client, error) {
 	timeout := cmp.Or(cfg.Timeout, defaultTimeout)
 
-	opts := []tgbot.Option{
+	// api_url is typed by an admin, so the client must not become a way to
+	// reach this process's neighbors: internal addresses are refused at dial
+	// time, and a redirect cannot carry the request -- whose path holds the
+	// bot token -- anywhere the admin did not name.
+	httpOpts := []client.Option{
+		client.WithTimeout(timeout),
 		// sanitizer, not xsanitize.New(): the bot token travels in the URL path
 		// here, so this gateway needs the Telegram-specific rule on top of the
 		// shared header policy.
-		tgbot.WithHTTPClient(timeout, client.NewClient(
-			client.WithTimeout(timeout),
-			client.WithSanitizer(sanitizer{}),
-		)),
+		client.WithSanitizer(sanitizer{}),
+		client.WithoutRedirect(),
+	}
+	if !cfg.AllowInternalHosts {
+		httpOpts = append(httpOpts, client.WithoutInternalHosts())
+	}
+
+	opts := []tgbot.Option{
+		tgbot.WithHTTPClient(timeout, client.NewClient(httpOpts...)),
 		tgbot.WithSkipGetMe(), // send-only, no update polling
 	}
 	if cfg.APIURL != "" {

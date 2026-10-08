@@ -152,6 +152,34 @@ func TestRefresh(t *testing.T) {
 			require.NotEqualValues(t, newPair1.AccessToken, newPair2.AccessToken)
 		})
 
+		// A token rotated a moment before a logout must not keep minting access
+		// tokens through its grace window: whoever stole it would outlive the
+		// logout that was meant to end the session.
+		t.Run("closed by a later logout", func(t *testing.T) {
+			t.Parallel()
+
+			srv, mocks := initService(t)
+			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
+
+			exchangeIDTokenMock(mocks, 1)
+
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.AuthMethodGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
+			})
+			require.NoError(t, err)
+
+			rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+			require.NoError(t, err)
+
+			require.NoError(t, srv.Logout(ctx, rotated))
+
+			stale, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+			require.Error(t, err, "the predecessor's grace window must close with the session")
+			require.Nil(t, stale)
+		})
+
 		t.Run("reuse detection", func(t *testing.T) {
 			t.Parallel()
 

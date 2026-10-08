@@ -55,6 +55,11 @@ func NewClient(cfg config.LicenseConfig) *Client {
 			client.WithCallerBeforeDo(func(_ context.Context, req *http.Request) {
 				req.Header.Set("Authorization", "Bearer "+cfg.InstanceToken)
 			}),
+			// The hook above runs on every request the transport sends,
+			// redirect hops included, so following one would hand the instance
+			// token to whatever host the redirect names. Console never
+			// redirects the heartbeat; a 3xx is reported as a non-200.
+			client.WithoutRedirect(),
 		),
 	}
 }

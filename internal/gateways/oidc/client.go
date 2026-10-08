@@ -78,6 +78,13 @@ func NewClient(provider config.OIDCProvider, discovery resolver) *Client {
 		httpc: client.NewClient(
 			client.WithTimeout(exchangeTimeout),
 			client.WithSanitizer(xsanitize.New()),
+			// The token endpoint is named by the discovery document, not by
+			// the operator, so it gets the guard discovery itself runs under:
+			// the client secret must not be posted to an internal address,
+			// and a redirect must not carry the exchange somewhere the
+			// document never named.
+			client.WithoutInternalHosts(),
+			client.WithoutRedirect(),
 		),
 	}
 }

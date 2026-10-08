@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	entity "github.com/ruko1202/maintmode/internal/entity"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,11 +42,12 @@ func (m *MockActiveTokenChecker) EXPECT() *MockActiveTokenCheckerMockRecorder {
 }
 
 // EnsureActiveToken mocks base method.
-func (m *MockActiveTokenChecker) EnsureActiveToken(ctx context.Context, tokenString string) error {
+func (m *MockActiveTokenChecker) EnsureActiveToken(ctx context.Context, tokenString string) ([]entity.Role, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureActiveToken", ctx, tokenString)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]entity.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureActiveToken indicates an expected call of EnsureActiveToken.
@@ -61,19 +63,19 @@ type MockActiveTokenCheckerEnsureActiveTokenCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Return(arg0 error) *MockActiveTokenCheckerEnsureActiveTokenCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Return(arg0 []entity.Role, arg1 error) *MockActiveTokenCheckerEnsureActiveTokenCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Do(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureActiveTokenCall {
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) Do(f func(context.Context, string) ([]entity.Role, error)) *MockActiveTokenCheckerEnsureActiveTokenCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockActiveTokenCheckerEnsureActiveTokenCall) DoAndReturn(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureActiveTokenCall {
+func (c *MockActiveTokenCheckerEnsureActiveTokenCall) DoAndReturn(f func(context.Context, string) ([]entity.Role, error)) *MockActiveTokenCheckerEnsureActiveTokenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

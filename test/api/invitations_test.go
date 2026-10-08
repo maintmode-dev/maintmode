@@ -155,35 +155,6 @@ func TestAuthAPIInvitations_RevokeResend(t *testing.T) {
 	})
 }
 
-// The stub OAuth provider accepts any token and mints an identity. This asserts
-// the whole chain — request body → parser → service — is closed, not just its
-// links in isolation. The API stack runs environment: dev, where the stub IS
-// registered, so this covers the parser gate specifically: the refusal holds
-// even where the provider exists. That the stub is also absent from the
-// registry outside dev is a separate property, covered by the unit test in
-// internal/services/authmethod.
-func TestAuthAPIInvitations_AcceptRejectsStubProvider(t *testing.T) {
-	ctx := ctxWithLogger(context.Background(), t)
-
-	apiClient := setupAuthTestClient()
-
-	resp, err := apiClient.PostApiV1UsersInvitationsAcceptWithResponse(ctx,
-		authclient.PostApiV1UsersInvitationsAcceptJSONRequestBody{
-			InvitationToken: strPtr(xuuid.NewString()),
-			OauthPayload: &authclient.ApimodelsOAuthPayload{
-				Provider: strPtr("stub"),
-				IdToken:  strPtr(uniqueInviteEmail()),
-			},
-		},
-	)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, resp.StatusCode(), "unexpected status: %s", resp.Body)
-	require.NotNil(t, resp.JSON400)
-	// "invalid" is the same opaque code an unknown token gets: the refusal must
-	// not reveal that "stub" is a name the backend recognizes at all.
-	require.Equal(t, "invalid", *resp.JSON400.Code)
-}
-
 // Canary for a failure mode chosen by the shape of the data, not by a flag: the
 // stub returns a DETERMINISTIC identity for an id_token that parses as an email
 // address, and a fresh random one otherwise. provisionUser and the TestMain
@@ -228,5 +199,5 @@ func TestAuthAPIInvitations_SuiteTokensAreNotEmailShaped(t *testing.T) {
 	// nothing and leave this test green while checking absolutely nothing. The
 	// floor is the number of logins the suite has today, so it also fails if a
 	// rename takes out only some of them rather than all.
-	require.GreaterOrEqual(t, found, 8, "id_token scan matched too little — has the client or field name changed?")
+	require.GreaterOrEqual(t, found, 7, "id_token scan matched too little — has the client or field name changed?")
 }

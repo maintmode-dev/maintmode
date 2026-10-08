@@ -67,8 +67,13 @@ func newTestVerifier(ctx context.Context, t *testing.T, key *ecdsa.PrivateKey, k
 }
 
 func testJWTConfig(key *ecdsa.PrivateKey, kid string) config.JWT {
+	raw, err := key.Bytes()
+	if err != nil {
+		panic(err)
+	}
+
 	return config.JWT{
-		PrivateKey: hex.EncodeToString(key.D.FillBytes(make([]byte, 32))),
+		PrivateKey: hex.EncodeToString(raw),
 		Issuer:     testIssuer,
 		Kid:        kid,
 	}

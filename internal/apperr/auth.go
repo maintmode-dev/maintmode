@@ -93,6 +93,15 @@ var (
 	// apart. A STORE failure stays unwrapped, so an actual outage still answers
 	// 500.
 	ErrLinkTicketUnusable = fmt.Errorf("%w: link ticket is not usable", ErrValidation)
+	// ErrLinkCodeInvalid marks a pending link its redeemer may not complete: the
+	// code is unknown, expired or spent, the browser binding does not match, the
+	// link was started by another account, or that account is gone or blocked.
+	// One answer for all of them, like every refusal in this flow.
+	//
+	// Deliberately NOT an auth failure: the caller holds a valid session, and a
+	// 401 would tell the BFF its token is dead and sign the person out over a
+	// link that merely did not apply. The mapper answers it with a fixed 400.
+	ErrLinkCodeInvalid = errors.New("link code is not redeemable")
 	// ErrUserBlocked marks a blocked user trying to obtain or use an access
 	// token. Issuance (login/refresh/re-issue) and introspection both reject it,
 	// so blocking a user cuts off both new tokens and live ones on the next
@@ -138,12 +147,23 @@ var (
 // and keep access it is meant to revoke. Wraps ErrForbidden => HTTP 403.
 var ErrBreakGlassPersonalSignIn = fmt.Errorf("%w: the break-glass account has no personal sign-in", ErrForbidden)
 
+// ErrReauthenticationRequired refuses an operation that needs a recent
+// sign-in -- setting a first password -- from a session that signed in too long
+// ago. NOT an auth failure: the session is valid, and a 401 would make the
+// client discard it instead of asking the person to sign in again.
+var ErrReauthenticationRequired = errors.New("sign in again to set a password")
+
 // User management lockout protection. Both wrap ErrValidation so the HTTP layer
 // maps them to 400 (see httperrors.ToAPIError).
 var (
 	ErrLastAdmin  = fmt.Errorf("%w: cannot block or revoke admin from the last active admin", ErrValidation)
 	ErrSelfBlock  = fmt.Errorf("%w: cannot block yourself", ErrValidation)
 	ErrSelfRevoke = fmt.Errorf("%w: cannot revoke a role from yourself", ErrValidation)
+	// ErrSelfUnblock and ErrSelfAssign close the other half of the same rule: an
+	// actor never changes their own access, so a blocked or demoted admin whose
+	// token is still in flight cannot undo what another admin just did to them.
+	ErrSelfUnblock = fmt.Errorf("%w: cannot unblock yourself", ErrValidation)
+	ErrSelfAssign  = fmt.Errorf("%w: cannot assign a role to yourself", ErrValidation)
 	// ErrInvalidTimezone is returned when a timezone preference is not a valid
 	// IANA identifier (checked via time.LoadLocation). Wraps ErrValidation → 400.
 	ErrInvalidTimezone = fmt.Errorf("%w: invalid timezone", ErrValidation)

@@ -16,20 +16,14 @@ type ExchangeIDTokenRequest struct {
 }
 
 // ConnectProviderRequest asks to attach an additional sign-in provider to the
-// authenticated user, in one of two ways.
+// authenticated user. The backend runs the provider's dance and answers with a
+// link_url; nothing is linked on this request.
 //
-// Exactly one field must be set, and they are not interchangeable:
-//
-//   - IDToken is the BFF flow. The frontend ran the provider's dance itself and
-//     posts the resulting ID token here.
-//   - Mode "dance" asks the BACKEND to run the dance instead, and answers with a
-//     link_url rather than linking anything on this request. It exists because a
-//     provider with no id_token -- GitHub -- has nothing the frontend could post.
+// There is no id_token flow: accepting a provider credential from the client
+// let any token for the provider -- for GitHub, one held by any third-party
+// application -- be linked to the caller's account.
 type ConnectProviderRequest struct {
-	IDToken string `json:"id_token"`
-	// Mode selects the backend-driven flow. The only accepted value is "dance";
-	// anything else is refused rather than ignored, so a typo does not silently
-	// fall back to the other branch.
+	// Mode must be "dance"; anything else is refused rather than ignored.
 	Mode string `json:"mode"`
 }
 
@@ -89,9 +83,11 @@ type LoginWithBreakGlassRequest struct {
 // Sending it in the wrong case is a 400 rather than a silently ignored field,
 // so a client learns which state it is in.
 //
-// RefreshToken names the session to keep alive. It is optional: omitting it
-// revokes every session, including the caller's, which is how an admin who has
-// lost their refresh token can still set a password.
+// RefreshToken names the session to keep alive. When replacing a password it is
+// optional: omitting it revokes every session, including the caller's, which is
+// how an admin who has lost their refresh token can still change it. When
+// setting a FIRST password it is required, and its session must have signed in
+// within the last ten minutes -- otherwise 403 reauthentication_required.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password" binding:"required"`

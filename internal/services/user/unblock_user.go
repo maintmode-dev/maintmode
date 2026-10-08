@@ -19,6 +19,10 @@ func (s *Service) UnblockUser(ctx context.Context, cmd *entity.UnblockUserCmd) e
 	ctx, span := xlog.WithOperationSpan(ctx, "service.User.UnblockUser")
 	defer span.End()
 
+	if cmd.Actor != nil && cmd.Actor.ID == cmd.UserID {
+		return apperr.ErrSelfUnblock
+	}
+
 	user, err := s.updateWithApply(ctx, cmd.UserID, func(ctx context.Context, user *entity.User) error {
 		if !user.IsBlocked() {
 			return apperr.ErrNotChanged

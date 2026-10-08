@@ -81,3 +81,25 @@ func TestRender_IntegrationPayloadHasNoSecret(t *testing.T) {
 	require.NotContains(t, rendered, "xoxb-")
 	require.NotContains(t, rendered, "bot_token")
 }
+
+// An update's changes reach the record's metadata, so the trail can answer
+// "who moved this integration, from where, to where".
+func TestRender_IntegrationUpdatedCarriesChanges(t *testing.T) {
+	t.Parallel()
+	actor := &entity.User{ID: uuid.New(), Email: "admin@example.com", Name: "Admin"}
+	r := fixedRenderer(uuid.New(), time.Now())
+
+	changes := []entity.AuditFieldChange{
+		{Field: "api_url", Old: "https://a.test", New: "https://b.test"},
+		{Field: "secrets.bot_token"},
+	}
+	payload, err := r.Render(IntegrationUpdated{Actor: actor, Kind: "notify", Name: "slack", Enabled: true, Changes: changes})
+	require.NoError(t, err)
+	require.NotNil(t, payload.Metadata)
+	require.Equal(t, changes, payload.Metadata.Changes)
+
+	// A toggle carries no changes and no metadata, as before.
+	toggled, err := r.Render(IntegrationUpdated{Actor: actor, Kind: "notify", Name: "slack", Enabled: false})
+	require.NoError(t, err)
+	require.Nil(t, toggled.Metadata)
+}

@@ -64,7 +64,9 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrAuthUnavailable),
 		errors.Is(err, apperr.ErrProviderAlreadyConnected),
 		errors.Is(err, apperr.ErrProviderLinkedToAnotherUser),
+		errors.Is(err, apperr.ErrLinkCodeInvalid),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider),
+		errors.Is(err, apperr.ErrReauthenticationRequired),
 		errors.Is(err, apperr.ErrInvitationNotFound),
 		errors.Is(err, apperr.ErrInvitationNotPending),
 		errors.Is(err, apperr.ErrInvitationExpired),
@@ -99,10 +101,11 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 	case errors.Is(err, apperr.ErrOrganizationSuspended):
 		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrOrganizationSuspended, err.Error())
 
-	// A failed integration probe is an upstream failure, not ours: 502, and the
-	// far end's own text passes through. Handled here rather than in mapError
-	// because that helper is only reached from the allow-list above, and an
-	// unlisted sentinel would fall to the default arm and lose the detail.
+	// A failed integration probe is an upstream failure, not ours: 502, with the
+	// categorized reason the probe composed -- never the far end's own text,
+	// which the probe keeps out of the chain. Handled here rather than in
+	// mapError because that helper is only reached from the allow-list above,
+	// and an unlisted sentinel would fall to the default arm and lose it.
 	case errors.Is(err, apperr.ErrIntegrationProbeFailed):
 		statusCode, errResp = http.StatusBadGateway, NewErrorResponse(ErrIntegrationProbeFailed, err.Error())
 
@@ -215,33 +218,38 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "unknown error")
 	}
 
+	// A 401 answers with the sentinel's own text, never the wrapped chain. The
+	// chain carries whatever the verifier's dependencies put into it, and
+	// go-oidc puts in the body of a failed JWKS fetch -- a fetch made to an
+	// address the provider's document chose. Reflecting it turned a refused
+	// token into a read of that response. The detail stays in the log line the
+	// failing layer writes.
+	if sentinel := firstMatch(err, unauthorizedErrors); sentinel != nil {
+		return http.StatusUnauthorized, NewErrorResponse(ErrUnauthorized, sentinel.Error())
+	}
+
 	// Check for specific domain errors
 	switch {
-	case errors.Is(err, apperr.ErrTokenReuse),
-		errors.Is(err, apperr.ErrInvalidAccessToken),
-		errors.Is(err, apperr.ErrInvalidRefreshToken),
-		errors.Is(err, apperr.ErrRefreshTokenNotFound),
-		errors.Is(err, apperr.ErrTokenExpired),
-		errors.Is(err, apperr.ErrLogoutAlready),
-		errors.Is(err, apperr.ErrUserBlocked),
-		errors.Is(err, apperr.ErrSuspiciousActivity),
-		// A rejected credential is a 401. Without this arm it fell through to
-		// the default and answered 500 -- POST /me/password with the wrong
-		// current password returned an internal error, which a client cannot
-		// classify and which reads as a server fault rather than a refusal.
-		//
-		// The login routes never noticed: they answer failures themselves and
-		// deliberately bypass this mapper to keep every rejection identical.
-		errors.Is(err, apperr.ErrInvalidCredentials):
-		return http.StatusUnauthorized, NewErrorResponse(ErrUnauthorized, err.Error())
 	case errors.Is(err, apperr.ErrLockBusy):
 		return http.StatusTooManyRequests, NewErrorResponse(ErrLockBusy, err.Error())
+	// Fixed for the same reason as a 401: the chain under it is an IdP's
+	// discovery failure, quoting whatever the far end answered.
 	case errors.Is(err, apperr.ErrAuthUnavailable):
-		return http.StatusServiceUnavailable, NewErrorResponse(ErrServiceUnavailable, err.Error())
+		return http.StatusServiceUnavailable,
+			NewErrorResponse(ErrServiceUnavailable, apperr.ErrAuthUnavailable.Error())
 
 	case errors.Is(err, apperr.ErrUnsupportedProvider),
 		errors.Is(err, apperr.ErrCannotDisconnectLastProvider):
 		return http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
+
+	case errors.Is(err, apperr.ErrReauthenticationRequired):
+		return http.StatusForbidden, NewErrorResponse(ErrReauthenticationRequired, apperr.ErrReauthenticationRequired.Error())
+
+	// A pending link this caller may not complete. A fixed message: the causes
+	// are deliberately one answer. 400 rather than 401, because the caller's
+	// session is fine and a 401 would make the BFF sign them out.
+	case errors.Is(err, apperr.ErrLinkCodeInvalid):
+		return http.StatusBadRequest, NewErrorResponse(ErrLinkInvalid, "the link could not be completed")
 
 	// One fixed message for both. The sentinels' own text says whether the
 	// provider account is linked here or to somebody else, which the dance's
@@ -265,4 +273,35 @@ func mapAuthError(err error) (int, *ErrorResponse) {
 		// For any other error, return internal server error
 		return http.StatusInternalServerError, NewErrorResponse(ErrInternalError, "internal server error")
 	}
+}
+
+// unauthorizedErrors are the auth sentinels answered with 401.
+var unauthorizedErrors = []error{
+	apperr.ErrTokenReuse,
+	apperr.ErrInvalidAccessToken,
+	apperr.ErrInvalidRefreshToken,
+	apperr.ErrRefreshTokenNotFound,
+	apperr.ErrTokenExpired,
+	apperr.ErrLogoutAlready,
+	apperr.ErrUserBlocked,
+	apperr.ErrSuspiciousActivity,
+	// A rejected credential is a 401. Without this entry it fell through to
+	// the default and answered 500 -- POST /me/password with the wrong
+	// current password returned an internal error, which a client cannot
+	// classify and which reads as a server fault rather than a refusal.
+	//
+	// The login routes never noticed: they answer failures themselves and
+	// deliberately bypass this mapper to keep every rejection identical.
+	apperr.ErrInvalidCredentials,
+}
+
+// firstMatch returns the first of sentinels that err wraps, or nil.
+func firstMatch(err error, sentinels []error) error {
+	for _, sentinel := range sentinels {
+		if errors.Is(err, sentinel) {
+			return sentinel
+		}
+	}
+
+	return nil
 }

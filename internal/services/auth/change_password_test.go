@@ -23,17 +23,65 @@ func TestChangePassword(t *testing.T) {
 
 		srv, _ := initServiceWithUnrelatedBootstrap(t)
 		user := makePasswordUser(ctx, t, nil, "")
+		session, err := srv.IssueTokenPair(ctx, user, "10.0.0.1")
+		require.NoError(t, err)
 
 		require.NoError(t, srv.ChangePassword(ctx, &entity.ChangePasswordCmd{
-			UserID:      user.ID,
-			NewPassword: "my-brand-new-password",
-			ClientIP:    "10.0.0.1",
+			UserID:       user.ID,
+			NewPassword:  "my-brand-new-password",
+			RefreshToken: session.RefreshToken,
+			ClientIP:     "10.0.0.1",
 		}))
 
-		_, err := srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
+		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
 			Email: user.Email, Password: "my-brand-new-password", ClientIP: "10.0.0.1",
 		})
 		require.NoError(t, err)
+	})
+
+	// A first password turns whatever session sets it into a standing way in,
+	// so it needs a sign-in made moments ago: a session left open in a browser,
+	// or a stolen one, must not be enough.
+	t.Run("a first password needs a recent sign-in", func(t *testing.T) {
+		t.Parallel()
+
+		srv, _ := initServiceWithUnrelatedBootstrap(t)
+		user := makePasswordUser(ctx, t, nil, "")
+		other := makePasswordUser(ctx, t, nil, "")
+
+		stale, err := srv.IssueTokenPair(ctx, user, "10.0.0.1")
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx,
+			`UPDATE refresh_tokens SET session_started_at = now() - interval '11 minutes' WHERE family = $1`,
+			stale.SessionID)
+		require.NoError(t, err)
+
+		// Rotation does not make an old session new: the age is the session's.
+		rotated, err := srv.Refresh(ctx, stale.RefreshToken, "10.0.0.1")
+		require.NoError(t, err)
+
+		someoneElses, err := srv.IssueTokenPair(ctx, other, "10.0.0.1")
+		require.NoError(t, err)
+
+		for name, refreshToken := range map[string]string{
+			"no session named":        "",
+			"signed in too long ago":  stale.RefreshToken,
+			"rotated, still too old":  rotated.RefreshToken,
+			"another account's token": someoneElses.RefreshToken,
+			"not a token at all":      "garbage",
+		} {
+			err := srv.ChangePassword(ctx, &entity.ChangePasswordCmd{
+				UserID:       user.ID,
+				NewPassword:  "my-brand-new-password",
+				RefreshToken: refreshToken,
+				ClientIP:     "10.0.0.1",
+			})
+			require.ErrorIs(t, err, apperr.ErrReauthenticationRequired, name)
+		}
+
+		has, err := srv.HasPassword(ctx, user.ID)
+		require.NoError(t, err)
+		require.False(t, has, "a refused first password must not be stored")
 	})
 
 	// A stolen access token must not be enough to rewrite the credential it was

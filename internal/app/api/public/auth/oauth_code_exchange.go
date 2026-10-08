@@ -14,7 +14,7 @@ import (
 
 // ExchangeOAuthDanceCode godoc
 // @Summary Redeem the one-time code from an OAuth dance
-// @Description Trades the short-lived opaque code the callback put in the redirect for the token pair it stands for. Single-use: the second attempt with the same code fails like any other. Every failure — unknown, expired, already redeemed, malformed — answers the same 401, so a caller cannot learn which of its guesses was closer.
+// @Description Trades the short-lived opaque code the callback put in the redirect for the token pair it stands for, given binding_proof: the nonce whose hash /start received as binding. Single-use: the second attempt with the same code fails like any other, and so does the first one with a wrong proof. Every failure — unknown, expired, already redeemed, wrong or missing proof, malformed — answers the same 401, so a caller cannot learn which of its guesses was closer.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -42,7 +42,7 @@ func (i *Implementation) ExchangeOAuthDanceCode(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
 	}
 
-	pair, err := i.authSrv.RedeemDanceCode(ctx, body.Code)
+	pair, err := i.authSrv.RedeemDanceCode(ctx, body.Code, body.BindingProof)
 	if err != nil {
 		xlog.Error(ctx, "failed to consume the one-time dance code", xfield.Error(err))
 
