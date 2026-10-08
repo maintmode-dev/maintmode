@@ -318,8 +318,10 @@ task_processor:
     # poll made those assertions a race against where the publish landed in the
     # tick, and on a loaded shared database drain latency reached ~155s. Poll
     # fast here so the tests wait for the work, not for the ticker. Deployed
-    # stands leave this unset and keep the 30s default.
+    # stands leave this unset and keep the 30s default for background work.
     fetch_tick: 200ms
+    # user_email_fetch_tick (invitation.email, otp.email) defaults to 1s but
+    # never polls slower than fetch_tick, so it follows the 200ms above.
   maint_auto_cancel:
     # 5-field cron: "minute hour day-of-month month day-of-week".
     # "* * * * *" = every minute (every value in every field).

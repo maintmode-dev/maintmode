@@ -486,7 +486,9 @@ type TaskProcessorMessagingConfig struct {
 	MaxAttempts int32 `mapstructure:"max_attempts"`
 	// FetchTick is how often a processor polls the queue for new tasks. Zero
 	// means "leave goque's default" (30s), which is what every deployed stand
-	// wants: the queue is durable, so a slow poll costs latency, not delivery.
+	// wants for background work: the queue is durable, so a slow poll costs
+	// latency, not delivery. Emails a person waits for are polled on
+	// UserEmailFetchTick instead.
 	//
 	// The API suite is the exception. It asserts on rows an outbox processor
 	// writes after the request returns, so its budget has to cover a full poll
@@ -495,6 +497,37 @@ type TaskProcessorMessagingConfig struct {
 	// past two and a half minutes. Polling faster there removes the wait
 	// instead of widening the timeout that was papering over it.
 	FetchTick time.Duration `mapstructure:"fetch_tick"`
+	// UserEmailFetchTick is the poll period of the processors whose email a
+	// person is waiting for on screen: invitation.email and otp.email (sign-in
+	// codes and password-reset codes both ride otp.email). The 30s background
+	// default is wrong for them — a code landing up to half a minute late
+	// reads as "never arrived" against a 60s reissue cooldown. Zero means
+	// defaultUserEmailFetchTick, capped by FetchTick when that is shorter; see
+	// UserEmailFetchTickOrDefault.
+	UserEmailFetchTick time.Duration `mapstructure:"user_email_fetch_tick"`
+}
+
+// defaultUserEmailFetchTick bounds the pickup delay of a user-facing email to
+// about a second. The cost is one indexed claim query per processor per tick
+// (goque's SELECT … FOR UPDATE on goque_task(type, status, next_attempt_at),
+// LIMIT-bounded), i.e. two cheap queries a second per replica for the two
+// processors this applies to — noise next to request traffic, and it keeps the
+// wait far below anything a person notices next to SMTP latency.
+const defaultUserEmailFetchTick = time.Second
+
+// UserEmailFetchTickOrDefault returns the poll period for the user-facing
+// email processors: the configured value when set, otherwise
+// defaultUserEmailFetchTick — or FetchTick when that is shorter, so a stand
+// that polls everything fast (the API suite) never polls these slower.
+func (c TaskProcessorMessagingConfig) UserEmailFetchTickOrDefault() time.Duration {
+	if c.UserEmailFetchTick > 0 {
+		return c.UserEmailFetchTick
+	}
+	if c.FetchTick > 0 && c.FetchTick < defaultUserEmailFetchTick {
+		return c.FetchTick
+	}
+
+	return defaultUserEmailFetchTick
 }
 
 // TaskProcessorMaintAutoCancelConfig tunes the auto-cancel sweep of overdue

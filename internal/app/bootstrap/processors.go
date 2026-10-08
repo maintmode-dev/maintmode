@@ -95,10 +95,10 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
-		messagingProcessorOpts(cfg.Messaging, 0)...,
+		userEmailProcessorOpts(cfg.Messaging)...,
 	)
 
-	// otp.email: one-time sign-in codes. Its own type and its own processor,
+	// otp.email: one-time codes — sign-in and password reset alike. Its own type and its own processor,
 	// because the payload carries the code sealed rather than a rendered body --
 	// the generic sender could not decode it, and rendering happens here, at
 	// delivery, so the plaintext never sits in the queue.
@@ -110,7 +110,7 @@ func NewTaskProcessors(
 			services.MessageSender,
 			otp.TTL(authCfg),
 		),
-		messagingProcessorOpts(cfg.Messaging, 0)...,
+		userEmailProcessorOpts(cfg.Messaging)...,
 	)
 
 	// audit.write: domain events published via auditpublisher.Publish land here as
@@ -304,4 +304,15 @@ func messagingProcessorOpts(cfg config.TaskProcessorMessagingConfig, workers int
 	}
 
 	return opts
+}
+
+// userEmailProcessorOpts is messagingProcessorOpts for the processors whose
+// email a person is waiting for (invitation.email, otp.email): same workers and
+// attempts, but polled on UserEmailFetchTickOrDefault (~1s) instead of the 30s
+// background tick, so a code requested on screen is picked up at once rather
+// than up to half a reissue cooldown later.
+func userEmailProcessorOpts(cfg config.TaskProcessorMessagingConfig) []goque.ProcessorOpts {
+	cfg.FetchTick = cfg.UserEmailFetchTickOrDefault()
+
+	return messagingProcessorOpts(cfg, 0)
 }

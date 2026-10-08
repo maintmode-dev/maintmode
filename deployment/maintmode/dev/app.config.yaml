@@ -322,6 +322,11 @@ task_processor:
   messaging:
     workers: 10
     max_attempts: 5
+    # Poll period of the emails a person waits for on screen (invitation.email,
+    # otp.email: sign-in and password-reset codes). Background processors keep
+    # goque's 30s default; these must not, or a code arrives half a reissue
+    # cooldown late. One indexed claim query per processor per tick. Default 1s.
+    user_email_fetch_tick: 1s
   maint_auto_cancel:
     # 5-field cron: "minute hour day-of-month month day-of-week".
     # "* * * * *" = every minute (every value in every field).

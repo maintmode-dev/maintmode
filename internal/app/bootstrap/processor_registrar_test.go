@@ -6,6 +6,7 @@ import (
 	"github.com/ruko1202/goque"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -94,4 +95,16 @@ func TestProcessorRegistrar_VerifyLicenseGated(t *testing.T) {
 		registerBaseline(reg)
 		require.NoError(t, reg.verify(entity.ExpectedProcessorTaskTypes(false)))
 	})
+}
+
+// With no fetch_tick configured, background processors take goque's 30s
+// default (no tick option at all), but the user-facing email processors must
+// still carry an explicit fast tick — that extra option is the whole fix.
+func TestUserEmailProcessorOpts_AlwaysSetFetchTick(t *testing.T) {
+	cfg := config.TaskProcessorMessagingConfig{Workers: 10, MaxAttempts: 5}
+
+	background := messagingProcessorOpts(cfg, 0)
+	userEmail := userEmailProcessorOpts(cfg)
+
+	require.Len(t, userEmail, len(background)+1)
 }
