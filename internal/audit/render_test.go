@@ -374,7 +374,7 @@ func TestRender_BreakGlassLoginIsNamedInTheDetails(t *testing.T) {
 // and refusal are distinguishable in it.
 //
 // Rendering is gated by auditActionCategories: fillPayload looks the category up
-// BEFORE dispatching to fillAuthPayload, so an action missing from that map
+// BEFORE dispatching to fillUsersPayload, so an action missing from that map
 // returns ErrUnsupportedEvent and the renderer arm is never reached. A test that
 // only checked the action constant would pass against that.
 func TestRender_ProviderLinked(t *testing.T) {

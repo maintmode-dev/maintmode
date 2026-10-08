@@ -283,11 +283,10 @@ type ApiauthmodelsAcceptInvitationWithPasswordRequest struct {
 // ApiauthmodelsAuditFacets defines model for apiauthmodels.AuditFacets.
 type ApiauthmodelsAuditFacets struct {
 	All         *int `json:"all,omitempty"`
-	Auth        *int `json:"auth,omitempty"`
-	Block       *int `json:"block,omitempty"`
-	Integration *int `json:"integration,omitempty"`
 	Maintenance *int `json:"maintenance,omitempty"`
-	Roles       *int `json:"roles,omitempty"`
+	Settings    *int `json:"settings,omitempty"`
+	SignIn      *int `json:"sign_in,omitempty"`
+	Users       *int `json:"users,omitempty"`
 }
 
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.

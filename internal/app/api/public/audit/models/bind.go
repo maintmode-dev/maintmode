@@ -56,11 +56,10 @@ func ToAPIAuditLogResponse(page *entity.AuditLogsPage) *AuditLogResponse {
 		Total: page.Total,
 		Facets: AuditFacets{
 			All:         page.Facets.All,
-			Auth:        page.Facets.Auth,
-			Roles:       page.Facets.Roles,
-			Block:       page.Facets.Block,
+			SignIn:      page.Facets.SignIn,
+			Users:       page.Facets.Users,
+			Settings:    page.Facets.Settings,
 			Maintenance: page.Facets.Maintenance,
-			Integration: page.Facets.Integration,
 		},
 	}
 }

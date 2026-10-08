@@ -10,22 +10,47 @@ import (
 )
 
 // facetsFromActionCounts routes per-action counts into the FE category chips.
-// A maintenance, auth, and integration action must each land in their own bucket,
-// and All must total every count regardless of category.
+// Each category gets actions from more than one former chip, so a count that
+// still followed the old grouping (password/provider events with sign-ins,
+// auth_method.toggled away from integrations) lands in the wrong bucket here.
+// All must total every count regardless of category, and with every action
+// categorized the four buckets sum to All.
 func TestFacetsFromActionCounts_RoutesByCategory(t *testing.T) {
+	t.Parallel()
+
 	counts := map[entity.AuditAction]int64{
-		entity.AuditActionMaintStarted:       3,
 		entity.AuditActionLoginSuccess:       2,
-		entity.AuditActionIntegrationCreated: 1,
-		entity.AuditActionIntegrationUpdated: 4,
+		entity.AuditActionLoginFailed:        1,
+		entity.AuditActionPasswordReset:      4,
+		entity.AuditActionProviderLinked:     8,
+		entity.AuditActionUserBlocked:        16,
+		entity.AuditActionAuthMethodToggled:  32,
+		entity.AuditActionIntegrationCreated: 64,
+		entity.AuditActionMaintStarted:       128,
+		entity.AuditActionMaintStepCanceled:  256,
 	}
 
 	facets := facetsFromActionCounts(context.Background(), counts)
 
-	require.Equal(t, int64(3), facets.Maintenance)
-	require.Equal(t, int64(2), facets.Auth)
-	require.Equal(t, int64(5), facets.Integration, "both integration actions land in the integration facet")
-	require.Equal(t, int64(10), facets.All)
-	require.Zero(t, facets.Roles)
-	require.Zero(t, facets.Block)
+	require.Equal(t, entity.AuditFacets{
+		All:         511,
+		SignIn:      3,
+		Users:       28,
+		Settings:    96,
+		Maintenance: 384,
+	}, facets)
+	require.Equal(t, facets.All, facets.SignIn+facets.Users+facets.Settings+facets.Maintenance)
+}
+
+// An action outside every category still counts toward All -- the UI renders
+// rows it does not know under the All chip -- and toward no category.
+func TestFacetsFromActionCounts_UnknownActionCountsOnlyTowardAll(t *testing.T) {
+	t.Parallel()
+
+	facets := facetsFromActionCounts(context.Background(), map[entity.AuditAction]int64{
+		entity.AuditActionLogoutSuccess: 1,
+		"future.action":                 5,
+	})
+
+	require.Equal(t, entity.AuditFacets{All: 6, SignIn: 1}, facets)
 }

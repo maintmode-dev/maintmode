@@ -71,14 +71,19 @@ type AuditLogFieldChange struct {
 }
 
 // AuditFacets carries per-category entry counts computed in the current
-// actor/date filter window (without the action filter).
+// actor/date filter window (without the action filter). Every action counts
+// toward exactly one category, so the four categories sum to All.
+//   - sign_in: login.success, login.failed, logout.success;
+//   - users: roles.changed, user.tags_changed, user.blocked, user.unblocked,
+//     password.changed, password.reset, provider.linked;
+//   - settings: auth_method.toggled, integration.created/updated/deleted;
+//   - maintenance: maintenance.* and maintenance_step.*.
 type AuditFacets struct {
 	All         int64 `json:"all" example:"123"`
-	Auth        int64 `json:"auth" example:"42"`
-	Roles       int64 `json:"roles" example:"8"`
-	Block       int64 `json:"block" example:"1"`
+	SignIn      int64 `json:"sign_in" example:"42"`
+	Users       int64 `json:"users" example:"9"`
+	Settings    int64 `json:"settings" example:"4"`
 	Maintenance int64 `json:"maintenance" example:"17"`
-	Integration int64 `json:"integration" example:"3"`
 }
 
 type AuditLogResponse struct {
