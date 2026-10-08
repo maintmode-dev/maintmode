@@ -26,7 +26,9 @@ func TestJWKS(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 
-		jwks := apiauthmodels.ToAPIJWKSResponse(impl.tokenSrv.JWKS(ctx))
+		want, err := impl.tokenSrv.JWKS(ctx)
+		require.NoError(t, err)
+		jwks := apiauthmodels.ToAPIJWKSResponse(want)
 		require.Equal(t, testjsonudils.AnyToJSON(t, jwks), rec.Body.String())
 	})
 }

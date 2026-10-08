@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"slices"
 )
 
 func main() {
@@ -16,9 +18,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// 3. Get the "raw" private key (just a byte sequence).
-	// D is the numeric value of the private key itself.
-	rawPrivate := privateKey.D.Bytes()
+	// 3. Get the "raw" private key (just a byte sequence): the scalar at the
+	// curve's fixed width.
+	rawPrivate, err := privateKey.Bytes()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Printf("Raw Private Key (hex): %x\n", rawPrivate)
 
@@ -31,8 +36,17 @@ func main() {
 }
 
 func generateKID(pub *ecdsa.PublicKey) string {
-	// Concatenate the X and Y coordinates into bytes
-	data := append(pub.X.Bytes(), pub.Y.Bytes()...)
+	point, err := pub.Bytes()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Concatenate the X and Y coordinates, each without leading zero bytes --
+	// the form the KID has always been derived from, so it stays stable.
+	const coordBytes = 32
+	x := bytes.TrimLeft(point[1:1+coordBytes], "\x00")
+	y := bytes.TrimLeft(point[1+coordBytes:], "\x00")
+	data := append(slices.Clone(x), y...)
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:16]) // Take the first 16 bytes for brevity
 }
