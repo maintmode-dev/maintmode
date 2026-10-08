@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"path"
 	"reflect"
 	"strings"
@@ -874,15 +875,20 @@ func (c *AppConfig) validateJWTKey() error {
 		return fmt.Errorf("jwt.issuer_private_key is unusable: %w", err)
 	}
 
-	if key.D.BitLen() < minSigningKeyBits {
+	// Bytes is the scalar at the curve's fixed width (32 bytes for P-256),
+	// left-padded, which is what both checks below read.
+	raw, err := key.Bytes()
+	if err != nil {
+		return fmt.Errorf("jwt.issuer_private_key is unusable: %w", err)
+	}
+
+	if bits := new(big.Int).SetBytes(raw).BitLen(); bits < minSigningKeyBits {
 		return fmt.Errorf(
 			"jwt.issuer_private_key is a placeholder: scalar has %d bits, expected at least %d",
-			key.D.BitLen(), minSigningKeyBits,
+			bits, minSigningKeyBits,
 		)
 	}
 
-	raw := make([]byte, signingKeyBytes)
-	key.D.FillBytes(raw)
 	if bytes.Count(raw, []byte{raw[0]}) == signingKeyBytes {
 		return fmt.Errorf(
 			"jwt.issuer_private_key is a placeholder: all %d bytes are 0x%02x",

@@ -14,7 +14,7 @@
 #                     each platform being built (amd64, arm64).
 
 # --- Stage 0: base (local build only) ---
-FROM golang:1.25-alpine AS base
+FROM golang:1.26-alpine AS base
 ARG GOBIN=/app/bin
 WORKDIR /app
 RUN apk add --no-cache make git

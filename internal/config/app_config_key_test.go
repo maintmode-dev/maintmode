@@ -22,10 +22,9 @@ func newTestSigningKeyHex(t *testing.T) (key *ecdsa.PrivateKey, keyHex string) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	// P-256 scalars are 32 bytes; FillBytes left-pads a short D so the encoding
-	// is always the fixed width ParseRawPrivateKey expects.
-	raw := make([]byte, 32)
-	key.D.FillBytes(raw)
+	// Bytes is the scalar at the fixed width ParseRawPrivateKey expects.
+	raw, err := key.Bytes()
+	require.NoError(t, err)
 
 	return key, hex.EncodeToString(raw)
 }
@@ -68,7 +67,7 @@ func TestJWT_ParsePrivateKey(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		require.Equal(t, elliptic.P256(), got.Curve)
-		require.Zero(t, want.D.Cmp(got.D))
+		require.True(t, want.Equal(got))
 		require.True(t, want.PublicKey.Equal(&got.PublicKey))
 	})
 
@@ -170,7 +169,7 @@ func TestJWT_GeneratePrivateKey(t *testing.T) {
 		})
 
 		require.NotNil(t, got)
-		require.Zero(t, want.D.Cmp(got.D))
+		require.True(t, want.Equal(got))
 		require.True(t, want.PublicKey.Equal(&got.PublicKey))
 	})
 

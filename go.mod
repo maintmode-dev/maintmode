@@ -1,8 +1,8 @@
 module github.com/ruko1202/maintmode
 
-go 1.25.0
+go 1.26.0
 
-toolchain go1.25.13
+toolchain go1.26.8
 
 require (
 	github.com/MicahParks/jwkset v0.11.0
@@ -44,7 +44,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.45.0
 	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/text v0.41.0
