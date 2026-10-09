@@ -125,7 +125,7 @@ func (s *Service) refreshWithinGrace(ctx context.Context, rt *entity.RefreshToke
 		return nil, err
 	}
 
-	accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID, ttls.access)
+	accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID, rt.Family, ttls.access)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (s *Service) rotateRefreshToken(
 	}
 
 	// Signed before any DB write, so a signing failure mutates nothing.
-	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID, ttls.access)
+	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID, oldRefreshToken.Family, ttls.access)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, err
@@ -234,7 +234,9 @@ func (s *Service) rotateRefreshToken(
 	}, nil
 }
 
-func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
+func (s *Service) issueAccessTokenByUserID(
+	ctx context.Context, userID, family uuid.UUID, ttl time.Duration,
+) (string, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueAccessTokenByUserID")
 	defer span.End()
 
@@ -242,7 +244,7 @@ func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID
 	if err != nil {
 		return "", fmt.Errorf("fetch user: %w", err)
 	}
-	return s.tokenSrv.IssueAccessToken(ctx, ttl, user)
+	return s.tokenSrv.IssueAccessToken(ctx, ttl, user, family)
 }
 
 func distributedLockKey(key string) string {

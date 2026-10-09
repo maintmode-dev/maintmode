@@ -22,8 +22,9 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 	defer span.End()
 
 	ttls := s.sessionTTLs(user)
+	family := xuuid.New()
 
-	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, ttls.access, user)
+	accessToken, err := s.tokenSrv.IssueAccessToken(ctx, ttls.access, user, family)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, fmt.Errorf("issue access token: %w", err)
@@ -35,7 +36,6 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	family := xuuid.New()
 	now := xtime.UTCNow()
 	err = s.tokenSrv.SaveRefreshToken(ctx, &entity.RefreshToken{
 		Token:            hashed,

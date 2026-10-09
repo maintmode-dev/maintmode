@@ -9,6 +9,11 @@ type AccessClaims struct {
 	UserName  string `json:"user_name"`
 	UserEmail string `json:"user_email"`
 	UserRoles []Role `json:"user_roles"`
+	// SessionID is the refresh-token family the token was minted for (the
+	// OIDC "sid" claim). It is what lets a revoked session take its live
+	// access tokens down with it, rather than leaving them valid until they
+	// expire. Empty only in tokens minted before the claim existed.
+	SessionID string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 

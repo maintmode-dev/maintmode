@@ -33,7 +33,8 @@ func (s *Service) EnsureActiveToken(ctx context.Context, tokenString string) ([]
 	return report.Roles, nil
 }
 
-// Introspect checks if an access token is active (not blacklisted).
+// Introspect checks if an access token is active: not blacklisted, its session
+// not revoked, its subject an active user.
 // Used by downstream services for critical operations (RFC 7662).
 func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.IntrospectReport, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Introspect")
@@ -50,13 +51,16 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 		return &entity.IntrospectReport{Active: false}, nil
 	}
 
-	blacklisted, err := s.blacklistStore.Contains(ctx, claims.ID)
+	// One lookup for both ways a token is revoked: on its own (logout
+	// blacklists the jti) and through its session (any revocation of the
+	// refresh-token family marks the sid). A store failure fails closed.
+	revoked, err := s.blacklistStore.IsRevoked(ctx, claims.ID, claims.SessionID)
 	if err != nil {
 		xlog.Error(ctx, "failed to check blacklistStore", xfield.Error(err))
 		return nil, fmt.Errorf("check blacklistStore: %w", err)
 	}
-	if blacklisted {
-		xlog.Warn(ctx, "access token is blacklisted")
+	if revoked {
+		xlog.Warn(ctx, "access token or its session is revoked", xfield.String("sid", claims.SessionID))
 		return &entity.IntrospectReport{
 			Active: false,
 			JTI:    claims.ID,

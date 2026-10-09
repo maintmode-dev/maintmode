@@ -212,9 +212,15 @@ func initServiceWithDeps(
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
+	// One blacklist for both services, as in production: the token service
+	// marks revoked sessions in it, Introspect reads them back.
+	blacklist := blacklisttoken.NewStore(valkey)
+
 	tokenSrv := token.NewService(
 		txManager,
 		refreshtoken.NewStore(db),
+		blacklist,
+		cfg.JWT.AccessTokenTTL,
 		key,
 		tokenIssuer,
 		"kid-1",
@@ -253,7 +259,7 @@ func initServiceWithDeps(
 			loginProviders,
 		),
 		distributedlock.NewStore(valkey),
-		blacklisttoken.NewStore(valkey),
+		blacklist,
 		methods,
 		tokenSrv,
 		newTestAuditPublisher(t),

@@ -10,11 +10,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	valkeylib "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 
+	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
 	"github.com/ruko1202/maintmode/internal/utils/closer"
 	testdbconnutils "github.com/ruko1202/maintmode/test/utils/db/conn"
@@ -22,13 +24,20 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-var db *sqlx.DB
+var (
+	db     *sqlx.DB
+	valkey *valkeylib.Client
+)
 
 const tokenTTL = 15 * time.Minute
 
 func TestMain(m *testing.M) {
-	db = testdbconnutils.NewDB(config.LoadAppConfig())
+	cfg := config.LoadAppConfig()
+	db = testdbconnutils.NewDB(cfg)
 	closer.Add(db.Close)
+
+	valkey = testdbconnutils.NewValkeyClient(cfg)
+	closer.Add(valkey.Close)
 
 	code := m.Run()
 
@@ -44,6 +53,8 @@ func initService(t *testing.T) *Service {
 	return NewService(
 		dbtx.NewTxManager(db),
 		refreshtoken.NewStore(db),
+		blacklisttoken.NewStore(valkey),
+		tokenTTL,
 		key,
 		"test-issuer", "kid-1",
 	)

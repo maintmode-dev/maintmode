@@ -21,7 +21,7 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 		srv1 := initService(t)
 		srv2 := initService(t)
 
-		tokenStr, err := srv1.IssueAccessToken(ctx, tokenTTL, testUser(t))
+		tokenStr, err := srv1.IssueAccessToken(ctx, tokenTTL, testUser(t), uuid.New())
 		require.NoError(t, err)
 
 		claims, err := srv2.VerifyAccessToken(ctx, tokenStr)
@@ -33,7 +33,7 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 		srv := initService(t)
 		srv.getNowF = func() time.Time { return xtime.UTCNow().Add(-1 * time.Hour) }
 
-		token, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t))
+		token, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t), uuid.New())
 		require.NoError(t, err)
 		require.NotEmpty(t, token)
 
@@ -101,7 +101,7 @@ func TestVerifyAccessToken_WrongKey(t *testing.T) {
 		// The strict options must not invalidate our own tokens: issuer and exp
 		// come from IssueAccessToken, and this is what proves the three options
 		// agree with it.
-		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t))
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t), uuid.New())
 		require.NoError(t, err)
 
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)

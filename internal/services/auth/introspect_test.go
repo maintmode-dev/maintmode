@@ -122,7 +122,7 @@ func TestIntrospect(t *testing.T) {
 			ID:    uuid.New(),
 			Email: "some@email.com",
 			Roles: entity.DefaultRoles,
-		})
+		}, uuid.New())
 		require.NoError(t, err)
 
 		resp, err := srv.Introspect(ctx, token)
