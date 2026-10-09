@@ -457,7 +457,8 @@ const (
 //   - login_success / login_failed: IP, UserAgent, SessionID, LoginMethod
 //     (+FailureReason for failed). LoginMethod is empty on a failure that never
 //     established a credential -- see the field's own comment;
-//   - logout_success: SessionID, LogoutKind;
+//   - logout_success: SessionID (the family the logout was made from, as on
+//     login_success), LogoutKind;
 //   - session.revoked: IP, UserAgent (of the request that presented the
 //     replayed token), SessionID (the revoked family), RevokeReason;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;

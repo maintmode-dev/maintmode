@@ -76,9 +76,25 @@ func (s *Service) logout(
 			ID:    uuid.MustParse(accessClaims.Subject),
 			Email: accessClaims.UserEmail,
 		},
-		SessionID: accessClaims.ID,
+		SessionID: auditSessionID(accessClaims),
 	})
 	return nil
+}
+
+// auditSessionID names the session a logout was made from, for the audit row:
+// the refresh-token family the access token was minted for -- the value
+// login.success records -- so the sign-in and the sign-out of one session share
+// a session_id.
+//
+// A token minted before the sid claim existed carries no family. Its jti is the
+// only handle it has, and recording something beats recording nothing; such
+// tokens are gone within one access TTL of the rollout.
+func auditSessionID(claims *entity.AccessClaims) string {
+	if claims.SessionID != "" {
+		return claims.SessionID
+	}
+
+	return claims.ID
 }
 
 func validateAccessClaims(ctx context.Context, accessClaims *entity.AccessClaims) error {

@@ -53,9 +53,13 @@ type ProviderLinked struct {
 
 func (ProviderLinked) auditAction() entity.AuditAction { return entity.AuditActionProviderLinked }
 
-// LogoutSuccess records a manual logout.
+// LogoutSuccess records a manual logout -- of one session, or of all of them.
 type LogoutSuccess struct {
-	User      *entity.User
+	User *entity.User
+	// SessionID is the session the logout was made from: its refresh-token
+	// family, the same id login.success records, so a session's sign-in and
+	// sign-out correlate. Only a token minted before access tokens carried
+	// their session leaves the jti here instead.
 	SessionID string
 }
 
