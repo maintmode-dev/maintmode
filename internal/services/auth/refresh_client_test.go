@@ -7,11 +7,14 @@ import (
 	"time"
 
 	"github.com/ruko1202/xlog"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -56,7 +59,7 @@ func TestRefresh_RecordsTheCurrentClient(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "203.0.113.7", first.ClientIP)
 
-	rotated, err := srv.Refresh(ctx, pair.RefreshToken, "198.51.100.9")
+	rotated, err := srv.Refresh(ctx, pair.RefreshToken, "198.51.100.9", "Firefox/131")
 	require.NoError(t, err)
 
 	second, err := srv.tokenSrv.GetRefreshToken(ctx, rotated.RefreshToken)
@@ -80,12 +83,12 @@ func TestRefresh_LogsAChangeOfAddress(t *testing.T) {
 	pair := signIn(context.Background(), t, srv, mocks, "203.0.113.7", "Firefox/131")
 
 	sameCtx, sameLogs := observedCtx(t)
-	same, err := srv.Refresh(sameCtx, pair.RefreshToken, "203.0.113.7")
+	same, err := srv.Refresh(sameCtx, pair.RefreshToken, "203.0.113.7", "Firefox/131")
 	require.NoError(t, err)
 	require.Empty(t, sameLogs.FilterMessage("session refreshed from a new address").All())
 
 	movedCtx, movedLogs := observedCtx(t)
-	moved, err := srv.Refresh(movedCtx, same.RefreshToken, "198.51.100.9")
+	moved, err := srv.Refresh(movedCtx, same.RefreshToken, "198.51.100.9", "Firefox/131")
 	require.NoError(t, err)
 	require.NotEmpty(t, moved.RefreshToken, "a new address must not cost the session")
 
@@ -99,8 +102,76 @@ func TestRefresh_LogsAChangeOfAddress(t *testing.T) {
 	require.NotContains(t, fields, "ua_changed", "the User-Agent is not compared any more")
 
 	graceCtx, graceLogs := observedCtx(t)
-	graced, err := srv.Refresh(graceCtx, same.RefreshToken, "192.0.2.1")
+	graced, err := srv.Refresh(graceCtx, same.RefreshToken, "192.0.2.1", "curl/8.4.0")
 	require.NoError(t, err)
 	require.Empty(t, graced.RefreshToken, "the second refresh must have taken the grace path")
 	require.Empty(t, graceLogs.FilterMessage("session refreshed from a new address").All())
+}
+
+// TestRefresh_ReuseDetectionIsAudited pins the session.revoked row: replaying a
+// rotated-out token past its grace window revokes the session AND records it
+// against the owner, with the replaying request's address and User-Agent. Every
+// replay is recorded, a repeated one included: each is a fresh sign that the
+// token is in someone else's hands.
+func TestRefresh_ReuseDetectionIsAudited(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	srv, mocks := initService(t)
+	rec := newRecordingAuditPublisher()
+	srv.auditPublisher = rec
+
+	pair := signIn(ctx, t, srv, mocks, "203.0.113.7", "Firefox/131")
+
+	rotated, err := srv.Refresh(ctx, pair.RefreshToken, "203.0.113.7", "Firefox/131")
+	require.NoError(t, err)
+
+	expireGraceWindow(ctx, t, srv, pair.RefreshToken)
+
+	const replayerIP, replayerUA = "198.51.100.9", "curl/8.4.0"
+	_, err = srv.Refresh(ctx, pair.RefreshToken, replayerIP, replayerUA)
+	require.ErrorIs(t, err, apperr.ErrTokenReuse)
+
+	live, err := srv.tokenSrv.GetRefreshToken(ctx, rotated.RefreshToken)
+	require.NoError(t, err)
+	require.True(t, live.Revoked, "reuse must revoke the whole family")
+
+	revocations := sessionRevokedRows(rec.actions())
+	require.Len(t, revocations, 1)
+
+	row := revocations[0]
+	require.Equal(t, live.UserID, row.User.ID)
+	require.NotEmpty(t, row.User.Email, "the actor is the session's resolved owner")
+	require.Equal(t, replayerIP, row.Meta.IP)
+	require.Equal(t, replayerUA, row.Meta.UserAgent)
+	require.Equal(t, pair.SessionID.String(), row.Meta.SessionID)
+	require.Equal(t, entity.AuditRevokeReasonTokenReuse, row.Meta.RevokeReason)
+
+	_, err = srv.Refresh(ctx, pair.RefreshToken, replayerIP, replayerUA)
+	require.ErrorIs(t, err, apperr.ErrTokenReuse)
+	require.Len(t, sessionRevokedRows(rec.actions()), 2, "a repeated replay is recorded again")
+}
+
+// expireGraceWindow moves a rotated token's grace window into the past, so the
+// next presentation of it counts as reuse rather than a racing tab.
+func expireGraceWindow(ctx context.Context, t *testing.T, srv *Service, raw string) {
+	t.Helper()
+
+	rt, err := srv.tokenSrv.GetRefreshToken(ctx, raw)
+	require.NoError(t, err)
+	require.True(t, rt.Revoked)
+
+	rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-srv.cfg.RefreshTokenGracePeriod - time.Second))
+	require.NoError(t, srv.tokenSrv.UpdateRefreshToken(ctx, rt))
+}
+
+func sessionRevokedRows(published []audit.Action) []audit.SessionRevoked {
+	var rows []audit.SessionRevoked
+	for _, action := range published {
+		if row, ok := action.(audit.SessionRevoked); ok {
+			rows = append(rows, row)
+		}
+	}
+
+	return rows
 }

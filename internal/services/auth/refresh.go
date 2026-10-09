@@ -13,6 +13,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
@@ -21,7 +22,7 @@ import (
 //
 // The token is not bound to an address: a change is logged, never refused. A
 // stolen token is caught by reuse detection instead.
-func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*entity.TokenPair, error) {
+func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent string) (*entity.TokenPair, error) {
 	now := xtime.UTCNow()
 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Refresh",
@@ -61,7 +62,7 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*e
 
 	// Reuse detection — even if token is expired, reuse must revoke the family.
 	if rt.Revoked {
-		return s.reuseRevoked(ctx, now, rt)
+		return s.reuseRevoked(ctx, now, rt, clientIP, userAgent)
 	}
 
 	return s.rotateRefreshToken(ctx, rt, now, clientIP)
@@ -81,7 +82,9 @@ func logClientChange(ctx context.Context, prev *entity.RefreshToken, clientIP st
 	)
 }
 
-func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.RefreshToken) (*entity.TokenPair, error) {
+func (s *Service) reuseRevoked(
+	ctx context.Context, now time.Time, rt *entity.RefreshToken, clientIP, userAgent string,
+) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.buildTokenPairFromExisting")
 	defer span.End()
 
@@ -124,7 +127,29 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.Family); err != nil {
 		xlog.Error(ctx, "failed to revoke family", xfield.Error(err))
 	}
+	s.publishSessionRevoked(ctx, rt, clientIP, userAgent)
 	return nil, fmt.Errorf("%w: refresh token's grace period has expired", apperr.ErrTokenReuse)
+}
+
+// publishSessionRevoked records a reuse revocation against the session's owner.
+// If the owner cannot be resolved the row is still written under the bare id:
+// a thin actor beats a missing revocation.
+func (s *Service) publishSessionRevoked(ctx context.Context, rt *entity.RefreshToken, clientIP, userAgent string) {
+	owner, err := s.usersSrv.GetByID(ctx, rt.UserID)
+	if err != nil {
+		xlog.Error(ctx, "failed to resolve the owner of a revoked session", xfield.Error(err))
+		owner = &entity.User{ID: rt.UserID}
+	}
+
+	s.publishAudit(ctx, audit.SessionRevoked{
+		User: owner,
+		Meta: &entity.AuditMetadata{
+			IP:           clientIP,
+			UserAgent:    userAgent,
+			SessionID:    rt.Family.String(),
+			RevokeReason: entity.AuditRevokeReasonTokenReuse,
+		},
+	})
 }
 
 func (s *Service) rotateRefreshToken(

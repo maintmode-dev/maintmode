@@ -180,12 +180,12 @@ func TestBreakGlassSessionIsShort(t *testing.T) {
 		// A real grace window, so the replay below takes the grace branch too.
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-		refreshed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		refreshed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP, "")
 		require.NoError(t, err)
 		require.Equal(t, 300, refreshed.ExpiresIn)
 		require.Equal(t, 5*time.Minute, accessLifetime(t, srv, refreshed))
 
-		replayed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		replayed, err := srv.Refresh(ctx, pair.RefreshToken, clientIP, "")
 		require.NoError(t, err)
 		require.Empty(t, replayed.RefreshToken, "the replay must land in the grace window")
 		require.Equal(t, 300, replayed.ExpiresIn)
@@ -201,7 +201,7 @@ func TestBreakGlassSessionIsShort(t *testing.T) {
 			pair.SessionID)
 		require.NoError(t, err)
 
-		_, err = srv.Refresh(ctx, pair.RefreshToken, clientIP)
+		_, err = srv.Refresh(ctx, pair.RefreshToken, clientIP, "")
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
 	})
 }

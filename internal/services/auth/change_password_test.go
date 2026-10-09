@@ -57,7 +57,7 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 
 		// Rotation does not make an old session new: the age is the session's.
-		rotated, err := srv.Refresh(ctx, stale.RefreshToken, "10.0.0.1")
+		rotated, err := srv.Refresh(ctx, stale.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 
 		someoneElses, err := srv.IssueTokenPair(ctx, other, "10.0.0.1")
@@ -162,10 +162,10 @@ func TestChangePassword(t *testing.T) {
 			ClientIP:        "10.0.0.1",
 		}))
 
-		_, err = srv.Refresh(ctx, keep.RefreshToken, "10.0.0.1")
+		_, err = srv.Refresh(ctx, keep.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err, "the session that changed the password must survive")
 
-		_, err = srv.Refresh(ctx, evicted.RefreshToken, "10.0.0.1")
+		_, err = srv.Refresh(ctx, evicted.RefreshToken, "10.0.0.1", "")
 		require.Error(t, err, "every other session must be evicted")
 	})
 
@@ -187,7 +187,7 @@ func TestChangePassword(t *testing.T) {
 			ClientIP:        "10.0.0.1",
 		}))
 
-		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.Error(t, err, "with no session named, all of them go")
 	})
 

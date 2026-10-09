@@ -68,7 +68,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 
 		raw := seed(t, srv, store, now.Add(-24*time.Hour), now.Add(-time.Minute))
 
-		pair, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		pair, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, pair.RefreshToken)
 	})
@@ -85,7 +85,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			now.Add(-24*time.Hour),
 			now.Add(-srv.cfg.SessionInactiveLifetime).Add(-time.Minute))
 
-		_, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		_, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
 	})
 
@@ -103,7 +103,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			now.Add(-srv.cfg.SessionMaxLifetime).Add(-time.Minute),
 			now.Add(-time.Minute))
 
-		_, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		_, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
 	})
 
@@ -117,7 +117,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 
 		raw := seed(t, srv, store, startedAt, now.Add(-time.Minute))
 
-		pair, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		pair, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.NoError(t, err)
 
 		successor, err := store.GetByTokenHash(ctx, xhash.HashSha256([]byte(pair.RefreshToken)))
