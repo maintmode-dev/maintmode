@@ -16,6 +16,7 @@ const DefaultGraceTTL = 30 * time.Second
 //	Refresh → Token_1 (Revoked=true, GraceTTL=+30s, ReplacedBy=Token_2)
 //	        → Token_2 (Family=X, Revoked=false)
 //	After 30 days → ExpiresAt → all family tokens expired → re-login required
+//	ExpiresAt + retention → the prune sweep deletes the row
 type RefreshToken struct {
 	// Token is SHA256 hash of random 32 bytes. Client receives the "raw" token,
 	// only the hash is stored in the database. Tokens are useless in case of DB leak.
@@ -28,11 +29,16 @@ type RefreshToken struct {
 	// the same Family. On reuse detection, the entire family is revoked.
 	Family uuid.UUID
 
-	// ExpiresAt is retained for the row's own bookkeeping but is NOT what
-	// decides whether a session is alive: two policy limits do, and they are
-	// evaluated against timestamps rather than against a stored deadline.
-	// Keeping the deadline in the row would freeze the policy at issue time, so
-	// changing it would only affect sessions created afterwards.
+	// ExpiresAt is NOT what decides whether a session is alive: two policy
+	// limits do, and they are evaluated against timestamps rather than against
+	// a stored deadline. Keeping the deadline in the row would freeze the
+	// policy at issue time, so changing it would only affect sessions created
+	// afterwards.
+	//
+	// What it does decide is when the row may be deleted: the prune sweep
+	// removes rows some margin past ExpiresAt. Config keeps the TTL behind it at
+	// or above the maximum session lifetime, so by then the family is over and
+	// reuse detection has nothing left to protect.
 	ExpiresAt time.Time
 
 	// SessionStartedAt is when the SESSION began -- carried unchanged across

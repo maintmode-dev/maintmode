@@ -13,6 +13,10 @@
 ALTER TABLE refresh_tokens
     DROP COLUMN bound_ip,
     ADD COLUMN client_ip TEXT NOT NULL DEFAULT '';
+
+-- Rows were never deleted; the prune sweep removes them once expires_at has
+-- passed, in batches ordered by this column.
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
 -- +goose StatementEnd
 
 -- +goose Down
@@ -20,6 +24,8 @@ ALTER TABLE refresh_tokens
 -- Restores the shape, not the values: every row comes back with an empty
 -- bound_ip, which the previous binary treats as a mismatch on the next
 -- refresh -- rolling back signs everyone out once.
+DROP INDEX IF EXISTS idx_refresh_tokens_expires_at;
+
 ALTER TABLE refresh_tokens
     DROP COLUMN client_ip,
     ADD COLUMN bound_ip TEXT NOT NULL DEFAULT '';

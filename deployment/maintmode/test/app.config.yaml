@@ -357,6 +357,20 @@ task_processor:
     cron_spec: "15 3 * * *"
     retention: 24h
     batch_limit: 1000
+  # refresh_token_prune deletes refresh-token rows whose expires_at is older than
+  # retention. Revoked rows wait for the same threshold: until a row expires,
+  # reuse detection may still need it to recognize a replayed token. Because
+  # expires_at is issue time + jwt.refresh_token_ttl, and that TTL is validated
+  # to be at least jwt.session_max_lifetime, an eligible row always belongs to a
+  # session that is already over.
+  #
+  # The whole block is optional: an empty cron_spec falls back to "30 3 * * *",
+  # retention to 24h and batch_limit to 1000, so configs written before the
+  # sweep existed keep booting. A malformed cron_spec still aborts startup.
+  refresh_token_prune:
+    cron_spec: "30 3 * * *"
+    retention: 24h
+    batch_limit: 1000
 
 # crypto addresses the master key (KEK) that wraps the data-encryption keys
 # protecting integration secrets at rest. A KEK is addressed by URI:
