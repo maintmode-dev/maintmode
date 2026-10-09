@@ -17,7 +17,7 @@ import (
 
 // Logout godoc
 // @Summary Logout current session
-// @Description Revokes the current refresh token and blacklists the access token.
+// @Description Ends the current session: every token of the session the refresh token belongs to, and of the session the access token was issued for, is revoked, and the access token is blacklisted. The refresh token may be empty; the access token alone then ends its session.
 // @Tags Auth
 // @Accept json
 // @Produce json
@@ -28,9 +28,9 @@ import (
 // @Failure 401 {object} httperrors.ErrorResponse "Unauthorized"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
 // @Router /api/v1/logout [post]
-// Logout revokes the current refresh token and blacklists the access token. The
-// caller sends the refresh token in the request body and the access token as a
-// Bearer header.
+// Logout ends the caller's session and blacklists the access token. The caller
+// sends the refresh token in the request body and the access token as a Bearer
+// header; the service names the session by either.
 func (i *Implementation) Logout(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.Logout")
 	defer span.End()

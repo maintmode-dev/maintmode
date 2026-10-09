@@ -98,6 +98,88 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 		requireGateStatus(t, srv, phone.AccessToken, http.StatusNoContent)
 	})
 
+	t.Run("logout without a refresh token ends the access token's session", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
+		exchangeIDTokenMock(mocks, 2)
+
+		laptop := openSession(ctx, t, srv)
+		rotated, err := srv.Refresh(ctx, laptop.RefreshToken, "10.0.0.1", "")
+		require.NoError(t, err)
+		graced, err := srv.Refresh(ctx, laptop.RefreshToken, "10.0.0.1", "")
+		require.NoError(t, err)
+		phone := openSession(ctx, t, srv)
+		requireSameUser(ctx, t, srv, laptop, phone)
+
+		// The access token alone: the client has no refresh token to send.
+		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{AccessToken: rotated.AccessToken}))
+
+		// Every token of the session is over: the access tokens on the spot,
+		// the refresh tokens in Postgres. A grace re-issue mints an access
+		// token only.
+		for _, accessToken := range []string{laptop.AccessToken, rotated.AccessToken, graced.AccessToken} {
+			requireGateStatus(t, srv, accessToken, http.StatusUnauthorized)
+		}
+		for _, refreshToken := range []string{laptop.RefreshToken, rotated.RefreshToken} {
+			requireRefreshRevoked(ctx, t, srv, refreshToken, true)
+		}
+		_, err = srv.Refresh(ctx, rotated.RefreshToken, "10.0.0.1", "")
+		require.ErrorIs(t, err, apperr.ErrLogoutAlready)
+
+		// The user's other session is untouched.
+		requireGateStatus(t, srv, phone.AccessToken, http.StatusNoContent)
+		requireRefreshRevoked(ctx, t, srv, phone.RefreshToken, false)
+	})
+
+	t.Run("logout with a token minted before sid ends only that token", func(t *testing.T) {
+		t.Parallel()
+
+		key := newSigningKey(t)
+		srv, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{signingKey: key})
+		exchangeIDTokenMock(mocks, 1)
+
+		pair := openSession(ctx, t, srv)
+		legacy, _ := legacyAccessToken(ctx, t, srv, key, pair.AccessToken)
+
+		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{AccessToken: legacy}))
+
+		// No session to name, so nothing but the token itself goes: as before
+		// access tokens carried their session.
+		requireGateStatus(t, srv, legacy, http.StatusUnauthorized)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
+		requireRefreshRevoked(ctx, t, srv, pair.RefreshToken, false)
+	})
+
+	t.Run("logout naming two sessions ends both", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		exchangeIDTokenMock(mocks, 3)
+
+		laptop := openSession(ctx, t, srv)
+		phone := openSession(ctx, t, srv)
+		tablet := openSession(ctx, t, srv)
+		requireSameUser(ctx, t, srv, laptop, phone)
+		requireSameUser(ctx, t, srv, laptop, tablet)
+
+		// A stale access token beside a refresh token of another session of
+		// the same user: both are the caller's, and both end.
+		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{
+			AccessToken:  laptop.AccessToken,
+			RefreshToken: phone.RefreshToken,
+		}))
+
+		for _, pair := range []*entity.TokenPair{laptop, phone} {
+			requireGateStatus(t, srv, pair.AccessToken, http.StatusUnauthorized)
+			requireRefreshRevoked(ctx, t, srv, pair.RefreshToken, true)
+		}
+
+		requireGateStatus(t, srv, tablet.AccessToken, http.StatusNoContent)
+		requireRefreshRevoked(ctx, t, srv, tablet.RefreshToken, false)
+	})
+
 	t.Run("logout-all takes every session", func(t *testing.T) {
 		t.Parallel()
 
@@ -192,6 +274,14 @@ func expireGrace(ctx context.Context, t *testing.T, srv *Service, refreshToken s
 	require.True(t, rt.Revoked)
 	rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-time.Hour))
 	require.NoError(t, srv.tokenSrv.UpdateRefreshToken(ctx, rt))
+}
+
+func requireRefreshRevoked(ctx context.Context, t *testing.T, srv *Service, refreshToken string, want bool) {
+	t.Helper()
+
+	rt, err := srv.tokenSrv.GetRefreshToken(ctx, refreshToken)
+	require.NoError(t, err)
+	require.Equal(t, want, rt.Revoked)
 }
 
 func requireSameUser(ctx context.Context, t *testing.T, srv *Service, a, b *entity.TokenPair) {

@@ -88,7 +88,9 @@ func TestRevokeMarksSessions(t *testing.T) {
 			SessionStartedAt: xtime.UTCNow(),
 		}))
 
-		require.NoError(t, srv.RevokeFamilyByRefreshToken(ctx, raw, owner))
+		revoked, err := srv.RevokeFamilyByRefreshToken(ctx, raw, owner)
+		require.NoError(t, err)
+		require.Equal(t, family, revoked)
 		require.True(t, sessionRevoked(t, family))
 	})
 
@@ -110,8 +112,39 @@ func TestRevokeMarksSessions(t *testing.T) {
 			SessionStartedAt: xtime.UTCNow(),
 		}))
 
-		require.Error(t, srv.RevokeFamilyByRefreshToken(ctx, raw, stranger))
+		_, err = srv.RevokeFamilyByRefreshToken(ctx, raw, stranger)
+		require.Error(t, err)
 		require.False(t, sessionRevoked(t, session.Family))
+	})
+
+	t.Run("one session of the user, by its id", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+		user := testdbutils.MakeUser(ctx, t, users.NewStore(db))
+		ended := seedSession(t, srv, user.ID)
+		other := seedSession(t, srv, user.ID)
+
+		require.NoError(t, srv.RevokeSessionOfUser(ctx, user.ID, ended.Family))
+
+		require.True(t, sessionRevoked(t, ended.Family))
+		require.False(t, sessionRevoked(t, other.Family), "the user's other sessions go on")
+	})
+
+	t.Run("not a session of another user", func(t *testing.T) {
+		t.Parallel()
+
+		srv := initService(t)
+		owner := testdbutils.MakeUser(ctx, t, users.NewStore(db))
+		stranger := testdbutils.MakeUser(ctx, t, users.NewStore(db))
+		session := seedSession(t, srv, owner.ID)
+
+		require.NoError(t, srv.RevokeSessionOfUser(ctx, stranger.ID, session.Family))
+
+		require.False(t, sessionRevoked(t, session.Family))
+		rt, err := srv.tokensStore.GetByTokenHash(ctx, session.Token)
+		require.NoError(t, err)
+		require.False(t, rt.Revoked)
 	})
 }
 

@@ -42,6 +42,22 @@ func (s *Store) RevokeByUserIDExceptFamily(ctx context.Context, userID, keep uui
 	return s.revokeReturningFamilies(ctx, whereExpr)
 }
 
+// RevokeFamilyOfUser revokes every token of one session of a user, and returns
+// the session when it matched -- nothing when the family is not the user's.
+//
+// The user is part of the match, not just the family: it backs a logout that
+// names its session by the sid of an access token, and the update itself is the
+// ownership check, so a session of someone else is never touched.
+func (s *Store) RevokeFamilyOfUser(ctx context.Context, family, userID uuid.UUID) ([]uuid.UUID, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "store.RefreshToken.RevokeFamilyOfUser")
+	defer span.End()
+
+	whereExpr := table.RefreshTokens.Family.EQ(postgres.UUID(family)).
+		AND(table.RefreshTokens.UserID.EQ(postgres.UUID(userID)))
+
+	return s.revokeReturningFamilies(ctx, whereExpr)
+}
+
 // RevokeFamily revokes every token of a session.
 func (s *Store) RevokeFamily(ctx context.Context, family uuid.UUID) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.RefreshToken.RevokeFamily")
