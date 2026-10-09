@@ -34,7 +34,7 @@ func TestCreate(t *testing.T) {
 			GraceTTL:   nil,
 			Revoked:    false,
 			ReplacedBy: nil,
-			BoundIP:    "BoundIP",
+			ClientIP:   "203.0.113.7",
 		}
 
 		err := store.Save(ctx, refreshToken)

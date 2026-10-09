@@ -20,8 +20,8 @@ type RefreshTokens struct {
 	GraceTTL         *time.Time `db:"refresh_tokens.grace_ttl"`
 	Revoked          bool       `db:"refresh_tokens.revoked"`
 	ReplacedBy       *string    `db:"refresh_tokens.replaced_by"`
-	BoundIP          string     `db:"refresh_tokens.bound_ip"`
 	CreatedAt        time.Time  `db:"refresh_tokens.created_at"`
 	UpdatedAt        *time.Time `db:"refresh_tokens.updated_at"`
 	SessionStartedAt time.Time  `db:"refresh_tokens.session_started_at"`
+	ClientIP         string     `db:"refresh_tokens.client_ip"`
 }

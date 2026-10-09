@@ -17,6 +17,10 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
+// Refresh rotates a refresh token and issues a new access token.
+//
+// The token is not bound to an address: a change is logged, never refused. A
+// stolen token is caught by reuse detection instead.
 func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*entity.TokenPair, error) {
 	now := xtime.UTCNow()
 
@@ -48,19 +52,7 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*e
 	ctx = xlog.WithFields(ctx,
 		xfield.Any("user", rt.UserID),
 		xfield.Any("family", rt.Family),
-		xfield.String("token_ip", rt.BoundIP),
-		xfield.String("client_ip", clientIP),
 	)
-
-	// IP binding check — before any other logic.
-	// Applies equally to revoked (grace period) and active tokens.
-	if rt.BoundIP != clientIP {
-		xlog.Error(ctx, "suspicious refresh")
-		if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.Family); err != nil {
-			xlog.Error(ctx, "failed to revoke family", xfield.Error(err))
-		}
-		return nil, apperr.ErrSuspiciousActivity
-	}
 
 	// Logout detection
 	if rt.Revoked && rt.ReplacedBy == nil {
@@ -72,7 +64,21 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP string) (*e
 		return s.reuseRevoked(ctx, now, rt)
 	}
 
-	return s.rotateRefreshToken(ctx, rt, now)
+	return s.rotateRefreshToken(ctx, rt, now, clientIP)
+}
+
+// logClientChange records a rotation from a new address. Info, not a warning:
+// networks change under people; the line is for correlating with a later reuse
+// revocation. The family comes from ctx.
+func logClientChange(ctx context.Context, prev *entity.RefreshToken, clientIP string) {
+	if prev.ClientIP == clientIP {
+		return
+	}
+
+	xlog.Info(ctx, "session refreshed from a new address",
+		xfield.String("prev_ip", prev.ClientIP),
+		xfield.String("ip", clientIP),
+	)
 }
 
 func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.RefreshToken) (*entity.TokenPair, error) {
@@ -121,7 +127,9 @@ func (s *Service) reuseRevoked(ctx context.Context, now time.Time, rt *entity.Re
 	return nil, fmt.Errorf("%w: refresh token's grace period has expired", apperr.ErrTokenReuse)
 }
 
-func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entity.RefreshToken, now time.Time) (*entity.TokenPair, error) {
+func (s *Service) rotateRefreshToken(
+	ctx context.Context, oldRefreshToken *entity.RefreshToken, now time.Time, clientIP string,
+) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueNewRefreshToken")
 	defer span.End()
 
@@ -182,7 +190,7 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 			UserID:    oldRefreshToken.UserID,
 			Family:    oldRefreshToken.Family,
 			ExpiresAt: now.Add(s.cfg.RefreshTokenTTL),
-			BoundIP:   oldRefreshToken.BoundIP,
+			ClientIP:  clientIP,
 			// Carried, never restarted: this is what bounds the session's total
 			// age. Recomputing it here would reset the ceiling on every refresh,
 			// quietly turning the maximum lifetime into no maximum at all.
@@ -193,6 +201,8 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken *entit
 		xlog.Error(ctx, "failed to rotate refresh token", xfield.Error(err))
 		return nil, err
 	}
+
+	logClientChange(ctx, oldRefreshToken, clientIP)
 
 	return &entity.TokenPair{
 		AccessToken:  accessToken,

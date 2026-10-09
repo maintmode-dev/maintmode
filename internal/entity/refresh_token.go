@@ -59,9 +59,17 @@ type RefreshToken struct {
 	// (but without a new refresh token — client uses the one already received).
 	ReplacedBy *string
 
-	// BoundIP is the client's IP at issuance. If refresh comes from a different IP,
-	// the entire family is revoked, returning ErrSuspiciousActivity.
-	BoundIP string
+	// ClientIP is the address of the request that minted THIS row -- the
+	// sign-in for the first row of a family, the refresh for every later one.
+	// It is a record of where the session was used from, not a binding: an
+	// address changes under a user for ordinary reasons (a laptop moving
+	// between networks, a mobile carrier's NAT), so refusing a refresh from a
+	// new one would sign people out for traveling. A change is logged by
+	// Refresh instead.
+	//
+	// Written from the current request on every rotation, never copied down
+	// the chain, so the newest row of a family is where it was last used from.
+	ClientIP string
 
 	// CreatedAt is the creation time of this specific token in the rotation chain.
 	CreatedAt time.Time

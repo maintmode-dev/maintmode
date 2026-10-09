@@ -15,7 +15,8 @@ import (
 
 // IssueTokenPair mints the access/refresh pair for a freshly authenticated
 // user and stamps the session's start, which every rotation in the chain then
-// carries forward as the anchor for the maximum-lifetime limit.
+// carries forward as the anchor for the maximum-lifetime limit. clientIP is the
+// signing-in request's address, recorded on the session's first row.
 func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientIP string) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.IssueTokenPair")
 	defer span.End()
@@ -41,7 +42,7 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		UserID:           user.ID,
 		Family:           family,
 		ExpiresAt:        now.Add(s.cfg.RefreshTokenTTL),
-		BoundIP:          clientIP,
+		ClientIP:         clientIP,
 		SessionStartedAt: now,
 	})
 	if err != nil {

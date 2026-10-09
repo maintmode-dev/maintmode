@@ -51,7 +51,7 @@ func makeRefreshToken(ctx context.Context, t *testing.T, store *refreshtoken.Sto
 		GraceTTL:   nil,
 		Revoked:    false,
 		ReplacedBy: nil,
-		BoundIP:    "BoundIP",
+		ClientIP:   "203.0.113.7",
 	}
 
 	err := store.Save(ctx, refreshToken)

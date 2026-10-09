@@ -44,7 +44,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			UserID:           user.ID,
 			Family:           uuid.New(),
 			ExpiresAt:        xtime.UTCNow().Add(time.Hour),
-			BoundIP:          "10.0.0.1",
+			ClientIP:         "10.0.0.1",
 			SessionStartedAt: sessionStartedAt,
 		}))
 		// created_at is set by the database on insert, so the idle clock has to

@@ -56,7 +56,6 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		errors.Is(err, apperr.ErrRefreshTokenNotFound),
 		errors.Is(err, apperr.ErrInvalidAccessToken),
 		errors.Is(err, apperr.ErrInvalidRefreshToken),
-		errors.Is(err, apperr.ErrSuspiciousActivity),
 		errors.Is(err, apperr.ErrTokenExpired),
 		errors.Is(err, apperr.ErrLogoutAlready),
 		errors.Is(err, apperr.ErrUserBlocked),
@@ -284,7 +283,6 @@ var unauthorizedErrors = []error{
 	apperr.ErrTokenExpired,
 	apperr.ErrLogoutAlready,
 	apperr.ErrUserBlocked,
-	apperr.ErrSuspiciousActivity,
 	// A rejected credential is a 401. Without this entry it fell through to
 	// the default and answered 500 -- POST /me/password with the wrong
 	// current password returned an internal error, which a client cannot

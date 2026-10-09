@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -77,7 +76,9 @@ func TestRefresh(t *testing.T) {
 		require.Nil(t, newPair)
 	})
 
-	t.Run("ip mismatch", func(t *testing.T) {
+	// A session is not bound to an address: a refresh from a new one rotates
+	// as usual, inside the grace window and out of it.
+	t.Run("new address keeps the session", func(t *testing.T) {
 		t.Parallel()
 
 		srv, mocks := initService(t)
@@ -93,27 +94,22 @@ func TestRefresh(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		newPair1, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.10")
 		require.NoError(t, err)
-		require.NotNil(t, newPair1)
-		require.NotEmpty(t, newPair1.RefreshToken)
+		require.NotEmpty(t, rotated.RefreshToken)
 
-		// Within grace period
-		newPair2, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+		// Within the grace period, from yet another address.
+		graced, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.20")
 		require.NoError(t, err)
-		require.NotNil(t, newPair2)
-		require.Empty(t, newPair2.RefreshToken)
+		require.NotEmpty(t, graced.AccessToken)
 
-		// Within grace period, but from a different IP
-		newPair3, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.10")
-		require.ErrorIs(t, err, apperr.ErrSuspiciousActivity)
-		require.Nil(t, newPair3)
+		again, err := srv.Refresh(ctx, rotated.RefreshToken, "10.0.0.30")
+		require.NoError(t, err)
+		require.NotEmpty(t, again.RefreshToken)
 
-		for i, p := range []*entity.TokenPair{pair, newPair1} {
-			rt, err := srv.tokenSrv.GetRefreshToken(ctx, p.RefreshToken)
-			require.NoError(t, err, fmt.Errorf("refresh token %d", i))
-			require.True(t, rt.Revoked, fmt.Errorf("refresh token %d", i))
-		}
+		live, err := srv.tokenSrv.GetRefreshToken(ctx, again.RefreshToken)
+		require.NoError(t, err)
+		require.False(t, live.Revoked, "the session must survive every change of address")
 	})
 
 	t.Run("grace period", func(t *testing.T) {
