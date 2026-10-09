@@ -70,6 +70,17 @@ func (v stubVerifier) VerifyAccessToken(_ context.Context, token string) (*entit
 	}, nil
 }
 
+// stubChecker stands in for the auth service's active-token checks: every
+// token is active and keeps admin roles, so the revocation check never masks
+// what the limiter did.
+type stubChecker struct{}
+
+func (stubChecker) EnsureActiveToken(context.Context, string) ([]entity.Role, error) {
+	return []entity.Role{entity.RoleAdmin}, nil
+}
+
+func (stubChecker) EnsureNotRevoked(context.Context, string) error { return nil }
+
 // TestUIRateLimitWiring pins the two routing invariants that make the /ui/v1
 // limiter mean what it says. Both failure modes it guards against are silent:
 // the endpoints keep working, so nothing but this test would notice.
@@ -111,7 +122,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 			Server: xhttpserver.New(xhttpserver.Config{}),
 			security: APIServerSecurity{
 				TokenVerifier: verifier,
-				TokenChecker:  &stubChecker{},
+				TokenChecker:  stubChecker{},
 				License:       license,
 			},
 		}
@@ -186,7 +197,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 
 		s := &APIServer{
 			Server:   xhttpserver.New(xhttpserver.Config{}),
-			security: APIServerSecurity{TokenVerifier: verifier, TokenChecker: &stubChecker{}, License: unlicensedProvider{}},
+			security: APIServerSecurity{TokenVerifier: verifier, TokenChecker: stubChecker{}, License: unlicensedProvider{}},
 		}
 
 		// A limiter that records whether it ran before or after the token gate
