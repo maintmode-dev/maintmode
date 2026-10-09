@@ -5,7 +5,9 @@ import (
 
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
+	"github.com/samber/lo"
 
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -17,14 +19,19 @@ func (s *Service) UpdateResource(ctx context.Context, cmd *entity.UpdateResource
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Resources.UpdateResource")
 	defer span.End()
 
-	var updated *entity.ResourceDetails
+	var (
+		updated *entity.ResourceDetails
+		changes []entity.AuditFieldChange
+	)
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		resource, err := s.store.GetForUpdate(ctx, cmd.ID)
 		if err != nil {
 			return err
 		}
 
+		before := *resource
 		applyResourceUpdate(resource, cmd)
+		changes = resourceChanges(&before, resource)
 
 		updated, err = s.store.Update(ctx, resource)
 		return err
@@ -37,7 +44,24 @@ func (s *Service) UpdateResource(ctx context.Context, cmd *entity.UpdateResource
 		return nil, err
 	}
 
+	s.publishAudit(ctx, audit.ResourceUpdated{Actor: cmd.Actor, Resource: updated, Changes: changes})
+
 	return updated, nil
+}
+
+// resourceChanges lists the editable fields an update moved, before and after.
+func resourceChanges(before, after *entity.ResourceDetails) []entity.AuditFieldChange {
+	var changes []entity.AuditFieldChange
+	add := func(field, oldValue, newValue string) {
+		if oldValue != newValue {
+			changes = append(changes, entity.AuditFieldChange{Field: field, Old: oldValue, New: newValue})
+		}
+	}
+	add("name", before.Name, after.Name)
+	add("description", before.Description, after.Description)
+	add("external_id", lo.FromPtr(before.ExternalID), lo.FromPtr(after.ExternalID))
+
+	return changes
 }
 
 // applyResourceUpdate overlays the non-nil command fields onto the loaded
@@ -53,5 +77,5 @@ func applyResourceUpdate(resource *entity.ResourceDetails, cmd *entity.UpdateRes
 		resource.ExternalID = cmd.ExternalID
 	}
 
-	resource.UpdatedByUserID = &cmd.UpdatedByUserID
+	resource.UpdatedByUserID = &cmd.Actor.ID
 }

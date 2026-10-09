@@ -8,6 +8,7 @@ import (
 	"github.com/ruko1202/xlog/xfield"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
+	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
@@ -27,12 +28,14 @@ func (s *Service) CreateChannel(ctx context.Context, cmd *entity.CreateNotifyCha
 		TransportChannelID: cmd.TransportChannelID,
 		Name:               cmd.Name,
 		Description:        cmd.Description,
-		CreatedByUserID:    &cmd.CreatedByUserID,
+		CreatedByUserID:    &cmd.Actor.ID,
 	})
 	if err != nil {
 		xlog.Error(ctx, "create channel failed", xfield.Error(err))
 		return nil, err
 	}
+
+	s.publishAudit(ctx, audit.NotifyChannelCreated{Actor: cmd.Actor, Channel: channel})
 
 	return channel, nil
 }

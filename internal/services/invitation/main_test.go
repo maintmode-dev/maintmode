@@ -67,6 +67,9 @@ type serviceMocks struct {
 	// sentEmail captures the last message enqueued for email delivery so tests
 	// can read the recipient and pull the accept link out of the body.
 	sentEmail *sentEmail
+
+	// audit records every action the invitation service published.
+	audit *recordingAuditPublisher
 }
 
 // fakeSeatGuard is a controllable SeatGuard: EnsureSeatAvailable returns err and
@@ -107,6 +110,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		sender:       mock_invitation.NewMockMessageSender(ctrl),
 		seatGuard:    &fakeSeatGuard{}, // passes by default; cap tests flip err
 		sentEmail:    &sentEmail{},
+		audit:        &recordingAuditPublisher{},
 	}
 	// SendAsync captures the enqueued message for assertions and succeeds. The
 	// invitation flow enqueues inside its tx (transactional outbox) under the
@@ -138,6 +142,7 @@ func initService(t *testing.T) (*Service, *serviceMocks) {
 		userSrv,
 		mocks.sender,
 		mocks.seatGuard, // Create runs the guard directly
+		mocks.audit,
 	)
 
 	return svc, mocks

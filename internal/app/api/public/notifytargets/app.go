@@ -37,8 +37,8 @@ type channelService interface {
 	GetChannel(ctx context.Context, channelID uuid.UUID) (*entity.NotifyChannel, error)
 	CreateChannel(ctx context.Context, cmd *entity.CreateNotifyChannelCmd) (*entity.NotifyChannel, error)
 	UpdateChannel(ctx context.Context, cmd *entity.UpdateNotifyChannelCmd) (*entity.NotifyChannel, error)
-	ArchiveChannel(ctx context.Context, channelID uuid.UUID) error
-	UnarchiveChannel(ctx context.Context, channelID uuid.UUID) error
+	ArchiveChannel(ctx context.Context, actor *entity.User, channelID uuid.UUID) error
+	UnarchiveChannel(ctx context.Context, actor *entity.User, channelID uuid.UUID) error
 }
 
 type Implementation struct {

@@ -23,6 +23,11 @@ import (
 const defaultMaxLogsCount = 100
 
 // AuditLog godoc
+//
+// The action Enums list below must name every entity.AuditAction; swag cannot
+// derive a query param's values from the Go enum, so
+// TestAuditLogActionParam_ListsEveryAction pins the two together.
+//
 // @Summary Get audit log
 // @Description Returns one page of audit log entries ordered by created_at DESC,
 // @Description plus the total count under the current filter and facet counts per
@@ -34,7 +39,7 @@ const defaultMaxLogsCount = 100
 // @Produce json
 // @Param limit query int false "Number of entries to return (max 100)" default(100)
 // @Param offset query int false "Pagination offset" default(0)
-// @Param action query string false "Filter by audit actions. CSV of one or more of the listed values (e.g. login.success,maintenance.canceled)" Enums(login.success, login.failed, logout.success, roles.changed, user.blocked, user.unblocked, maintenance.created, maintenance.updated, maintenance.approved, maintenance.started, maintenance.completed, maintenance.canceled, maintenance_step.started, maintenance_step.completed, maintenance_step.canceled)
+// @Param action query string false "Filter by audit actions. CSV of one or more of the listed values (e.g. login.success,maintenance.canceled)" Enums(login.success, login.failed, logout.success, password.changed, password.reset, provider.linked, session.revoked, roles.changed, user.blocked, user.unblocked, user.tags_changed, invitation.created, invitation.revoked, maintenance.created, maintenance.updated, maintenance.approved, maintenance.started, maintenance.completed, maintenance.canceled, maintenance_step.started, maintenance_step.completed, maintenance_step.canceled, integration.created, integration.updated, integration.deleted, auth_method.toggled, resource.created, resource.updated, resource.archived, resource.unarchived, notify_channel.created, notify_channel.updated, notify_channel.archived, notify_channel.unarchived)
 // @Param actor query string false "Filter by actor (exact match)"
 // @Param created_from query string false "Filter by created_at >= this RFC3339 timestamp"
 // @Param created_to query string false "Filter by created_at <= this RFC3339 timestamp"

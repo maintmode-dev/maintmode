@@ -28,6 +28,8 @@ var allDeclaredTaskTypes = []string{
 	ProcessorTaskOTPEmailSend,
 	ProcessorTaskOTPPrune,
 	ProcessorTaskOTPPruneCron,
+	ProcessorTaskRefreshTokenPrune,
+	ProcessorTaskRefreshTokenPruneCron,
 }
 
 // disabledTaskTypes is every declared type whose processor is intentionally not

@@ -243,7 +243,8 @@ func TestAuditLog(t *testing.T) {
 			Actor: user, Target: target,
 		})
 
-		wantFacets := apiauthmodels.AuditFacets{All: 7, Auth: 4, Roles: 2, Block: 1}
+		// Roles and block events share the users chip.
+		wantFacets := apiauthmodels.AuditFacets{All: 7, SignIn: 4, Users: 3}
 
 		for _, tc := range []struct {
 			name        string

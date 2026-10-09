@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -111,6 +112,26 @@ func TestRender_MapsEveryAction(t *testing.T) {
 			},
 		},
 		{
+			name: "session revoked",
+			action: SessionRevoked{User: actor, Meta: &entity.AuditMetadata{
+				IP:           "203.0.113.7",
+				UserAgent:    "Mozilla/5.0",
+				SessionID:    "family-1",
+				RevokeReason: entity.AuditRevokeReasonTokenReuse,
+			}},
+			wantAction:       entity.AuditActionSessionRevoked,
+			wantActor:        actor.Email,
+			wantEntityID:     actor.ID.String(),
+			wantDetailsParts: []string{"session of", actor.Email, "revoked", "refresh token reused"},
+			checkMetadata: func(t *testing.T, m *entity.AuditMetadata) {
+				t.Helper()
+				require.Equal(t, "203.0.113.7", m.IP)
+				require.Equal(t, "Mozilla/5.0", m.UserAgent)
+				require.Equal(t, "family-1", m.SessionID)
+				require.Equal(t, entity.AuditRevokeReasonTokenReuse, m.RevokeReason)
+			},
+		},
+		{
 			name: "roles changed",
 			action: RolesChanged{
 				Actor: actor, Target: target, Kind: RolesAssigned,
@@ -208,6 +229,18 @@ func TestRender_TruncatesUserAgent(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, []rune(payload.Metadata.UserAgent), maxUserAgentLen)
+}
+
+// TestTruncateUserAgent pins the cap on its own: under it untouched, over it
+// cut on a rune boundary rather than mid-character.
+func TestTruncateUserAgent(t *testing.T) {
+	short := "Mozilla/5.0 (Macintosh)"
+	require.Equal(t, short, truncateUserAgent(short))
+
+	multibyte := strings.Repeat("ж", maxUserAgentLen+10)
+	got := truncateUserAgent(multibyte)
+	require.Len(t, []rune(got), maxUserAgentLen)
+	require.True(t, utf8.ValidString(got))
 }
 
 type unknownAction struct{}
@@ -374,7 +407,7 @@ func TestRender_BreakGlassLoginIsNamedInTheDetails(t *testing.T) {
 // and refusal are distinguishable in it.
 //
 // Rendering is gated by auditActionCategories: fillPayload looks the category up
-// BEFORE dispatching to fillAuthPayload, so an action missing from that map
+// BEFORE dispatching to fillUsersPayload, so an action missing from that map
 // returns ErrUnsupportedEvent and the renderer arm is never reached. A test that
 // only checked the action constant would pass against that.
 func TestRender_ProviderLinked(t *testing.T) {

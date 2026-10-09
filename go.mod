@@ -2,7 +2,7 @@ module github.com/ruko1202/maintmode
 
 go 1.26.0
 
-toolchain go1.26.8
+toolchain go1.26.9
 
 require (
 	github.com/MicahParks/jwkset v0.11.3
@@ -24,9 +24,9 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/redis/go-redis/v9 v9.23.0
-	github.com/ruko1202/goque v0.8.10
+	github.com/ruko1202/goque v0.8.11
 	github.com/ruko1202/swaggerui v0.5.0
-	github.com/ruko1202/xhttp v0.4.0
+	github.com/ruko1202/xhttp v0.4.1
 	github.com/ruko1202/xlog v0.5.1
 	github.com/samber/lo v1.53.0
 	github.com/slack-go/slack v0.30.1
@@ -96,7 +96,7 @@ require (
 	go.uber.org/atomic v1.12.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect

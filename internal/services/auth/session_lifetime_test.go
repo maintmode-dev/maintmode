@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -44,7 +45,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			UserID:           user.ID,
 			Family:           uuid.New(),
 			ExpiresAt:        xtime.UTCNow().Add(time.Hour),
-			BoundIP:          "10.0.0.1",
+			ClientIP:         "10.0.0.1",
 			SessionStartedAt: sessionStartedAt,
 		}))
 		// created_at is set by the database on insert, so the idle clock has to
@@ -68,7 +69,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 
 		raw := seed(t, srv, store, now.Add(-24*time.Hour), now.Add(-time.Minute))
 
-		pair, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		pair, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, pair.RefreshToken)
 	})
@@ -85,8 +86,10 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			now.Add(-24*time.Hour),
 			now.Add(-srv.cfg.SessionInactiveLifetime).Add(-time.Minute))
 
-		_, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		obsCtx, logs := observedCtx(t)
+		_, err := srv.Refresh(obsCtx, raw, "10.0.0.1", "")
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
+		requireLoggedAt(t, logs, "session idle past its limit", zapcore.InfoLevel)
 	})
 
 	t.Run("the maximum lifetime ends even a busy session", func(t *testing.T) {
@@ -103,8 +106,10 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 			now.Add(-srv.cfg.SessionMaxLifetime).Add(-time.Minute),
 			now.Add(-time.Minute))
 
-		_, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		obsCtx, logs := observedCtx(t)
+		_, err := srv.Refresh(obsCtx, raw, "10.0.0.1", "")
 		require.ErrorIs(t, err, apperr.ErrTokenExpired)
+		requireLoggedAt(t, logs, "session past its maximum lifetime", zapcore.InfoLevel)
 	})
 
 	t.Run("the session start is carried across rotation", func(t *testing.T) {
@@ -117,7 +122,7 @@ func TestRefresh_SessionLifetimeLimits(t *testing.T) {
 
 		raw := seed(t, srv, store, startedAt, now.Add(-time.Minute))
 
-		pair, err := srv.Refresh(ctx, raw, "10.0.0.1")
+		pair, err := srv.Refresh(ctx, raw, "10.0.0.1", "")
 		require.NoError(t, err)
 
 		successor, err := store.GetByTokenHash(ctx, xhash.HashSha256([]byte(pair.RefreshToken)))

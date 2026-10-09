@@ -64,6 +64,21 @@ func (e ApiauthmodelsAuditLogMetadataLogoutKind) Valid() bool {
 	}
 }
 
+// Defines values for ApiauthmodelsAuditLogMetadataRevokeReason.
+const (
+	TokenReuse ApiauthmodelsAuditLogMetadataRevokeReason = "token_reuse"
+)
+
+// Valid indicates whether the value is a known member of the ApiauthmodelsAuditLogMetadataRevokeReason enum.
+func (e ApiauthmodelsAuditLogMetadataRevokeReason) Valid() bool {
+	switch e {
+	case TokenReuse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiauthmodelsAuthMethodType.
 const (
 	AuthMethodTypeCode     ApiauthmodelsAuthMethodType = "code"
@@ -111,29 +126,40 @@ func (e ApimodelsRole) Valid() bool {
 
 // Defines values for EntityAuditAction.
 const (
-	AuditActionAuthMethodToggled  EntityAuditAction = "auth_method.toggled"
-	AuditActionIntegrationCreated EntityAuditAction = "integration.created"
-	AuditActionIntegrationDeleted EntityAuditAction = "integration.deleted"
-	AuditActionIntegrationUpdated EntityAuditAction = "integration.updated"
-	AuditActionLoginFailed        EntityAuditAction = "login.failed"
-	AuditActionLoginSuccess       EntityAuditAction = "login.success"
-	AuditActionLogoutSuccess      EntityAuditAction = "logout.success"
-	AuditActionMaintApproved      EntityAuditAction = "maintenance.approved"
-	AuditActionMaintCanceled      EntityAuditAction = "maintenance.canceled"
-	AuditActionMaintCompleted     EntityAuditAction = "maintenance.completed"
-	AuditActionMaintCreated       EntityAuditAction = "maintenance.created"
-	AuditActionMaintStarted       EntityAuditAction = "maintenance.started"
-	AuditActionMaintStepCanceled  EntityAuditAction = "maintenance_step.canceled"
-	AuditActionMaintStepCompleted EntityAuditAction = "maintenance_step.completed"
-	AuditActionMaintStepStarted   EntityAuditAction = "maintenance_step.started"
-	AuditActionMaintUpdated       EntityAuditAction = "maintenance.updated"
-	AuditActionPasswordChanged    EntityAuditAction = "password.changed"
-	AuditActionPasswordReset      EntityAuditAction = "password.reset"
-	AuditActionProviderLinked     EntityAuditAction = "provider.linked"
-	AuditActionRolesChanged       EntityAuditAction = "roles.changed"
-	AuditActionUserBlocked        EntityAuditAction = "user.blocked"
-	AuditActionUserTagsChanged    EntityAuditAction = "user.tags_changed"
-	AuditActionUserUnblocked      EntityAuditAction = "user.unblocked"
+	AuditActionAuthMethodToggled       EntityAuditAction = "auth_method.toggled"
+	AuditActionIntegrationCreated      EntityAuditAction = "integration.created"
+	AuditActionIntegrationDeleted      EntityAuditAction = "integration.deleted"
+	AuditActionIntegrationUpdated      EntityAuditAction = "integration.updated"
+	AuditActionInvitationCreated       EntityAuditAction = "invitation.created"
+	AuditActionInvitationRevoked       EntityAuditAction = "invitation.revoked"
+	AuditActionLoginFailed             EntityAuditAction = "login.failed"
+	AuditActionLoginSuccess            EntityAuditAction = "login.success"
+	AuditActionLogoutSuccess           EntityAuditAction = "logout.success"
+	AuditActionMaintApproved           EntityAuditAction = "maintenance.approved"
+	AuditActionMaintCanceled           EntityAuditAction = "maintenance.canceled"
+	AuditActionMaintCompleted          EntityAuditAction = "maintenance.completed"
+	AuditActionMaintCreated            EntityAuditAction = "maintenance.created"
+	AuditActionMaintStarted            EntityAuditAction = "maintenance.started"
+	AuditActionMaintStepCanceled       EntityAuditAction = "maintenance_step.canceled"
+	AuditActionMaintStepCompleted      EntityAuditAction = "maintenance_step.completed"
+	AuditActionMaintStepStarted        EntityAuditAction = "maintenance_step.started"
+	AuditActionMaintUpdated            EntityAuditAction = "maintenance.updated"
+	AuditActionNotifyChannelArchived   EntityAuditAction = "notify_channel.archived"
+	AuditActionNotifyChannelCreated    EntityAuditAction = "notify_channel.created"
+	AuditActionNotifyChannelUnarchived EntityAuditAction = "notify_channel.unarchived"
+	AuditActionNotifyChannelUpdated    EntityAuditAction = "notify_channel.updated"
+	AuditActionPasswordChanged         EntityAuditAction = "password.changed"
+	AuditActionPasswordReset           EntityAuditAction = "password.reset"
+	AuditActionProviderLinked          EntityAuditAction = "provider.linked"
+	AuditActionResourceArchived        EntityAuditAction = "resource.archived"
+	AuditActionResourceCreated         EntityAuditAction = "resource.created"
+	AuditActionResourceUnarchived      EntityAuditAction = "resource.unarchived"
+	AuditActionResourceUpdated         EntityAuditAction = "resource.updated"
+	AuditActionRolesChanged            EntityAuditAction = "roles.changed"
+	AuditActionSessionRevoked          EntityAuditAction = "session.revoked"
+	AuditActionUserBlocked             EntityAuditAction = "user.blocked"
+	AuditActionUserTagsChanged         EntityAuditAction = "user.tags_changed"
+	AuditActionUserUnblocked           EntityAuditAction = "user.unblocked"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditAction enum.
@@ -146,6 +172,10 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionIntegrationDeleted:
 		return true
 	case AuditActionIntegrationUpdated:
+		return true
+	case AuditActionInvitationCreated:
+		return true
+	case AuditActionInvitationRevoked:
 		return true
 	case AuditActionLoginFailed:
 		return true
@@ -171,13 +201,31 @@ func (e EntityAuditAction) Valid() bool {
 		return true
 	case AuditActionMaintUpdated:
 		return true
+	case AuditActionNotifyChannelArchived:
+		return true
+	case AuditActionNotifyChannelCreated:
+		return true
+	case AuditActionNotifyChannelUnarchived:
+		return true
+	case AuditActionNotifyChannelUpdated:
+		return true
 	case AuditActionPasswordChanged:
 		return true
 	case AuditActionPasswordReset:
 		return true
 	case AuditActionProviderLinked:
 		return true
+	case AuditActionResourceArchived:
+		return true
+	case AuditActionResourceCreated:
+		return true
+	case AuditActionResourceUnarchived:
+		return true
+	case AuditActionResourceUpdated:
+		return true
 	case AuditActionRolesChanged:
+		return true
+	case AuditActionSessionRevoked:
 		return true
 	case AuditActionUserBlocked:
 		return true
@@ -192,10 +240,13 @@ func (e EntityAuditAction) Valid() bool {
 
 // Defines values for EntityAuditEntityType.
 const (
-	AuditEntityTypeAuthSetting EntityAuditEntityType = "auth_setting"
-	AuditEntityTypeIntegration EntityAuditEntityType = "integration"
-	AuditEntityTypeMaintenance EntityAuditEntityType = "maintenance"
-	AuditEntityTypeUser        EntityAuditEntityType = "user"
+	AuditEntityTypeAuthSetting   EntityAuditEntityType = "auth_setting"
+	AuditEntityTypeIntegration   EntityAuditEntityType = "integration"
+	AuditEntityTypeInvitation    EntityAuditEntityType = "invitation"
+	AuditEntityTypeMaintenance   EntityAuditEntityType = "maintenance"
+	AuditEntityTypeNotifyChannel EntityAuditEntityType = "notify_channel"
+	AuditEntityTypeResource      EntityAuditEntityType = "resource"
+	AuditEntityTypeUser          EntityAuditEntityType = "user"
 )
 
 // Valid indicates whether the value is a known member of the EntityAuditEntityType enum.
@@ -205,7 +256,13 @@ func (e EntityAuditEntityType) Valid() bool {
 		return true
 	case AuditEntityTypeIntegration:
 		return true
+	case AuditEntityTypeInvitation:
+		return true
 	case AuditEntityTypeMaintenance:
+		return true
+	case AuditEntityTypeNotifyChannel:
+		return true
+	case AuditEntityTypeResource:
 		return true
 	case AuditEntityTypeUser:
 		return true
@@ -216,6 +273,12 @@ func (e EntityAuditEntityType) Valid() bool {
 
 // Defines values for GetApiV1AuditLogParamsAction.
 const (
+	AuthMethodToggled        GetApiV1AuditLogParamsAction = "auth_method.toggled"
+	IntegrationCreated       GetApiV1AuditLogParamsAction = "integration.created"
+	IntegrationDeleted       GetApiV1AuditLogParamsAction = "integration.deleted"
+	IntegrationUpdated       GetApiV1AuditLogParamsAction = "integration.updated"
+	InvitationCreated        GetApiV1AuditLogParamsAction = "invitation.created"
+	InvitationRevoked        GetApiV1AuditLogParamsAction = "invitation.revoked"
 	LoginFailed              GetApiV1AuditLogParamsAction = "login.failed"
 	LoginSuccess             GetApiV1AuditLogParamsAction = "login.success"
 	LogoutSuccess            GetApiV1AuditLogParamsAction = "logout.success"
@@ -228,14 +291,39 @@ const (
 	MaintenanceStepCompleted GetApiV1AuditLogParamsAction = "maintenance_step.completed"
 	MaintenanceStepStarted   GetApiV1AuditLogParamsAction = "maintenance_step.started"
 	MaintenanceUpdated       GetApiV1AuditLogParamsAction = "maintenance.updated"
+	NotifyChannelArchived    GetApiV1AuditLogParamsAction = "notify_channel.archived"
+	NotifyChannelCreated     GetApiV1AuditLogParamsAction = "notify_channel.created"
+	NotifyChannelUnarchived  GetApiV1AuditLogParamsAction = "notify_channel.unarchived"
+	NotifyChannelUpdated     GetApiV1AuditLogParamsAction = "notify_channel.updated"
+	PasswordChanged          GetApiV1AuditLogParamsAction = "password.changed"
+	PasswordReset            GetApiV1AuditLogParamsAction = "password.reset"
+	ProviderLinked           GetApiV1AuditLogParamsAction = "provider.linked"
+	ResourceArchived         GetApiV1AuditLogParamsAction = "resource.archived"
+	ResourceCreated          GetApiV1AuditLogParamsAction = "resource.created"
+	ResourceUnarchived       GetApiV1AuditLogParamsAction = "resource.unarchived"
+	ResourceUpdated          GetApiV1AuditLogParamsAction = "resource.updated"
 	RolesChanged             GetApiV1AuditLogParamsAction = "roles.changed"
+	SessionRevoked           GetApiV1AuditLogParamsAction = "session.revoked"
 	UserBlocked              GetApiV1AuditLogParamsAction = "user.blocked"
+	UserTagsChanged          GetApiV1AuditLogParamsAction = "user.tags_changed"
 	UserUnblocked            GetApiV1AuditLogParamsAction = "user.unblocked"
 )
 
 // Valid indicates whether the value is a known member of the GetApiV1AuditLogParamsAction enum.
 func (e GetApiV1AuditLogParamsAction) Valid() bool {
 	switch e {
+	case AuthMethodToggled:
+		return true
+	case IntegrationCreated:
+		return true
+	case IntegrationDeleted:
+		return true
+	case IntegrationUpdated:
+		return true
+	case InvitationCreated:
+		return true
+	case InvitationRevoked:
+		return true
 	case LoginFailed:
 		return true
 	case LoginSuccess:
@@ -260,9 +348,35 @@ func (e GetApiV1AuditLogParamsAction) Valid() bool {
 		return true
 	case MaintenanceUpdated:
 		return true
+	case NotifyChannelArchived:
+		return true
+	case NotifyChannelCreated:
+		return true
+	case NotifyChannelUnarchived:
+		return true
+	case NotifyChannelUpdated:
+		return true
+	case PasswordChanged:
+		return true
+	case PasswordReset:
+		return true
+	case ProviderLinked:
+		return true
+	case ResourceArchived:
+		return true
+	case ResourceCreated:
+		return true
+	case ResourceUnarchived:
+		return true
+	case ResourceUpdated:
+		return true
 	case RolesChanged:
 		return true
+	case SessionRevoked:
+		return true
 	case UserBlocked:
+		return true
+	case UserTagsChanged:
 		return true
 	case UserUnblocked:
 		return true
@@ -283,11 +397,10 @@ type ApiauthmodelsAcceptInvitationWithPasswordRequest struct {
 // ApiauthmodelsAuditFacets defines model for apiauthmodels.AuditFacets.
 type ApiauthmodelsAuditFacets struct {
 	All         *int `json:"all,omitempty"`
-	Auth        *int `json:"auth,omitempty"`
-	Block       *int `json:"block,omitempty"`
-	Integration *int `json:"integration,omitempty"`
 	Maintenance *int `json:"maintenance,omitempty"`
-	Roles       *int `json:"roles,omitempty"`
+	Settings    *int `json:"settings,omitempty"`
+	SignIn      *int `json:"sign_in,omitempty"`
+	Users       *int `json:"users,omitempty"`
 }
 
 // ApiauthmodelsAuditLog defines model for apiauthmodels.AuditLog.
@@ -341,14 +454,19 @@ type ApiauthmodelsAuditLogMetadata struct {
 	// maintenance_step.* actions:
 	//   - maintenance.* / maintenance_step.*: maint_title;
 	//   - maintenance.updated: changes (before/after per changed scalar).
-	MaintTitle        *string   `json:"maint_title,omitempty"`
-	Roles             *[]string `json:"roles,omitempty"`
-	RolesAdded        *[]string `json:"roles_added,omitempty"`
-	RolesRemoved      *[]string `json:"roles_removed,omitempty"`
-	SessionId         *string   `json:"session_id,omitempty"`
-	TargetDisplayName *string   `json:"target_display_name,omitempty"`
-	TargetEmail       *string   `json:"target_email,omitempty"`
-	UserAgent         *string   `json:"user_agent,omitempty"`
+	MaintTitle *string `json:"maint_title,omitempty"`
+
+	// RevokeReason RevokeReason is why the system revoked a session, on session.revoked
+	// only. token_reuse: a rotated refresh token was replayed after its grace
+	// window, so the session was ended for every holder.
+	RevokeReason      *ApiauthmodelsAuditLogMetadataRevokeReason `json:"revoke_reason,omitempty"`
+	Roles             *[]string                                  `json:"roles,omitempty"`
+	RolesAdded        *[]string                                  `json:"roles_added,omitempty"`
+	RolesRemoved      *[]string                                  `json:"roles_removed,omitempty"`
+	SessionId         *string                                    `json:"session_id,omitempty"`
+	TargetDisplayName *string                                    `json:"target_display_name,omitempty"`
+	TargetEmail       *string                                    `json:"target_email,omitempty"`
+	UserAgent         *string                                    `json:"user_agent,omitempty"`
 }
 
 // ApiauthmodelsAuditLogMetadataLoginMethod LoginMethod is the credential that answered a sign-in. Absent on a
@@ -360,6 +478,11 @@ type ApiauthmodelsAuditLogMetadataLoginMethod string
 
 // ApiauthmodelsAuditLogMetadataLogoutKind defines model for ApiauthmodelsAuditLogMetadata.LogoutKind.
 type ApiauthmodelsAuditLogMetadataLogoutKind string
+
+// ApiauthmodelsAuditLogMetadataRevokeReason RevokeReason is why the system revoked a session, on session.revoked
+// only. token_reuse: a rotated refresh token was replayed after its grace
+// window, so the session was ended for every holder.
+type ApiauthmodelsAuditLogMetadataRevokeReason string
 
 // ApiauthmodelsAuditLogResponse defines model for apiauthmodels.AuditLogResponse.
 type ApiauthmodelsAuditLogResponse struct {

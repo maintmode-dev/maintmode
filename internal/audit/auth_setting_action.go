@@ -27,10 +27,10 @@ func (AuthMethodToggled) auditAction() entity.AuditAction {
 //
 // EntityType is assigned EXPLICITLY, and that is the whole reason this lives in
 // its own function rather than inline. Renderer.Render defaults the field to
-// AuditEntityTypeUser and every other arm of fillAuthPayload relies on that
-// default, so an arm that simply forgot would produce a perfectly plausible row
-// filed against the admin who threw the switch instead of the method they
-// changed -- a failure with no symptom.
+// AuditEntityTypeUser and every arm of fillSignInPayload and fillUsersPayload
+// relies on that default, so an arm that simply forgot would produce a
+// perfectly plausible row filed against the admin who threw the switch instead
+// of the method they changed -- a failure with no symptom.
 func fillAuthMethodToggledPayload(payload *entity.ProcessorTaskPayloadAuditWrite, a AuthMethodToggled) {
 	setActor(payload, a.Actor)
 

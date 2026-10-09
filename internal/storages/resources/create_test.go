@@ -33,6 +33,7 @@ func TestCreate(t *testing.T) {
 		created, err := store.Create(ctx, resource)
 		require.NoError(t, err)
 		require.NotNil(t, created)
+		deleteResourceOnCleanup(t, created.ID)
 
 		resource.ID = created.ID
 		resource.CreatedAt = created.CreatedAt
@@ -53,8 +54,9 @@ func TestCreate(t *testing.T) {
 			ExternalID:  lo.ToPtr(xuuid.NewString()),
 		}
 
-		_, err := store.Create(ctx, resource)
+		first, err := store.Create(ctx, resource)
 		require.NoError(t, err)
+		deleteResourceOnCleanup(t, first.ID)
 
 		_, err = store.Create(ctx, resource)
 		require.EqualError(t, err, apperr.ErrResourceAlreadyExists.Error())

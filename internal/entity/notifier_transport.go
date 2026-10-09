@@ -62,23 +62,25 @@ type NotifyChannel struct {
 
 // CreateNotifyChannelCmd is the command to register a new channel in the
 // catalog. ID is assigned by the DB, so it is not part of the input.
-// CreatedByUserID is the authenticated author captured from the access token.
+// Actor is the authenticated author captured from the access token: its id is
+// stamped as created_by, and it is the actor of the audit entry.
 type CreateNotifyChannelCmd struct {
 	Transport          NotifyTransport
 	TransportChannelID string
 	Name               string
 	Description        string
-	CreatedByUserID    uuid.UUID
+	Actor              *User
 }
 
 // UpdateNotifyChannelCmd is a partial update of a channel. A nil field is left
 // unchanged. Transport is intentionally absent: changing a channel's transport
 // would break notification history and existing subscriptions, so a new channel
-// must be created instead. UpdatedByUserID is the authenticated editor.
+// must be created instead. Actor is the authenticated editor: its id is stamped
+// as updated_by, and it is the actor of the audit entry.
 type UpdateNotifyChannelCmd struct {
 	ID                 uuid.UUID
 	Name               *string
 	Description        *string
 	TransportChannelID *string
-	UpdatedByUserID    uuid.UUID
+	Actor              *User
 }

@@ -218,12 +218,12 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rs/xid v1.2.1/go.mod h1:+uKXf+4Djp6Md1KODXJxgGQPKngRmWyn10oCKFzNHOQ=
 github.com/rs/zerolog v1.13.0/go.mod h1:YbFCdg8HfsridGWAh22vktObvhZbQsZXe4/zB0OKkWU=
 github.com/rs/zerolog v1.15.0/go.mod h1:xYTKnLHcpfU2225ny5qZjxnj9NvkumZYjJHlAThCjNc=
-github.com/ruko1202/goque v0.8.10 h1:1K65omUwzAXH6HbiyWCdb/btTpIcPtih/zgzOabawR8=
-github.com/ruko1202/goque v0.8.10/go.mod h1:cMgbkck5iHNkmUVlx9udI7157IbjaPdbRtG8zL1Mum4=
+github.com/ruko1202/goque v0.8.11 h1:u6F9kg+V6csknLwvyReJG9+twhq1Ku28BuCA8inZ6Jw=
+github.com/ruko1202/goque v0.8.11/go.mod h1:cMgbkck5iHNkmUVlx9udI7157IbjaPdbRtG8zL1Mum4=
 github.com/ruko1202/swaggerui v0.5.0 h1:yLQ+39HK0eu9UaNavytsks9fkzyUnHu06g59WtNXVB4=
 github.com/ruko1202/swaggerui v0.5.0/go.mod h1:NDZyJKNThO7j+9jxc22dudQ75Uf+UAan/BCFkv0nDPU=
-github.com/ruko1202/xhttp v0.4.0 h1:nkt7zDRePkaDMLCFmP97GJY6mvsRKpRrcj7oA3ckExU=
-github.com/ruko1202/xhttp v0.4.0/go.mod h1:+D7ELvGQqiP5SPsBsZ9U+DfsvdW1gdpKGeLOhW0mtdA=
+github.com/ruko1202/xhttp v0.4.1 h1:BqynfZkLncy9fowo0B1mOebzaHDJ0wNYIGp9BrPgA4s=
+github.com/ruko1202/xhttp v0.4.1/go.mod h1:+D7ELvGQqiP5SPsBsZ9U+DfsvdW1gdpKGeLOhW0mtdA=
 github.com/ruko1202/xlog v0.5.1 h1:Nc6T+seiYZEyXZu47sAjd+LMU/GDmRpY/bmyZ1nOJKU=
 github.com/ruko1202/xlog v0.5.1/go.mod h1:vE41vaEJno2bhuoHShXwysXNVNKWHJMJNfP4fXEHcN8=
 github.com/sagikazarmark/locafero v0.12.0 h1:/NQhBAkUb4+fH1jivKHWusDYFjMOOKU88eegjfxfHb4=
@@ -350,8 +350,8 @@ golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug
 golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
 golang.org/x/net v0.10.0/go.mod h1:0qNGK6F8kojg2nk9dLZ2mShWaEBan6FAoqfSigmmuDg=
 golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
-golang.org/x/net v0.59.0 h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues=
-golang.org/x/net v0.59.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
+golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=
+golang.org/x/net v0.60.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
 golang.org/x/oauth2 v0.37.0 h1:JUlcxA8oAtauLfiH8FX2/FkAWHAdi0QtGCGc+hofE98=
 golang.org/x/oauth2 v0.37.0/go.mod h1:IxwZNxUULJmpBFf9K/9NTMSIfZZuvuTy1gGxhigP/58=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=

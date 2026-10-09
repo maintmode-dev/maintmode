@@ -24,6 +24,8 @@ func (s *Service) RevokeRefreshTokenByFamily(ctx context.Context, family uuid.UU
 		return err
 	}
 
+	s.revokeSessionAccessTokens(ctx, family)
+
 	return nil
 }
 
@@ -32,11 +34,13 @@ func (s *Service) RevokeRefreshTokenByUserID(ctx context.Context, userID uuid.UU
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshTokenByUserID")
 	defer span.End()
 
-	err := s.tokensStore.RevokeByUserID(ctx, userID)
+	families, err := s.tokensStore.RevokeByUserID(ctx, userID)
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh token", xfield.Error(err))
 		return err
 	}
+
+	s.revokeSessionAccessTokens(ctx, families...)
 
 	return nil
 }
@@ -47,10 +51,13 @@ func (s *Service) RevokeRefreshTokenByUserIDExceptFamily(ctx context.Context, us
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshTokenByUserIDExceptFamily")
 	defer span.End()
 
-	if err := s.tokensStore.RevokeByUserIDExceptFamily(ctx, userID, keep); err != nil {
+	families, err := s.tokensStore.RevokeByUserIDExceptFamily(ctx, userID, keep)
+	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh tokens", xfield.Error(err))
 		return err
 	}
+
+	s.revokeSessionAccessTokens(ctx, families...)
 
 	return nil
 }
@@ -58,10 +65,10 @@ func (s *Service) RevokeRefreshTokenByUserIDExceptFamily(ctx context.Context, us
 // FamilyByRefreshToken resolves the session a raw refresh token belongs to, and
 // verifies it belongs to the named user.
 //
-// This is how a caller names its OWN session: the family is not in the access
-// token (entity.AccessClaims carries no session field) and TokenPair.SessionID
-// is never serialized, so the refresh token is the only handle a client holds.
-// The same shape /logout already uses.
+// This is how a caller names its OWN session: TokenPair.SessionID is never
+// serialized, and the access token's sid is not trusted to pick a session to
+// spare, so the refresh token is the handle a client proves it holds. The same
+// shape /logout already uses.
 func (s *Service) FamilyByRefreshToken(
 	ctx context.Context,
 	refreshTokenRaw string,
@@ -91,9 +98,20 @@ func (s *Service) FamilyByRefreshToken(
 	return rt.Family, nil
 }
 
-func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string, accessClaims *entity.AccessClaims) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshToken")
+// RevokeFamilyByRefreshToken revokes the whole session a raw refresh token
+// belongs to, once the token is shown to belong to the access token's user, and
+// returns that session.
+//
+// The whole family rather than the presented row: a predecessor rotated a
+// moment earlier is still inside its grace window, and Refresh refuses it only
+// when no token of its family is live any more.
+func (s *Service) RevokeFamilyByRefreshToken(
+	ctx context.Context, refreshTokenRaw string, accessClaims *entity.AccessClaims,
+) (uuid.UUID, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeFamilyByRefreshToken")
 	defer span.End()
+
+	var family uuid.UUID
 
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
 		rt, err := s.tokensStore.GetByTokenHashForUpdate(ctx, xhash.HashSha256([]byte(refreshTokenRaw)))
@@ -114,14 +132,18 @@ func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string
 			return err
 		}
 
-		rt.Revoked = true
+		family = rt.Family
 
-		return s.UpdateRefreshToken(ctx, rt)
+		return s.tokensStore.RevokeFamily(ctx, rt.Family)
 	})
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh token", xfield.Error(err))
-		return err
+		return uuid.Nil, err
 	}
 
-	return nil
+	// After the commit, so a rolled-back revocation never cuts off a session
+	// that is still alive.
+	s.revokeSessionAccessTokens(ctx, family)
+
+	return family, nil
 }

@@ -68,11 +68,11 @@ func (i *Implementation) UpdateResource(c *echo.Context) error {
 	}
 
 	resource, err := i.resourcesSrv.UpdateResource(ctx, &entity.UpdateResourceCmd{
-		ID:              resourceID,
-		Name:            req.Name,
-		Description:     req.Description,
-		ExternalID:      req.ExternalID,
-		UpdatedByUserID: editor.ID,
+		ID:          resourceID,
+		Name:        req.Name,
+		Description: req.Description,
+		ExternalID:  req.ExternalID,
+		Actor:       editor,
 	})
 	if err != nil {
 		xlog.Error(ctx, "update resource failed", xfield.Error(err))

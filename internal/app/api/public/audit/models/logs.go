@@ -33,16 +33,26 @@ type AuditLog struct {
 //   - login_success / login_failed: ip, user_agent, session_id, login_method
 //     (+failure_reason for failed). login_method is absent on a failure that
 //     never established a credential, which is deliberate: see below;
-//   - logout_success: session_id, logout_kind (auto|manual);
+//   - logout_success: session_id (the session logged out from, the same id
+//     its login_success carries), logout_kind (auto|manual);
+//   - session.revoked: ip, user_agent, session_id, revoke_reason;
 //   - assigned / revoked: roles, target_email, target_display_name;
 //   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;
-//   - blocked / unblocked: target_email, target_display_name.
+//   - blocked / unblocked: target_email, target_display_name;
+//   - invitation.created / invitation.revoked: target_email (the invited
+//     address), roles (the roles the invitation grants);
+//   - resource.* / notify_channel.*: target_display_name (the row's name at
+//     event time), plus changes on *.updated.
 type AuditLogMetadata struct {
 	IP            string `json:"ip,omitempty"`
 	UserAgent     string `json:"user_agent,omitempty"`
 	SessionID     string `json:"session_id,omitempty"`
 	FailureReason string `json:"failure_reason,omitempty"`
 	LogoutKind    string `json:"logout_kind,omitempty" enums:"auto,manual"`
+	// RevokeReason is why the system revoked a session, on session.revoked
+	// only. token_reuse: a rotated refresh token was replayed after its grace
+	// window, so the session was ended for every holder.
+	RevokeReason string `json:"revoke_reason,omitempty" enums:"token_reuse"`
 	// LoginMethod is the credential that answered a sign-in. Absent on a
 	// failure where no credential verified -- in particular a wrong password
 	// against the break-glass address, which is labeled exactly like a wrong
@@ -63,7 +73,9 @@ type AuditLogMetadata struct {
 	Changes    []AuditLogFieldChange `json:"changes,omitempty"`
 }
 
-// AuditLogFieldChange is one before/after entry in a maintenance.updated diff.
+// AuditLogFieldChange is one before/after entry in a diff (maintenance.updated,
+// user.tags_changed, integration.updated, resource.updated,
+// notify_channel.updated).
 type AuditLogFieldChange struct {
 	Field string `json:"field"`
 	Old   string `json:"old,omitempty"`
@@ -71,14 +83,22 @@ type AuditLogFieldChange struct {
 }
 
 // AuditFacets carries per-category entry counts computed in the current
-// actor/date filter window (without the action filter).
+// actor/date filter window (without the action filter). Every action counts
+// toward exactly one category, so the four categories sum to All.
+//   - sign_in: login.success, login.failed, logout.success;
+//   - users: roles.changed, user.tags_changed, user.blocked, user.unblocked,
+//     password.changed, password.reset, provider.linked,
+//     session.revoked, invitation.created/revoked;
+//   - settings: auth_method.toggled, integration.created/updated/deleted,
+//     resource.created/updated/archived/unarchived,
+//     notify_channel.created/updated/archived/unarchived;
+//   - maintenance: maintenance.* and maintenance_step.*.
 type AuditFacets struct {
 	All         int64 `json:"all" example:"123"`
-	Auth        int64 `json:"auth" example:"42"`
-	Roles       int64 `json:"roles" example:"8"`
-	Block       int64 `json:"block" example:"1"`
+	SignIn      int64 `json:"sign_in" example:"42"`
+	Users       int64 `json:"users" example:"9"`
+	Settings    int64 `json:"settings" example:"4"`
 	Maintenance int64 `json:"maintenance" example:"17"`
-	Integration int64 `json:"integration" example:"3"`
 }
 
 type AuditLogResponse struct {

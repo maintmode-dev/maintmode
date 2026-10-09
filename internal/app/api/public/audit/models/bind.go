@@ -31,6 +31,7 @@ func toAPIAuditLogMetadata(m *entity.AuditMetadata) *AuditLogMetadata {
 		SessionID:         m.SessionID,
 		FailureReason:     string(m.FailureReason),
 		LogoutKind:        string(m.LogoutKind),
+		RevokeReason:      string(m.RevokeReason),
 		LoginMethod:       string(m.LoginMethod),
 		Roles:             m.Roles,
 		RolesAdded:        m.RolesAdded,
@@ -56,11 +57,10 @@ func ToAPIAuditLogResponse(page *entity.AuditLogsPage) *AuditLogResponse {
 		Total: page.Total,
 		Facets: AuditFacets{
 			All:         page.Facets.All,
-			Auth:        page.Facets.Auth,
-			Roles:       page.Facets.Roles,
-			Block:       page.Facets.Block,
+			SignIn:      page.Facets.SignIn,
+			Users:       page.Facets.Users,
+			Settings:    page.Facets.Settings,
 			Maintenance: page.Facets.Maintenance,
-			Integration: page.Facets.Integration,
 		},
 	}
 }

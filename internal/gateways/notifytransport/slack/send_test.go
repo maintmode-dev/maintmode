@@ -18,6 +18,11 @@ import (
 type postCall struct {
 	channel  string
 	threadTS string
+	text     string
+	// authorization is the Authorization header as received.
+	authorization string
+	// formToken reports whether the body carried a `token` field at all.
+	formToken bool
 }
 
 // slackStub stands in for the Slack API. The real client is built against it
@@ -41,9 +46,13 @@ func newSlackStub(t *testing.T, respond func(call int) (status int, body string)
 
 		stub.mu.Lock()
 		n := len(stub.calls)
+		_, formToken := r.PostForm["token"]
 		stub.calls = append(stub.calls, postCall{
-			channel:  r.FormValue("channel"),
-			threadTS: r.FormValue("thread_ts"),
+			channel:       r.FormValue("channel"),
+			threadTS:      r.FormValue("thread_ts"),
+			text:          r.PostFormValue("text"),
+			authorization: r.Header.Get("Authorization"),
+			formToken:     formToken,
 		})
 		headers := stub.headers
 		stub.mu.Unlock()

@@ -58,8 +58,9 @@ type APIServerHandlers struct {
 }
 
 // APIServerSecurity holds the security primitives wired into middleware
-// chains: local JWT verification, local active-token checks on critical
-// mutations, and RBAC scenario authorization.
+// chains: local JWT verification, local active-token checks (revocation on
+// every request, the blocked-user check on mutations), and RBAC scenario
+// authorization.
 type APIServerSecurity struct {
 	TokenVerifier middlewares.TokenVerifier
 	TokenChecker  middlewares.ActiveTokenChecker
@@ -112,7 +113,7 @@ func NewAPIServer(
 			ReadTimeout:       timeouts.Read,
 			WriteTimeout:      timeouts.Write,
 			IdleTimeout:       timeouts.Idle,
-		}, opts...),
+		}, append(opts, withClientIPExtractor())...),
 		cfg:               cfg,
 		handlers:          handlers,
 		security:          security,
@@ -125,12 +126,15 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	rootGr := s.Echo().Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 
-	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler,
-		xhttpserver.RequestLoggingMiddlewareWithSanitizer(middlewares.NewRequestSanitizer()))
+	// No request logger on the route itself: in echo v5 a group route,
+	// RouteNotFound included, already runs the group middleware, and the base
+	// chain above carries the logger. A second one here logged every 404 twice
+	// under the same request_id (TestRequestLoggingWiring).
+	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler)
 
 	// The /api/v1 base group carries NO blanket access-token gate: the auth module
 	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)
-	// that must stay unauthenticated. Each subgroup applies RequireAccessToken (or
+	// that must stay unauthenticated. Each subgroup applies requireActiveUser (or
 	// not) for itself.
 	//
 	// The license block gate is NOT applied here: the whole auth module — both its
@@ -151,8 +155,9 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 
 // uiV1Middlewares builds the middleware chain guarding the /ui/v1 screen group.
 // It is a named function rather than an inline argument list because the ORDER
-// is the contract: the rate limiter keys on the user that RequireAccessToken
-// puts in the context, so it has to come last. Mounted ahead of the token gate
+// is the contract: the rate limiter keys on the user that the token gate
+// (requireActiveUser, which refuses a revoked token on reads too) puts in the
+// context, so it has to come last. Mounted ahead of the token gate
 // it would find an empty context, fall back to the remote address, and degrade
 // to an IP-keyed limiter — no error, no log, just a limiter that punishes a
 // whole office behind one NAT for one person's traffic. TestUIRateLimitWiring
@@ -165,7 +170,7 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 // change the test exists to catch.
 func (s *APIServer) uiV1Middlewares(rateLimiter echo.MiddlewareFunc) []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
-		middlewares.RequireAccessToken(s.security.TokenVerifier),
+		s.requireActiveUser(),
 		middlewares.RequireLicenseNotSuspended(s.security.License),
 		rateLimiter,
 	}
@@ -175,11 +180,13 @@ func (s *APIServer) scenarioMW(scenario entity.AuthzScenario) echo.MiddlewareFun
 	return middlewares.RequireScenario(s.security.Authorizer, scenario)
 }
 
-// requireActiveUser authenticates the request and, for every non-safe method,
-// re-checks the token against server-side state (see RequireActiveToken). It is
-// one middleware rather than two so that a group cannot be given the first half
-// without the second: RBAC on a write must see the user's stored roles, never
-// the ones a revoked or blocked user's token still carries.
+// requireActiveUser authenticates the request and re-checks the token against
+// server-side state (see RequireActiveToken): revocation on every request, the
+// blocked-user check and stored roles on writes. It is one middleware rather
+// than two so that a group cannot be given the first half without the second: a
+// revoked token must not read, and RBAC on a write must see the user's stored
+// roles, never the ones a revoked or blocked user's token still carries. Every
+// token-gated group mounts it; only logout takes RequireAccessToken alone.
 func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
 	authenticate := middlewares.RequireAccessToken(s.security.TokenVerifier)
 	ensureActive := middlewares.RequireActiveToken(s.security.TokenChecker)
@@ -337,7 +344,7 @@ func (s *APIServer) providersRoute(gr *echo.Group, meta *buildmeta.AppBuildMeta)
 }
 
 // apiV1Group registers the core (maintenance/resource/notify/userpicker) routes.
-// Each subgroup gates itself with RequireAccessToken — the /api/v1 base group
+// Each subgroup gates itself with requireActiveUser — the /api/v1 base group
 // carries no blanket gate (the auth public routes share it).
 //
 // The license block gate wraps ONLY these business routes (not the auth module):
@@ -605,7 +612,7 @@ func (s *APIServer) uiV1Group(gr *echo.Group) {
 		s.scenarioMW(entity.AuthzScenarioMaintenanceRead))
 	// Gated on approve rather than read: a page called "awaiting my approval" is
 	// not a page a guest sees empty, it is a page a guest does not have. Plain
-	// scenarioMW, no introspection — that is reserved for critical mutations.
+	// scenarioMW on the token's roles: reads get the revocation check only.
 	gr.Add(http.MethodGet, "/approvals", s.handlers.Approvals.ListApprovals,
 		s.scenarioMW(entity.AuthzScenarioMaintenanceApprove))
 }

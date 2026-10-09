@@ -46,7 +46,7 @@ func TestResetPassword(t *testing.T) {
 
 		require.NoError(t, srv.ResetPassword(ctx, resetCmd(user.Email)))
 
-		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1")
+		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.Error(t, err, "a reset evicts every session, including the caller's")
 
 		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{

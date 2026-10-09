@@ -170,9 +170,10 @@ type CreateResourceCmd struct {
 	Name        string
 	Description string
 	ExternalID  *string
-	// CreatedByUserID is the author: the authenticated user from the access
-	// token. The create path always requires an authenticated user.
-	CreatedByUserID uuid.UUID
+	// Actor is the author: the authenticated user from the access token. Its
+	// id is stamped as created_by, and it is the actor of the audit entry. The
+	// create path always requires an authenticated user.
+	Actor *User
 }
 
 // UpdateResourceCmd describes a partial update of a resource. Each optional
@@ -183,9 +184,10 @@ type UpdateResourceCmd struct {
 	Name        *string
 	Description *string
 	ExternalID  *string
-	// UpdatedByUserID is the editor: the authenticated user from the access
-	// token. Recorded on every update.
-	UpdatedByUserID uuid.UUID
+	// Actor is the editor: the authenticated user from the access token. Its
+	// id is stamped as updated_by on every update, and it is the actor of the
+	// audit entry.
+	Actor *User
 }
 
 // ListResourcesCmd describes a paginated resource listing request.

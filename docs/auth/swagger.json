@@ -24,24 +24,20 @@
                         "example": 123,
                         "type": "integer"
                     },
-                    "auth": {
-                        "example": 42,
-                        "type": "integer"
-                    },
-                    "block": {
-                        "example": 1,
-                        "type": "integer"
-                    },
-                    "integration": {
-                        "example": 3,
-                        "type": "integer"
-                    },
                     "maintenance": {
                         "example": 17,
                         "type": "integer"
                     },
-                    "roles": {
-                        "example": 8,
+                    "settings": {
+                        "example": 4,
+                        "type": "integer"
+                    },
+                    "sign_in": {
+                        "example": 42,
+                        "type": "integer"
+                    },
+                    "users": {
+                        "example": 9,
                         "type": "integer"
                     }
                 },
@@ -135,6 +131,13 @@
                     },
                     "maint_title": {
                         "description": "Maintenance action fields. Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.* / maintenance_step.*: maint_title;\n  - maintenance.updated: changes (before/after per changed scalar).",
+                        "type": "string"
+                    },
+                    "revoke_reason": {
+                        "description": "RevokeReason is why the system revoked a session, on session.revoked\nonly. token_reuse: a rotated refresh token was replayed after its grace\nwindow, so the session was ended for every holder.",
+                        "enum": [
+                            "token_reuse"
+                        ],
                         "type": "string"
                     },
                     "roles": {
@@ -754,6 +757,7 @@
                     "password.changed",
                     "password.reset",
                     "provider.linked",
+                    "session.revoked",
                     "roles.changed",
                     "user.blocked",
                     "user.unblocked",
@@ -770,7 +774,17 @@
                     "integration.created",
                     "integration.updated",
                     "integration.deleted",
-                    "auth_method.toggled"
+                    "auth_method.toggled",
+                    "invitation.created",
+                    "invitation.revoked",
+                    "resource.created",
+                    "resource.updated",
+                    "resource.archived",
+                    "resource.unarchived",
+                    "notify_channel.created",
+                    "notify_channel.updated",
+                    "notify_channel.archived",
+                    "notify_channel.unarchived"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
@@ -780,6 +794,7 @@
                     "AuditActionPasswordChanged",
                     "AuditActionPasswordReset",
                     "AuditActionProviderLinked",
+                    "AuditActionSessionRevoked",
                     "AuditActionRolesChanged",
                     "AuditActionUserBlocked",
                     "AuditActionUserUnblocked",
@@ -796,7 +811,17 @@
                     "AuditActionIntegrationCreated",
                     "AuditActionIntegrationUpdated",
                     "AuditActionIntegrationDeleted",
-                    "AuditActionAuthMethodToggled"
+                    "AuditActionAuthMethodToggled",
+                    "AuditActionInvitationCreated",
+                    "AuditActionInvitationRevoked",
+                    "AuditActionResourceCreated",
+                    "AuditActionResourceUpdated",
+                    "AuditActionResourceArchived",
+                    "AuditActionResourceUnarchived",
+                    "AuditActionNotifyChannelCreated",
+                    "AuditActionNotifyChannelUpdated",
+                    "AuditActionNotifyChannelArchived",
+                    "AuditActionNotifyChannelUnarchived"
                 ]
             },
             "entity.AuditEntityType": {
@@ -804,14 +829,20 @@
                     "user",
                     "maintenance",
                     "integration",
-                    "auth_setting"
+                    "auth_setting",
+                    "invitation",
+                    "resource",
+                    "notify_channel"
                 ],
                 "type": "string",
                 "x-enum-varnames": [
                     "AuditEntityTypeUser",
                     "AuditEntityTypeMaintenance",
                     "AuditEntityTypeIntegration",
-                    "AuditEntityTypeAuthSetting"
+                    "AuditEntityTypeAuthSetting",
+                    "AuditEntityTypeInvitation",
+                    "AuditEntityTypeResource",
+                    "AuditEntityTypeNotifyChannel"
                 ]
             },
             "entity.JWK": {
@@ -985,9 +1016,16 @@
                                 "login.success",
                                 "login.failed",
                                 "logout.success",
+                                "password.changed",
+                                "password.reset",
+                                "provider.linked",
+                                "session.revoked",
                                 "roles.changed",
                                 "user.blocked",
                                 "user.unblocked",
+                                "user.tags_changed",
+                                "invitation.created",
+                                "invitation.revoked",
                                 "maintenance.created",
                                 "maintenance.updated",
                                 "maintenance.approved",
@@ -996,7 +1034,19 @@
                                 "maintenance.canceled",
                                 "maintenance_step.started",
                                 "maintenance_step.completed",
-                                "maintenance_step.canceled"
+                                "maintenance_step.canceled",
+                                "integration.created",
+                                "integration.updated",
+                                "integration.deleted",
+                                "auth_method.toggled",
+                                "resource.created",
+                                "resource.updated",
+                                "resource.archived",
+                                "resource.unarchived",
+                                "notify_channel.created",
+                                "notify_channel.updated",
+                                "notify_channel.archived",
+                                "notify_channel.unarchived"
                             ],
                             "type": "string"
                         }
@@ -1753,7 +1803,7 @@
         },
         "/api/v1/logout": {
             "post": {
-                "description": "Revokes the current refresh token and blacklists the access token.",
+                "description": "Ends the current session: every token of the session the refresh token belongs to, and of the session the access token was issued for, is revoked, and the access token is blacklisted. The refresh token may be empty; the access token alone then ends its session.",
                 "parameters": [
                     {
                         "description": "Bearer access token",

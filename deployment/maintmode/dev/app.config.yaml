@@ -322,6 +322,11 @@ task_processor:
   messaging:
     workers: 10
     max_attempts: 5
+    # Poll period of the emails a person waits for on screen (invitation.email,
+    # otp.email: sign-in and password-reset codes). Background processors keep
+    # goque's 30s default; these must not, or a code arrives half a reissue
+    # cooldown late. One indexed claim query per processor per tick. Default 1s.
+    user_email_fetch_tick: 1s
   maint_auto_cancel:
     # 5-field cron: "minute hour day-of-month month day-of-week".
     # "* * * * *" = every minute (every value in every field).
@@ -362,6 +367,20 @@ task_processor:
   # offset keeps this sweep out of the minute the three other daily jobs share.
   otp_prune:
     cron_spec: "15 3 * * *"
+    retention: 24h
+    batch_limit: 1000
+  # refresh_token_prune deletes refresh-token rows whose expires_at is older than
+  # retention. Revoked rows wait for the same threshold: until a row expires,
+  # reuse detection may still need it to recognize a replayed token. Because
+  # expires_at is issue time + jwt.refresh_token_ttl, and that TTL is validated
+  # to be at least jwt.session_max_lifetime, an eligible row always belongs to a
+  # session that is already over.
+  #
+  # The whole block is optional: an empty cron_spec falls back to "30 3 * * *",
+  # retention to 24h and batch_limit to 1000, so configs written before the
+  # sweep existed keep booting. A malformed cron_spec still aborts startup.
+  refresh_token_prune:
+    cron_spec: "30 3 * * *"
     retention: 24h
     batch_limit: 1000
 

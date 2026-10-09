@@ -9,20 +9,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/pkg/generated/maintmode/public/table"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
 // uniqueActor returns a per-run-unique actor so concurrent tests on the shared
-// DB never read each other's rows.
-func uniqueActor() string {
-	return "add-test-" + xuuid.NewString()
+// DB never read each other's rows, and deletes that actor's rows when the test
+// ends.
+func uniqueActor(t *testing.T) string {
+	t.Helper()
+
+	actor := "add-test-" + xuuid.NewString()
+	deleteAuditRowsOnCleanup(t, table.AuditLog.Actor, actor)
+
+	return actor
 }
 
 func TestAddLog_WritesCreatedAtFromEntry(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
 
-	actor := uniqueActor()
+	actor := uniqueActor(t)
 	occurred := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 
 	require.NoError(t, store.AddLog(ctx, &entity.AuditEntry{
@@ -48,7 +55,7 @@ func TestAddLog_IsIdempotentOnEventID(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
 
-	actor := uniqueActor()
+	actor := uniqueActor(t)
 	eventID := uuid.New()
 	entry := &entity.AuditEntry{
 		EventID:    eventID,
@@ -75,7 +82,7 @@ func TestAddLog_NilEventIDsDoNotConflict(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
 
-	actor := uniqueActor()
+	actor := uniqueActor(t)
 	// Two writes with no event_id (uuid.Nil → NULL column) must both persist:
 	// a plain unique index treats NULLs as distinct, so legacy/non-outbox writes
 	// never collide.
@@ -100,7 +107,7 @@ func TestAddLog_OrdersByCreatedAtDesc(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
 
-	actor := uniqueActor()
+	actor := uniqueActor(t)
 	t1 := time.Date(2026, 6, 15, 10, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 6, 15, 11, 0, 0, 0, time.UTC)
 
@@ -131,7 +138,7 @@ func TestAddLog_TieBreaksEqualCreatedAtDeterministically(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(db)
 
-	actor := uniqueActor()
+	actor := uniqueActor(t)
 	sameTime := time.Date(2026, 6, 15, 9, 0, 0, 0, time.UTC)
 
 	// Three rows with an identical created_at. Without an id tie-breaker their

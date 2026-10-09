@@ -3,8 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"os"
 	"testing"
 
@@ -52,6 +50,7 @@ var (
 
 const (
 	tokenIssuer = "test-issuer"
+	testKID     = "kid-1"
 )
 
 func TestMain(m *testing.M) {
@@ -184,6 +183,10 @@ type serviceDeps struct {
 	// returns the one the service reads -- for a test that overrides one answer
 	// of the real configuration and defers the rest to it.
 	wrapMethods func(AuthMethods) AuthMethods
+	// signingKey is the access-token signing key. Nil generates one; a test
+	// that signs tokens of its own -- shaped as older releases minted them --
+	// hands in the key it signs with.
+	signingKey *ecdsa.PrivateKey
 }
 
 func initServiceWithDeps(
@@ -209,15 +212,23 @@ func initServiceWithDeps(
 	}
 
 	txManager := dbtx.NewTxManager(db)
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
+	key := deps.signingKey
+	if key == nil {
+		key = newSigningKey(t)
+	}
 
+	// One blacklist for both services, as in production: the token service
+	// marks revoked sessions in it, Introspect reads them back.
+	blacklist := blacklisttoken.NewStore(valkey)
+
+	tokenCfg := cfg.JWT
+	tokenCfg.Issuer, tokenCfg.Kid = tokenIssuer, testKID
 	tokenSrv := token.NewService(
 		txManager,
 		refreshtoken.NewStore(db),
+		blacklist,
+		&tokenCfg,
 		key,
-		tokenIssuer,
-		"kid-1",
 	)
 
 	// Each service gets its own JWT config copy: parallel subtests tweak fields
@@ -253,7 +264,7 @@ func initServiceWithDeps(
 			loginProviders,
 		),
 		distributedlock.NewStore(valkey),
-		blacklisttoken.NewStore(valkey),
+		blacklist,
 		methods,
 		tokenSrv,
 		newTestAuditPublisher(t),

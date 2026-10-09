@@ -16,7 +16,7 @@ func fromDBUser(t *model.RefreshTokens) *entity.RefreshToken {
 		GraceTTL:         t.GraceTTL,
 		Revoked:          t.Revoked,
 		ReplacedBy:       t.ReplacedBy,
-		BoundIP:          t.BoundIP,
+		ClientIP:         t.ClientIP,
 		SessionStartedAt: t.SessionStartedAt,
 		CreatedAt:        t.CreatedAt,
 		UpdatedAt:        lo.FromPtr(t.UpdatedAt),
@@ -32,7 +32,7 @@ func toDBRefreshToken(t *entity.RefreshToken) *model.RefreshTokens {
 		GraceTTL:         t.GraceTTL,
 		Revoked:          t.Revoked,
 		ReplacedBy:       t.ReplacedBy,
-		BoundIP:          t.BoundIP,
+		ClientIP:         t.ClientIP,
 		SessionStartedAt: t.SessionStartedAt,
 	}
 }

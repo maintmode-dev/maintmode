@@ -35,7 +35,7 @@ func TestCreateChannel_TransportGuard(t *testing.T) {
 			TransportChannelID: t.Name() + "-" + xuuid.NewString(),
 			Name:               t.Name() + "-" + xuuid.NewString(),
 			Description:        "guard test",
-			CreatedByUserID:    uuid.New(),
+			Actor:              &entity.User{ID: uuid.New(), Email: "guard@example.com"},
 		}
 	}
 

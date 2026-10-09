@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jet/jet/v2/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -46,4 +47,34 @@ func insertLogAt(ctx context.Context, t *testing.T, marker string, createdAt tim
 
 	_, err := stmt.ExecContext(ctx, db)
 	require.NoError(t, err)
+}
+
+// deleteAuditRowsOnCleanup removes, when the test ends, every audit row whose
+// column equals value. The audit tests write to the shared dev database, and a
+// row left behind is not inert: it shows up in the dev stand's audit screen
+// and in anything captured from it (a UI wire-fixture capture once recorded
+// `prune-expired-<uuid>` rows as if they were real actions). Each test scopes
+// its rows by a unique marker or actor, so that value is also the exact
+// cleanup key.
+func deleteAuditRowsOnCleanup(t *testing.T, column postgres.ColumnString, value string) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		// Not t.Context(): it is already canceled when cleanups run.
+		_, err := table.AuditLog.DELETE().
+			WHERE(column.EQ(postgres.String(value))).
+			ExecContext(context.Background(), db)
+		require.NoError(t, err, "clean up audit rows where %s = %q", column.Name(), value)
+	})
+}
+
+// newMarker returns a per-run unique action marker for the retention tests and
+// deletes every row carrying it when the test ends.
+func newMarker(t *testing.T, prefix string) string {
+	t.Helper()
+
+	marker := prefix + xuuid.NewString()
+	deleteAuditRowsOnCleanup(t, table.AuditLog.Action, marker)
+
+	return marker
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/goque_processors/licenseheartbeatprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/otpemailprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/otppruneprocessor"
+	"github.com/ruko1202/maintmode/internal/goque_processors/refreshtokenpruneprocessor"
 	"github.com/ruko1202/maintmode/internal/goque_processors/reminderprocessor"
 	"github.com/ruko1202/maintmode/internal/pkg/secrets"
 	"github.com/ruko1202/maintmode/internal/services/otp"
@@ -27,9 +28,9 @@ import (
 // NewTaskProcessors builds the single goque worker for the maintmode process and
 // registers every task type the merged process owns: maint.reminder,
 // maint.auto.cancel (+ cron), invitation.email, otp.email, audit.write,
-// audit.prune (+ cron), the invitation rotate/prune pair (+ crons) and
-// otp.prune (+ cron), plus license.heartbeat (+ cron) when SaaS license mode is
-// enabled.
+// audit.prune (+ cron), the invitation rotate/prune pair (+ crons),
+// otp.prune (+ cron) and refresh_token.prune (+ cron), plus license.heartbeat
+// (+ cron) when SaaS license mode is enabled.
 // Everything is registered on one registrar, and verify() runs once at the end to
 // assert the registered set matches entity.ExpectedProcessorTaskTypes for this
 // process's toggles.
@@ -95,10 +96,10 @@ func NewTaskProcessors(
 	reg.RegisterProcessor(
 		entity.ProcessorTaskInvitationEmailSend,
 		asyncsenderprocessor.NewTaskProcessor(services.MessageSender),
-		messagingProcessorOpts(cfg.Messaging, 0)...,
+		userEmailProcessorOpts(cfg.Messaging)...,
 	)
 
-	// otp.email: one-time sign-in codes. Its own type and its own processor,
+	// otp.email: one-time codes — sign-in and password reset alike. Its own type and its own processor,
 	// because the payload carries the code sealed rather than a rendered body --
 	// the generic sender could not decode it, and rendering happens here, at
 	// delivery, so the plaintext never sits in the queue.
@@ -110,7 +111,7 @@ func NewTaskProcessors(
 			services.MessageSender,
 			otp.TTL(authCfg),
 		),
-		messagingProcessorOpts(cfg.Messaging, 0)...,
+		userEmailProcessorOpts(cfg.Messaging)...,
 	)
 
 	// audit.write: domain events published via auditpublisher.Publish land here as
@@ -191,6 +192,10 @@ func NewTaskProcessors(
 		return nil, err
 	}
 
+	if err := registerRefreshTokenPrune(reg, cfg, services); err != nil {
+		return nil, err
+	}
+
 	if err := reg.verify(entity.ExpectedProcessorTaskTypes(licenseEnabled)); err != nil {
 		return nil, err
 	}
@@ -228,6 +233,39 @@ func registerOTPPrune(reg *processorRegistrar, cfg config.TaskProcessorConfig, s
 	)
 	if err != nil {
 		return fmt.Errorf("failed to build otp-prune cron job: %w", err)
+	}
+	reg.RegisterPeriodicJob(pruneJob)
+
+	return nil
+}
+
+// registerRefreshTokenPrune registers the refresh-token retention sweep: a
+// daily cron job enqueues one task carrying the retention window and batch
+// limit, and the processor deletes refresh_tokens rows whose expires_at is
+// older than that window, in bounded batches. Same shape as otp.prune: one
+// worker, day-bucketed external id.
+//
+// Unlike its siblings the cron spec falls back in code when config leaves it
+// empty. The key arrived after self-hosted configs were already written, and a
+// sweep nobody configured must not stop an upgraded instance from booting. A
+// malformed spec still aborts startup.
+func registerRefreshTokenPrune(reg *processorRegistrar, cfg config.TaskProcessorConfig, services *Services) error {
+	pruneCfg := cfg.RefreshTokenPrune
+
+	reg.RegisterProcessor(
+		entity.ProcessorTaskRefreshTokenPrune,
+		refreshtokenpruneprocessor.NewTaskProcessor(services.Token),
+		messagingProcessorOpts(cfg.Messaging, 1)...,
+	)
+
+	pruneJob, err := goque.NewCronJob(
+		entity.ProcessorTaskRefreshTokenPruneCron,
+		cmp.Or(pruneCfg.CronSpec, refreshtokenpruneprocessor.DefaultCronSpec),
+		time.UTC,
+		refreshtokenpruneprocessor.NewTaskFactory(pruneCfg.Retention, pruneCfg.BatchLimit),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build refresh-token-prune cron job: %w", err)
 	}
 	reg.RegisterPeriodicJob(pruneJob)
 
@@ -304,4 +342,15 @@ func messagingProcessorOpts(cfg config.TaskProcessorMessagingConfig, workers int
 	}
 
 	return opts
+}
+
+// userEmailProcessorOpts is messagingProcessorOpts for the processors whose
+// email a person is waiting for (invitation.email, otp.email): same workers and
+// attempts, but polled on UserEmailFetchTickOrDefault (~1s) instead of the 30s
+// background tick, so a code requested on screen is picked up at once rather
+// than up to half a reissue cooldown later.
+func userEmailProcessorOpts(cfg config.TaskProcessorMessagingConfig) []goque.ProcessorOpts {
+	cfg.FetchTick = cfg.UserEmailFetchTickOrDefault()
+
+	return messagingProcessorOpts(cfg, 0)
 }

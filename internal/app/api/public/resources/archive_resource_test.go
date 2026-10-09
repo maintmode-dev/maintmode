@@ -22,6 +22,7 @@ func TestArchiveResource(t *testing.T) {
 		resource := makeResource(t, impl)
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+		seedUser(t, c)
 		c.SetPathValues(echo.PathValues{{Name: "id", Value: resource.ID.String()}})
 
 		err := impl.ArchiveResource(c)
@@ -46,6 +47,7 @@ func TestArchiveResource(t *testing.T) {
 
 		for range 2 {
 			c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+			seedUser(t, c)
 			c.SetPathValues(echo.PathValues{{Name: "id", Value: resource.ID.String()}})
 
 			err := impl.ArchiveResource(c)
@@ -58,6 +60,7 @@ func TestArchiveResource(t *testing.T) {
 		t.Parallel()
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+		seedUser(t, c)
 		c.SetPathValues(echo.PathValues{{Name: "id", Value: uuid.New().String()}})
 
 		err := impl.ArchiveResource(c)
@@ -69,6 +72,7 @@ func TestArchiveResource(t *testing.T) {
 		t.Parallel()
 
 		c, rec := echotest.ContextConfig{}.ToContextRecorder(t)
+		seedUser(t, c)
 		c.SetPathValues(echo.PathValues{{Name: "id", Value: "not-a-uuid"}})
 
 		err := impl.ArchiveResource(c)

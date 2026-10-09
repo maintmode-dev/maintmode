@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 		dbtx.NewTxManager(db),
 		notifychannelstore.NewStore(db),
 		notifytargetsstore.NewStore(db),
+		&recordingAuditPublisher{},
 	)
 
 	os.Exit(m.Run())

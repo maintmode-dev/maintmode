@@ -248,9 +248,10 @@ func NewServices(ctx context.Context,
 		userSrv,
 		messageSender,
 		enforcement,
+		auditPublisher,
 	)
 
-	core, err := newCoreServices(ctx, cfg, stores, queue)
+	core, err := newCoreServices(ctx, cfg, stores, queue, auditPublisher)
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +302,7 @@ func NewServices(ctx context.Context,
 		Resources: resourcesSrv.NewService(
 			stores.TxManager,
 			stores.Resources,
+			auditPublisher,
 		),
 		RBAC:              authorizer,
 		JWTVerifier:       core.jwtVerifier,
@@ -343,9 +345,9 @@ func newTokenAndUserServices(
 	tokenSrv := token.NewService(
 		stores.TxManager,
 		stores.RefreshToken,
+		stores.TokenBlackList,
+		&cfg.JWT,
 		cfg.JWT.GeneratePrivateKey(),
-		cfg.JWT.Issuer,
-		cfg.JWT.Kid,
 	)
 
 	userSrv := user.NewService(
@@ -423,6 +425,7 @@ func newCoreServices(
 	cfg *config.AppConfig,
 	stores *Stores,
 	queue goque.TaskQueueManager,
+	auditPublisher *auditpublisher.Publisher,
 ) (*coreServices, error) {
 	conflictsService := conflictsSvr.NewService(
 		stores.Conflicts,
@@ -438,6 +441,7 @@ func newCoreServices(
 		stores.TxManager,
 		stores.ChannelCatalog,
 		stores.NotifyTargets,
+		auditPublisher,
 	)
 
 	// scheduler owns all goque enqueue/cancel plumbing; deferred reminders

@@ -24,10 +24,10 @@ type refreshTokensTable struct {
 	GraceTTL         postgres.ColumnTimestampz
 	Revoked          postgres.ColumnBool
 	ReplacedBy       postgres.ColumnString
-	BoundIP          postgres.ColumnString
 	CreatedAt        postgres.ColumnTimestampz
 	UpdatedAt        postgres.ColumnTimestampz
 	SessionStartedAt postgres.ColumnTimestampz
+	ClientIP         postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,13 +76,13 @@ func newRefreshTokensTableImpl(schemaName, tableName, alias string) refreshToken
 		GraceTTLColumn         = postgres.TimestampzColumn("grace_ttl")
 		RevokedColumn          = postgres.BoolColumn("revoked")
 		ReplacedByColumn       = postgres.StringColumn("replaced_by")
-		BoundIPColumn          = postgres.StringColumn("bound_ip")
 		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn        = postgres.TimestampzColumn("updated_at")
 		SessionStartedAtColumn = postgres.TimestampzColumn("session_started_at")
-		allColumns             = postgres.ColumnList{TokenHashColumn, UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn}
-		mutableColumns         = postgres.ColumnList{UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, BoundIPColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn}
-		defaultColumns         = postgres.ColumnList{RevokedColumn, BoundIPColumn, CreatedAtColumn, SessionStartedAtColumn}
+		ClientIPColumn         = postgres.StringColumn("client_ip")
+		allColumns             = postgres.ColumnList{TokenHashColumn, UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn, ClientIPColumn}
+		mutableColumns         = postgres.ColumnList{UserIDColumn, FamilyColumn, ExpiresAtColumn, GraceTTLColumn, RevokedColumn, ReplacedByColumn, CreatedAtColumn, UpdatedAtColumn, SessionStartedAtColumn, ClientIPColumn}
+		defaultColumns         = postgres.ColumnList{RevokedColumn, CreatedAtColumn, SessionStartedAtColumn, ClientIPColumn}
 	)
 
 	return refreshTokensTable{
@@ -96,10 +96,10 @@ func newRefreshTokensTableImpl(schemaName, tableName, alias string) refreshToken
 		GraceTTL:         GraceTTLColumn,
 		Revoked:          RevokedColumn,
 		ReplacedBy:       ReplacedByColumn,
-		BoundIP:          BoundIPColumn,
 		CreatedAt:        CreatedAtColumn,
 		UpdatedAt:        UpdatedAtColumn,
 		SessionStartedAt: SessionStartedAtColumn,
+		ClientIP:         ClientIPColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

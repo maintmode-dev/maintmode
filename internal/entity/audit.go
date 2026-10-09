@@ -28,6 +28,13 @@ const (
 	// login.success for a provider the trail never recorded connecting.
 	AuditActionProviderLinked AuditAction = "provider.linked"
 
+	// AuditActionSessionRevoked records the system ending a session on its
+	// own: a refresh token rotated out more than a grace window ago came back,
+	// which means two parties hold the session, so the whole family is revoked.
+	// Nobody pressed a button, so it is not logout.success; the actor is the
+	// session's owner, because it is their account that was acted upon.
+	AuditActionSessionRevoked AuditAction = "session.revoked"
+
 	AuditActionRolesChanged AuditAction = "roles.changed"
 
 	AuditActionUserBlocked   AuditAction = "user.blocked"
@@ -63,6 +70,29 @@ const (
 	// security event, and it is the one record that survives a rollback of the
 	// table itself.
 	AuditActionAuthMethodToggled AuditAction = "auth_method.toggled"
+
+	// Invitation actions. An invitation is a pending account: it names an
+	// address and the roles it will hold, so issuing or withdrawing one is a
+	// users event even though no user row exists yet. Re-inviting an address
+	// supersedes its pending invitation inside invitation.created; only an
+	// admin's explicit revoke is invitation.revoked.
+	AuditActionInvitationCreated AuditAction = "invitation.created"
+	AuditActionInvitationRevoked AuditAction = "invitation.revoked"
+
+	// Resource catalog actions: the admin-maintained list of things a
+	// maintenance can affect. Archive is soft (the row stays resolvable for
+	// maintenances that reference it), and unarchive reverses it.
+	AuditActionResourceCreated    AuditAction = "resource.created"
+	AuditActionResourceUpdated    AuditAction = "resource.updated"
+	AuditActionResourceArchived   AuditAction = "resource.archived"
+	AuditActionResourceUnarchived AuditAction = "resource.unarchived"
+
+	// Notify channel catalog actions: the destinations maintenance
+	// notifications can be sent to. Same soft archive as resources.
+	AuditActionNotifyChannelCreated    AuditAction = "notify_channel.created"
+	AuditActionNotifyChannelUpdated    AuditAction = "notify_channel.updated"
+	AuditActionNotifyChannelArchived   AuditAction = "notify_channel.archived"
+	AuditActionNotifyChannelUnarchived AuditAction = "notify_channel.unarchived"
 )
 
 // IsValid reports whether the action is one this deployment writes.
@@ -84,6 +114,7 @@ func (a AuditAction) IsValid() bool {
 		AuditActionLogoutSuccess,
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
+		AuditActionSessionRevoked,
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
 		AuditActionUserUnblocked,
@@ -100,7 +131,17 @@ func (a AuditAction) IsValid() bool {
 		AuditActionIntegrationCreated,
 		AuditActionIntegrationUpdated,
 		AuditActionIntegrationDeleted,
-		AuditActionAuthMethodToggled:
+		AuditActionAuthMethodToggled,
+		AuditActionInvitationCreated,
+		AuditActionInvitationRevoked,
+		AuditActionResourceCreated,
+		AuditActionResourceUpdated,
+		AuditActionResourceArchived,
+		AuditActionResourceUnarchived,
+		AuditActionNotifyChannelCreated,
+		AuditActionNotifyChannelUpdated,
+		AuditActionNotifyChannelArchived,
+		AuditActionNotifyChannelUnarchived:
 		return true
 	default:
 		return false
@@ -118,6 +159,12 @@ const (
 	// the row against the admin who threw the switch would make "what happened
 	// to this instance's sign-in configuration" unanswerable by entity.
 	AuditEntityTypeAuthSetting AuditEntityType = "auth_setting"
+	// AuditEntityTypeInvitation, AuditEntityTypeResource and
+	// AuditEntityTypeNotifyChannel key the invitation, resource-catalog and
+	// channel-catalog rows by the row's own id.
+	AuditEntityTypeInvitation    AuditEntityType = "invitation"
+	AuditEntityTypeResource      AuditEntityType = "resource"
+	AuditEntityTypeNotifyChannel AuditEntityType = "notify_channel"
 )
 
 // AuditEntry represents a structured audit log record.
@@ -350,6 +397,20 @@ const (
 	AuditLogoutKindAuto   = "auto"
 )
 
+// AuditRevokeReason names why the system revoked a session on session.revoked.
+// A narrow vocabulary owned by the audit trail, like AuditLogoutKind: the row
+// is read by people deciding whether an account was compromised, so the reason
+// is a fixed word rather than error text.
+type AuditRevokeReason string
+
+const (
+	// AuditRevokeReasonTokenReuse is a refresh token presented again after it
+	// had been rotated and its grace window had closed. Either the legitimate
+	// client or someone holding a copy is replaying it; the server cannot tell
+	// which, so it ends the session for both.
+	AuditRevokeReasonTokenReuse AuditRevokeReason = "token_reuse"
+)
+
 // AuditLoginMethod names the credential that answered for a sign-in.
 //
 // Deliberately NOT entity.AuthMethod, which looks like the obvious fit and is
@@ -396,20 +457,28 @@ const (
 //   - login_success / login_failed: IP, UserAgent, SessionID, LoginMethod
 //     (+FailureReason for failed). LoginMethod is empty on a failure that never
 //     established a credential -- see the field's own comment;
-//   - logout_success: SessionID, LogoutKind;
+//   - logout_success: SessionID (the family the logout was made from, as on
+//     login_success), LogoutKind;
+//   - session.revoked: IP, UserAgent (of the request that presented the
+//     replayed token), SessionID (the revoked family), RevokeReason;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
 //   - replaced: Roles (resulting set), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
 //   - blocked / unblocked: TargetEmail, TargetDisplayName;
 //   - user.tags_changed: Changes (before/after per changed tag), TargetEmail,
 //     TargetDisplayName;
 //   - integration.updated: Changes (before/after per changed config field and
-//     the enabled flag; a changed secret as a name-only flag, never a value).
+//     the enabled flag; a changed secret as a name-only flag, never a value);
+//   - invitation.created / invitation.revoked: TargetEmail (the invited
+//     address), Roles (the roles the invitation grants);
+//   - resource.* / notify_channel.*: TargetDisplayName (the row's name at
+//     event time), plus Changes on *.updated.
 type AuditMetadata struct {
 	IP            string             `json:"ip,omitempty"`
 	UserAgent     string             `json:"user_agent,omitempty"`
 	SessionID     string             `json:"session_id,omitempty"`
 	FailureReason AuditFailureReason `json:"failure_reason,omitempty"`
 	LogoutKind    AuditLogoutKind    `json:"logout_kind,omitempty"`
+	RevokeReason  AuditRevokeReason  `json:"revoke_reason,omitempty"`
 	// LoginMethod is the credential that answered, on login_success and
 	// login_failed only.
 	//
@@ -450,48 +519,75 @@ type AuditFieldChange struct {
 }
 
 // AuditCategory groups audit actions into the FE filter chips
-// (Auth / Roles / Block / Maintenance). The category -> actions mapping is owned
-// by the backend so facet counts and category expansion stay consistent.
+// (Sign-ins / Users / Settings / Maintenance). The category -> actions mapping
+// is owned by the backend so facet counts and category expansion stay
+// consistent. Every action belongs to exactly one category; none is left to
+// the "All" chip alone.
+//
+// The grouping answers "what was acted upon", not "which subsystem wrote the
+// row": a password reset is written by the auth module but changes one user's
+// account, so it sits with the other per-user changes.
 type AuditCategory string
 
 const (
-	AuditCategoryAuth        AuditCategory = "auth"
-	AuditCategoryRoles       AuditCategory = "roles"
-	AuditCategoryBlock       AuditCategory = "block"
+	// AuditCategorySignIn is sessions starting and ending: who got in, who was
+	// refused, who left.
+	AuditCategorySignIn AuditCategory = "sign_in"
+	// AuditCategoryUsers is an account changing: its roles, tags, block state,
+	// credentials, linked sign-in providers, or a session the system revoked.
+	AuditCategoryUsers AuditCategory = "users"
+	// AuditCategorySettings is the instance's own configuration changing:
+	// which sign-in methods it accepts, which integrations it talks to, and
+	// the resource and notify-channel catalogs maintenances draw from.
+	AuditCategorySettings    AuditCategory = "settings"
 	AuditCategoryMaintenance AuditCategory = "maintenance"
-	AuditCategoryIntegration AuditCategory = "integration"
 )
 
 var auditActionCategories = map[AuditAction]AuditCategory{
-	AuditActionLoginSuccess:  AuditCategoryAuth,
-	AuditActionLoginFailed:   AuditCategoryAuth,
-	AuditActionLogoutSuccess: AuditCategoryAuth,
+	AuditActionLoginSuccess:  AuditCategorySignIn,
+	AuditActionLoginFailed:   AuditCategorySignIn,
+	AuditActionLogoutSuccess: AuditCategorySignIn,
 
-	// Password events are auth, not "block": they are sign-in credential
-	// changes, and they belong on the same FE chip as the logins they affect.
-	AuditActionPasswordChanged: AuditCategoryAuth,
-	AuditActionPasswordReset:   AuditCategoryAuth,
+	AuditActionRolesChanged:    AuditCategoryUsers,
+	AuditActionUserTagsChanged: AuditCategoryUsers,
+	AuditActionUserBlocked:     AuditCategoryUsers,
+	AuditActionUserUnblocked:   AuditCategoryUsers,
+	// Password and provider-link events are users, not sign-in: they change an
+	// account's credentials rather than open or close a session, whether the
+	// owner did it or an admin did it for them.
+	AuditActionPasswordChanged: AuditCategoryUsers,
+	AuditActionPasswordReset:   AuditCategoryUsers,
 	// Without this entry the row never renders at all: fillPayload looks the
 	// category up BEFORE dispatching and answers ErrUnsupportedEvent when it is
 	// missing, so the renderer arm is never reached.
-	AuditActionProviderLinked: AuditCategoryAuth,
+	AuditActionProviderLinked: AuditCategoryUsers,
+	// An invitation is an account that does not exist yet: issuing one decides
+	// who may get in and with which roles.
+	AuditActionInvitationCreated: AuditCategoryUsers,
+	AuditActionInvitationRevoked: AuditCategoryUsers,
+	// A revoked session is filed with the account, not with sign-ins: no one
+	// signed in or out, the system acted on a user whose session was
+	// compromised -- the same question an operator answers on this chip.
+	AuditActionSessionRevoked: AuditCategoryUsers,
 
-	// Toggling a sign-in method is an auth event: it changes which credentials
-	// the instance accepts, so it belongs on the same chip as the sign-ins it
-	// governs.
-	AuditActionAuthMethodToggled: AuditCategoryAuth,
-
-	// user.tags_changed rides the roles category on purpose. Categories are the
-	// FE filter chips (see AuditCategory) and are fanned out by a switch in
-	// services/auditor/get_logs.go; a new category would need both that switch
-	// updated and a new chip in a UI that never asked for one. Roles is the
-	// closest fit in meaning — "an admin manages someone else's profile". Not
-	// Block: this is not a blocking action.
-	AuditActionRolesChanged:    AuditCategoryRoles,
-	AuditActionUserTagsChanged: AuditCategoryRoles,
-
-	AuditActionUserBlocked:   AuditCategoryBlock,
-	AuditActionUserUnblocked: AuditCategoryBlock,
+	// Toggling a sign-in method is a settings event, not a sign-in: it changes
+	// which credentials the whole instance accepts, the same kind of change as
+	// configuring an integration, and it belongs on the chip an operator opens
+	// to answer "who changed the configuration".
+	AuditActionAuthMethodToggled:  AuditCategorySettings,
+	AuditActionIntegrationCreated: AuditCategorySettings,
+	AuditActionIntegrationUpdated: AuditCategorySettings,
+	AuditActionIntegrationDeleted: AuditCategorySettings,
+	// The catalogs are configuration too: what a maintenance can affect and
+	// where its notifications can go.
+	AuditActionResourceCreated:         AuditCategorySettings,
+	AuditActionResourceUpdated:         AuditCategorySettings,
+	AuditActionResourceArchived:        AuditCategorySettings,
+	AuditActionResourceUnarchived:      AuditCategorySettings,
+	AuditActionNotifyChannelCreated:    AuditCategorySettings,
+	AuditActionNotifyChannelUpdated:    AuditCategorySettings,
+	AuditActionNotifyChannelArchived:   AuditCategorySettings,
+	AuditActionNotifyChannelUnarchived: AuditCategorySettings,
 
 	AuditActionMaintCreated:       AuditCategoryMaintenance,
 	AuditActionMaintUpdated:       AuditCategoryMaintenance,
@@ -502,10 +598,6 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	AuditActionMaintStepStarted:   AuditCategoryMaintenance,
 	AuditActionMaintStepCompleted: AuditCategoryMaintenance,
 	AuditActionMaintStepCanceled:  AuditCategoryMaintenance,
-
-	AuditActionIntegrationCreated: AuditCategoryIntegration,
-	AuditActionIntegrationUpdated: AuditCategoryIntegration,
-	AuditActionIntegrationDeleted: AuditCategoryIntegration,
 }
 
 // AuditActionCategory returns the facet category of action.
@@ -516,24 +608,38 @@ func AuditActionCategory(action AuditAction) (AuditCategory, bool) {
 }
 
 var auditCategoriesAction = map[AuditCategory][]AuditAction{
-	AuditCategoryAuth: {
+	AuditCategorySignIn: {
 		AuditActionLoginSuccess,
 		AuditActionLoginFailed,
 		AuditActionLogoutSuccess,
+	},
+	AuditCategoryUsers: {
+		AuditActionRolesChanged,
+		AuditActionUserTagsChanged,
+		AuditActionUserBlocked,
+		AuditActionUserUnblocked,
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
 		// Without this entry the row exists, renders, and is invisible under the
-		// auth filter -- this map is what the category filter reads.
+		// users filter -- this map is what the category filter reads.
 		AuditActionProviderLinked,
+		AuditActionInvitationCreated,
+		AuditActionInvitationRevoked,
+		AuditActionSessionRevoked,
+	},
+	AuditCategorySettings: {
 		AuditActionAuthMethodToggled,
-	},
-	AuditCategoryRoles: {
-		AuditActionRolesChanged,
-		AuditActionUserTagsChanged,
-	},
-	AuditCategoryBlock: {
-		AuditActionUserBlocked,
-		AuditActionUserUnblocked,
+		AuditActionIntegrationCreated,
+		AuditActionIntegrationUpdated,
+		AuditActionIntegrationDeleted,
+		AuditActionResourceCreated,
+		AuditActionResourceUpdated,
+		AuditActionResourceArchived,
+		AuditActionResourceUnarchived,
+		AuditActionNotifyChannelCreated,
+		AuditActionNotifyChannelUpdated,
+		AuditActionNotifyChannelArchived,
+		AuditActionNotifyChannelUnarchived,
 	},
 	AuditCategoryMaintenance: {
 		AuditActionMaintCreated,
@@ -545,11 +651,6 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		AuditActionMaintStepStarted,
 		AuditActionMaintStepCompleted,
 		AuditActionMaintStepCanceled,
-	},
-	AuditCategoryIntegration: {
-		AuditActionIntegrationCreated,
-		AuditActionIntegrationUpdated,
-		AuditActionIntegrationDeleted,
 	},
 }
 
@@ -583,11 +684,10 @@ func (f *AuditFilter) WithoutActions() *AuditFilter {
 // actor/date filter window. All is the count across every action.
 type AuditFacets struct {
 	All         int64
-	Auth        int64
-	Roles       int64
-	Block       int64
+	SignIn      int64
+	Users       int64
+	Settings    int64
 	Maintenance int64
-	Integration int64
 }
 
 // AuditLogsPage is one page of audit log entries plus pagination/facet

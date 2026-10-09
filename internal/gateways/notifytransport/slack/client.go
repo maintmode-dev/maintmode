@@ -48,7 +48,7 @@ func New(cfg Params) *Client {
 	}
 
 	opts := []slackgo.Option{
-		slackgo.OptionHTTPClient(client.NewClient(httpOpts...)),
+		slackgo.OptionHTTPClient(bearerClient{next: client.NewClient(httpOpts...), token: cfg.BotToken}),
 	}
 	if cfg.APIURL != "" {
 		opts = append(opts, slackgo.OptionAPIURL(cfg.APIURL))

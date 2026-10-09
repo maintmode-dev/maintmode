@@ -53,9 +53,13 @@ type ProviderLinked struct {
 
 func (ProviderLinked) auditAction() entity.AuditAction { return entity.AuditActionProviderLinked }
 
-// LogoutSuccess records a manual logout.
+// LogoutSuccess records a manual logout -- of one session, or of all of them.
 type LogoutSuccess struct {
-	User      *entity.User
+	User *entity.User
+	// SessionID is the session the logout was made from: its refresh-token
+	// family, the same id login.success records, so a session's sign-in and
+	// sign-out correlate. Only a token minted before access tokens carried
+	// their session leaves the jti here instead.
 	SessionID string
 }
 
@@ -79,6 +83,18 @@ type PasswordReset struct {
 }
 
 func (PasswordReset) auditAction() entity.AuditAction { return entity.AuditActionPasswordReset }
+
+// SessionRevoked records the system revoking a whole session because a
+// rotated refresh token was replayed past its grace window. User is the
+// session's owner -- the account acted upon -- even though no person
+// triggered it. Meta carries the replaying request's IP and user agent, the
+// revoked family as SessionID, and the reason.
+type SessionRevoked struct {
+	User *entity.User
+	Meta *entity.AuditMetadata
+}
+
+func (SessionRevoked) auditAction() entity.AuditAction { return entity.AuditActionSessionRevoked }
 
 // RolesChangeKind distinguishes the sub-kind of a roles change: assigned /
 // revoked / replaced. It is a classification of the action, not a domain entity.
