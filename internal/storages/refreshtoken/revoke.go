@@ -2,7 +2,6 @@ package refreshtoken
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/google/uuid"
@@ -21,7 +20,7 @@ func (s *Store) RevokeByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UU
 
 	whereExpr := table.RefreshTokens.UserID.EQ(postgres.UUID(userID))
 
-	return s.revokeReturningFamilies(ctx, whereExpr)
+	return s.revoke(ctx, whereExpr)
 }
 
 // RevokeByUserIDExceptFamily revokes every session of a user except one.
@@ -39,7 +38,7 @@ func (s *Store) RevokeByUserIDExceptFamily(ctx context.Context, userID, keep uui
 	whereExpr := table.RefreshTokens.UserID.EQ(postgres.UUID(userID)).
 		AND(table.RefreshTokens.Family.NOT_EQ(postgres.UUID(keep)))
 
-	return s.revokeReturningFamilies(ctx, whereExpr)
+	return s.revoke(ctx, whereExpr)
 }
 
 // RevokeFamilyOfUser revokes every token of one session of a user, and returns
@@ -55,7 +54,7 @@ func (s *Store) RevokeFamilyOfUser(ctx context.Context, family, userID uuid.UUID
 	whereExpr := table.RefreshTokens.Family.EQ(postgres.UUID(family)).
 		AND(table.RefreshTokens.UserID.EQ(postgres.UUID(userID)))
 
-	return s.revokeReturningFamilies(ctx, whereExpr)
+	return s.revoke(ctx, whereExpr)
 }
 
 // RevokeFamily revokes every token of a session.
@@ -65,36 +64,17 @@ func (s *Store) RevokeFamily(ctx context.Context, family uuid.UUID) error {
 
 	whereExpr := table.RefreshTokens.Family.EQ(postgres.UUID(family))
 
-	return s.revoke(ctx, whereExpr)
-}
-
-func (s *Store) revoke(ctx context.Context, whereExpr postgres.BoolExpression) error {
-	if whereExpr == nil {
-		return fmt.Errorf("invalid where expression")
-	}
-
-	stmt := table.RefreshTokens.
-		UPDATE(
-			table.RefreshTokens.Revoked,
-			table.RefreshTokens.UpdatedAt,
-		).
-		SET(
-			postgres.Bool(true),
-			postgres.NOW(),
-		).
-		WHERE(whereExpr)
-
-	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))
+	_, err := s.revoke(ctx, whereExpr)
 
 	return err
 }
 
-// revokeReturningFamilies is revoke for a sweep across sessions: the same
-// update, plus the distinct families of the rows it matched, read in the same
-// statement so a session created mid-sweep cannot be revoked here yet missed
-// by the caller. Families that were already over are included; marking one of
-// those again is harmless.
-func (s *Store) revokeReturningFamilies(ctx context.Context, whereExpr postgres.BoolExpression) ([]uuid.UUID, error) {
+// revoke marks the matched rows revoked and returns the distinct families of
+// those rows, read in the same statement so a session created mid-sweep cannot
+// be revoked here yet missed by the caller. Families that were already over are
+// included; marking one of those again is harmless. Callers that need no
+// families ignore them.
+func (s *Store) revoke(ctx context.Context, whereExpr postgres.BoolExpression) ([]uuid.UUID, error) {
 	stmt := table.RefreshTokens.
 		UPDATE(
 			table.RefreshTokens.Revoked,
