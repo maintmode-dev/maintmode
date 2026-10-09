@@ -30,11 +30,9 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent 
 	)
 	defer span.End()
 
-	// Hash the token once — used for DB lookup and as the lock key.
 	tokenHash := xhash.HashSha256([]byte(oldTokenRaw))
 
-	// Distributed lock prevents two concurrent refreshes of the same token
-	// from both succeeding and creating duplicate token chains.
+	// Two concurrent refreshes of one token must not both rotate it.
 	lockKey := distributedLockKey(tokenHash)
 	if err := s.locker.Acquire(ctx, lockKey, s.cfg.RefreshTokenrDistributedLockTTL); err != nil {
 		return nil, apperr.ErrLockBusy
@@ -55,12 +53,12 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent 
 		xfield.Any("family", rt.Family),
 	)
 
-	// Logout detection
+	// Revoked without a successor: the session was ended, not rotated.
 	if rt.Revoked && rt.ReplacedBy == nil {
 		return nil, apperr.ErrLogoutAlready
 	}
 
-	// Reuse detection — even if token is expired, reuse must revoke the family.
+	// A rotated token: a racing tab, or reuse -- checked even past expiry.
 	if rt.Revoked {
 		return s.reuseRevoked(ctx, now, rt, clientIP, userAgent)
 	}
@@ -87,15 +85,14 @@ func logClientChange(ctx context.Context, prev *entity.RefreshToken, clientIP st
 func (s *Service) reuseRevoked(
 	ctx context.Context, now time.Time, rt *entity.RefreshToken, clientIP, userAgent string,
 ) (*entity.TokenPair, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.buildTokenPairFromExisting")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.reuseRevoked")
 	defer span.End()
 
 	if now.Before(lo.FromPtr(rt.GraceTTL)) {
 		return s.refreshWithinGrace(ctx, rt)
 	}
 
-	// Outside grace period — reuse detection: revoke entire family.
-	xlog.Error(ctx, "token reuse detected",
+	xlog.Warn(ctx, "token reuse detected",
 		xfield.String("grace_period", s.cfg.RefreshTokenGracePeriod.String()),
 		xfield.String("now", now.String()),
 	)
@@ -164,52 +161,45 @@ func (s *Service) publishSessionRevoked(ctx context.Context, rt *entity.RefreshT
 func (s *Service) rotateRefreshToken(
 	ctx context.Context, oldRefreshToken *entity.RefreshToken, now time.Time, clientIP string,
 ) (*entity.TokenPair, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueNewRefreshToken")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.rotateRefreshToken")
 	defer span.End()
 
-	// Two independent limits, either of which ends the session. They are
-	// evaluated against timestamps on the row rather than a deadline stored at
-	// issue time, so lowering a limit takes effect on sessions that already
-	// exist instead of only on new ones.
-	//
-	// CreatedAt is the row's own age, and rotation inserts a new row, so it
-	// measures time since the last rotation -- i.e. idleness. SessionStartedAt
-	// is carried unchanged down the chain and measures time since sign-in.
+	// Either limit ends the session. Both are read from the row's timestamps,
+	// not a stored deadline, so lowering one affects existing sessions:
+	// CreatedAt is the last rotation (idleness), SessionStartedAt the sign-in.
 	ttls, err := s.sessionTTLsFor(ctx, oldRefreshToken.UserID)
 	if err != nil {
 		return nil, err
 	}
 
 	if idle := now.Sub(oldRefreshToken.CreatedAt); idle > s.cfg.SessionInactiveLifetime {
-		xlog.Error(ctx, "session idle past its limit",
+		xlog.Info(ctx, "session idle past its limit",
 			xfield.String("idle_for", idle.String()),
 			xfield.String("limit", s.cfg.SessionInactiveLifetime.String()),
 		)
 		return nil, apperr.ErrTokenExpired
 	}
 	if age := now.Sub(oldRefreshToken.SessionStartedAt); age > ttls.maxLifetime {
-		xlog.Error(ctx, "session past its maximum lifetime",
+		xlog.Info(ctx, "session past its maximum lifetime",
 			xfield.String("age", age.String()),
 			xfield.String("limit", ttls.maxLifetime.String()),
 		)
 		return nil, apperr.ErrTokenExpired
 	}
 
-	// Issue access token before DB writes — if signing fails, no state is mutated.
+	// Signed before any DB write, so a signing failure mutates nothing.
 	accessToken, err := s.issueAccessTokenByUserID(ctx, oldRefreshToken.UserID, ttls.access)
 	if err != nil {
 		xlog.Error(ctx, "failed to issue access token", xfield.Error(err))
 		return nil, err
 	}
 
-	// Normal rotation
 	newRaw, newHash, err := s.tokenSrv.GenerateRefreshToken(ctx)
 	if err != nil {
 		xlog.Error(ctx, "failed to generate refresh token", xfield.Error(err))
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	// Atomic rotation: update old + save new in a single transaction.
 	err = s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
 		oldRefreshToken.Revoked = true
 		oldRefreshToken.GraceTTL = lo.ToPtr(now.Add(s.cfg.RefreshTokenGracePeriod))
@@ -225,9 +215,8 @@ func (s *Service) rotateRefreshToken(
 			Family:    oldRefreshToken.Family,
 			ExpiresAt: now.Add(s.cfg.RefreshTokenTTL),
 			ClientIP:  clientIP,
-			// Carried, never restarted: this is what bounds the session's total
-			// age. Recomputing it here would reset the ceiling on every refresh,
-			// quietly turning the maximum lifetime into no maximum at all.
+			// Carried, never restarted: restarting it on every refresh would
+			// make the maximum lifetime no maximum at all.
 			SessionStartedAt: oldRefreshToken.SessionStartedAt,
 		})
 	})
@@ -246,7 +235,7 @@ func (s *Service) rotateRefreshToken(
 }
 
 func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueAccessByUserID")
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.issueAccessTokenByUserID")
 	defer span.End()
 
 	user, err := s.usersSrv.GetByID(ctx, userID)

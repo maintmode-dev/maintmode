@@ -129,8 +129,11 @@ func TestRefresh_ReuseDetectionIsAudited(t *testing.T) {
 	expireGraceWindow(ctx, t, srv, pair.RefreshToken)
 
 	const replayerIP, replayerUA = "198.51.100.9", "curl/8.4.0"
-	_, err = srv.Refresh(ctx, pair.RefreshToken, replayerIP, replayerUA)
+	replayCtx, replayLogs := observedCtx(t)
+	_, err = srv.Refresh(replayCtx, pair.RefreshToken, replayerIP, replayerUA)
 	require.ErrorIs(t, err, apperr.ErrTokenReuse)
+	reuse := requireLoggedAt(t, replayLogs, "token reuse detected", zapcore.WarnLevel)
+	require.Contains(t, reuse.ContextMap(), "grace_period")
 
 	live, err := srv.tokenSrv.GetRefreshToken(ctx, rotated.RefreshToken)
 	require.NoError(t, err)
@@ -174,4 +177,16 @@ func sessionRevokedRows(published []audit.Action) []audit.SessionRevoked {
 	}
 
 	return rows
+}
+
+// requireLoggedAt asserts msg was logged exactly once, at level, and returns
+// the line.
+func requireLoggedAt(t *testing.T, logs *observer.ObservedLogs, msg string, level zapcore.Level) observer.LoggedEntry {
+	t.Helper()
+
+	lines := logs.FilterMessage(msg).All()
+	require.Len(t, lines, 1)
+	require.Equal(t, level, lines[0].Level)
+
+	return lines[0]
 }
