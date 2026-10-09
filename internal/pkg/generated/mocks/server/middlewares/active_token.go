@@ -79,3 +79,41 @@ func (c *MockActiveTokenCheckerEnsureActiveTokenCall) DoAndReturn(f func(context
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// EnsureNotRevoked mocks base method.
+func (m *MockActiveTokenChecker) EnsureNotRevoked(ctx context.Context, tokenString string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureNotRevoked", ctx, tokenString)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureNotRevoked indicates an expected call of EnsureNotRevoked.
+func (mr *MockActiveTokenCheckerMockRecorder) EnsureNotRevoked(ctx, tokenString any) *MockActiveTokenCheckerEnsureNotRevokedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureNotRevoked", reflect.TypeOf((*MockActiveTokenChecker)(nil).EnsureNotRevoked), ctx, tokenString)
+	return &MockActiveTokenCheckerEnsureNotRevokedCall{Call: call}
+}
+
+// MockActiveTokenCheckerEnsureNotRevokedCall wrap *gomock.Call
+type MockActiveTokenCheckerEnsureNotRevokedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockActiveTokenCheckerEnsureNotRevokedCall) Return(arg0 error) *MockActiveTokenCheckerEnsureNotRevokedCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockActiveTokenCheckerEnsureNotRevokedCall) Do(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureNotRevokedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockActiveTokenCheckerEnsureNotRevokedCall) DoAndReturn(f func(context.Context, string) error) *MockActiveTokenCheckerEnsureNotRevokedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

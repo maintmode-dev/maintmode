@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
@@ -20,7 +21,7 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		user := testUser(t)
 
-		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user, uuid.New())
 		require.NoError(t, err)
 
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
@@ -43,7 +44,7 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 		user := testUser(t)
 		user.Name = "Alice Liddell"
 
-		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user, uuid.New())
 		require.NoError(t, err)
 
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
@@ -55,7 +56,7 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 		user := testUser(t)
 		user.Name = ""
 
-		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, user, uuid.New())
 		require.NoError(t, err)
 
 		claims, err := srv.VerifyAccessToken(ctx, tokenStr)
@@ -68,12 +69,12 @@ func TestIssueAndVerifyAccessToken(t *testing.T) {
 		blockedAt := xtime.UTCNow()
 		user.BlockedAt = &blockedAt
 
-		_, err := srv.IssueAccessToken(ctx, tokenTTL, user)
+		_, err := srv.IssueAccessToken(ctx, tokenTTL, user, uuid.New())
 		require.ErrorIs(t, err, apperr.ErrUserBlocked)
 	})
 
 	t.Run("has kid", func(t *testing.T) {
-		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t))
+		tokenStr, err := srv.IssueAccessToken(ctx, tokenTTL, testUser(t), uuid.New())
 		require.NoError(t, err)
 
 		parsed, _, err := jwt.NewParser().ParseUnverified(tokenStr, &entity.AccessClaims{})

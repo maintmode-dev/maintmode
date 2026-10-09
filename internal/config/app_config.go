@@ -594,10 +594,10 @@ type TaskProcessorInvitationPruneConfig struct {
 // TaskProcessorOTPPruneConfig tunes the one-time-code retention sweep that
 // deletes spent OTP credentials (see services/otp.Service.Prune).
 type TaskProcessorOTPPruneConfig struct {
-	// CronSpec is the 5-field schedule for the producer job. Unlike the sibling
-	// sweeps this one has a code-side fallback, so leaving it empty degrades to
-	// the default schedule rather than aborting startup. The task is
-	// day-bucketed, so firing more often than daily still yields one prune a day.
+	// CronSpec is the 5-field schedule for the producer job. Required, like
+	// audit_prune's and invitation_prune's: there is no code-side default, so an
+	// empty or malformed value aborts startup. The task is day-bucketed, so
+	// firing more often than daily still yields one prune a day.
 	CronSpec string `mapstructure:"cron_spec"`
 	// Retention is the age threshold: an OTP whose expires_at is older than
 	// now-Retention is deleted. Short by design (24h), because the row holds a

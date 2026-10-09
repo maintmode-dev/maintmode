@@ -3,9 +3,11 @@ package token
 import (
 	"cmp"
 	"context"
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -14,7 +16,12 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Duration, user *entity.User) (string, error) {
+// IssueAccessToken mints an access token for user inside the session
+// (refresh-token family) sessionID. The session is stamped into the token as
+// its sid, which is what revoking the session checks it against.
+func (s *Service) IssueAccessToken(
+	ctx context.Context, accessTokenTTL time.Duration, user *entity.User, sessionID uuid.UUID,
+) (string, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.IssueAccessToken")
 	defer span.End()
 
@@ -23,6 +30,11 @@ func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Dura
 	if user.IsBlocked() {
 		xlog.Warn(ctx, "refusing to issue access token for blocked user", xfield.Any("user", user.ID))
 		return "", apperr.ErrUserBlocked
+	}
+
+	// Without a sid nothing could revoke the token before it expires.
+	if sessionID == uuid.Nil {
+		return "", errors.New("access token requires a session id")
 	}
 
 	now := s.getNowF()
@@ -35,6 +47,7 @@ func (s *Service) IssueAccessToken(ctx context.Context, accessTokenTTL time.Dura
 		UserName:  cmp.Or(user.Name, user.Email, "unknown"),
 		UserEmail: user.Email,
 		UserRoles: user.Roles,
+		SessionID: sessionID.String(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        xuuid.NewString(), // jti — for the blacklist on logout
 			Subject:   user.ID.String(),

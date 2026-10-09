@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,12 +50,56 @@ func TestRequireActiveToken(t *testing.T) {
 			expectedRoles:  storedRoles,
 		},
 		{
-			name:           "safe method passes on token roles without a check",
-			method:         http.MethodGet,
-			authHeader:     "Bearer valid",
-			prepareMock:    func(*mock_middlewares.MockActiveTokenChecker) {},
+			name:       "read with a live token: next sees token roles, no user-store check",
+			method:     http.MethodGet,
+			authHeader: "Bearer valid",
+			prepareMock: func(checker *mock_middlewares.MockActiveTokenChecker) {
+				checker.EXPECT().
+					EnsureNotRevoked(gomock.Any(), "valid").
+					Return(nil)
+			},
 			expectedStatus: http.StatusNoContent,
 			expectedRoles:  tokenRoles,
+		},
+		{
+			name:       "read with a revoked token",
+			method:     http.MethodGet,
+			authHeader: "Bearer revoked",
+			prepareMock: func(checker *mock_middlewares.MockActiveTokenChecker) {
+				checker.EXPECT().
+					EnsureNotRevoked(gomock.Any(), "revoked").
+					Return(apperr.ErrInvalidAccessToken)
+			},
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "HEAD with a revoked token",
+			method:     http.MethodHead,
+			authHeader: "Bearer revoked",
+			prepareMock: func(checker *mock_middlewares.MockActiveTokenChecker) {
+				checker.EXPECT().
+					EnsureNotRevoked(gomock.Any(), "revoked").
+					Return(apperr.ErrInvalidAccessToken)
+			},
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "read while the revocation store is down fails closed",
+			method:     http.MethodGet,
+			authHeader: "Bearer valid",
+			prepareMock: func(checker *mock_middlewares.MockActiveTokenChecker) {
+				checker.EXPECT().
+					EnsureNotRevoked(gomock.Any(), "valid").
+					Return(errors.New("check blacklistStore: connection refused"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:           "read without a token",
+			method:         http.MethodGet,
+			authHeader:     "Bearer",
+			prepareMock:    func(*mock_middlewares.MockActiveTokenChecker) {},
+			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "missing token",

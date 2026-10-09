@@ -1803,7 +1803,7 @@
         },
         "/api/v1/logout": {
             "post": {
-                "description": "Revokes the current refresh token and blacklists the access token.",
+                "description": "Ends the current session: every token of the session the refresh token belongs to, and of the session the access token was issued for, is revoked, and the access token is blacklisted. The refresh token may be empty; the access token alone then ends its session.",
                 "parameters": [
                     {
                         "description": "Bearer access token",

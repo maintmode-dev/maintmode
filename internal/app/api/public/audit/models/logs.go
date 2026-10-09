@@ -33,7 +33,8 @@ type AuditLog struct {
 //   - login_success / login_failed: ip, user_agent, session_id, login_method
 //     (+failure_reason for failed). login_method is absent on a failure that
 //     never established a credential, which is deliberate: see below;
-//   - logout_success: session_id, logout_kind (auto|manual);
+//   - logout_success: session_id (the session logged out from, the same id
+//     its login_success carries), logout_kind (auto|manual);
 //   - session.revoked: ip, user_agent, session_id, revoke_reason;
 //   - assigned / revoked: roles, target_email, target_display_name;
 //   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;

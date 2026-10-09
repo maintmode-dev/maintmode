@@ -15,9 +15,10 @@ import (
 
 // EnsureActiveToken reports the token subject's CURRENT roles when the access
 // token is active, and an error otherwise — the active-token gate the API
-// middleware applies to every mutation. "Active" is the full check (JWT +
-// blacklist + blocked-user): an inactive token yields ErrInvalidAccessToken,
-// while a transient store failure propagates so the middleware fails closed.
+// middleware applies to every mutation (reads get EnsureNotRevoked). "Active"
+// is the full check (JWT + blacklist + blocked-user): an inactive token yields
+// ErrInvalidAccessToken, while a transient store failure propagates so the
+// middleware fails closed.
 //
 // The roles come from the user store, not from the token claims: a role revoked
 // after the token was minted must stop authorizing writes now, not when the
@@ -33,7 +34,38 @@ func (s *Service) EnsureActiveToken(ctx context.Context, tokenString string) ([]
 	return report.Roles, nil
 }
 
-// Introspect checks if an access token is active (not blacklisted).
+// EnsureNotRevoked is the active-token gate the API middleware applies to every
+// read: it refuses a token that was revoked on its own (logout) or through its
+// session, and nothing more. It deliberately skips the user-store lookup of
+// EnsureActiveToken, so a read costs one Valkey EXISTS and no Postgres round
+// trip; a blocked user is still cut off, because a block revokes their
+// sessions. An inactive token yields ErrInvalidAccessToken; a store failure
+// propagates so the middleware fails closed.
+func (s *Service) EnsureNotRevoked(ctx context.Context, tokenString string) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.EnsureNotRevoked")
+	defer span.End()
+
+	claims, err := s.tokenSrv.VerifyAccessToken(ctx, tokenString)
+	if err != nil {
+		return err
+	}
+	if claims.ID == "" {
+		xlog.Warn(ctx, "empty access token ID")
+		return apperr.ErrInvalidAccessToken
+	}
+
+	revoked, err := s.isRevoked(ctx, claims)
+	if err != nil {
+		return err
+	}
+	if revoked {
+		return apperr.ErrInvalidAccessToken
+	}
+	return nil
+}
+
+// Introspect checks if an access token is active: not blacklisted, its session
+// not revoked, its subject an active user.
 // Used by downstream services for critical operations (RFC 7662).
 func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.IntrospectReport, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Introspect")
@@ -50,13 +82,11 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 		return &entity.IntrospectReport{Active: false}, nil
 	}
 
-	blacklisted, err := s.blacklistStore.Contains(ctx, claims.ID)
+	revoked, err := s.isRevoked(ctx, claims)
 	if err != nil {
-		xlog.Error(ctx, "failed to check blacklistStore", xfield.Error(err))
-		return nil, fmt.Errorf("check blacklistStore: %w", err)
+		return nil, err
 	}
-	if blacklisted {
-		xlog.Warn(ctx, "access token is blacklisted")
+	if revoked {
 		return &entity.IntrospectReport{
 			Active: false,
 			JTI:    claims.ID,
@@ -90,6 +120,22 @@ func (s *Service) Introspect(ctx context.Context, tokenString string) (*entity.I
 		Roles: user.Roles,
 		Exp:   claims.ExpiresAt.Unix(),
 	}, nil
+}
+
+// isRevoked is one lookup for both ways a token is revoked: on its own (logout
+// blacklists the jti) and through its session (any revocation of the
+// refresh-token family marks the sid). A store failure is returned so the
+// caller fails closed.
+func (s *Service) isRevoked(ctx context.Context, claims *entity.AccessClaims) (bool, error) {
+	revoked, err := s.blacklistStore.IsRevoked(ctx, claims.ID, claims.SessionID)
+	if err != nil {
+		xlog.Error(ctx, "failed to check blacklistStore", xfield.Error(err))
+		return false, fmt.Errorf("check blacklistStore: %w", err)
+	}
+	if revoked {
+		xlog.Warn(ctx, "access token or its session is revoked", xfield.String("sid", claims.SessionID))
+	}
+	return revoked, nil
 }
 
 // activeSubject returns the real, non-blocked user the JWT subject maps to, or
