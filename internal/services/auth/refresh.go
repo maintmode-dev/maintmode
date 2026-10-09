@@ -82,41 +82,16 @@ func logClientChange(ctx context.Context, prev *entity.RefreshToken, clientIP st
 	)
 }
 
+// reuseRevoked answers a rotated token: inside its grace window a racing tab,
+// past it reuse, which revokes the whole family.
 func (s *Service) reuseRevoked(
 	ctx context.Context, now time.Time, rt *entity.RefreshToken, clientIP, userAgent string,
 ) (*entity.TokenPair, error) {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.buildTokenPairFromExisting")
 	defer span.End()
 
-	graceTTLExpiredAt := lo.FromPtr(rt.GraceTTL)
-	if now.Before(graceTTLExpiredAt) {
-		// Grace period
-
-		// During grace period we cannot return the raw replacement token
-		// because we only store hashes. The original Refresh call already
-		// returned the raw token to the first caller. Subsequent callers
-		// within the grace window get a fresh access token but must reuse
-		// the refresh token they already have.
-		rt, err := s.liveSuccessor(ctx, rt)
-		if err != nil {
-			return nil, err
-		}
-
-		ttls, err := s.sessionTTLsFor(ctx, rt.UserID)
-		if err != nil {
-			return nil, err
-		}
-
-		accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID, ttls.access)
-		if err != nil {
-			return nil, err
-		}
-
-		return &entity.TokenPair{
-			AccessToken:  accessToken,
-			ExpiresIn:    int(ttls.access.Seconds()),
-			RefreshToken: "", // RefreshToken intentionally empty — client should keep its current one
-		}, nil
+	if now.Before(lo.FromPtr(rt.GraceTTL)) {
+		return s.refreshWithinGrace(ctx, rt)
 	}
 
 	// Outside grace period — reuse detection: revoke entire family.
@@ -129,6 +104,40 @@ func (s *Service) reuseRevoked(
 	}
 	s.publishSessionRevoked(ctx, rt, clientIP, userAgent)
 	return nil, fmt.Errorf("%w: refresh token's grace period has expired", apperr.ErrTokenReuse)
+}
+
+// refreshWithinGrace serves a second tab that refreshed a token a moment after
+// the first rotated it -- the grace window exists because the lock does not
+// wait. It gets an access token but keeps its refresh token: only hashes are
+// stored, so the successor cannot be returned.
+func (s *Service) refreshWithinGrace(ctx context.Context, rt *entity.RefreshToken) (*entity.TokenPair, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.refreshWithinGrace")
+	defer span.End()
+
+	live, err := s.tokenSrv.HasLiveRefreshToken(ctx, rt.Family)
+	if err != nil {
+		return nil, err
+	}
+	if !live {
+		// Logout and reuse revoke the whole family: the session is over.
+		return nil, apperr.ErrLogoutAlready
+	}
+
+	ttls, err := s.sessionTTLsFor(ctx, rt.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.issueAccessTokenByUserID(ctx, rt.UserID, ttls.access)
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity.TokenPair{
+		AccessToken:  accessToken,
+		ExpiresIn:    int(ttls.access.Seconds()),
+		RefreshToken: "", // the client keeps the one it has
+	}, nil
 }
 
 // publishSessionRevoked records a reuse revocation against the session's owner.
@@ -249,40 +258,4 @@ func (s *Service) issueAccessTokenByUserID(ctx context.Context, userID uuid.UUID
 
 func distributedLockKey(key string) string {
 	return "refresh:" + key
-}
-
-// maxGraceHops bounds the walk down a rotation chain. A grace window is
-// seconds long, so a chain more than a few rotations deep inside one is not a
-// client racing itself, and it is refused rather than followed.
-const maxGraceHops = 8
-
-// liveSuccessor follows a revoked token's replacements to the end of its chain
-// and returns that end only if the session is still alive there.
-//
-// The grace window answers a client that refreshed twice in one rotation, and
-// it must not outlive the session: logout revokes only the CURRENT token, so
-// without this walk a predecessor rotated a moment earlier kept minting access
-// tokens through its window -- a stolen copy surviving the very logout meant to
-// end it.
-func (s *Service) liveSuccessor(ctx context.Context, rt *entity.RefreshToken) (*entity.RefreshToken, error) {
-	for range maxGraceHops {
-		next, err := s.tokenSrv.GetRefreshTokenByHash(ctx, lo.FromPtr(rt.ReplacedBy))
-		if err != nil {
-			return nil, apperr.ErrRefreshTokenNotFound
-		}
-
-		switch {
-		case !next.Revoked:
-			return next, nil
-		case next.ReplacedBy == nil:
-			// Revoked without a successor: the session was ended there.
-			return nil, apperr.ErrLogoutAlready
-		}
-
-		rt = next
-	}
-
-	xlog.Warn(ctx, "rotation chain too deep for a grace refresh")
-
-	return nil, apperr.ErrInvalidRefreshToken
 }

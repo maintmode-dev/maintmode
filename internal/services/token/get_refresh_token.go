@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/ruko1202/xlog"
 	"github.com/ruko1202/xlog/xfield"
 
@@ -30,4 +31,19 @@ func (s *Service) GetRefreshTokenByHash(ctx context.Context, hash string) (*enti
 	}
 
 	return token, nil
+}
+
+// HasLiveRefreshToken reports whether a session still has a token that is
+// neither revoked nor expired.
+func (s *Service) HasLiveRefreshToken(ctx context.Context, family uuid.UUID) (bool, error) {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.HasLiveRefreshToken")
+	defer span.End()
+
+	live, err := s.tokensStore.HasLiveToken(ctx, family)
+	if err != nil {
+		xlog.Error(ctx, "failed to look up a live refresh token", xfield.Error(err))
+		return false, err
+	}
+
+	return live, nil
 }

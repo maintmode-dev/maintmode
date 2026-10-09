@@ -45,18 +45,19 @@ type RefreshToken struct {
 	SessionStartedAt time.Time
 
 	// GraceTTL is the grace window (30 sec) after rotation to handle the
-	// multi-tab problem. While time.Now() < GraceTTL, a revoked token
-	// is still accepted and returns an access token via ReplacedBy.
-	// After expiration, reuse detection triggers revocation of the entire family.
+	// multi-tab problem. While time.Now() < GraceTTL, a rotated token still
+	// gets an access token (but no new refresh token) as long as its family
+	// has a live token. After expiration, reuse detection triggers revocation
+	// of the entire family.
 	GraceTTL *time.Time
 
 	// Revoked is true after rotation or logout. By itself it doesn't block —
 	// must be checked together with GraceTTL.
 	Revoked bool
 
-	// ReplacedBy is the hash of the successor token. Used in grace period:
-	// server finds the replacement and issues a new access token
-	// (but without a new refresh token — client uses the one already received).
+	// ReplacedBy is the hash of the successor token, set by rotation only and
+	// never cleared. It tells a rotated row from the newest row of a family
+	// ended by logout or reuse, which has none.
 	ReplacedBy *string
 
 	// ClientIP is the address of the request that minted THIS row -- the

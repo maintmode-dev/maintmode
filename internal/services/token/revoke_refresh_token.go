@@ -91,8 +91,14 @@ func (s *Service) FamilyByRefreshToken(
 	return rt.Family, nil
 }
 
-func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string, accessClaims *entity.AccessClaims) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshToken")
+// RevokeFamilyByRefreshToken revokes the whole session a raw refresh token
+// belongs to, once the token is shown to belong to the access token's user.
+//
+// The whole family rather than the presented row: a predecessor rotated a
+// moment earlier is still inside its grace window, and Refresh refuses it only
+// when no token of its family is live any more.
+func (s *Service) RevokeFamilyByRefreshToken(ctx context.Context, refreshTokenRaw string, accessClaims *entity.AccessClaims) error {
+	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeFamilyByRefreshToken")
 	defer span.End()
 
 	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
@@ -114,9 +120,7 @@ func (s *Service) RevokeRefreshToken(ctx context.Context, refreshTokenRaw string
 			return err
 		}
 
-		rt.Revoked = true
-
-		return s.UpdateRefreshToken(ctx, rt)
+		return s.tokensStore.RevokeFamily(ctx, rt.Family)
 	})
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh token", xfield.Error(err))

@@ -172,8 +172,37 @@ func TestRefresh(t *testing.T) {
 			require.NoError(t, srv.Logout(ctx, rotated))
 
 			stale, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
-			require.Error(t, err, "the predecessor's grace window must close with the session")
+			require.ErrorIs(t, err, apperr.ErrLogoutAlready, "the predecessor's grace window must close with the session")
 			require.Nil(t, stale)
+		})
+
+		// The grace check asks whether the family is still alive, however many
+		// rotations ago the presented token was replaced.
+		t.Run("ok several rotations back", func(t *testing.T) {
+			t.Parallel()
+
+			srv, mocks := initService(t)
+			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
+
+			exchangeIDTokenMock(mocks, 1)
+
+			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
+				Provider: entity.AuthMethodGoogle,
+				IDToken:  "id-token",
+				ClientIP: "10.0.0.1",
+			})
+			require.NoError(t, err)
+
+			current := pair
+			for range 3 {
+				current, err = srv.Refresh(ctx, current.RefreshToken, "10.0.0.1", "")
+				require.NoError(t, err)
+			}
+
+			graced, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
+			require.NoError(t, err)
+			require.NotEmpty(t, graced.AccessToken)
+			require.Empty(t, graced.RefreshToken)
 		})
 
 		t.Run("reuse detection", func(t *testing.T) {
