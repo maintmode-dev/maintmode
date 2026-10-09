@@ -133,6 +133,13 @@
                         "description": "Maintenance action fields. Populated for maintenance.* /\nmaintenance_step.* actions:\n  - maintenance.* / maintenance_step.*: maint_title;\n  - maintenance.updated: changes (before/after per changed scalar).",
                         "type": "string"
                     },
+                    "revoke_reason": {
+                        "description": "RevokeReason is why the system revoked a session, on session.revoked\nonly. token_reuse: a rotated refresh token was replayed after its grace\nwindow, so the session was ended for every holder.",
+                        "enum": [
+                            "token_reuse"
+                        ],
+                        "type": "string"
+                    },
                     "roles": {
                         "items": {
                             "type": "string"
@@ -750,6 +757,7 @@
                     "password.changed",
                     "password.reset",
                     "provider.linked",
+                    "session.revoked",
                     "roles.changed",
                     "user.blocked",
                     "user.unblocked",
@@ -786,6 +794,7 @@
                     "AuditActionPasswordChanged",
                     "AuditActionPasswordReset",
                     "AuditActionProviderLinked",
+                    "AuditActionSessionRevoked",
                     "AuditActionRolesChanged",
                     "AuditActionUserBlocked",
                     "AuditActionUserUnblocked",
@@ -1010,6 +1019,7 @@
                                 "password.changed",
                                 "password.reset",
                                 "provider.linked",
+                                "session.revoked",
                                 "roles.changed",
                                 "user.blocked",
                                 "user.unblocked",

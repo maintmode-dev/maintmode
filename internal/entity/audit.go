@@ -28,6 +28,13 @@ const (
 	// login.success for a provider the trail never recorded connecting.
 	AuditActionProviderLinked AuditAction = "provider.linked"
 
+	// AuditActionSessionRevoked records the system ending a session on its
+	// own: a refresh token rotated out more than a grace window ago came back,
+	// which means two parties hold the session, so the whole family is revoked.
+	// Nobody pressed a button, so it is not logout.success; the actor is the
+	// session's owner, because it is their account that was acted upon.
+	AuditActionSessionRevoked AuditAction = "session.revoked"
+
 	AuditActionRolesChanged AuditAction = "roles.changed"
 
 	AuditActionUserBlocked   AuditAction = "user.blocked"
@@ -107,6 +114,7 @@ func (a AuditAction) IsValid() bool {
 		AuditActionLogoutSuccess,
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
+		AuditActionSessionRevoked,
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
 		AuditActionUserUnblocked,
@@ -389,6 +397,20 @@ const (
 	AuditLogoutKindAuto   = "auto"
 )
 
+// AuditRevokeReason names why the system revoked a session on session.revoked.
+// A narrow vocabulary owned by the audit trail, like AuditLogoutKind: the row
+// is read by people deciding whether an account was compromised, so the reason
+// is a fixed word rather than error text.
+type AuditRevokeReason string
+
+const (
+	// AuditRevokeReasonTokenReuse is a refresh token presented again after it
+	// had been rotated and its grace window had closed. Either the legitimate
+	// client or someone holding a copy is replaying it; the server cannot tell
+	// which, so it ends the session for both.
+	AuditRevokeReasonTokenReuse AuditRevokeReason = "token_reuse"
+)
+
 // AuditLoginMethod names the credential that answered for a sign-in.
 //
 // Deliberately NOT entity.AuthMethod, which looks like the obvious fit and is
@@ -436,6 +458,8 @@ const (
 //     (+FailureReason for failed). LoginMethod is empty on a failure that never
 //     established a credential -- see the field's own comment;
 //   - logout_success: SessionID, LogoutKind;
+//   - session.revoked: IP, UserAgent (of the request that presented the
+//     replayed token), SessionID (the revoked family), RevokeReason;
 //   - assigned / revoked: Roles, TargetEmail, TargetDisplayName;
 //   - replaced: Roles (resulting set), RolesAdded, RolesRemoved, TargetEmail, TargetDisplayName;
 //   - blocked / unblocked: TargetEmail, TargetDisplayName;
@@ -453,6 +477,7 @@ type AuditMetadata struct {
 	SessionID     string             `json:"session_id,omitempty"`
 	FailureReason AuditFailureReason `json:"failure_reason,omitempty"`
 	LogoutKind    AuditLogoutKind    `json:"logout_kind,omitempty"`
+	RevokeReason  AuditRevokeReason  `json:"revoke_reason,omitempty"`
 	// LoginMethod is the credential that answered, on login_success and
 	// login_failed only.
 	//
@@ -508,7 +533,7 @@ const (
 	// refused, who left.
 	AuditCategorySignIn AuditCategory = "sign_in"
 	// AuditCategoryUsers is an account changing: its roles, tags, block state,
-	// credentials, or linked sign-in providers.
+	// credentials, linked sign-in providers, or a session the system revoked.
 	AuditCategoryUsers AuditCategory = "users"
 	// AuditCategorySettings is the instance's own configuration changing:
 	// which sign-in methods it accepts, which integrations it talks to, and
@@ -539,6 +564,10 @@ var auditActionCategories = map[AuditAction]AuditCategory{
 	// who may get in and with which roles.
 	AuditActionInvitationCreated: AuditCategoryUsers,
 	AuditActionInvitationRevoked: AuditCategoryUsers,
+	// A revoked session is filed with the account, not with sign-ins: no one
+	// signed in or out, the system acted on a user whose session was
+	// compromised -- the same question an operator answers on this chip.
+	AuditActionSessionRevoked: AuditCategoryUsers,
 
 	// Toggling a sign-in method is a settings event, not a sign-in: it changes
 	// which credentials the whole instance accepts, the same kind of change as
@@ -595,6 +624,7 @@ var auditCategoriesAction = map[AuditCategory][]AuditAction{
 		AuditActionProviderLinked,
 		AuditActionInvitationCreated,
 		AuditActionInvitationRevoked,
+		AuditActionSessionRevoked,
 	},
 	AuditCategorySettings: {
 		AuditActionAuthMethodToggled,

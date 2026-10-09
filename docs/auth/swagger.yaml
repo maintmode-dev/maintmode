@@ -107,6 +107,14 @@ components:
                           - maintenance.* / maintenance_step.*: maint_title;
                           - maintenance.updated: changes (before/after per changed scalar).
                     type: string
+                revoke_reason:
+                    description: |-
+                        RevokeReason is why the system revoked a session, on session.revoked
+                        only. token_reuse: a rotated refresh token was replayed after its grace
+                        window, so the session was ended for every holder.
+                    enum:
+                        - token_reuse
+                    type: string
                 roles:
                     items:
                         type: string
@@ -569,6 +577,7 @@ components:
                 - password.changed
                 - password.reset
                 - provider.linked
+                - session.revoked
                 - roles.changed
                 - user.blocked
                 - user.unblocked
@@ -604,6 +613,7 @@ components:
                 - AuditActionPasswordChanged
                 - AuditActionPasswordReset
                 - AuditActionProviderLinked
+                - AuditActionSessionRevoked
                 - AuditActionRolesChanged
                 - AuditActionUserBlocked
                 - AuditActionUserUnblocked
@@ -785,6 +795,7 @@ paths:
                         - password.changed
                         - password.reset
                         - provider.linked
+                        - session.revoked
                         - roles.changed
                         - user.blocked
                         - user.unblocked

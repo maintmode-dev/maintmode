@@ -80,6 +80,18 @@ type PasswordReset struct {
 
 func (PasswordReset) auditAction() entity.AuditAction { return entity.AuditActionPasswordReset }
 
+// SessionRevoked records the system revoking a whole session because a
+// rotated refresh token was replayed past its grace window. User is the
+// session's owner -- the account acted upon -- even though no person
+// triggered it. Meta carries the replaying request's IP and user agent, the
+// revoked family as SessionID, and the reason.
+type SessionRevoked struct {
+	User *entity.User
+	Meta *entity.AuditMetadata
+}
+
+func (SessionRevoked) auditAction() entity.AuditAction { return entity.AuditActionSessionRevoked }
+
 // RolesChangeKind distinguishes the sub-kind of a roles change: assigned /
 // revoked / replaced. It is a classification of the action, not a domain entity.
 type RolesChangeKind string
