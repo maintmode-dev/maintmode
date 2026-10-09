@@ -20,7 +20,8 @@ import (
 )
 
 // uiV1MiddlewareCount is the expected length of the /ui/v1 chain: the token
-// gate, the license block gate, and the rate limiter, in that order.
+// gate (authentication plus the revocation check), the license block gate, and
+// the rate limiter, in that order.
 const uiV1MiddlewareCount = 3
 
 // unlicensedProvider reports no license, which RequireLicenseNotSuspended
@@ -110,6 +111,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 			Server: xhttpserver.New(xhttpserver.Config{}),
 			security: APIServerSecurity{
 				TokenVerifier: verifier,
+				TokenChecker:  &stubChecker{},
 				License:       license,
 			},
 		}
@@ -184,7 +186,7 @@ func TestUIRateLimitWiring(t *testing.T) {
 
 		s := &APIServer{
 			Server:   xhttpserver.New(xhttpserver.Config{}),
-			security: APIServerSecurity{TokenVerifier: verifier, License: unlicensedProvider{}},
+			security: APIServerSecurity{TokenVerifier: verifier, TokenChecker: &stubChecker{}, License: unlicensedProvider{}},
 		}
 
 		// A limiter that records whether it ran before or after the token gate

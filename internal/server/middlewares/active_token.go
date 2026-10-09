@@ -12,27 +12,33 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
-// ActiveTokenChecker verifies an access token is still active (not revoked by
-// logout, not belonging to a blocked user) and returns the subject's CURRENT
-// roles from the user store. Declared consumer-side; satisfied in-process by
-// *auth.Service.EnsureActiveToken.
+// ActiveTokenChecker verifies an access token is still active. Declared
+// consumer-side; satisfied in-process by *auth.Service.
 type ActiveTokenChecker interface {
+	// EnsureActiveToken is the full check (not revoked, user not blocked) and
+	// returns the subject's CURRENT roles from the user store.
 	EnsureActiveToken(ctx context.Context, tokenString string) ([]entity.Role, error)
+	// EnsureNotRevoked checks revocation only (logout, session revocation):
+	// one blacklist lookup, no user-store round trip.
+	EnsureNotRevoked(ctx context.Context, tokenString string) error
 }
 
 // RequireActiveToken re-checks the token against server-side state on every
-// request that can change something: it must not be revoked (logout /
-// logout-all), its user must not be blocked, and the roles RBAC sees are the
-// user's stored roles rather than the ones baked into the JWT. It must run
-// AFTER RequireAccessToken (which validated the signature and put the user in
-// the context) and BEFORE RequireScenario (which reads the roles it replaces).
+// request. It must run AFTER RequireAccessToken (which validated the signature
+// and put the user in the context) and BEFORE RequireScenario (which reads the
+// roles it may replace).
 //
-// Without it a blocked or demoted user keeps every write their token's claims
-// allow until the token expires — enough to unblock themselves or re-grant a
-// revoked role.
+// Every method is refused once the token is revoked -- on its own (logout) or
+// through its session (logout-all, reuse detection, a password change, a
+// block). Without that a cut-off session could keep reading until its token
+// expires. Costs one Valkey EXISTS per request.
 //
-// Safe methods (GET/HEAD/OPTIONS) pass through on local JWT validation: reads
-// are the hot path, and their exposure ends with the access-token TTL.
+// Writes additionally get the blocked-user check and RBAC on the user's stored
+// roles rather than the ones baked into the JWT; without it a blocked or demoted
+// user keeps every write their token's claims allow until the token expires --
+// enough to unblock themselves or re-grant a revoked role. Safe methods
+// (GET/HEAD/OPTIONS) skip that part: it is a user-store round trip, reads are
+// the hot path, and a block already revokes the user's sessions.
 //
 // Fail-closed: an inactive token is rejected with ErrInvalidAccessToken; a
 // transient store failure propagates as an error rather than being allowed
@@ -42,10 +48,6 @@ func RequireActiveToken(checker ActiveTokenChecker) echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			if isSafeMethod(c.Request().Method) {
-				return next(c)
-			}
-
 			ctx := c.Request().Context()
 
 			token := xecho.ExtractBearerToken(c.Request())
@@ -56,6 +58,13 @@ func RequireActiveToken(checker ActiveTokenChecker) echo.MiddlewareFunc {
 			user, ok := xecho.UserFromEchoCtx(c)
 			if !ok {
 				return httperrors.ToAPIError(c, op, apperr.ErrInvalidAccessToken)
+			}
+
+			if isSafeMethod(c.Request().Method) {
+				if err := checker.EnsureNotRevoked(ctx, token); err != nil {
+					return httperrors.ToAPIError(c, op, err)
+				}
+				return next(c)
 			}
 
 			roles, err := checker.EnsureActiveToken(ctx, token)

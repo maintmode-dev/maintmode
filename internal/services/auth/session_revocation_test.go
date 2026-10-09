@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -16,13 +17,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/server/middlewares"
+	"github.com/ruko1202/maintmode/internal/storages/blacklisttoken"
 	"github.com/ruko1202/maintmode/internal/utils/xecho"
 )
 
 // TestSessionRevocationCutsOffAccessTokens pins that ending a session ends its
 // access tokens on the spot rather than when they expire: every token minted
 // for the session -- at sign-in, on rotation, inside a grace window -- is
-// refused by the write gate as soon as the session is revoked, by any path.
+// refused by the access-token gate, on reads and writes alike, as soon as the
+// session is revoked, by any path.
 func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
@@ -37,8 +40,8 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 
-		requireWriteStatus(t, srv, pair.AccessToken, http.StatusNoContent)
-		requireWriteStatus(t, srv, rotated.AccessToken, http.StatusNoContent)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
+		requireGateStatus(t, srv, rotated.AccessToken, http.StatusNoContent)
 
 		// Replay the rotated-away token past its grace window.
 		expireGrace(ctx, t, srv, pair.RefreshToken)
@@ -47,8 +50,8 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 
 		// Both holders lose access now: the thief and the victim alike, since
 		// the server cannot tell which is which.
-		requireWriteStatus(t, srv, pair.AccessToken, http.StatusUnauthorized)
-		requireWriteStatus(t, srv, rotated.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, rotated.AccessToken, http.StatusUnauthorized)
 	})
 
 	t.Run("logout takes the session's other access tokens", func(t *testing.T) {
@@ -67,16 +70,16 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, graced.AccessToken)
 
-		requireWriteStatus(t, srv, pair.AccessToken, http.StatusNoContent)
-		requireWriteStatus(t, srv, graced.AccessToken, http.StatusNoContent)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
+		requireGateStatus(t, srv, graced.AccessToken, http.StatusNoContent)
 
 		require.NoError(t, srv.Logout(ctx, rotated))
 
 		// Logout blacklists only the token it was called with; the rest go
 		// with the session.
-		requireWriteStatus(t, srv, rotated.AccessToken, http.StatusUnauthorized)
-		requireWriteStatus(t, srv, pair.AccessToken, http.StatusUnauthorized)
-		requireWriteStatus(t, srv, graced.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, rotated.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, graced.AccessToken, http.StatusUnauthorized)
 	})
 
 	t.Run("logout leaves the user's other sessions alone", func(t *testing.T) {
@@ -91,8 +94,8 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 
 		require.NoError(t, srv.Logout(ctx, laptop))
 
-		requireWriteStatus(t, srv, laptop.AccessToken, http.StatusUnauthorized)
-		requireWriteStatus(t, srv, phone.AccessToken, http.StatusNoContent)
+		requireGateStatus(t, srv, laptop.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, phone.AccessToken, http.StatusNoContent)
 	})
 
 	t.Run("logout-all takes every session", func(t *testing.T) {
@@ -107,8 +110,45 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 
 		require.NoError(t, srv.LogoutAll(ctx, laptop.AccessToken))
 
-		requireWriteStatus(t, srv, laptop.AccessToken, http.StatusUnauthorized)
-		requireWriteStatus(t, srv, phone.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, laptop.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, phone.AccessToken, http.StatusUnauthorized)
+	})
+
+	t.Run("a blacklisted jti is refused on its own", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		exchangeIDTokenMock(mocks, 1)
+
+		pair := openSession(ctx, t, srv)
+		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
+		require.NoError(t, err)
+
+		// Only the jti, as a logout of a token minted before the sid claim
+		// leaves it: the session itself stays live.
+		claims, err := srv.tokenSrv.VerifyAccessToken(ctx, rotated.AccessToken)
+		require.NoError(t, err)
+		require.NoError(t, srv.blacklistStore.Add(ctx, claims.ID, time.Minute))
+
+		requireGateStatus(t, srv, rotated.AccessToken, http.StatusUnauthorized)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
+	})
+
+	t.Run("an unreachable blacklist fails closed", func(t *testing.T) {
+		t.Parallel()
+
+		srv, mocks := initService(t)
+		exchangeIDTokenMock(mocks, 1)
+
+		pair := openSession(ctx, t, srv)
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
+
+		// Nothing listens on port 1: every lookup fails.
+		down := valkeyDB.NewClient(&valkeyDB.Options{Addr: "127.0.0.1:1", MaxRetries: -1})
+		t.Cleanup(func() { _ = down.Close() })
+		srv.blacklistStore = blacklisttoken.NewStore(down)
+
+		requireGateStatus(t, srv, pair.AccessToken, http.StatusInternalServerError)
 	})
 
 	t.Run("a token carries its session", func(t *testing.T) {
@@ -165,23 +205,26 @@ func requireSameUser(ctx context.Context, t *testing.T, srv *Service, a, b *enti
 	require.NotEqual(t, claimsA.SessionID, claimsB.SessionID)
 }
 
-// requireWriteStatus sends a write through the production access-token gates
-// (RequireAccessToken, then RequireActiveToken backed by this service) and
-// checks the status a client would see.
-func requireWriteStatus(t *testing.T, srv *Service, accessToken string, want int) {
+// requireGateStatus sends a write and a read through the production
+// access-token gates (RequireAccessToken, then RequireActiveToken backed by this
+// service) and checks that both get the status a client would see: a revoked
+// token must not keep reading any more than writing.
+func requireGateStatus(t *testing.T, srv *Service, accessToken string, want int) {
 	t.Helper()
 
-	e := echo.New()
-	e.POST("/protected",
-		func(c *echo.Context) error { return c.NoContent(http.StatusNoContent) },
-		middlewares.RequireAccessToken(srv.tokenSrv),
-		middlewares.RequireActiveToken(srv),
-	)
+	for _, method := range []string{http.MethodPost, http.MethodGet} {
+		e := echo.New()
+		e.Add(method, "/protected",
+			func(c *echo.Context) error { return c.NoContent(http.StatusNoContent) },
+			middlewares.RequireAccessToken(srv.tokenSrv),
+			middlewares.RequireActiveToken(srv),
+		)
 
-	req := httptest.NewRequest(http.MethodPost, "/protected", http.NoBody)
-	xecho.SetBearerToken(req, accessToken)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
+		req := httptest.NewRequest(method, "/protected", http.NoBody)
+		xecho.SetBearerToken(req, accessToken)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
 
-	require.Equal(t, want, rec.Code, rec.Body.String())
+		require.Equal(t, want, rec.Code, "%s: %s", method, rec.Body.String())
+	}
 }
