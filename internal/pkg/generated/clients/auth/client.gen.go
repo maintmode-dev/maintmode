@@ -64,6 +64,21 @@ func (e ApiauthmodelsAuditLogMetadataLogoutKind) Valid() bool {
 	}
 }
 
+// Defines values for ApiauthmodelsAuditLogMetadataRevokeReason.
+const (
+	TokenReuse ApiauthmodelsAuditLogMetadataRevokeReason = "token_reuse"
+)
+
+// Valid indicates whether the value is a known member of the ApiauthmodelsAuditLogMetadataRevokeReason enum.
+func (e ApiauthmodelsAuditLogMetadataRevokeReason) Valid() bool {
+	switch e {
+	case TokenReuse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiauthmodelsAuthMethodType.
 const (
 	AuthMethodTypeCode     ApiauthmodelsAuthMethodType = "code"
@@ -141,6 +156,7 @@ const (
 	AuditActionResourceUnarchived      EntityAuditAction = "resource.unarchived"
 	AuditActionResourceUpdated         EntityAuditAction = "resource.updated"
 	AuditActionRolesChanged            EntityAuditAction = "roles.changed"
+	AuditActionSessionRevoked          EntityAuditAction = "session.revoked"
 	AuditActionUserBlocked             EntityAuditAction = "user.blocked"
 	AuditActionUserTagsChanged         EntityAuditAction = "user.tags_changed"
 	AuditActionUserUnblocked           EntityAuditAction = "user.unblocked"
@@ -208,6 +224,8 @@ func (e EntityAuditAction) Valid() bool {
 	case AuditActionResourceUpdated:
 		return true
 	case AuditActionRolesChanged:
+		return true
+	case AuditActionSessionRevoked:
 		return true
 	case AuditActionUserBlocked:
 		return true
@@ -285,6 +303,7 @@ const (
 	ResourceUnarchived       GetApiV1AuditLogParamsAction = "resource.unarchived"
 	ResourceUpdated          GetApiV1AuditLogParamsAction = "resource.updated"
 	RolesChanged             GetApiV1AuditLogParamsAction = "roles.changed"
+	SessionRevoked           GetApiV1AuditLogParamsAction = "session.revoked"
 	UserBlocked              GetApiV1AuditLogParamsAction = "user.blocked"
 	UserTagsChanged          GetApiV1AuditLogParamsAction = "user.tags_changed"
 	UserUnblocked            GetApiV1AuditLogParamsAction = "user.unblocked"
@@ -352,6 +371,8 @@ func (e GetApiV1AuditLogParamsAction) Valid() bool {
 	case ResourceUpdated:
 		return true
 	case RolesChanged:
+		return true
+	case SessionRevoked:
 		return true
 	case UserBlocked:
 		return true
@@ -433,14 +454,19 @@ type ApiauthmodelsAuditLogMetadata struct {
 	// maintenance_step.* actions:
 	//   - maintenance.* / maintenance_step.*: maint_title;
 	//   - maintenance.updated: changes (before/after per changed scalar).
-	MaintTitle        *string   `json:"maint_title,omitempty"`
-	Roles             *[]string `json:"roles,omitempty"`
-	RolesAdded        *[]string `json:"roles_added,omitempty"`
-	RolesRemoved      *[]string `json:"roles_removed,omitempty"`
-	SessionId         *string   `json:"session_id,omitempty"`
-	TargetDisplayName *string   `json:"target_display_name,omitempty"`
-	TargetEmail       *string   `json:"target_email,omitempty"`
-	UserAgent         *string   `json:"user_agent,omitempty"`
+	MaintTitle *string `json:"maint_title,omitempty"`
+
+	// RevokeReason RevokeReason is why the system revoked a session, on session.revoked
+	// only. token_reuse: a rotated refresh token was replayed after its grace
+	// window, so the session was ended for every holder.
+	RevokeReason      *ApiauthmodelsAuditLogMetadataRevokeReason `json:"revoke_reason,omitempty"`
+	Roles             *[]string                                  `json:"roles,omitempty"`
+	RolesAdded        *[]string                                  `json:"roles_added,omitempty"`
+	RolesRemoved      *[]string                                  `json:"roles_removed,omitempty"`
+	SessionId         *string                                    `json:"session_id,omitempty"`
+	TargetDisplayName *string                                    `json:"target_display_name,omitempty"`
+	TargetEmail       *string                                    `json:"target_email,omitempty"`
+	UserAgent         *string                                    `json:"user_agent,omitempty"`
 }
 
 // ApiauthmodelsAuditLogMetadataLoginMethod LoginMethod is the credential that answered a sign-in. Absent on a
@@ -452,6 +478,11 @@ type ApiauthmodelsAuditLogMetadataLoginMethod string
 
 // ApiauthmodelsAuditLogMetadataLogoutKind defines model for ApiauthmodelsAuditLogMetadata.LogoutKind.
 type ApiauthmodelsAuditLogMetadataLogoutKind string
+
+// ApiauthmodelsAuditLogMetadataRevokeReason RevokeReason is why the system revoked a session, on session.revoked
+// only. token_reuse: a rotated refresh token was replayed after its grace
+// window, so the session was ended for every holder.
+type ApiauthmodelsAuditLogMetadataRevokeReason string
 
 // ApiauthmodelsAuditLogResponse defines model for apiauthmodels.AuditLogResponse.
 type ApiauthmodelsAuditLogResponse struct {

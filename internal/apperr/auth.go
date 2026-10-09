@@ -13,7 +13,6 @@ var (
 	ErrInvalidRefreshToken  = errors.New("invalid refresh token")
 	ErrTokenExpired         = errors.New("token expired")
 	ErrTokenReuse           = errors.New("token reuse detected")
-	ErrSuspiciousActivity   = errors.New("suspicious activity detected")
 	ErrLogoutAlready        = errors.New("logout already")
 	ErrUnsupportedProvider  = errors.New("unsupported provider")
 	// ErrOAuthExchangeFailed marks the provider failing to hand us something we

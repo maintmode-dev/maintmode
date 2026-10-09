@@ -93,6 +93,14 @@ const (
 	// and batch limit (from config).
 	ProcessorTaskOTPPrune     = "otp.prune"
 	ProcessorTaskOTPPruneCron = "otp.prune.cron"
+	// ProcessorTaskRefreshTokenPrune is the goque task type produced by the
+	// refresh-token retention periodic job. Its processor deletes refresh_tokens
+	// rows whose expires_at is older than the retention window, in bounded
+	// batches. Revoked rows are not collected early: until a row expires, reuse
+	// detection may still need it to recognize a replayed token. The payload
+	// carries the retention window and batch limit (from config).
+	ProcessorTaskRefreshTokenPrune     = "refresh_token.prune"
+	ProcessorTaskRefreshTokenPruneCron = "refresh_token.prune.cron"
 )
 
 // ActiveProcessorTaskTypes is the set of goque task types the process must
@@ -108,20 +116,22 @@ const (
 // ProcessorTask* const declared. The string then stays reserved (no accidental
 // re-use) while the guard no longer expects it to be drained.
 var ActiveProcessorTaskTypes = map[string]struct{}{
-	ProcessorTaskMaintReminder:        {},
-	ProcessorTaskMaintAutoCancel:      {},
-	ProcessorTaskMaintAutoCancelCron:  {},
-	ProcessorTaskInvitationEmailSend:  {},
-	ProcessorTaskAuditWrite:           {},
-	ProcessorTaskAuditPrune:           {},
-	ProcessorTaskAuditPruneCron:       {},
-	ProcessorTaskInvitationRotate:     {},
-	ProcessorTaskInvitationRotateCron: {},
-	ProcessorTaskInvitationPrune:      {},
-	ProcessorTaskInvitationPruneCron:  {},
-	ProcessorTaskOTPEmailSend:         {},
-	ProcessorTaskOTPPrune:             {},
-	ProcessorTaskOTPPruneCron:         {},
+	ProcessorTaskMaintReminder:         {},
+	ProcessorTaskMaintAutoCancel:       {},
+	ProcessorTaskMaintAutoCancelCron:   {},
+	ProcessorTaskInvitationEmailSend:   {},
+	ProcessorTaskAuditWrite:            {},
+	ProcessorTaskAuditPrune:            {},
+	ProcessorTaskAuditPruneCron:        {},
+	ProcessorTaskInvitationRotate:      {},
+	ProcessorTaskInvitationRotateCron:  {},
+	ProcessorTaskInvitationPrune:       {},
+	ProcessorTaskInvitationPruneCron:   {},
+	ProcessorTaskOTPEmailSend:          {},
+	ProcessorTaskOTPPrune:              {},
+	ProcessorTaskOTPPruneCron:          {},
+	ProcessorTaskRefreshTokenPrune:     {},
+	ProcessorTaskRefreshTokenPruneCron: {},
 }
 
 // ExpectedProcessorTaskTypes returns the exact task-type set the process must
@@ -247,6 +257,16 @@ type ProcessorTaskPayloadInvitationPrune struct {
 // past expires_at at which a one-time code is deleted, BatchLimit bounds how
 // many rows one DELETE removes.
 type ProcessorTaskPayloadOTPPrune struct {
+	Retention  time.Duration `json:"retention"`
+	BatchLimit int64         `json:"batch_limit"`
+}
+
+// ProcessorTaskPayloadRefreshTokenPrune is the payload of a refresh-token
+// retention sweep task. Same shape and same reason as the OTP one: the cron job
+// stamps the tunables from config so the processor stays config-free.
+// Retention is the age past expires_at at which a row is deleted, BatchLimit
+// bounds how many rows one DELETE removes.
+type ProcessorTaskPayloadRefreshTokenPrune struct {
 	Retention  time.Duration `json:"retention"`
 	BatchLimit int64         `json:"batch_limit"`
 }

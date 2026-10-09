@@ -203,8 +203,9 @@ type JWT struct {
 	// already exist rather than only on new ones.
 	SessionInactiveLifetime time.Duration `mapstructure:"session_inactive_lifetime"`
 	SessionMaxLifetime      time.Duration `mapstructure:"session_max_lifetime"`
-	// RefreshTokenTTL still fills the row's expires_at so the column keeps a
-	// sane value, but the two limits above are what actually gate a refresh.
+	// RefreshTokenTTL fills the row's expires_at. The two limits above are what
+	// gate a refresh; expires_at is what the prune sweep deletes by, which is
+	// why validateSessionLifetimes keeps it at or above SessionMaxLifetime.
 	RefreshTokenTTL                 time.Duration `mapstructure:"refresh_token_ttl"`
 	RefreshTokenGracePeriod         time.Duration `mapstructure:"refresh_token_grace_period"`
 	RefreshTokenrDistributedLockTTL time.Duration `mapstructure:"refresh_token_distributed_lock_ttl"`
@@ -413,6 +414,9 @@ type TaskProcessorConfig struct {
 	InvitationRotate TaskProcessorInvitationRotateConfig `mapstructure:"invitation_rotate"`
 	InvitationPrune  TaskProcessorInvitationPruneConfig  `mapstructure:"invitation_prune"`
 	OTPPrune         TaskProcessorOTPPruneConfig         `mapstructure:"otp_prune"`
+	// RefreshTokenPrune is optional as a whole: every field falls back in code,
+	// so a config written before the sweep existed keeps booting.
+	RefreshTokenPrune TaskProcessorRefreshTokenPruneConfig `mapstructure:"refresh_token_prune"`
 }
 
 // CryptoConfig addresses the master keys (KEKs) that wrap the data-encryption
@@ -602,6 +606,28 @@ type TaskProcessorOTPPruneConfig struct {
 	Retention time.Duration `mapstructure:"retention"`
 	// BatchLimit bounds how many rows one DELETE statement removes; the sweep loops
 	// batches until the table is drained for the cutoff.
+	BatchLimit int64 `mapstructure:"batch_limit"`
+}
+
+// TaskProcessorRefreshTokenPruneConfig tunes the refresh-token retention sweep
+// (see services/token.Service.PruneRefreshTokens). Every field is optional and
+// falls back in code -- the cron spec at wiring time, the other two in the task
+// factory -- so a config file predating the sweep still boots. That is a
+// deliberate exception to the siblings, whose cron specs are required: those
+// keys shipped with their sweeps, this one arrives in configs that already
+// exist.
+type TaskProcessorRefreshTokenPruneConfig struct {
+	// CronSpec is the 5-field schedule for the producer job. Empty falls back to
+	// daily at 03:30 UTC; a malformed value still fails startup. The task is
+	// day-bucketed, so firing more often than daily still yields one prune a day.
+	CronSpec string `mapstructure:"cron_spec"`
+	// Retention is how long past its expires_at a row is kept before deletion.
+	// Zero means the 24h default. A row past expires_at already belongs to a
+	// session over its maximum lifetime, so this is a margin for looking into
+	// an incident, not a safety bound.
+	Retention time.Duration `mapstructure:"retention"`
+	// BatchLimit bounds how many rows one DELETE statement removes; the sweep
+	// loops batches until the table is drained for the cutoff. Zero means 1000.
 	BatchLimit int64 `mapstructure:"batch_limit"`
 }
 
@@ -809,11 +835,7 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
-	if err := cfg.validateInvitationRetention(); err != nil {
-		log.Panicf("invalid config for service %s: %s", appName, err)
-	}
-
-	if err := cfg.validateOTPRetention(); err != nil {
+	if err := cfg.validateSweeps(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -1066,6 +1088,44 @@ func (c *AppConfig) validateOTPRetention() error {
 	return nil
 }
 
+// validateSweeps runs the retention sweeps' validators and joins every failure.
+// One call site for the three keeps initConfig's own branching flat.
+func (c *AppConfig) validateSweeps() error {
+	var errs error
+
+	for _, validate := range []func() error{
+		c.validateInvitationRetention,
+		c.validateOTPRetention,
+		c.validateRefreshTokenPrune,
+	} {
+		if err := validate(); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
+}
+
+// validateRefreshTokenPrune rejects negative refresh-token prune tunables, for
+// the same reason as the OTP and invitation twins: a negative retention would
+// push the cutoff into the future, and a negative batch limit is never an
+// intent. Zero is allowed for both and means "use the default".
+func (c *AppConfig) validateRefreshTokenPrune() error {
+	pruneCfg := c.TaskProcessor.RefreshTokenPrune
+	if pruneCfg.Retention < 0 {
+		return fmt.Errorf(
+			"task_processor.refresh_token_prune.retention must not be negative, got %s",
+			pruneCfg.Retention,
+		)
+	}
+	if pruneCfg.BatchLimit < 0 {
+		return fmt.Errorf(
+			"task_processor.refresh_token_prune.batch_limit must not be negative, got %d",
+			pruneCfg.BatchLimit,
+		)
+	}
+	return nil
+}
+
 // validateSessionLifetimes rejects a session policy that would break sign-in
 // silently.
 //
@@ -1081,6 +1141,14 @@ func (c *AppConfig) validateOTPRetention() error {
 //
 // Max >= inactive is deliberately not >: setting both to the same value is a
 // legitimate way to say "one hard deadline, activity does not extend it".
+//
+// refresh_token_ttl must reach at least the maximum lifetime, because it is
+// what the refresh-token prune sweep reads: a row is deleted once its
+// expires_at (issue time + refresh_token_ttl) has passed. Every row of a family
+// is issued after the session started, so with the TTL at or above the maximum
+// lifetime an expired row belongs to a session that is already over. Shorter,
+// and the sweep would delete rows of sessions still alive -- the current row of
+// a long-idle session, or the rotated-out rows reuse detection reads.
 func (c *AppConfig) validateSessionLifetimes() error {
 	if c.JWT.SessionInactiveLifetime <= 0 {
 		return fmt.Errorf(
@@ -1104,6 +1172,12 @@ func (c *AppConfig) validateSessionLifetimes() error {
 		return fmt.Errorf(
 			"jwt.session_max_lifetime must be at least session_inactive_lifetime, got %s < %s",
 			c.JWT.SessionMaxLifetime, c.JWT.SessionInactiveLifetime,
+		)
+	}
+	if c.JWT.RefreshTokenTTL < c.JWT.SessionMaxLifetime {
+		return fmt.Errorf(
+			"jwt.refresh_token_ttl must be at least session_max_lifetime, got %s < %s",
+			c.JWT.RefreshTokenTTL, c.JWT.SessionMaxLifetime,
 		)
 	}
 	return nil

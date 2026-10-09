@@ -15,7 +15,8 @@ import (
 	"github.com/ruko1202/maintmode/internal/entity"
 )
 
-// Logout revokes a single refresh token and blacklists the current access token.
+// Logout ends the session the refresh token belongs to -- every token of its
+// family -- and blacklists the current access token.
 func (s *Service) Logout(ctx context.Context, tokenPair *entity.TokenPair) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Logout")
 	defer span.End()
@@ -24,7 +25,7 @@ func (s *Service) Logout(ctx context.Context, tokenPair *entity.TokenPair) error
 		if tokenPair.RefreshToken == "" {
 			return nil
 		}
-		return s.tokenSrv.RevokeRefreshToken(ctx, tokenPair.RefreshToken, claims)
+		return s.tokenSrv.RevokeFamilyByRefreshToken(ctx, tokenPair.RefreshToken, claims)
 	})
 }
 

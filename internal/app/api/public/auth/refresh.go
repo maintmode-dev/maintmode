@@ -40,7 +40,7 @@ func (i *Implementation) Refresh(c *echo.Context) error {
 		return httperrors.ToAPIError(c, op, httperrors.ValidationErr(apperr.ErrInvalidRefreshToken))
 	}
 
-	pair, err := i.authSrv.Refresh(ctx, refreshToken, c.RealIP())
+	pair, err := i.authSrv.Refresh(ctx, refreshToken, c.RealIP(), c.Request().UserAgent())
 	if err != nil {
 		if errors.Is(err, apperr.ErrLockBusy) {
 			c.Response().Header().Set("Retry-After", "1")

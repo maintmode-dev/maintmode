@@ -34,6 +34,7 @@ type AuditLog struct {
 //     (+failure_reason for failed). login_method is absent on a failure that
 //     never established a credential, which is deliberate: see below;
 //   - logout_success: session_id, logout_kind (auto|manual);
+//   - session.revoked: ip, user_agent, session_id, revoke_reason;
 //   - assigned / revoked: roles, target_email, target_display_name;
 //   - replaced: roles (resulting set), roles_added, roles_removed, target_email, target_display_name;
 //   - blocked / unblocked: target_email, target_display_name;
@@ -47,6 +48,10 @@ type AuditLogMetadata struct {
 	SessionID     string `json:"session_id,omitempty"`
 	FailureReason string `json:"failure_reason,omitempty"`
 	LogoutKind    string `json:"logout_kind,omitempty" enums:"auto,manual"`
+	// RevokeReason is why the system revoked a session, on session.revoked
+	// only. token_reuse: a rotated refresh token was replayed after its grace
+	// window, so the session was ended for every holder.
+	RevokeReason string `json:"revoke_reason,omitempty" enums:"token_reuse"`
 	// LoginMethod is the credential that answered a sign-in. Absent on a
 	// failure where no credential verified -- in particular a wrong password
 	// against the break-glass address, which is labeled exactly like a wrong
@@ -82,7 +87,7 @@ type AuditLogFieldChange struct {
 //   - sign_in: login.success, login.failed, logout.success;
 //   - users: roles.changed, user.tags_changed, user.blocked, user.unblocked,
 //     password.changed, password.reset, provider.linked,
-//     invitation.created/revoked;
+//     session.revoked, invitation.created/revoked;
 //   - settings: auth_method.toggled, integration.created/updated/deleted,
 //     resource.created/updated/archived/unarchived,
 //     notify_channel.created/updated/archived/unarchived;

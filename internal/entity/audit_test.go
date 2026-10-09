@@ -21,6 +21,7 @@ func TestAuditActionWireValues(t *testing.T) {
 		AuditActionUserBlocked:     "user.blocked",
 		AuditActionUserUnblocked:   "user.unblocked",
 		AuditActionUserTagsChanged: "user.tags_changed",
+		AuditActionSessionRevoked:  "session.revoked",
 
 		AuditActionMaintCreated:   "maintenance.created",
 		AuditActionMaintUpdated:   "maintenance.updated",
@@ -102,6 +103,7 @@ func TestAuditActionCategories_Pinned(t *testing.T) {
 		AuditActionPasswordChanged: "users",
 		AuditActionPasswordReset:   "users",
 		AuditActionProviderLinked:  "users",
+		AuditActionSessionRevoked:  "users",
 
 		AuditActionAuthMethodToggled:  "settings",
 		AuditActionIntegrationCreated: "settings",
@@ -201,6 +203,7 @@ func allAuditActions() []AuditAction {
 		AuditActionPasswordChanged,
 		AuditActionPasswordReset,
 		AuditActionProviderLinked,
+		AuditActionSessionRevoked,
 		AuditActionRolesChanged,
 		AuditActionUserBlocked,
 		AuditActionUserUnblocked,

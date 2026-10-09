@@ -81,6 +81,17 @@ func providerLinkDetails(meta *entity.AuditMetadata) string {
 	return "provider linked"
 }
 
+// sessionRevokedDetails names the reason in the line an operator scans: a
+// revocation for token reuse is a possible compromise, and that is the one
+// word worth reading without expanding the row.
+func sessionRevokedDetails(user *entity.User, meta *entity.AuditMetadata) string {
+	if meta != nil && meta.RevokeReason == entity.AuditRevokeReasonTokenReuse {
+		return fmt.Sprintf("session of %s revoked: refresh token reused", user.Email)
+	}
+
+	return fmt.Sprintf("session of %s revoked", user.Email)
+}
+
 // fillSignInPayload handles the sign-in category: sessions starting, being
 // refused, and ending.
 func fillSignInPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
@@ -112,7 +123,8 @@ func fillSignInPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Ac
 
 // fillUsersPayload handles the users category: one account changing. The
 // first three arms are the account owner acting on their own credentials, the
-// rest an admin acting on someone else's account.
+// fourth the system acting on the owner's session, the rest an admin acting on
+// someone else's account.
 func fillUsersPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Action) error {
 	switch a := action.(type) {
 	case ProviderLinked:
@@ -129,6 +141,11 @@ func fillUsersPayload(payload *entity.ProcessorTaskPayloadAuditWrite, action Act
 		setActor(payload, a.User)
 		payload.EntityID = a.User.ID.String()
 		payload.Details = fmt.Sprintf("password reset for %s", a.User.Email)
+		payload.Metadata = sanitizeMetadata(a.Meta)
+	case SessionRevoked:
+		setActor(payload, a.User)
+		payload.EntityID = a.User.ID.String()
+		payload.Details = sessionRevokedDetails(a.User, a.Meta)
 		payload.Metadata = sanitizeMetadata(a.Meta)
 	case RolesChanged:
 		setActor(payload, a.Actor)
@@ -345,16 +362,26 @@ func setActor(payload *entity.ProcessorTaskPayloadAuditWrite, actor *entity.User
 // the client and without a limit it bloats every log record.
 const maxUserAgentLen = 256
 
+// truncateUserAgent caps a client-supplied User-Agent at maxUserAgentLen runes,
+// cutting on a rune boundary so the stored value stays valid UTF-8.
+func truncateUserAgent(ua string) string {
+	if len(ua) <= maxUserAgentLen {
+		return ua
+	}
+
+	runes := []rune(ua)
+	if len(runes) <= maxUserAgentLen {
+		return ua
+	}
+
+	return string(runes[:maxUserAgentLen])
+}
+
 func sanitizeMetadata(m *entity.AuditMetadata) *entity.AuditMetadata {
 	if m == nil {
 		return nil
 	}
-	if len(m.UserAgent) > maxUserAgentLen {
-		runes := []rune(m.UserAgent)
-		if len(runes) > maxUserAgentLen {
-			m.UserAgent = string(runes[:maxUserAgentLen])
-		}
-	}
+	m.UserAgent = truncateUserAgent(m.UserAgent)
 	return m
 }
 

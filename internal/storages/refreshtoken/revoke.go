@@ -36,6 +36,7 @@ func (s *Store) RevokeByUserIDExceptFamily(ctx context.Context, userID, keep uui
 	return s.revoke(ctx, whereExpr)
 }
 
+// RevokeFamily revokes every token of a session.
 func (s *Store) RevokeFamily(ctx context.Context, family uuid.UUID) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "store.RefreshToken.RevokeFamily")
 	defer span.End()
@@ -62,9 +63,6 @@ func (s *Store) revoke(ctx context.Context, whereExpr postgres.BoolExpression) e
 		WHERE(whereExpr)
 
 	_, err := stmt.ExecContext(ctx, s.db.Executor(ctx))
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
