@@ -54,9 +54,8 @@ func initService(t *testing.T) *Service {
 		dbtx.NewTxManager(db),
 		refreshtoken.NewStore(db),
 		blacklisttoken.NewStore(valkey),
-		tokenTTL,
+		&config.JWT{AccessTokenTTL: tokenTTL, Issuer: "test-issuer", Kid: "kid-1"},
 		key,
-		"test-issuer", "kid-1",
 	)
 }
 

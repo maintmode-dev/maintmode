@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ruko1202/maintmode/internal/config"
 	"github.com/ruko1202/maintmode/internal/storages/refreshtoken"
 	"github.com/ruko1202/maintmode/internal/utils/dbtx"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
@@ -38,24 +39,25 @@ type Service struct {
 // revocation's own now+TTL.
 const revokedSessionSkew = time.Minute
 
-// NewService builds the token service. accessTokenTTL is the configured
+// NewService builds the token service. cfg.AccessTokenTTL is the configured
 // (longest) access-token lifetime; a revoked session is remembered that long.
+// privateKey is cfg's signing key, parsed by the caller so a bad key fails
+// startup there.
 func NewService(
 	txManager *dbtx.TxManager,
 	refreshTokenStore *refreshtoken.Store,
 	revokedSessions RevokedSessions,
-	accessTokenTTL time.Duration,
+	cfg *config.JWT,
 	privateKey *ecdsa.PrivateKey,
-	issuer, kid string,
 ) *Service {
 	return &Service{
 		txManager:         txManager,
 		tokensStore:       refreshTokenStore,
 		revokedSessions:   revokedSessions,
-		revokedSessionTTL: accessTokenTTL + revokedSessionSkew,
+		revokedSessionTTL: cfg.AccessTokenTTL + revokedSessionSkew,
 		privateKey:        privateKey,
-		kid:               kid,
-		issuer:            issuer,
+		kid:               cfg.Kid,
+		issuer:            cfg.Issuer,
 		getNowF:           xtime.UTCNow,
 	}
 }

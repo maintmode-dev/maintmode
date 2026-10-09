@@ -221,14 +221,14 @@ func initServiceWithDeps(
 	// marks revoked sessions in it, Introspect reads them back.
 	blacklist := blacklisttoken.NewStore(valkey)
 
+	tokenCfg := cfg.JWT
+	tokenCfg.Issuer, tokenCfg.Kid = tokenIssuer, testKID
 	tokenSrv := token.NewService(
 		txManager,
 		refreshtoken.NewStore(db),
 		blacklist,
-		cfg.JWT.AccessTokenTTL,
+		&tokenCfg,
 		key,
-		tokenIssuer,
-		testKID,
 	)
 
 	// Each service gets its own JWT config copy: parallel subtests tweak fields

@@ -346,10 +346,8 @@ func newTokenAndUserServices(
 		stores.TxManager,
 		stores.RefreshToken,
 		stores.TokenBlackList,
-		cfg.JWT.AccessTokenTTL,
+		&cfg.JWT,
 		cfg.JWT.GeneratePrivateKey(),
-		cfg.JWT.Issuer,
-		cfg.JWT.Kid,
 	)
 
 	userSrv := user.NewService(
