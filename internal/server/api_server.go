@@ -125,8 +125,11 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	rootGr := s.Echo().Group("")
 	rootGr.Use(middlewares.BaseAPIMiddlewares(env, meta)...)
 
-	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler,
-		xhttpserver.RequestLoggingMiddlewareWithSanitizer(middlewares.NewRequestSanitizer()))
+	// No request logger on the route itself: in echo v5 a group route,
+	// RouteNotFound included, already runs the group middleware, and the base
+	// chain above carries the logger. A second one here logged every 404 twice
+	// under the same request_id (TestRequestLoggingWiring).
+	rootGr.RouteNotFound("/*", xhttpserver.NotFoundHandler)
 
 	// The /api/v1 base group carries NO blanket access-token gate: the auth module
 	// exposes public routes (login/oauth, refresh, jwks, invitation preview/accept)

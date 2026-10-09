@@ -28,6 +28,12 @@ const apiBodyLimit int64 = 1 << 20 // 1 MiB
 
 // BaseAPIMiddlewares returns the basic set of middlewares (recover, secure, request ID) for public API
 //
+// Recover and Secure come from xhttpserver.BaseMiddlewares and must not be
+// appended again here: a second copy is invisible from outside (the inner
+// Recover swallows the panic, the second Secure re-sets the same headers), so
+// the only effect of the duplicate is paying for both on every request.
+// Recover stays first so it also covers panics in every middleware after it.
+//
 // TraceMiddleware must stay ahead of xhttpserver.RequestLoggingMiddleware: it
 // overwrites X-Request-ID with the trace id, and the logging middleware reads
 // that header afterwards. Reordering the two silently decouples the logs from
@@ -35,8 +41,6 @@ const apiBodyLimit int64 = 1 << 20 // 1 MiB
 // correlates.
 func BaseAPIMiddlewares(env config.Environment, meta *buildmeta.AppBuildMeta) []echo.MiddlewareFunc {
 	mw := append(xhttpserver.BaseMiddlewares(),
-		middleware.Recover(),
-		middleware.Secure(),
 		middleware.BodyLimit(apiBodyLimit),
 		echootel.NewMiddleware(meta.AppName),
 		middleware.RequestIDWithConfig(middleware.RequestIDConfig{Generator: xuuid.NewString}),
