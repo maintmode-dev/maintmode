@@ -112,7 +112,7 @@ func NewAPIServer(
 			ReadTimeout:       timeouts.Read,
 			WriteTimeout:      timeouts.Write,
 			IdleTimeout:       timeouts.Idle,
-		}, opts...),
+		}, append(opts, withClientIPExtractor())...),
 		cfg:               cfg,
 		handlers:          handlers,
 		security:          security,
