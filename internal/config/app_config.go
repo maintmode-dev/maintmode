@@ -809,11 +809,7 @@ func initConfig(appName string) *AppConfig {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
-	if err := cfg.validateInvitationRetention(); err != nil {
-		log.Panicf("invalid config for service %s: %s", appName, err)
-	}
-
-	if err := cfg.validateOTPRetention(); err != nil {
+	if err := cfg.validateSweeps(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 
@@ -1064,6 +1060,22 @@ func (c *AppConfig) validateOTPRetention() error {
 		)
 	}
 	return nil
+}
+
+// validateSweeps runs the retention sweeps' validators and joins every failure.
+// One call site for the two keeps initConfig's own branching flat.
+func (c *AppConfig) validateSweeps() error {
+	var errs error
+
+	for _, validate := range []func() error{
+		c.validateInvitationRetention,
+		c.validateOTPRetention,
+	} {
+		if err := validate(); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
 }
 
 // validateSessionLifetimes rejects a session policy that would break sign-in
