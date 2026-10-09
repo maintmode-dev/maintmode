@@ -16,10 +16,6 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-// errNoSession refuses an access token that belongs to no session: without a
-// sid nothing can revoke it before it expires.
-var errNoSession = errors.New("access token requires a session id")
-
 // IssueAccessToken mints an access token for user inside the session
 // (refresh-token family) sessionID. The session is stamped into the token as
 // its sid, which is what revoking the session checks it against.
@@ -36,8 +32,9 @@ func (s *Service) IssueAccessToken(
 		return "", apperr.ErrUserBlocked
 	}
 
+	// Without a sid nothing could revoke the token before it expires.
 	if sessionID == uuid.Nil {
-		return "", errNoSession
+		return "", errors.New("access token requires a session id")
 	}
 
 	now := s.getNowF()

@@ -175,5 +175,5 @@ func TestIssueAccessTokenRequiresSession(t *testing.T) {
 	t.Parallel()
 
 	_, err := initService(t).IssueAccessToken(context.Background(), tokenTTL, testUser(t), uuid.Nil)
-	require.ErrorIs(t, err, errNoSession)
+	require.ErrorContains(t, err, "access token requires a session id")
 }
