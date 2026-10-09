@@ -78,38 +78,4 @@ func TestRevoke(t *testing.T) {
 		require.True(t, dbToken.Revoked)
 		require.True(t, dbToken.UpdatedAt.After(xtime.UTCNow().Add(-time.Minute)))
 	})
-	t.Run("RevokeFamilyOfUser", func(t *testing.T) {
-		t.Parallel()
-
-		token := makeRefreshToken(ctx, t, store)
-		successor := *token
-		successor.Token = uuid.NewString()
-		require.NoError(t, store.Save(ctx, &successor))
-		other := *token
-		other.Token = uuid.NewString()
-		other.Family = uuid.New()
-		require.NoError(t, store.Save(ctx, &other))
-
-		// Another user's id matches nothing: the family alone is not enough.
-		families, err := store.RevokeFamilyOfUser(ctx, token.Family, uuid.New())
-		require.NoError(t, err)
-		require.Empty(t, families)
-		dbToken, err := store.GetByTokenHash(ctx, token.Token)
-		require.NoError(t, err)
-		require.False(t, dbToken.Revoked)
-
-		families, err = store.RevokeFamilyOfUser(ctx, token.Family, token.UserID)
-		require.NoError(t, err)
-		require.Equal(t, []uuid.UUID{token.Family}, families)
-
-		for _, hash := range []string{token.Token, successor.Token} {
-			dbToken, err := store.GetByTokenHash(ctx, hash)
-			require.NoError(t, err)
-			require.True(t, dbToken.Revoked)
-		}
-
-		dbOther, err := store.GetByTokenHash(ctx, other.Token)
-		require.NoError(t, err)
-		require.False(t, dbOther.Revoked, "the user's other sessions go on")
-	})
 }

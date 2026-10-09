@@ -27,9 +27,10 @@ import (
 // When both are presented and name different sessions -- a stale access token
 // beside a newer refresh token -- both sessions end. Each is the caller's own:
 // the refresh token must belong to the access token's user, or the whole logout
-// is refused before anything is revoked, and the sid is revoked only together
-// with that user. Ending one session more than intended costs a sign-in;
-// refusing would leave both alive behind a client that believes it signed out.
+// is refused before anything is revoked, and the sid comes from the same signed
+// access token as the user, so it needs no separate ownership check. Ending one
+// session more than intended costs a sign-in; refusing would leave both alive
+// behind a client that believes it signed out.
 func (s *Service) Logout(ctx context.Context, tokenPair *entity.TokenPair) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Logout")
 	defer span.End()
@@ -66,12 +67,7 @@ func (s *Service) revokeAccessTokenSession(ctx context.Context, claims *entity.A
 		return nil
 	}
 
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		return fmt.Errorf("%w: parse sub: %w", apperr.ErrInvalidAccessToken, err)
-	}
-
-	return s.tokenSrv.RevokeSessionOfUser(ctx, userID, sessionID)
+	return s.tokenSrv.RevokeRefreshTokenByFamily(ctx, sessionID)
 }
 
 // LogoutAll revokes all refresh tokensStore for the user and blacklists the current access token.

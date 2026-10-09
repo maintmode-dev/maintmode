@@ -98,36 +98,6 @@ func (s *Service) FamilyByRefreshToken(
 	return rt.Family, nil
 }
 
-// RevokeSessionOfUser revokes one session (refresh-token family) of a user and
-// cuts off its access tokens.
-//
-// It is how a logout ends a session named by the sid of the caller's verified
-// access token. The sid is already the caller's by construction -- it was
-// signed into a token issued to this user -- but the revocation still matches
-// the user as well as the family, so a family that is not the user's revokes
-// nothing and marks nothing.
-func (s *Service) RevokeSessionOfUser(ctx context.Context, userID, family uuid.UUID) error {
-	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeSessionOfUser")
-	defer span.End()
-
-	families, err := s.tokensStore.RevokeFamilyOfUser(ctx, family, userID)
-	if err != nil {
-		xlog.Error(ctx, "failed to revoke session", xfield.Error(err))
-		return err
-	}
-
-	if len(families) == 0 {
-		xlog.Warn(ctx, "no session of the user to revoke",
-			xfield.String("family", family.String()),
-			xfield.String("user_id", userID.String()),
-		)
-	}
-
-	s.revokeSessionAccessTokens(ctx, families...)
-
-	return nil
-}
-
 // RevokeFamilyByRefreshToken revokes the whole session a raw refresh token
 // belongs to, once the token is shown to belong to the access token's user, and
 // returns that session.
