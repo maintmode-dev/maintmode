@@ -402,3 +402,25 @@ crypto:
 # one there is no way in should the ordinary methods become unusable.
 bootstrap:
   password: <secret:bootstrap/password>
+
+# Service-to-service credentials for the routes that issue or redeem a token
+# pair. The BFF (maintmode-ui) is a confidential client: it sends
+# X-S2S-APPNAME: maintmode-ui and X-S2S-TOKEN: <secret> on these calls, so a
+# refresh token that leaks on its own cannot be redeemed by anyone else.
+#
+# The secret lives in app.secrets.yaml under "s2s/maintmode-ui/secret" and must
+# equal the UI's MAINTMODE_BACKEND_S2S_TOKEN. available_api lists the routes this
+# caller may use, exactly as registered; a protected route missing from it
+# refuses this caller. Strict in every environment: a request without the right
+# pair gets 401 invalid_client.
+s2s:
+  maintmode-ui:
+    secret: <secret:s2s/maintmode-ui/secret>
+    available_api:
+      - /api/v1/refresh
+      - /api/v1/login/password
+      - /api/v1/login/break-glass
+      - /api/v1/login/otp/verify
+      - /api/v1/login/oauth/code/exchange
+      - /api/v1/login/oauth/exchange/google
+      - /api/v1/users/invitations/accept/password
