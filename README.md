@@ -116,6 +116,12 @@ In production, keep real values in a secret manager and mount a read-only
 `app.secrets.yaml` into the container. The service does not call cloud-specific
 secret APIs itself.
 
+`make secrets` only creates a missing `app.secrets.yaml`; it never adds keys to
+an existing one, and the service refuses to start on a referenced key that is
+missing. When a sample gains a key, copy that line into your own file — for
+example `s2s/maintmode-ui/secret`, the credential the frontend server presents
+on the token endpoints (it must equal the UI's `MAINTMODE_BACKEND_S2S_TOKEN`).
+
 ## First login
 
 A fresh installation has no users. The way in is the break-glass administrator:

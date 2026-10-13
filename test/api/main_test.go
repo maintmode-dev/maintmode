@@ -57,6 +57,11 @@ const (
 	testAPIJWTIssuer           = "oauth-service"
 	testAPIJWTPrivateKey       = "1be2f1f68285c972b750b7718b00d5453f2c08f88c7894d1b9013f75a439de20"
 	testAPIJWTKid              = "99d1e557df9b619fd046322c1e7f196e"
+	// The BFF's s2s credential on the test stack (s2s.maintmode-ui in
+	// deployment/maintmode/test). The auth client sends it on every call, as the
+	// BFF does.
+	testAPIS2SAppName = "maintmode-ui"
+	testAPIS2SToken   = "local-bff-s2s-token-not-a-secret-0123456789"
 )
 
 func TestMain(m *testing.M) {
@@ -272,6 +277,26 @@ func testRolesEditor(roles ...entity.Role) authclient.RequestEditorFn {
 	}
 }
 
+// s2sEditor returns a RequestEditorFn that sets the BFF's s2s headers to the
+// given values, removing a header whose value is empty. Per-call editors run
+// after the client's own, so a test can override or strip the credential the
+// auth client sends by default.
+func s2sEditor(appName, token string) authclient.RequestEditorFn {
+	return func(_ context.Context, req *http.Request) error {
+		for name, value := range map[string]string{
+			config.XS2STokenAppNameHeader: appName,
+			config.XS2STokenHeader:        token,
+		} {
+			if value == "" {
+				req.Header.Del(name)
+				continue
+			}
+			req.Header.Set(name, value)
+		}
+		return nil
+	}
+}
+
 // --- maintmode service client ---------------------------------------------
 
 func setupMaintmodeTestClient() *maintmodeclient.ClientWithResponses {
@@ -313,6 +338,7 @@ func newAuthTestClient(token string) *authclient.ClientWithResponses {
 		baseURL("auth"),
 		authclient.WithHTTPClient(client.NewClient()),
 		authclient.WithRequestEditorFn(authclient.RequestEditorFn(bearerEditor(token))),
+		authclient.WithRequestEditorFn(s2sEditor(testAPIS2SAppName, testAPIS2SToken)),
 	)
 	if err != nil {
 		panic(fmt.Sprintf("build auth test client: %v", err))
