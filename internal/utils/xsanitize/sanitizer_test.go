@@ -21,6 +21,7 @@ func TestSanitizeHeadersRedactsSensitive(t *testing.T) {
 		"Set-Cookie":          []string{"session=" + secret},
 		"Www-Authenticate":    []string{"Basic realm=" + secret},
 		"Proxy-Authenticate":  []string{secret},
+		"X-S2s-Token":         []string{secret},
 		"Content-Type":        []string{"application/json"},
 	}
 
@@ -28,7 +29,7 @@ func TestSanitizeHeadersRedactsSensitive(t *testing.T) {
 
 	for _, name := range []string{
 		"Authorization", "Proxy-Authorization", "Cookie",
-		"Set-Cookie", "Www-Authenticate", "Proxy-Authenticate",
+		"Set-Cookie", "Www-Authenticate", "Proxy-Authenticate", "X-S2s-Token",
 	} {
 		assert.Equal(t, []string{redacted}, got[name], name)
 	}

@@ -56,6 +56,12 @@ var (
 
 	// ErrLinkInvalid answers a pending provider link the caller cannot complete.
 	ErrLinkInvalid ErrorCode = "link_invalid"
+
+	// ErrInvalidClient refuses a caller that failed service-to-service client
+	// authentication (RFC 6749 §5.2 names it the same). It is distinct from
+	// "unauthorized" so the BFF can tell its own misconfiguration apart from a
+	// bad user token, and it never says which check failed.
+	ErrInvalidClient ErrorCode = "invalid_client"
 )
 
 type ErrorResponse struct {

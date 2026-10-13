@@ -42,6 +42,7 @@ var sensitiveHeaders = map[string]struct{}{
 	http.CanonicalHeaderKey("Set-Cookie"):          {},
 	http.CanonicalHeaderKey("WWW-Authenticate"):    {}, // challenge material, response side
 	http.CanonicalHeaderKey("Proxy-Authenticate"):  {},
+	http.CanonicalHeaderKey("X-S2S-TOKEN"):         {}, // the BFF's client credential (config.XS2STokenHeader)
 }
 
 // Sanitizer masks credentials in HTTP logs. The zero value is usable.
