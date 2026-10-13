@@ -68,6 +68,8 @@ type APIServerSecurity struct {
 	// License is the suspend-gate source: the license service in SaaS mode,
 	// license.Noop on self-hosted (its nil license passes every request).
 	License middlewares.LicenseProvider
+	// S2S authenticates the BFF on the routes that issue or redeem a token pair.
+	S2S config.S2SConfig
 }
 
 type APIServer struct {
@@ -89,6 +91,11 @@ type APIServer struct {
 	// It arrives already computed rather than as the config block: the router
 	// needs the decision, not the client secret behind it.
 	oauthDanceEnabled bool
+	// s2sGuard authenticates the BFF on the routes that issue or redeem a token
+	// pair. It is always the FIRST route-level middleware there, so a caller
+	// without the credential is refused before a route-level limiter spends its
+	// budget on them; the group's middleware still runs before it.
+	s2sGuard echo.MiddlewareFunc
 }
 
 func NewAPIServer(
@@ -119,6 +126,7 @@ func NewAPIServer(
 		security:          security,
 		valkey:            rdb,
 		oauthDanceEnabled: oauthDanceEnabled,
+		s2sGuard:          middlewares.RequireS2SToken(security.S2S),
 	}
 }
 
@@ -202,6 +210,11 @@ func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
 // invitation link (and the login/oauth surface) is the only credential, so those
 // groups are rate-limited to blunt enumeration.
 //
+// The routes that issue or redeem a token pair also authenticate the caller as
+// the BFF (s.s2sGuard): a refresh token or a sign-in code that leaks on its own
+// is useless without the BFF's credential. The browser-facing OAuth
+// start/callback and JWKS cannot, and the rest are out of that scope.
+//
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
 // /users/:id/... param routes, so the static segment is not shadowed.
@@ -216,7 +229,7 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	// provider's token from a client can belong to any application its owner
 	// ever authorized. The dev "sign in as" toolbar still drives this one.
 	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
-		middlewares.NotAllowedInProd(env))
+		s.s2sGuard, middlewares.NotAllowedInProd(env))
 	s.oauthDanceRoutes(loginOAuthGr)
 
 	// The password sign-ins. Break-glass is registered in every environment: it is
@@ -239,20 +252,23 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	// carries no address -- every attempt would land in the shared "unparseable"
 	// bucket, and anyone could hold the emergency way in at 429 for everyone.
 	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword,
-		NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
-	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass)
+		s.s2sGuard, NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
+	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass, s.s2sGuard)
 
 	s.otpRoutes(gr, meta)
 	s.providersRoute(gr, meta)
 	s.passwordResetRoutes(gr, meta)
 
-	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh)
+	// No limiter: the BFF refreshes for every user from one address. The s2s
+	// guard runs before the handler, so a refused caller never touches the
+	// refresh token — no reuse detection, no family revocation.
+	gr.Add(http.MethodPost, "/refresh", s.handlers.Auth.Refresh, s.s2sGuard)
 
 	invitesGr := gr.Group("/users/invitations",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
 	invitesGr.Add(http.MethodGet, "/preview", s.handlers.Invitations.PreviewInvitation)
-	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword)
+	invitesGr.Add(http.MethodPost, "/accept/password", s.handlers.Auth.AcceptInvitationWithPassword, s.s2sGuard)
 }
 
 // oauthDanceRoutes registers the backend-driven OAuth dance.
@@ -284,7 +300,7 @@ func (s *APIServer) oauthDanceRoutes(loginOAuthGr *echo.Group) {
 	// Gated: this one needs the frontend URL and both paths, which are startup
 	// configuration rather than anything the registry can supply.
 	if s.oauthDanceEnabled {
-		loginOAuthGr.Add(http.MethodPost, "/code/exchange", s.handlers.Auth.ExchangeOAuthDanceCode)
+		loginOAuthGr.Add(http.MethodPost, "/code/exchange", s.handlers.Auth.ExchangeOAuthDanceCode, s.s2sGuard)
 	}
 }
 
@@ -308,7 +324,7 @@ func (s *APIServer) otpRoutes(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 		NewOTPGlobalRateLimiter(meta.AppName, s.valkey, s.cfg.OTPGlobalRateLimiter),
 	)
 	loginOTPGr.Add(http.MethodPost, "/request", s.handlers.Auth.RequestOTP)
-	loginOTPGr.Add(http.MethodPost, "/verify", s.handlers.Auth.VerifyOTP)
+	loginOTPGr.Add(http.MethodPost, "/verify", s.handlers.Auth.VerifyOTP, s.s2sGuard)
 }
 
 // passwordResetRoutes registers the self-service password reset.

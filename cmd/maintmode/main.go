@@ -198,6 +198,7 @@ func startAPIServer(
 			TokenChecker:  services.TokenChecker,
 			Authorizer:    services.RBAC,
 			License:       services.License,
+			S2S:           cfg.S2S,
 		},
 		valkeyClient,
 		cfg.OAuthDanceEnabled(),
