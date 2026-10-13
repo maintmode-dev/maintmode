@@ -23,6 +23,8 @@ import (
 // @Failure 403 {object} httperrors.ErrorResponse "code: method_disabled | seats_limit_exceeded"
 // @Failure 409 {object} httperrors.ErrorResponse "code: conflict (an account with this email already exists)"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
+// @Failure 401 {object} httperrors.ErrorResponse "invalid_client: the caller is not an authenticated service"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/users/invitations/accept/password [post]
 func (i *Implementation) AcceptInvitationWithPassword(c *echo.Context) error {
 	const op = "api.Auth.AcceptInvitationWithPassword"

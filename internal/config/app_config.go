@@ -686,6 +686,7 @@ type AppConfig struct {
 	Crypto          CryptoConfig          `mapstructure:"crypto"`
 	License         LicenseConfig         `mapstructure:"license"`
 	Bootstrap       BootstrapConfig       `mapstructure:"bootstrap"`
+	S2S             S2SConfig             `mapstructure:"s2s"`
 }
 
 // OAuthDanceEnabled reports whether /login/oauth/code/exchange should be
@@ -848,6 +849,10 @@ func initConfig(appName string) *AppConfig {
 	}
 
 	if err := cfg.validateBootstrapConfig(); err != nil {
+		log.Panicf("invalid config for service %s: %s", appName, err)
+	}
+
+	if err := cfg.validateS2SConfig(); err != nil {
 		log.Panicf("invalid config for service %s: %s", appName, err)
 	}
 

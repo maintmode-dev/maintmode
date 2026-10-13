@@ -35,8 +35,9 @@ const (
 // @Produce json
 // @Param request body apiauthmodels.VerifyOTPRequest true "Code and session nonce"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
-// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed"
+// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed, or invalid_client: the caller is not an authenticated service"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/login/otp/verify [post]
 func (i *Implementation) VerifyOTP(c *echo.Context) error {
 	start := time.Now()

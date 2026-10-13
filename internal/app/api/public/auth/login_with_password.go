@@ -29,8 +29,9 @@ const maxEmailLen = 254
 // @Produce json
 // @Param request body apiauthmodels.LoginWithPasswordRequest true "Credentials"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
-// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed"
+// @Failure 401 {object} httperrors.ErrorResponse "Authentication failed, or invalid_client: the caller is not an authenticated service"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/login/password [post]
 func (i *Implementation) LoginWithPassword(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.LoginWithPassword")

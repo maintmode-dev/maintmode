@@ -25,6 +25,8 @@ import (
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid refresh token"
 // @Failure 409 {object} httperrors.ErrorResponse "Refresh lock busy or token reuse"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Failure 401 {object} httperrors.ErrorResponse "invalid_client: the caller is not an authenticated service"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/refresh [post]
 // Refresh rotates the refresh token and issues a new token pair. The caller
 // (the BFF) sends the current refresh token in the request body and stores the

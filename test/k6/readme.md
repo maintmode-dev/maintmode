@@ -21,6 +21,8 @@ TTL — for long soak runs, re-mint it right before starting:
 ```bash
 AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exchange/google" \
   -H 'Content-Type: application/json' -H 'X-Test-Roles: admin' \
+  -H 'X-S2S-APPNAME: maintmode-ui' \
+  -H 'X-S2S-TOKEN: local-bff-s2s-token-not-a-secret-0123456789' \
   -d '{"id_token":"k6-load-test"}' | jq -r '.access_token')
 ```
 

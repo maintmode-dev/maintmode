@@ -20,8 +20,9 @@ import (
 // @Produce json
 // @Param request body apiauthmodels.ExchangeOAuthCodeRequest true "The one-time code"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
-// @Failure 401 {object} httperrors.ErrorResponse "The code is not redeemable"
+// @Failure 401 {object} httperrors.ErrorResponse "The code is not redeemable, or invalid_client: the caller is not an authenticated service"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/login/oauth/code/exchange [post]
 func (i *Implementation) ExchangeOAuthDanceCode(c *echo.Context) error {
 	ctx, span := xlog.WithOperationSpan(c.Request().Context(), "api.Auth.OAuthDance.ExchangeCode")

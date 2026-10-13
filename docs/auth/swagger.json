@@ -942,6 +942,18 @@
                 "in": "header",
                 "name": "Authorization",
                 "type": "apiKey"
+            },
+            "S2SAppName": {
+                "description": "Name of the calling service (the BFF: maintmode-ui). Token endpoints only.",
+                "in": "header",
+                "name": "X-S2S-APPNAME",
+                "type": "apiKey"
+            },
+            "S2SToken": {
+                "description": "Shared secret of the calling service. Token endpoints only.",
+                "in": "header",
+                "name": "X-S2S-TOKEN",
+                "type": "apiKey"
             }
         }
     },
@@ -1373,7 +1385,7 @@
                                 }
                             }
                         },
-                        "description": "Authentication failed"
+                        "description": "Authentication failed, or invalid_client: the caller is not an authenticated service"
                     },
                     "429": {
                         "content": {
@@ -1386,6 +1398,12 @@
                         "description": "Rate limit exceeded"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Sign in with the break-glass password",
                 "tags": [
                     "Auth"
@@ -1425,7 +1443,7 @@
                                 }
                             }
                         },
-                        "description": "The code is not redeemable"
+                        "description": "The code is not redeemable, or invalid_client: the caller is not an authenticated service"
                     },
                     "429": {
                         "content": {
@@ -1438,6 +1456,12 @@
                         "description": "Rate limit exceeded"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Redeem the one-time code from an OAuth dance",
                 "tags": [
                     "Auth"
@@ -1479,6 +1503,16 @@
                         },
                         "description": "INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED"
                     },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "invalid_client: the caller is not an authenticated service"
+                    },
                     "403": {
                         "content": {
                             "application/json": {
@@ -1510,6 +1544,12 @@
                         "description": "Internal error"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Exchange a Google ID token for a backend token pair",
                 "tags": [
                     "Auth"
@@ -1730,7 +1770,7 @@
                                 }
                             }
                         },
-                        "description": "Authentication failed"
+                        "description": "Authentication failed, or invalid_client: the caller is not an authenticated service"
                     },
                     "429": {
                         "content": {
@@ -1743,6 +1783,12 @@
                         "description": "Rate limit exceeded"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Sign in with a one-time code",
                 "tags": [
                     "Auth"
@@ -1782,7 +1828,7 @@
                                 }
                             }
                         },
-                        "description": "Authentication failed"
+                        "description": "Authentication failed, or invalid_client: the caller is not an authenticated service"
                     },
                     "429": {
                         "content": {
@@ -1795,6 +1841,12 @@
                         "description": "Rate limit exceeded"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Sign in with a password",
                 "tags": [
                     "Auth"
@@ -2428,6 +2480,16 @@
                         },
                         "description": "Invalid refresh token"
                     },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "invalid_client: the caller is not an authenticated service"
+                    },
                     "409": {
                         "content": {
                             "application/json": {
@@ -2449,6 +2511,12 @@
                         "description": "Internal error"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Refresh token pair",
                 "tags": [
                     "Auth"
@@ -2830,6 +2898,16 @@
                         },
                         "description": "code: invalid (no live invitation) | invalid request (password outside the policy, malformed body)"
                     },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "invalid_client: the caller is not an authenticated service"
+                    },
                     "403": {
                         "content": {
                             "application/json": {
@@ -2861,6 +2939,12 @@
                         "description": "Rate limit exceeded"
                     }
                 },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
                 "summary": "Accept an invitation by setting a password",
                 "tags": [
                     "Users"

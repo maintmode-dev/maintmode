@@ -70,4 +70,9 @@ regexes = [
   '''ff504a4da27bcff6bc97794401dd2219826cd0a649736409ecffbde5ccbaaa70''',
   '''2968bc96bfbcd45c1214693882331f76bac4566ec8a715d320f5b219fcccc81b''',
   '''54219ec89dcaa6fb14527d8f6296140ea7c975bc80d6bfa1c251b699c780a93c''',
+  # BFF s2s secret, one value for dev/local/test (also the test/api constant).
+  '''local-bff-s2s-token-not-a-secret-0123456789''',
+  # Shape-valid s2s secrets used by the config and middleware unit tests.
+  '''0123456789abcdef0123456789abcdef''',
+  '''fedcba9876543210fedcba9876543210''',
 ]

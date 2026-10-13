@@ -20,6 +20,8 @@ import (
 
 const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
+	S2SAppNameScopes s2SAppNameContextKey = "S2SAppName.Scopes"
+	S2STokenScopes   s2STokenContextKey   = "S2SToken.Scopes"
 )
 
 // Defines values for ApiauthmodelsAuditLogMetadataLoginMethod.
@@ -812,6 +814,12 @@ type ModelsSetAuthMethodEnabledRequest struct {
 
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
+
+// s2SAppNameContextKey is the context key for S2SAppName security scheme
+type s2SAppNameContextKey string
+
+// s2STokenContextKey is the context key for S2SToken security scheme
+type s2STokenContextKey string
 
 // GetApiV1AuditLogParams defines parameters for GetApiV1AuditLog.
 type GetApiV1AuditLogParams struct {
@@ -4111,6 +4119,7 @@ type PostApiV1LoginOauthExchangeGoogleResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ApiauthmodelsTokenPairResponse
 	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
 	JSON403      *HttperrorsErrorResponse
 	JSON429      *HttperrorsErrorResponse
 	JSON500      *HttperrorsErrorResponse
@@ -4623,6 +4632,7 @@ type PostApiV1RefreshResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ApiauthmodelsTokenPairResponse
 	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
 	JSON409      *HttperrorsErrorResponse
 	JSON500      *HttperrorsErrorResponse
 }
@@ -4822,6 +4832,7 @@ type PostApiV1UsersInvitationsAcceptPasswordResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ApiauthmodelsTokenPairResponse
 	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
 	JSON403      *HttperrorsErrorResponse
 	JSON409      *HttperrorsErrorResponse
 	JSON429      *HttperrorsErrorResponse
@@ -5982,6 +5993,13 @@ func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostAp
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest HttperrorsErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6622,6 +6640,13 @@ func ParsePostApiV1RefreshResponse(rsp *http.Response) (*PostApiV1RefreshRespons
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest HttperrorsErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6910,6 +6935,13 @@ func ParsePostApiV1UsersInvitationsAcceptPasswordResponse(rsp *http.Response) (*
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest HttperrorsErrorResponse
