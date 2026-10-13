@@ -28,6 +28,8 @@ import (
 // @Failure 403 {object} httperrors.ErrorResponse "DOMAIN_NOT_ALLOWED or signup_disabled"
 // @Failure 429 {object} httperrors.ErrorResponse "Rate limit exceeded"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
+// @Failure 401 {object} httperrors.ErrorResponse "invalid_client: the caller is not an authenticated service"
+// @Security S2SAppName || S2SToken
 // @Router /api/v1/login/oauth/exchange/google [post]
 // Exchange verifies a Google ID token and issues a backend token pair.
 func (i *Implementation) ExchangeGoogleToken(c *echo.Context) error {

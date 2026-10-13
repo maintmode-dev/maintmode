@@ -25,3 +25,17 @@ package maintmode
 // @tag.name Audit
 // @tag.description Audit log API
 func SwaggerDocsAuth() {}
+
+// The s2s schemes sit in comment blocks of their own: swag v2.0.0-rc5 names
+// every security definition in one block after the FIRST one in that block,
+// so a second apikey there silently overwrites BearerAuth.
+
+// @securityDefinitions.apikey S2SAppName
+// @in header
+// @name X-S2S-APPNAME
+// @description Name of the calling service (the BFF: maintmode-ui). Token endpoints only.
+
+// @securityDefinitions.apikey S2SToken
+// @in header
+// @name X-S2S-TOKEN
+// @description Shared secret of the calling service. Token endpoints only.
