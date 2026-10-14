@@ -208,6 +208,18 @@ components:
                     description: Mode must be "dance"; anything else is refused rather than ignored.
                     type: string
             type: object
+        apiauthmodels.DevLoginRequest:
+            properties:
+                roles:
+                    description: Roles are exact lower-case role names, e.g. ["admin"].
+                    example:
+                        - admin
+                        - editor
+                    items:
+                        type: string
+                    type: array
+                    uniqueItems: false
+            type: object
         apiauthmodels.ExchangeIDTokenRequest:
             properties:
                 id_token:
@@ -1056,6 +1068,59 @@ paths:
                 - S2SAppName: []
                   S2SToken: []
             summary: Sign in with the break-glass password
+            tags:
+                - Auth
+    /api/v1/login/dev:
+        post:
+            description: 'DEV ONLY: registered only in a dev environment that runs the stub login provider, and absent in prod, where it answers 404. Creates a new user on every call -- invite-only signup notwithstanding -- grants the requested roles on top of the defaults and issues a token pair. It takes no provider credential: it is how dev tooling and the API tests get a session with given roles.'
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/apiauthmodels.DevLoginRequest'
+                description: Roles to grant
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/apiauthmodels.TokenPairResponse'
+                    description: OK
+                "400":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Malformed body, unknown role, or no google login provider on the stand
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: 'invalid_client: the caller is not an authenticated service'
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Seats limit exceeded
+                "429":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Rate limit exceeded
+                "500":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/httperrors.ErrorResponse'
+                    description: Internal error
+            security:
+                - S2SAppName: []
+                  S2SToken: []
+            summary: Sign in as a fresh user with the given roles (dev only)
             tags:
                 - Auth
     /api/v1/login/oauth/{provider}/callback:

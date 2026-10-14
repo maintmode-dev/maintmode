@@ -420,6 +420,7 @@ s2s:
       - /api/v1/refresh
       - /api/v1/login/password
       - /api/v1/login/break-glass
+      - /api/v1/login/dev
       - /api/v1/login/otp/verify
       - /api/v1/login/oauth/code/exchange
       - /api/v1/login/oauth/exchange/google

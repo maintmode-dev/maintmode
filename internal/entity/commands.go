@@ -239,6 +239,15 @@ type ListChannelsResult struct {
 
 // --- Authorization commands ---
 
+// DevSignInCmd asks for a session of a brand-new user holding Roles on top of
+// the defaults. Dev-only: the route that builds it is registered only where the
+// stub provider stands in for every login.
+type DevSignInCmd struct {
+	Roles     []Role
+	ClientIP  string
+	UserAgent string
+}
+
 type ExchangeIDTokenCmd struct {
 	Provider  AuthMethod
 	IDToken   string

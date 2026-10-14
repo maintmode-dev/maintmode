@@ -70,6 +70,11 @@ type APIServerSecurity struct {
 	License middlewares.LicenseProvider
 	// S2S authenticates the BFF on the routes that issue or redeem a token pair.
 	S2S config.S2SConfig
+	// DevLoginEnabled registers POST /login/dev, which mints a session without
+	// any credential. A named field rather than another positional bool next to
+	// oauthDanceEnabled: swapping those two would compile, and the dance is
+	// armed in prod.
+	DevLoginEnabled bool
 }
 
 type APIServer struct {
@@ -254,6 +259,11 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword,
 		s.s2sGuard, NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
 	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass, s.s2sGuard)
+	// Dev sign-in: not registered at all unless enabled, so prod answers 404
+	// rather than refusing. See config.AppConfig.DevLoginEnabled for the gate.
+	if s.security.DevLoginEnabled {
+		loginPasswordGr.Add(http.MethodPost, "/dev", s.handlers.Auth.DevLogin, s.s2sGuard)
+	}
 
 	s.otpRoutes(gr, meta)
 	s.providersRoute(gr, meta)

@@ -532,6 +532,12 @@ type ApiauthmodelsConnectProviderRequest struct {
 	Mode *string `json:"mode,omitempty"`
 }
 
+// ApiauthmodelsDevLoginRequest defines model for apiauthmodels.DevLoginRequest.
+type ApiauthmodelsDevLoginRequest struct {
+	// Roles Roles are exact lower-case role names, e.g. ["admin"].
+	Roles *[]string `json:"roles,omitempty"`
+}
+
 // ApiauthmodelsExchangeIDTokenRequest defines model for apiauthmodels.ExchangeIDTokenRequest.
 type ApiauthmodelsExchangeIDTokenRequest struct {
 	// IdToken IDToken is the upstream provider's signed JWT.
@@ -934,6 +940,9 @@ type PatchApiV1AuthSettingsMethodJSONRequestBody = ModelsSetAuthMethodEnabledReq
 // PostApiV1LoginBreakGlassJSONRequestBody defines body for PostApiV1LoginBreakGlass for application/json ContentType.
 type PostApiV1LoginBreakGlassJSONRequestBody = ApiauthmodelsLoginWithBreakGlassRequest
 
+// PostApiV1LoginDevJSONRequestBody defines body for PostApiV1LoginDev for application/json ContentType.
+type PostApiV1LoginDevJSONRequestBody = ApiauthmodelsDevLoginRequest
+
 // PostApiV1LoginOauthCodeExchangeJSONRequestBody defines body for PostApiV1LoginOauthCodeExchange for application/json ContentType.
 type PostApiV1LoginOauthCodeExchangeJSONRequestBody = ApiauthmodelsExchangeOAuthCodeRequest
 
@@ -1085,6 +1094,11 @@ type ClientInterface interface {
 	PostApiV1LoginBreakGlassWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginBreakGlass(ctx context.Context, body PostApiV1LoginBreakGlassJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1LoginDevWithBody request with any body
+	PostApiV1LoginDevWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1LoginDev(ctx context.Context, body PostApiV1LoginDevJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1LoginOauthCodeExchangeWithBody request with any body
 	PostApiV1LoginOauthCodeExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1317,6 +1331,30 @@ func (c *Client) PostApiV1LoginBreakGlassWithBody(ctx context.Context, contentTy
 
 func (c *Client) PostApiV1LoginBreakGlass(ctx context.Context, body PostApiV1LoginBreakGlassJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginBreakGlassRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginDevWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginDevRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1LoginDev(ctx context.Context, body PostApiV1LoginDevJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1LoginDevRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2217,6 +2255,46 @@ func NewPostApiV1LoginBreakGlassRequestWithBody(server string, contentType strin
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/login/break-glass")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostApiV1LoginDevRequest calls the generic PostApiV1LoginDev builder with application/json body
+func NewPostApiV1LoginDevRequest(server string, body PostApiV1LoginDevJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1LoginDevRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV1LoginDevRequestWithBody generates requests for PostApiV1LoginDev with any type of body
+func NewPostApiV1LoginDevRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/login/dev")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3736,6 +3814,11 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1LoginBreakGlassWithResponse(ctx context.Context, body PostApiV1LoginBreakGlassJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginBreakGlassResponse, error)
 
+	// PostApiV1LoginDevWithBodyWithResponse request with any body
+	PostApiV1LoginDevWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginDevResponse, error)
+
+	PostApiV1LoginDevWithResponse(ctx context.Context, body PostApiV1LoginDevJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginDevResponse, error)
+
 	// PostApiV1LoginOauthCodeExchangeWithBodyWithResponse request with any body
 	PostApiV1LoginOauthCodeExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error)
 
@@ -4087,6 +4170,41 @@ func (r PostApiV1LoginBreakGlassResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginBreakGlassResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiV1LoginDevResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiauthmodelsTokenPairResponse
+	JSON400      *HttperrorsErrorResponse
+	JSON401      *HttperrorsErrorResponse
+	JSON403      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
+	JSON500      *HttperrorsErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1LoginDevResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1LoginDevResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiV1LoginDevResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5224,6 +5342,23 @@ func (c *ClientWithResponses) PostApiV1LoginBreakGlassWithResponse(ctx context.C
 	return ParsePostApiV1LoginBreakGlassResponse(rsp)
 }
 
+// PostApiV1LoginDevWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginDevResponse
+func (c *ClientWithResponses) PostApiV1LoginDevWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginDevResponse, error) {
+	rsp, err := c.PostApiV1LoginDevWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginDevResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1LoginDevWithResponse(ctx context.Context, body PostApiV1LoginDevJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginDevResponse, error) {
+	rsp, err := c.PostApiV1LoginDev(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1LoginDevResponse(rsp)
+}
+
 // PostApiV1LoginOauthCodeExchangeWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOauthCodeExchangeResponse
 func (c *ClientWithResponses) PostApiV1LoginOauthCodeExchangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error) {
 	rsp, err := c.PostApiV1LoginOauthCodeExchangeWithBody(ctx, contentType, body, reqEditors...)
@@ -5930,6 +6065,67 @@ func ParsePostApiV1LoginBreakGlassResponse(rsp *http.Response) (*PostApiV1LoginB
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1LoginDevResponse parses an HTTP response from a PostApiV1LoginDevWithResponse call
+func ParsePostApiV1LoginDevResponse(rsp *http.Response) (*PostApiV1LoginDevResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1LoginDevResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiauthmodelsTokenPairResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HttperrorsErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
