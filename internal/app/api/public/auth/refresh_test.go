@@ -124,6 +124,15 @@ func TestRefresh(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec1.Code)
 
+		// Close the grace window: inside it the replay would be a racing tab.
+		res, err := db.ExecContext(ctx,
+			`UPDATE refresh_tokens SET grace_ttl = grace_ttl - interval '1 hour' WHERE token_hash = $1`,
+			xhash.HashSha256([]byte(tokenPair.RefreshToken)))
+		require.NoError(t, err)
+		affected, err := res.RowsAffected()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, affected)
+
 		// Second refresh with same token — should fail (reuse detected)
 		c2, rec2 := echotest.ContextConfig{
 			Request: httptest.NewRequest(http.MethodPost, "/auth/refresh", http.NoBody),
