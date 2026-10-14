@@ -32,10 +32,9 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("reuse revocation", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 
@@ -56,11 +55,10 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("logout takes the session's other access tokens", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
-		exchangeIDTokenMock(mocks, 1)
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 		// A second refresh of the same token inside the grace window mints
@@ -84,11 +82,11 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("logout leaves the user's other sessions alone", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 2)
+		srv, _ := initService(t)
+		user := newTestOAuthUser()
 
-		laptop := openSession(ctx, t, srv)
-		phone := openSession(ctx, t, srv)
+		laptop := openSession(ctx, t, srv, user)
+		phone := openSession(ctx, t, srv, user)
 		requireSameUser(ctx, t, srv, laptop, phone)
 
 		require.NoError(t, srv.Logout(ctx, laptop))
@@ -100,16 +98,16 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("logout without a refresh token ends the access token's session", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
-		exchangeIDTokenMock(mocks, 2)
+		user := newTestOAuthUser()
 
-		laptop := openSession(ctx, t, srv)
+		laptop := openSession(ctx, t, srv, user)
 		rotated, err := srv.Refresh(ctx, laptop.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 		graced, err := srv.Refresh(ctx, laptop.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
-		phone := openSession(ctx, t, srv)
+		phone := openSession(ctx, t, srv, user)
 		requireSameUser(ctx, t, srv, laptop, phone)
 
 		// The access token alone: the client has no refresh token to send.
@@ -136,10 +134,9 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 		t.Parallel()
 
 		key := newSigningKey(t)
-		srv, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{signingKey: key})
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{signingKey: key})
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		legacy, _ := legacyAccessToken(ctx, t, srv, key, pair.AccessToken)
 
 		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{AccessToken: legacy}))
@@ -154,12 +151,12 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("logout naming two sessions ends both", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 3)
+		srv, _ := initService(t)
+		user := newTestOAuthUser()
 
-		laptop := openSession(ctx, t, srv)
-		phone := openSession(ctx, t, srv)
-		tablet := openSession(ctx, t, srv)
+		laptop := openSession(ctx, t, srv, user)
+		phone := openSession(ctx, t, srv, user)
+		tablet := openSession(ctx, t, srv, user)
 		requireSameUser(ctx, t, srv, laptop, phone)
 		requireSameUser(ctx, t, srv, laptop, tablet)
 
@@ -182,11 +179,11 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("logout-all takes every session", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 2)
+		srv, _ := initService(t)
+		user := newTestOAuthUser()
 
-		laptop := openSession(ctx, t, srv)
-		phone := openSession(ctx, t, srv)
+		laptop := openSession(ctx, t, srv, user)
+		phone := openSession(ctx, t, srv, user)
 		requireSameUser(ctx, t, srv, laptop, phone)
 
 		require.NoError(t, srv.LogoutAll(ctx, laptop.AccessToken))
@@ -198,10 +195,9 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("a blacklisted jti is refused on its own", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 
@@ -218,10 +214,9 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("an unreachable blacklist fails closed", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		requireGateStatus(t, srv, pair.AccessToken, http.StatusNoContent)
 
 		// Nothing listens on port 1: every lookup fails.
@@ -235,10 +230,9 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	t.Run("a token carries its session", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair := openSession(ctx, t, srv)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.NoError(t, err)
 
@@ -250,14 +244,10 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 	})
 }
 
-func openSession(ctx context.Context, t *testing.T, srv *Service) *entity.TokenPair {
+func openSession(ctx context.Context, t *testing.T, srv *Service, user *entity.OAuthProviderUserInfo) *entity.TokenPair {
 	t.Helper()
 
-	pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider: entity.AuthMethodGoogle,
-		IDToken:  "id-token",
-		ClientIP: "10.0.0.1",
-	})
+	pair, err := signInAs(ctx, srv, user, &entity.AuditMetadata{IP: "10.0.0.1"})
 	require.NoError(t, err)
 
 	return pair

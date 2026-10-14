@@ -290,26 +290,29 @@ func newTestAuditPublisher(t *testing.T) *auditpublisher.Publisher {
 	return auditpublisher.New(goque.NewTaskQueueManager(storage))
 }
 
-// exchangeIDTokenMock sets up the Authenticate expectation for the ID-token
-// exchange flow and returns the identity the mocked provider resolves. Tests use
-// it to mint a token pair via srv.ExchangeIDToken. The returned value carries
-// the resolved email so callers can assert on the provisioned user.
-func exchangeIDTokenMock(mocks *serviceMocks, times int) *entity.OAuthProviderUserInfo {
-	oauthUser := &entity.OAuthProviderUserInfo{
+// newTestOAuthUser returns a fresh provider identity. Signing in with the same
+// value twice resolves to the same user, which several session tests rely on;
+// a new value is a new user.
+func newTestOAuthUser() *entity.OAuthProviderUserInfo {
+	return &entity.OAuthProviderUserInfo{
 		ID:    xuuid.NewString(),
 		Email: xuuid.NewString() + "_alice@example.com",
 		Name:  "alice",
 	}
-	mocks.authMethod.EXPECT().
-		Authenticate(gomock.Any(), "id-token").
-		Return(&entity.OAuthIDTokenClaims{
-			Subject: oauthUser.ID,
-			Email:   oauthUser.Email,
-			Name:    oauthUser.Name,
-		}, nil).
-		Times(times)
+}
 
-	return oauthUser
+// signInAs signs identity in through SignInWithVerifiedClaims -- the half every
+// provider sign-in shares -- creating them on first use, and returns the pair.
+func signInAs(
+	ctx context.Context, srv *Service, identity *entity.OAuthProviderUserInfo, meta *entity.AuditMetadata,
+) (*entity.TokenPair, error) {
+	pair, _, err := srv.SignInWithVerifiedClaims(ctx, entity.AuthMethodGoogle, &entity.OAuthIDTokenClaims{
+		Subject: identity.ID,
+		Email:   identity.Email,
+		Name:    identity.Name,
+	}, entity.UserCreationPolicy{AllowCreate: true}, meta)
+
+	return pair, err
 }
 
 // loginProviders resolves the provider names these tests sign in with. See

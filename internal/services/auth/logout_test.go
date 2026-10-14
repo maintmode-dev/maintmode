@@ -26,15 +26,9 @@ func TestLogout(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		err = srv.Logout(ctx, pair)
@@ -57,23 +51,15 @@ func TestLogout(t *testing.T) {
 	t.Run("revokes the whole family", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-		exchangeIDTokenMock(mocks, 2)
+		user := newTestOAuthUser()
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, user, &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
-		other, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		other, err := signInAs(ctx, srv, user, &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -105,15 +91,9 @@ func TestLogout(t *testing.T) {
 		t.Run("RefreshToken", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			err = srv.Logout(ctx, &entity.TokenPair{
@@ -132,15 +112,9 @@ func TestLogout(t *testing.T) {
 		t.Run("AccessToken", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			err = srv.Logout(ctx, &entity.TokenPair{
@@ -154,24 +128,12 @@ func TestLogout(t *testing.T) {
 	t.Run("ownership mismatch", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair1, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair1, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair2, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair2, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		err = srv.Logout(ctx, &entity.TokenPair{
@@ -201,22 +163,14 @@ func TestLogoutAll(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 2)
+		user := newTestOAuthUser()
 
-		pair1, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair1, err := signInAs(ctx, srv, user, &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
-		pair2, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair2, err := signInAs(ctx, srv, user, &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		err = srv.LogoutAll(ctx, pair1.AccessToken)
@@ -262,9 +216,8 @@ func TestLogoutAuditSessionID(t *testing.T) {
 	t.Run("logout records the session family", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
-		pair := openSession(ctx, t, srv)
+		srv, _ := initService(t)
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		// Rotated, so the access token's jti and the family differ from
 		// anything minted at sign-in.
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -280,10 +233,10 @@ func TestLogoutAuditSessionID(t *testing.T) {
 	t.Run("logout-all records the session it was made from", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 2)
-		laptop := openSession(ctx, t, srv)
-		phone := openSession(ctx, t, srv)
+		srv, _ := initService(t)
+		user := newTestOAuthUser()
+		laptop := openSession(ctx, t, srv, user)
+		phone := openSession(ctx, t, srv, user)
 		requireSameUser(ctx, t, srv, laptop, phone)
 
 		publisher := newRecordingAuditPublisher()
@@ -297,9 +250,8 @@ func TestLogoutAuditSessionID(t *testing.T) {
 		t.Parallel()
 
 		key := newSigningKey(t)
-		srv, mocks := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{signingKey: key})
-		exchangeIDTokenMock(mocks, 1)
-		pair := openSession(ctx, t, srv)
+		srv, _ := initServiceWithDeps(t, entity.AuthMethodGoogle, serviceDeps{signingKey: key})
+		pair := openSession(ctx, t, srv, newTestOAuthUser())
 		legacy, jti := legacyAccessToken(ctx, t, srv, key, pair.AccessToken)
 
 		publisher := newRecordingAuditPublisher()

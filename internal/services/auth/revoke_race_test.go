@@ -52,14 +52,9 @@ func TestRevocationOverlappingARotationEndsTheSession(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
-			exchangeIDTokenMock(mocks, 1)
+			srv, _ := initService(t)
 
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 			current, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 			require.NoError(t, err)

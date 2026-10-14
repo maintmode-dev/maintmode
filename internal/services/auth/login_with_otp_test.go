@@ -146,14 +146,10 @@ func TestLoginWithOTP_AuditsSuccess(t *testing.T) {
 
 	srv, mocks := initService(t)
 
-	// Provisioned through the ordinary OAuth exchange: LoginWithOTP issues real
+	// Provisioned through an ordinary provider sign-in: LoginWithOTP issues real
 	// tokens, so it needs a user that actually exists rather than a literal.
-	oauthUser := exchangeIDTokenMock(mocks, 1)
-	_, err := srv.ExchangeIDToken(t.Context(), &entity.ExchangeIDTokenCmd{
-		Provider: entity.AuthMethodGoogle,
-		IDToken:  "id-token",
-		ClientIP: "10.0.0.1",
-	})
+	oauthUser := newTestOAuthUser()
+	_, err := signInAs(t.Context(), srv, oauthUser, &entity.AuditMetadata{IP: "10.0.0.1"})
 	require.NoError(t, err)
 
 	user, err := srv.usersSrv.GetByEmail(t.Context(), oauthUser.Email)
