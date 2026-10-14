@@ -9,6 +9,8 @@ func ToAPITokenPairResponse(p *entity.TokenPair) *TokenPairResponse {
 		AccessToken:  p.AccessToken,
 		RefreshToken: p.RefreshToken,
 		ExpiresIn:    p.ExpiresIn,
+
+		SessionExpiresAt: p.SessionExpiresAt,
 	}
 }
 

@@ -60,6 +60,7 @@ func TestLoginWithPassword(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, pair.AccessToken)
+		require.False(t, pair.SessionExpiresAt.IsZero())
 
 		_, err = srv.LoginWithPassword(ctx, &entity.LoginWithPasswordCmd{
 			Email: user.Email, Password: "the-wrong-one", ClientIP: "10.0.0.1",

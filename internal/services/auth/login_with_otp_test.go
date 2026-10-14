@@ -177,6 +177,7 @@ func TestLoginWithOTP_AuditsSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, pair.AccessToken)
 	require.NotEmpty(t, pair.RefreshToken)
+	require.False(t, pair.SessionExpiresAt.IsZero())
 
 	success, ok := onlyAction(t, publisher).(audit.LoginSuccess)
 	require.True(t, ok, "a redeemed code must be audited as a successful login")

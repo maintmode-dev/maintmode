@@ -137,6 +137,7 @@ func TestAcceptInvitationWithPassword(t *testing.T) {
 
 		pair, err := h.accept(ctx, rawToken, invitePassword)
 		require.NoError(t, err)
+		require.False(t, pair.SessionExpiresAt.IsZero())
 
 		access, err := h.svc.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
 		require.NoError(t, err)

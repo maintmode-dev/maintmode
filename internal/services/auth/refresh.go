@@ -145,6 +145,8 @@ func (s *Service) refreshWithinGrace(ctx context.Context, rt *entity.RefreshToke
 		AccessToken:  accessToken,
 		ExpiresIn:    int(ttls.access.Seconds()),
 		RefreshToken: "", // the client keeps the one it has
+
+		SessionExpiresAt: sessionExpiresAt(rt.SessionStartedAt, ttls.maxLifetime),
 	}, nil
 }
 
@@ -251,6 +253,8 @@ func (s *Service) rotateRefreshToken(
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
 		ExpiresIn:    int(ttls.access.Seconds()),
+
+		SessionExpiresAt: sessionExpiresAt(oldRefreshToken.SessionStartedAt, ttls.maxLifetime),
 	}, nil
 }
 

@@ -55,5 +55,7 @@ func (s *Service) IssueTokenPair(ctx context.Context, user *entity.User, clientI
 		RefreshToken: raw,
 		ExpiresIn:    int(ttls.access.Seconds()),
 		SessionID:    family,
+
+		SessionExpiresAt: sessionExpiresAt(now, ttls.maxLifetime),
 	}, nil
 }

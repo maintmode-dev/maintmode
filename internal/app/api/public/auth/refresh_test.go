@@ -42,6 +42,7 @@ func TestRefresh(t *testing.T) {
 		require.NotEmpty(t, resp.RefreshToken)
 		require.Greater(t, resp.ExpiresIn, 0)
 		require.NotEqual(t, tokenPair.RefreshToken, resp.RefreshToken, "refresh token must rotate")
+		require.Equal(t, tokenPair.SessionExpiresAt, resp.SessionExpiresAt, "rotation must not move the session's end")
 
 		// No refresh cookie is set: the BFF owns token storage and reads the
 		// rotated token from the response body.

@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -50,4 +52,8 @@ type TokenPair struct {
 	// identifier that survives rotation. Populated on the initial login
 	// (IssueTokenPair) and used by the audit trail; never returned in the API response.
 	SessionID uuid.UUID
+	// SessionExpiresAt is the latest the session can last: its sign-in plus the
+	// maximum lifetime, in whole seconds, UTC. Rotation does not move it; the
+	// session can still end earlier (idleness, logout, revocation).
+	SessionExpiresAt time.Time
 }

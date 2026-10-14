@@ -622,6 +622,17 @@ type ApiauthmodelsTokenPairResponse struct {
 	AccessToken  *string `json:"access_token,omitempty"`
 	ExpiresIn    *int    `json:"expires_in,omitempty"`
 	RefreshToken *string `json:"refresh_token,omitempty"`
+
+	// SessionExpiresAt SessionExpiresAt is the instant after which this session's refresh token
+	// can no longer be exchanged: sign-in time plus the configured maximum
+	// session lifetime, RFC 3339 in UTC to the second. It is an UPPER BOUND, not
+	// a promise -- the session can end earlier: after the inactivity lifetime
+	// without a refresh (7 days by default), on logout, or on revocation
+	// (password change, refresh-token reuse, admin action). Rotation does not
+	// move it; only a change of the configured maximum lifetime does. An access
+	// token issued before it stays valid until its own expires_in. A value in
+	// the past means the session is over. Omitted when unknown.
+	SessionExpiresAt *time.Time `json:"session_expires_at,omitempty"`
 }
 
 // ApiauthmodelsUpdateMeRequest defines model for apiauthmodels.UpdateMeRequest.
