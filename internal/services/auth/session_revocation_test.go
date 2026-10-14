@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v5"
 	valkeyDB "github.com/redis/go-redis/v9"
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -44,7 +43,7 @@ func TestSessionRevocationCutsOffAccessTokens(t *testing.T) {
 		requireGateStatus(t, srv, rotated.AccessToken, http.StatusNoContent)
 
 		// Replay the rotated-away token past its grace window.
-		expireGrace(ctx, t, srv, pair.RefreshToken)
+		expireGraceWindow(ctx, t, pair.RefreshToken)
 		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
 		require.ErrorIs(t, err, apperr.ErrTokenReuse)
 
@@ -262,18 +261,6 @@ func openSession(ctx context.Context, t *testing.T, srv *Service) *entity.TokenP
 	require.NoError(t, err)
 
 	return pair
-}
-
-// expireGrace moves a rotated refresh token's grace window into the past, so
-// the next refresh of it is reuse rather than a racing client.
-func expireGrace(ctx context.Context, t *testing.T, srv *Service, refreshToken string) {
-	t.Helper()
-
-	rt, err := srv.tokenSrv.GetRefreshToken(ctx, refreshToken)
-	require.NoError(t, err)
-	require.True(t, rt.Revoked)
-	rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-time.Hour))
-	require.NoError(t, srv.tokenSrv.UpdateRefreshToken(ctx, rt))
 }
 
 func requireRefreshRevoked(ctx context.Context, t *testing.T, srv *Service, refreshToken string, want bool) {

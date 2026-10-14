@@ -6,14 +6,12 @@ import (
 	"time"
 
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
 func TestRefresh(t *testing.T) {
@@ -224,13 +222,7 @@ func TestRefresh(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, newPair)
 
-			rt, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)
-			require.NoError(t, err)
-			require.True(t, rt.Revoked)
-			// Wait past grace period simulation: manually expire the grace TTL
-			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-srv.cfg.RefreshTokenGracePeriod))
-			err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
-			require.NoError(t, err)
+			expireGraceWindow(ctx, t, pair.RefreshToken)
 
 			//Reuse old token → should detect reuse
 			newPair, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -258,13 +250,10 @@ func TestRefresh(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, newPair1)
 
-		rt, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)
-		require.NoError(t, err)
-		require.True(t, rt.Revoked)
 		// Mark old token as expired AND past grace period
-		rt.GraceTTL = lo.ToPtr(xtime.UTCNow())
-		rt.ExpiresAt = xtime.UTCNow()
-		err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
+		expireGraceWindow(ctx, t, pair.RefreshToken)
+		_, err = db.ExecContext(ctx, `UPDATE refresh_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash = $1`,
+			xhash.HashSha256([]byte(pair.RefreshToken)))
 		require.NoError(t, err)
 
 		//Reuse old token → should detect reuse

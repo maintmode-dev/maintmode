@@ -12,12 +12,15 @@ var (
 	// and may now belong to someone else, whose lock is left alone.
 	ErrLockNotHeld          = errors.New("lock is not held")
 	ErrRefreshTokenNotFound = errors.New("refresh token not found")
-	ErrInvalidAccessToken   = errors.New("invalid access token")
-	ErrInvalidRefreshToken  = errors.New("invalid refresh token")
-	ErrTokenExpired         = errors.New("token expired")
-	ErrTokenReuse           = errors.New("token reuse detected")
-	ErrLogoutAlready        = errors.New("logout already")
-	ErrUnsupportedProvider  = errors.New("unsupported provider")
+	// ErrRefreshTokenAlreadyRotated marks a rotation that lost to another one:
+	// the token was revoked between being read and being rotated.
+	ErrRefreshTokenAlreadyRotated = errors.New("refresh token already rotated")
+	ErrInvalidAccessToken         = errors.New("invalid access token")
+	ErrInvalidRefreshToken        = errors.New("invalid refresh token")
+	ErrTokenExpired               = errors.New("token expired")
+	ErrTokenReuse                 = errors.New("token reuse detected")
+	ErrLogoutAlready              = errors.New("logout already")
+	ErrUnsupportedProvider        = errors.New("unsupported provider")
 	// ErrOAuthExchangeFailed marks the provider failing to hand us something we
 	// can use: a spent or forged code, a PKCE verifier that does not match the
 	// challenge, a redirect_uri the provider does not recognize, a provider-side

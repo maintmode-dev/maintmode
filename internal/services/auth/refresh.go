@@ -43,7 +43,8 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent 
 		err := s.locker.Release(ctx, lock)
 		switch {
 		case errors.Is(err, apperr.ErrLockNotHeld):
-			// The lock expired mid-refresh and may have let another refresh in.
+			// The lock expired mid-refresh and may have let another refresh in;
+			// the rotation itself is fenced, so the token was not rotated twice.
 			xlog.Warn(ctx, "refresh outlived its lock",
 				xfield.String("elapsed", time.Since(start).String()),
 				xfield.String("lock_ttl", s.cfg.RefreshTokenrDistributedLockTTL.String()),
@@ -211,12 +212,9 @@ func (s *Service) rotateRefreshToken(
 	}
 
 	err = s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
-		oldRefreshToken.Revoked = true
-		oldRefreshToken.GraceTTL = lo.ToPtr(now.Add(s.cfg.RefreshTokenGracePeriod))
-		oldRefreshToken.ReplacedBy = &newHash
-
-		if err := s.tokenSrv.UpdateRefreshToken(txCtx, oldRefreshToken); err != nil {
-			return fmt.Errorf("update old token: %w", err)
+		graceUntil := now.Add(s.cfg.RefreshTokenGracePeriod)
+		if err := s.tokenSrv.RotateRefreshToken(txCtx, oldRefreshToken.Token, newHash, graceUntil); err != nil {
+			return fmt.Errorf("rotate old token: %w", err)
 		}
 
 		return s.tokenSrv.SaveRefreshToken(txCtx, &entity.RefreshToken{
@@ -230,6 +228,12 @@ func (s *Service) rotateRefreshToken(
 			SessionStartedAt: oldRefreshToken.SessionStartedAt,
 		})
 	})
+	if errors.Is(err, apperr.ErrRefreshTokenAlreadyRotated) {
+		// A refresh that outlived its lock lost to the one that took the lock
+		// over. Retrying gets the grace answer for the now-rotated token.
+		xlog.Warn(ctx, "refresh token rotated concurrently")
+		return nil, apperr.ErrLockBusy
+	}
 	if err != nil {
 		xlog.Error(ctx, "failed to rotate refresh token", xfield.Error(err))
 		return nil, err
