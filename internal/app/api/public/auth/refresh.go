@@ -23,9 +23,10 @@ import (
 // @Param request body refreshTokenJSONRequest true "Refresh token"
 // @Success 200 {object} apiauthmodels.TokenPairResponse
 // @Failure 400 {object} httperrors.ErrorResponse "Invalid refresh token"
-// @Failure 409 {object} httperrors.ErrorResponse "Refresh lock busy or token reuse"
+// @Failure 429 {object} httperrors.ErrorResponse "A concurrent refresh of the same token is in progress (or the lock service is briefly unavailable); retry after Retry-After: 1 second"
+// @Header 429 {integer} Retry-After "Seconds to wait before retrying: 1"
 // @Failure 500 {object} httperrors.ErrorResponse "Internal error"
-// @Failure 401 {object} httperrors.ErrorResponse "invalid_client: the caller is not an authenticated service"
+// @Failure 401 {object} httperrors.ErrorResponse "invalid_client: the caller is not an authenticated service; or token reuse past the grace window"
 // @Security S2SAppName || S2SToken
 // @Router /api/v1/refresh [post]
 // Refresh rotates the refresh token and issues a new token pair. The caller

@@ -4644,7 +4644,7 @@ type PostApiV1RefreshResponse struct {
 	JSON200      *ApiauthmodelsTokenPairResponse
 	JSON400      *HttperrorsErrorResponse
 	JSON401      *HttperrorsErrorResponse
-	JSON409      *HttperrorsErrorResponse
+	JSON429      *HttperrorsErrorResponse
 	JSON500      *HttperrorsErrorResponse
 }
 
@@ -6658,12 +6658,12 @@ func ParsePostApiV1RefreshResponse(rsp *http.Response) (*PostApiV1RefreshRespons
 		}
 		response.JSON401 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest HttperrorsErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON409 = &dest
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest HttperrorsErrorResponse

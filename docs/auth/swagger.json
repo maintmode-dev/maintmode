@@ -2494,9 +2494,9 @@
                                 }
                             }
                         },
-                        "description": "invalid_client: the caller is not an authenticated service"
+                        "description": "invalid_client: the caller is not an authenticated service; or token reuse past the grace window"
                     },
-                    "409": {
+                    "429": {
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2504,7 +2504,15 @@
                                 }
                             }
                         },
-                        "description": "Refresh lock busy or token reuse"
+                        "description": "A concurrent refresh of the same token is in progress (or the lock service is briefly unavailable); retry after Retry-After: 1 second",
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds to wait before retrying: 1",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
                     },
                     "500": {
                         "content": {

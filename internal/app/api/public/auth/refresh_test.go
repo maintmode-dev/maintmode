@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v5/echotest"
 	"github.com/samber/lo"
@@ -13,6 +14,8 @@ import (
 	testjsonudils "github.com/ruko1202/maintmode/test/utils/json"
 
 	apiauthmodels "github.com/ruko1202/maintmode/internal/app/api/public/auth/models"
+	"github.com/ruko1202/maintmode/internal/storages/distributedlock"
+	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
 func TestRefresh(t *testing.T) {
@@ -80,6 +83,28 @@ func TestRefresh(t *testing.T) {
 		err := impl.Refresh(c)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("a refresh already in progress answers 429 with Retry-After", func(t *testing.T) {
+		t.Parallel()
+
+		tokenPair := issueTokenPair(ctx, t, impl)
+
+		lock, err := distributedlock.NewStore(valkey).
+			Acquire(ctx, "refresh:"+xhash.HashSha256([]byte(tokenPair.RefreshToken)), time.Minute)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = distributedlock.NewStore(valkey).Release(context.Background(), lock) })
+
+		c, rec := echotest.ContextConfig{
+			Request: httptest.NewRequest(http.MethodPost, "/auth/refresh", http.NoBody),
+			JSONBody: testjsonudils.AnyToJSONBytes(t, refreshTokenJSONRequest{
+				RefreshToken: tokenPair.RefreshToken,
+			}),
+		}.ToContextRecorder(t)
+
+		require.NoError(t, impl.Refresh(c))
+		require.Equal(t, http.StatusTooManyRequests, rec.Code)
+		require.Equal(t, "1", rec.Header().Get("Retry-After"))
 	})
 
 	t.Run("refresh token reuse rejected", func(t *testing.T) {
