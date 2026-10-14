@@ -40,19 +40,18 @@ export function generateDateRange(daysBack = 7, daysForward = 30) {
 
 // Standard request headers
 // AUTH_TOKEN: the API requires a Bearer token since auth landed; mint one via
-// the OAuth stub (dev) and pass it as `k6 run -e AUTH_TOKEN=...`.
+// the dev-only login and pass it as `k6 run -e AUTH_TOKEN=...`.
 //
-// Signup is invite-only by default, so a plain stub exchange yields a refusal
-// or, with open signup, a guest.
-// Mint the token WITH the dev-only X-Test-Roles header instead: it creates
-// the stub user and grants the roles the scenarios need (admin covers the
-// resource/maintenance/channel writes). From the host go through the proxy:
+// The dev login creates a fresh user despite invite-only signup and grants the
+// roles in the body (admin covers the resource/maintenance/channel writes). It
+// exists only on the dev stack, which runs the stub login provider. From the
+// host go through the proxy:
 //
-//   curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exchange/google" \
-//     -H 'Content-Type: application/json' -H 'X-Test-Roles: admin' \
+//   curl -s -X POST "http://localhost:9000/auth/api/v1/login/dev" \
+//     -H 'Content-Type: application/json' \
 //     -H 'X-S2S-APPNAME: maintmode-ui' \
 //     -H 'X-S2S-TOKEN: local-bff-s2s-token-not-a-secret-0123456789' \
-//     -d '{"id_token":"k6-load-test"}' | jq -r '.access_token'
+//     -d '{"roles":["admin"]}' | jq -r '.access_token'
 export function getHeaders() {
   const headers = {
     'Content-Type': 'application/json',

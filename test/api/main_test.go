@@ -106,14 +106,14 @@ func TestMain(m *testing.M) {
 //
 // Every sign-in the suite drives goes through `google`, and the identity it
 // writes references that provider's registry row by id. A fresh stack has no
-// such row, so without this every exchange fails with "unsupported provider"
+// such row, so without this every sign-in fails with "unsupported provider"
 // -- which is the product behaving correctly: a stand where nobody configured
 // the provider cannot sign anyone in through it.
 //
 // Created through the API rather than written into the database so the row is
 // sealed with the stack's real keyring, exactly like one an operator adds.
-// Disabled on purpose: the stack runs the stub verifier (use_stub), so sign-ins
-// never reach the provider, and a disabled row keeps the login reloader from
+// Disabled on purpose: the suite signs in through the dev login, which never
+// reaches the provider, and a disabled row keeps the login reloader from
 // trying to discover a real issuer. Resolving an identity's provider reads the
 // row whether or not it is enabled.
 //
@@ -259,22 +259,15 @@ func bearerEditor(token string) maintmodeclient.RequestEditorFn {
 	}
 }
 
-// testRolesEditor returns a RequestEditorFn that attaches the dev-only
-// X-Test-Roles header to a login request (exchange/callback). The header asks
-// the auth backend to create the stub user despite invite-only signup and to
-// grant the listed roles on top of the defaults — it is honored only when the
-// backend runs in a dev environment, which the API test stack does.
-func testRolesEditor(roles ...entity.Role) authclient.RequestEditorFn {
+// devLoginBody builds the dev sign-in body asking for the given roles on top of
+// the defaults every account carries.
+func devLoginBody(roles ...entity.Role) authclient.PostApiV1LoginDevJSONRequestBody {
 	names := make([]string, 0, len(roles))
 	for _, role := range roles {
 		names = append(names, string(role))
 	}
-	header := strings.Join(names, ",")
 
-	return func(_ context.Context, req *http.Request) error {
-		req.Header.Set("X-Test-Roles", header)
-		return nil
-	}
+	return authclient.PostApiV1LoginDevJSONRequestBody{Roles: &names}
 }
 
 // s2sEditor returns a RequestEditorFn that sets the BFF's s2s headers to the
@@ -383,12 +376,7 @@ func roleUserSubject(roles []entity.Role) string {
 	}
 
 	ctx := context.Background()
-	resp, err := newAuthTestClient("").PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
-		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
-			IdToken: lo.ToPtr("api-test-roles-" + xuuid.NewString()),
-		},
-		testRolesEditor(roles...),
-	)
+	resp, err := newAuthTestClient("").PostApiV1LoginDevWithResponse(ctx, devLoginBody(roles...))
 	if err != nil {
 		panic(fmt.Sprintf("provision %q test user: %v", key, err))
 	}
@@ -511,18 +499,13 @@ func createMaintenanceWithResource(ctx context.Context, t *testing.T, apiClient 
 // A hand-minted token for a random subject is not enough for the introspected
 // critical mutations (approve/start/complete): auth's isSubjectActive check
 // rejects a subject that is not a real user. So the user is provisioned through
-// the same OAuth-stub exchange as the TestMain seed — a unique id_token mints a
-// fresh identity, and the dev-only X-Test-Roles header grants the roles.
+// the dev login like the TestMain seed — every call mints a fresh identity
+// holding the requested roles.
 func provisionUser(ctx context.Context, t *testing.T, roles ...entity.Role) (*maintmodeclient.ClientWithResponses, uuid.UUID) {
 	t.Helper()
 
-	resp, err := newAuthTestClient("").PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
-		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
-			IdToken: lo.ToPtr("api-test-" + xuuid.NewString()),
-		},
-		testRolesEditor(roles...),
-	)
-	require.NoError(t, err, "Failed to exchange id token")
+	resp, err := newAuthTestClient("").PostApiV1LoginDevWithResponse(ctx, devLoginBody(roles...))
+	require.NoError(t, err, "Failed to sign in through the dev login")
 	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
 	require.NotNil(t, resp.JSON200)
 
@@ -532,8 +515,8 @@ func provisionUser(ctx context.Context, t *testing.T, roles ...entity.Role) (*ma
 	id, err := uuid.Parse(subject)
 	require.NoError(t, err, "malformed provisioned user id")
 
-	// Mint our own token rather than reusing the exchange's: the exchanged token
-	// also carries the default guest role, and these tests assert on exactly the
+	// Mint our own token rather than reusing the dev login's: that token also
+	// carries the default guest role, and these tests assert on exactly the
 	// roles they ask for.
 	return setupMaintmodeTestClientWithToken(mustTestAccessTokenForUser(subject, roles...)), id
 }

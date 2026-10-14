@@ -7,7 +7,7 @@ import (
 )
 
 // setupAuthTestClient builds an unauthenticated auth-service client. Auth
-// endpoints under test (login, refresh, callback, jwks, exchange) are reached
+// endpoints under test (login, refresh, callback, jwks, dev login) are reached
 // without a Bearer token; authorized flows use setupAuthTestClientWithRoles
 // from main_test.go.
 func setupAuthTestClient() *authclient.ClientWithResponses {
