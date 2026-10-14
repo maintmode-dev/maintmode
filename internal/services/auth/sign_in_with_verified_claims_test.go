@@ -6,7 +6,6 @@ import (
 
 	"github.com/ruko1202/xlog"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/ruko1202/maintmode/internal/audit"
@@ -14,13 +13,13 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
 
-// TestSignInWithVerifiedClaims covers the method the OAuth dance calls directly,
-// and which ExchangeIDToken now calls after verifying an id_token.
+// TestSignInWithVerifiedClaims covers the half every provider sign-in shares:
+// the OAuth dance calls it after the provider vouched for the claims, and the
+// dev sign-in after inventing them.
 //
-// It exists as an extraction rather than a copy because both paths run side by
-// side in production: one identity must resolve to one user regardless of which
-// path a person took, and a duplicated provisioning body is how that quietly
-// stops being true.
+// It exists as an extraction rather than a copy: one identity must resolve to
+// one user regardless of which path a person took, and a duplicated
+// provisioning body is how that quietly stops being true.
 func TestSignInWithVerifiedClaims(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
@@ -78,10 +77,10 @@ func TestSignInWithVerifiedClaims(t *testing.T) {
 		require.Equal(t, first.ID, second.ID, "one identity must resolve to one user across both paths")
 	})
 
-	// The creation policy is a parameter precisely so the two callers can differ:
-	// the BFF path derives AllowCreate from the dev-only X-Test-Roles header,
-	// while a redirect arriving from Google carries no such header. Hard-coding
-	// either choice inside the shared method would silently change the other.
+	// The creation policy is a parameter precisely so the callers can differ:
+	// the dev sign-in always creates, while a redirect arriving from Google
+	// creates only by invitation or open signup. Hard-coding either choice
+	// inside the shared method would silently change the other.
 	//
 	// This asserts the policy is FORWARDED, not that it is decisive on its own:
 	// GetOrCreateByAuthInfo resolves in the documented order
@@ -107,35 +106,6 @@ func TestSignInWithVerifiedClaims(t *testing.T) {
 		require.Contains(t, user.Roles, entity.RoleEditor,
 			"GrantRoles must reach GetOrCreateByAuthInfo; a dropped policy would silently change both callers")
 	})
-}
-
-// TestExchangeIDTokenStillDerivesAllowCreateFromTestRoles is the AC7 regression
-// guard for the extraction: the old path's dev-only auto-creation must survive
-// unchanged, and it is exactly what a hard-coded policy inside the shared method
-// would have removed.
-func TestExchangeIDTokenStillDerivesAllowCreateFromTestRoles(t *testing.T) {
-	t.Parallel()
-	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
-
-	srv, mocks := initService(t)
-
-	claims := &entity.OAuthIDTokenClaims{
-		Subject: xuuid.NewString(),
-		Email:   xuuid.NewString() + "@example.com",
-		Name:    "Tester",
-	}
-	mocks.authMethod.EXPECT().
-		Authenticate(gomock.Any(), gomock.Any()).
-		Return(claims, nil)
-
-	pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider:  entity.AuthMethodGoogle,
-		IDToken:   "tok",
-		ClientIP:  "10.0.0.1",
-		TestRoles: []entity.Role{entity.RoleAdmin},
-	})
-	require.NoError(t, err, "X-Test-Roles must still authorize creating an unknown user")
-	require.NotEmpty(t, pair.AccessToken)
 }
 
 // TestSignInWithVerifiedClaims_AuditNamesTheMethod pins that an upstream sign-in

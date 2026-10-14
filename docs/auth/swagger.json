@@ -296,15 +296,6 @@
                 },
                 "type": "object"
             },
-            "apiauthmodels.ExchangeIDTokenRequest": {
-                "properties": {
-                    "id_token": {
-                        "description": "IDToken is the upstream provider's signed JWT.",
-                        "type": "string"
-                    }
-                },
-                "type": "object"
-            },
             "apiauthmodels.ExchangeOAuthCodeRequest": {
                 "properties": {
                     "binding_proof": {
@@ -1579,94 +1570,6 @@
                 ]
             }
         },
-        "/api/v1/login/oauth/exchange/google": {
-            "post": {
-                "description": "The older frontend-driven flow: the caller obtained a Google ID token itself and posts it here. Browsers sign in through GET /login/oauth/{provider}/start instead; this route stays registered in every environment, and the dev sign-in stub and the API tests use it.",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/apiauthmodels.ExchangeIDTokenRequest"
-                            }
-                        }
-                    },
-                    "description": "Google ID token",
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    },
-                    "400": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED"
-                    },
-                    "401": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "invalid_client: the caller is not an authenticated service"
-                    },
-                    "403": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "DOMAIN_NOT_ALLOWED or signup_disabled"
-                    },
-                    "429": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Rate limit exceeded"
-                    },
-                    "500": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal error"
-                    }
-                },
-                "security": [
-                    {
-                        "S2SAppName": [],
-                        "S2SToken": []
-                    }
-                ],
-                "summary": "Exchange a Google ID token for a backend token pair",
-                "tags": [
-                    "Auth"
-                ]
-            }
-        },
         "/api/v1/login/oauth/{provider}/callback": {
             "get": {
                 "description": "Verifies the signed state carried in the oauth_state cookie, exchanges the authorization code for tokens using the client secret and the PKCE verifier from the oauth_code_verifier cookie, resolves the user and redirects to the frontend with a one-time code. All dance cookies are cleared on every exit. Always answers 302, success or failure: the user's browser is sitting on this URL, so a JSON error body would be a dead end.\nAn oauth_link cookie switches this to LINK mode: the ticket is spent and the redirect carries link_code instead of code, with no session minted. The identity is attached only when the ticket's owner redeems link_code from their own session (POST /me/providers/link/complete). Once that cookie is present no outcome yields a sign-in -- a spent or unknown ticket is refused, never downgraded.",
@@ -1728,7 +1631,7 @@
         },
         "/api/v1/login/oauth/{provider}/start": {
             "get": {
-                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider; POST /login/oauth/exchange/google is the older frontend-driven flow.",
+                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider.",
                 "parameters": [
                     {
                         "description": "Configured provider instance name, e.g. google",

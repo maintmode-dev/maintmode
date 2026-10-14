@@ -119,8 +119,6 @@ func ToAPIError(c *echo.Context, operation string, err error) error {
 		statusCode, errResp = http.StatusBadRequest, NewErrorResponse(ErrInvalidRequest, err.Error())
 	case errors.Is(err, apperr.ErrForbidden):
 		statusCode, errResp = http.StatusForbidden, NewErrorResponse(ErrForbidden, err.Error())
-	case errors.Is(err, apperr.ErrMethodNotAllowedInProd):
-		statusCode, errResp = http.StatusMethodNotAllowed, NewErrorResponse(ErrServiceUnavailable, err.Error())
 	default:
 		// For any other error, return internal server error with operation context
 		statusCode, errResp = http.StatusInternalServerError, NewErrorResponse(ErrInternalError,

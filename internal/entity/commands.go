@@ -248,17 +248,6 @@ type DevSignInCmd struct {
 	UserAgent string
 }
 
-type ExchangeIDTokenCmd struct {
-	Provider  AuthMethod
-	IDToken   string
-	ClientIP  string
-	UserAgent string
-	// TestRoles are extra roles requested via the dev-only X-Test-Roles header.
-	// Filled only by the dev component of the API layer; the prod wiring is a
-	// noop that never reads the header, so the field stays empty there.
-	TestRoles []Role
-}
-
 // VerifyOTPCmd redeems an emailed one-time code. Its SessionNonce arrives in the
 // request BODY rather than a cookie, which is a deliberate departure from how
 // browser-bound secrets usually travel: the web client calls this backend

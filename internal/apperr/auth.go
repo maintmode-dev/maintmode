@@ -62,9 +62,9 @@ var (
 	// backend may trust: /user/emails returned no record that is both primary
 	// and verified.
 	//
-	// Separate from ErrEmailNotVerified, which is already mapped to a 400
-	// email_not_verified on the BFF exchange path; widening that sentinel would
-	// change an endpoint this ticket does not touch. It also covers a case the
+	// Separate from ErrEmailNotVerified, which is mapped to a 400
+	// email_not_verified; widening that sentinel would change what every OIDC
+	// sign-in reports. It also covers a case the
 	// OIDC one cannot state -- "verified, but not the account's primary address"
 	// -- and primary is half the rule, because a person controls several
 	// verified addresses and only one of them identifies the account.

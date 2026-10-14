@@ -538,12 +538,6 @@ type ApiauthmodelsDevLoginRequest struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-// ApiauthmodelsExchangeIDTokenRequest defines model for apiauthmodels.ExchangeIDTokenRequest.
-type ApiauthmodelsExchangeIDTokenRequest struct {
-	// IdToken IDToken is the upstream provider's signed JWT.
-	IdToken *string `json:"id_token,omitempty"`
-}
-
 // ApiauthmodelsExchangeOAuthCodeRequest defines model for apiauthmodels.ExchangeOAuthCodeRequest.
 type ApiauthmodelsExchangeOAuthCodeRequest struct {
 	BindingProof *string `json:"binding_proof,omitempty"`
@@ -946,9 +940,6 @@ type PostApiV1LoginDevJSONRequestBody = ApiauthmodelsDevLoginRequest
 // PostApiV1LoginOauthCodeExchangeJSONRequestBody defines body for PostApiV1LoginOauthCodeExchange for application/json ContentType.
 type PostApiV1LoginOauthCodeExchangeJSONRequestBody = ApiauthmodelsExchangeOAuthCodeRequest
 
-// PostApiV1LoginOauthExchangeGoogleJSONRequestBody defines body for PostApiV1LoginOauthExchangeGoogle for application/json ContentType.
-type PostApiV1LoginOauthExchangeGoogleJSONRequestBody = ApiauthmodelsExchangeIDTokenRequest
-
 // PostApiV1LoginOtpRequestJSONRequestBody defines body for PostApiV1LoginOtpRequest for application/json ContentType.
 type PostApiV1LoginOtpRequestJSONRequestBody = ApiauthmodelsRequestOTPRequest
 
@@ -1104,11 +1095,6 @@ type ClientInterface interface {
 	PostApiV1LoginOauthCodeExchangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1LoginOauthCodeExchange(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PostApiV1LoginOauthExchangeGoogleWithBody request with any body
-	PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1LoginOauthProviderCallback request
 	GetApiV1LoginOauthProviderCallback(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1379,30 +1365,6 @@ func (c *Client) PostApiV1LoginOauthCodeExchangeWithBody(ctx context.Context, co
 
 func (c *Client) PostApiV1LoginOauthCodeExchange(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1LoginOauthCodeExchangeRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostApiV1LoginOauthExchangeGoogleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PostApiV1LoginOauthExchangeGoogle(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1LoginOauthExchangeGoogleRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2335,46 +2297,6 @@ func NewPostApiV1LoginOauthCodeExchangeRequestWithBody(server string, contentTyp
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/login/oauth/code/exchange")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewPostApiV1LoginOauthExchangeGoogleRequest calls the generic PostApiV1LoginOauthExchangeGoogle builder with application/json body
-func NewPostApiV1LoginOauthExchangeGoogleRequest(server string, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPostApiV1LoginOauthExchangeGoogleRequestWithBody generates requests for PostApiV1LoginOauthExchangeGoogle with any type of body
-func NewPostApiV1LoginOauthExchangeGoogleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/login/oauth/exchange/google")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3824,11 +3746,6 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1LoginOauthCodeExchangeWithResponse(ctx context.Context, body PostApiV1LoginOauthCodeExchangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthCodeExchangeResponse, error)
 
-	// PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with any body
-	PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
-
-	PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error)
-
 	// GetApiV1LoginOauthProviderCallbackWithResponse request
 	GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error)
 
@@ -4237,41 +4154,6 @@ func (r PostApiV1LoginOauthCodeExchangeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostApiV1LoginOauthCodeExchangeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PostApiV1LoginOauthExchangeGoogleResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApiauthmodelsTokenPairResponse
-	JSON400      *HttperrorsErrorResponse
-	JSON401      *HttperrorsErrorResponse
-	JSON403      *HttperrorsErrorResponse
-	JSON429      *HttperrorsErrorResponse
-	JSON500      *HttperrorsErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PostApiV1LoginOauthExchangeGoogleResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1LoginOauthExchangeGoogleResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PostApiV1LoginOauthExchangeGoogleResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5376,23 +5258,6 @@ func (c *ClientWithResponses) PostApiV1LoginOauthCodeExchangeWithResponse(ctx co
 	return ParsePostApiV1LoginOauthCodeExchangeResponse(rsp)
 }
 
-// PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse request with arbitrary body returning *PostApiV1LoginOauthExchangeGoogleResponse
-func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
-	rsp, err := c.PostApiV1LoginOauthExchangeGoogleWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp)
-}
-
-func (c *ClientWithResponses) PostApiV1LoginOauthExchangeGoogleWithResponse(ctx context.Context, body PostApiV1LoginOauthExchangeGoogleJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
-	rsp, err := c.PostApiV1LoginOauthExchangeGoogle(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp)
-}
-
 // GetApiV1LoginOauthProviderCallbackWithResponse request returning *GetApiV1LoginOauthProviderCallbackResponse
 func (c *ClientWithResponses) GetApiV1LoginOauthProviderCallbackWithResponse(ctx context.Context, provider string, params *GetApiV1LoginOauthProviderCallbackParams, reqEditors ...RequestEditorFn) (*GetApiV1LoginOauthProviderCallbackResponse, error) {
 	rsp, err := c.GetApiV1LoginOauthProviderCallback(ctx, provider, params, reqEditors...)
@@ -6166,67 +6031,6 @@ func ParsePostApiV1LoginOauthCodeExchangeResponse(rsp *http.Response) (*PostApiV
 			return nil, err
 		}
 		response.JSON429 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePostApiV1LoginOauthExchangeGoogleResponse parses an HTTP response from a PostApiV1LoginOauthExchangeGoogleWithResponse call
-func ParsePostApiV1LoginOauthExchangeGoogleResponse(rsp *http.Response) (*PostApiV1LoginOauthExchangeGoogleResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PostApiV1LoginOauthExchangeGoogleResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApiauthmodelsTokenPairResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest HttperrorsErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 

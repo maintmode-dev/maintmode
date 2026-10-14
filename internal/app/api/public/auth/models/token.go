@@ -32,11 +32,6 @@ type DevLoginRequest struct {
 	Roles []string `json:"roles" example:"admin,editor"`
 }
 
-type ExchangeIDTokenRequest struct {
-	// IDToken is the upstream provider's signed JWT.
-	IDToken string `json:"id_token"`
-}
-
 // ConnectProviderRequest asks to attach an additional sign-in provider to the
 // authenticated user. The backend runs the provider's dance and answers with a
 // link_url; nothing is linked on this request.

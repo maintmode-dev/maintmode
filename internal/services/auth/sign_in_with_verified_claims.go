@@ -14,19 +14,17 @@ import (
 // user and mints a token pair for them.
 //
 // It takes CLAIMS rather than a token, and that is the whole point of it
-// existing. Two paths reach this code: the BFF exchange, which verifies an
-// id_token posted by the frontend, and the backend OAuth dance, which verifies
-// the id_token it fetched from the provider itself. Passing a raw token here
-// would force the dance to verify twice — and duplicating the body instead
-// would let one identity resolve to two different users depending on which path
-// a person took, which is precisely the bug the two paths running side by side
-// would otherwise invite.
+// existing. The backend OAuth dance reaches it with claims verified from the
+// credential it fetched from the provider itself, and the dev sign-in with
+// claims it invented. Passing a raw token here would force the dance to verify
+// twice — and duplicating the body instead would let one identity resolve to
+// two different users depending on which path a person took.
 //
 // It owns the whole audit trail for the sign-in — LoginFailed on both failure
 // branches and LoginSuccess at the end — like every other service in this
 // codebase. An earlier version left the success record to each caller on the
-// theory that the two paths differed; they did not, and the two records were
-// identical down to the SessionID.
+// theory that the paths differed; they did not, and the records were identical
+// down to the SessionID.
 // provider resolves the user's identity: the user service turns it into the
 // registry row the identity references, or stores it as a built-in method. The audit label does not follow it: every upstream
 // instance records as oidc, so there is nothing to pass in. See

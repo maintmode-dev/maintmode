@@ -5,11 +5,9 @@ package entity
 // roles the created user receives.
 type UserCreationPolicy struct {
 	// AllowCreate — creation is authorized by the call itself (invitation
-	// accept, dev test-roles header). When false, creation is allowed only by
-	// open signup.
+	// accept, dev sign-in). When false, creation is allowed only by open signup.
 	AllowCreate bool
-	// GrantRoles are roles assigned on top of DefaultRoles (dev test-roles
-	// header only; invitation roles are assigned by the accept flow in its own
-	// transaction).
+	// GrantRoles are roles assigned on top of DefaultRoles (dev sign-in only;
+	// invitation roles are assigned by the accept flow in its own transaction).
 	GrantRoles []Role
 }
