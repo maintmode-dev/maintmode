@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 // The token is not bound to an address: a change is logged, never refused. A
 // stolen token is caught by reuse detection instead.
 func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent string) (*entity.TokenPair, error) {
+	start := time.Now()
 	now := xtime.UTCNow()
 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Refresh",
@@ -33,12 +35,20 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent 
 	tokenHash := xhash.HashSha256([]byte(oldTokenRaw))
 
 	// Two concurrent refreshes of one token must not both rotate it.
-	lockKey := distributedLockKey(tokenHash)
-	if err := s.locker.Acquire(ctx, lockKey, s.cfg.RefreshTokenrDistributedLockTTL); err != nil {
+	lock, err := s.locker.Acquire(ctx, distributedLockKey(tokenHash), s.cfg.RefreshTokenrDistributedLockTTL)
+	if err != nil {
 		return nil, apperr.ErrLockBusy
 	}
 	defer func() {
-		if err := s.locker.Release(ctx, lockKey); err != nil {
+		err := s.locker.Release(ctx, lock)
+		switch {
+		case errors.Is(err, apperr.ErrLockNotHeld):
+			// The lock expired mid-refresh and may have let another refresh in.
+			xlog.Warn(ctx, "refresh outlived its lock",
+				xfield.String("elapsed", time.Since(start).String()),
+				xfield.String("lock_ttl", s.cfg.RefreshTokenrDistributedLockTTL.String()),
+			)
+		case err != nil:
 			xlog.Error(ctx, "failed to release lock", xfield.Error(err))
 		}
 	}()

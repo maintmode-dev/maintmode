@@ -6,8 +6,11 @@ import (
 )
 
 var (
-	ErrUserNotFound         = errors.New("user not found")
-	ErrLockBusy             = errors.New("lock is already held")
+	ErrUserNotFound = errors.New("user not found")
+	ErrLockBusy     = errors.New("lock is already held")
+	// ErrLockNotHeld marks a release by a caller whose lock is gone: it expired,
+	// and may now belong to someone else, whose lock is left alone.
+	ErrLockNotHeld          = errors.New("lock is not held")
 	ErrRefreshTokenNotFound = errors.New("refresh token not found")
 	ErrInvalidAccessToken   = errors.New("invalid access token")
 	ErrInvalidRefreshToken  = errors.New("invalid refresh token")

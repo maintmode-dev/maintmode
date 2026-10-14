@@ -9,10 +9,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xhash"
 	"github.com/ruko1202/maintmode/internal/utils/xtime"
 )
 
@@ -273,7 +273,7 @@ func TestRefresh(t *testing.T) {
 		require.Nil(t, newPair2)
 	})
 
-	t.Run("concurrent lock busy", func(t *testing.T) {
+	t.Run("refresh while the token is locked is busy", func(t *testing.T) {
 		t.Parallel()
 
 		srv, mocks := initService(t)
@@ -287,14 +287,13 @@ func TestRefresh(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		eg := new(errgroup.Group)
-		for range 5 {
-			eg.Go(func() error {
-				_, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
-				return err
-			})
-		}
+		// Hold the token's lock as a concurrent refresh would.
+		lock, err := srv.locker.Acquire(ctx,
+			distributedLockKey(xhash.HashSha256([]byte(pair.RefreshToken))), time.Minute)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = srv.locker.Release(context.Background(), lock) })
 
-		require.ErrorIs(t, eg.Wait(), apperr.ErrLockBusy)
+		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
+		require.ErrorIs(t, err, apperr.ErrLockBusy)
 	})
 }
