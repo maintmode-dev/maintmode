@@ -125,7 +125,7 @@ func TestRevokeMarksSessions(t *testing.T) {
 		ended := seedSession(t, srv, user.ID)
 		other := seedSession(t, srv, user.ID)
 
-		require.NoError(t, srv.RevokeRefreshTokenByFamily(ctx, ended.Family))
+		require.NoError(t, srv.RevokeRefreshTokenByFamily(ctx, user.ID, ended.Family))
 
 		require.True(t, sessionRevoked(t, ended.Family))
 		require.False(t, sessionRevoked(t, other.Family), "the user's other sessions go on")

@@ -13,12 +13,15 @@ import (
 	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
-// RevokeRefreshTokenByFamily revokes all refresh tokens in the given family.
-func (s *Service) RevokeRefreshTokenByFamily(ctx context.Context, family uuid.UUID) error {
+// RevokeRefreshTokenByFamily revokes all refresh tokens in the given family,
+// a session of userID.
+func (s *Service) RevokeRefreshTokenByFamily(ctx context.Context, userID, family uuid.UUID) error {
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshTokenByFamily")
 	defer span.End()
 
-	err := s.tokensStore.RevokeFamily(ctx, family)
+	err := s.withUserSessionsLocked(ctx, userID, func(ctx context.Context) error {
+		return s.tokensStore.RevokeFamily(ctx, family)
+	})
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh token", xfield.Error(err))
 		return err
@@ -34,7 +37,11 @@ func (s *Service) RevokeRefreshTokenByUserID(ctx context.Context, userID uuid.UU
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshTokenByUserID")
 	defer span.End()
 
-	families, err := s.tokensStore.RevokeByUserID(ctx, userID)
+	var families []uuid.UUID
+	err := s.withUserSessionsLocked(ctx, userID, func(ctx context.Context) (err error) {
+		families, err = s.tokensStore.RevokeByUserID(ctx, userID)
+		return err
+	})
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh token", xfield.Error(err))
 		return err
@@ -51,7 +58,11 @@ func (s *Service) RevokeRefreshTokenByUserIDExceptFamily(ctx context.Context, us
 	ctx, span := xlog.WithOperationSpan(ctx, "service.AccessToken.RevokeRefreshTokenByUserIDExceptFamily")
 	defer span.End()
 
-	families, err := s.tokensStore.RevokeByUserIDExceptFamily(ctx, userID, keep)
+	var families []uuid.UUID
+	err := s.withUserSessionsLocked(ctx, userID, func(ctx context.Context) (err error) {
+		families, err = s.tokensStore.RevokeByUserIDExceptFamily(ctx, userID, keep)
+		return err
+	})
 	if err != nil {
 		xlog.Error(ctx, "failed to revoke refresh tokens", xfield.Error(err))
 		return err
@@ -113,7 +124,14 @@ func (s *Service) RevokeFamilyByRefreshToken(
 
 	var family uuid.UUID
 
-	err := s.txManager.WithinTx(ctx, func(ctx context.Context) error {
+	// The access token's user, not the refresh token's: the lock comes before
+	// the row lock below, and a mismatch is refused under it anyway.
+	userID, err := uuid.Parse(accessClaims.Subject)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("%w: parse user id from claims.Subject: %w", apperr.ErrInvalidAccessToken, err)
+	}
+
+	err = s.withUserSessionsLocked(ctx, userID, func(ctx context.Context) error {
 		rt, err := s.tokensStore.GetByTokenHashForUpdate(ctx, xhash.HashSha256([]byte(refreshTokenRaw)))
 		if err != nil {
 			err := fmt.Errorf("%w: get refresh token: %w", apperr.ErrRefreshTokenNotFound, err)
@@ -146,4 +164,17 @@ func (s *Service) RevokeFamilyByRefreshToken(
 	s.revokeSessionAccessTokens(ctx, family)
 
 	return family, nil
+}
+
+// withUserSessionsLocked runs fn in a transaction holding the user's sessions
+// lock, so a revocation inside it cannot interleave with a rotation of the same
+// user's tokens and miss the successor that rotation inserts.
+func (s *Service) withUserSessionsLocked(ctx context.Context, userID uuid.UUID, fn func(ctx context.Context) error) error {
+	return s.txManager.WithinTx(ctx, func(ctx context.Context) error {
+		if err := s.tokensStore.LockUserSessions(ctx, userID); err != nil {
+			return err
+		}
+
+		return fn(ctx)
+	})
 }

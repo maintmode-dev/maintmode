@@ -107,7 +107,7 @@ func (s *Service) reuseRevoked(
 		xfield.String("grace_period", s.cfg.RefreshTokenGracePeriod.String()),
 		xfield.String("now", now.String()),
 	)
-	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.Family); err != nil {
+	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.UserID, rt.Family); err != nil {
 		xlog.Error(ctx, "failed to revoke family", xfield.Error(err))
 	}
 	s.publishSessionRevoked(ctx, rt, clientIP, userAgent)
@@ -212,6 +212,12 @@ func (s *Service) rotateRefreshToken(
 	}
 
 	err = s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
+		// First, before the row lock: a revocation of this user's sessions
+		// waits for the successor below to commit, and then sees it.
+		if err := s.tokenSrv.LockUserSessions(txCtx, oldRefreshToken.UserID); err != nil {
+			return err
+		}
+
 		graceUntil := now.Add(s.cfg.RefreshTokenGracePeriod)
 		if err := s.tokenSrv.RotateRefreshToken(txCtx, oldRefreshToken.Token, newHash, graceUntil); err != nil {
 			return fmt.Errorf("rotate old token: %w", err)
