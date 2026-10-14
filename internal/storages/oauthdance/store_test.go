@@ -48,6 +48,8 @@ func TestConsumeCodeRoundTripPreservesSessionID(t *testing.T) {
 		RefreshToken: "refresh",
 		ExpiresIn:    900,
 		SessionID:    uuid.New(),
+		// SessionExpiresAt reaches the API from here on a code exchange.
+		SessionExpiresAt: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC),
 	}
 	require.NoError(t, store.PutCode(ctx, code, entity.DanceCode{Pair: want, Binding: "the-binding"}))
 
@@ -61,6 +63,7 @@ func TestConsumeCodeRoundTripPreservesSessionID(t *testing.T) {
 	assert.Equal(t, want.RefreshToken, got.RefreshToken)
 	assert.Equal(t, want.ExpiresIn, got.ExpiresIn)
 	assert.Equal(t, want.SessionID, got.SessionID, "SessionID must survive the round trip")
+	assert.True(t, want.SessionExpiresAt.Equal(got.SessionExpiresAt), "SessionExpiresAt must survive the round trip")
 }
 
 func TestConsumeCodeSingleUse(t *testing.T) {

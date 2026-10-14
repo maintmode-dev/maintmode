@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,6 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/audit"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
 // observedCtx returns a context whose logger writes into the returned sink.
@@ -126,7 +126,7 @@ func TestRefresh_ReuseDetectionIsAudited(t *testing.T) {
 	rotated, err := srv.Refresh(ctx, pair.RefreshToken, "203.0.113.7", "Firefox/131")
 	require.NoError(t, err)
 
-	expireGraceWindow(ctx, t, srv, pair.RefreshToken)
+	expireGraceWindow(ctx, t, pair.RefreshToken)
 
 	const replayerIP, replayerUA = "198.51.100.9", "curl/8.4.0"
 	replayCtx, replayLogs := observedCtx(t)
@@ -157,15 +157,17 @@ func TestRefresh_ReuseDetectionIsAudited(t *testing.T) {
 
 // expireGraceWindow moves a rotated token's grace window into the past, so the
 // next presentation of it counts as reuse rather than a racing tab.
-func expireGraceWindow(ctx context.Context, t *testing.T, srv *Service, raw string) {
+func expireGraceWindow(ctx context.Context, t *testing.T, raw string) {
 	t.Helper()
 
-	rt, err := srv.tokenSrv.GetRefreshToken(ctx, raw)
+	// Relative to the stored window, not the database clock.
+	res, err := db.ExecContext(ctx,
+		`UPDATE refresh_tokens SET grace_ttl = grace_ttl - interval '1 hour' WHERE token_hash = $1 AND revoked`,
+		xhash.HashSha256([]byte(raw)))
 	require.NoError(t, err)
-	require.True(t, rt.Revoked)
-
-	rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-srv.cfg.RefreshTokenGracePeriod - time.Second))
-	require.NoError(t, srv.tokenSrv.UpdateRefreshToken(ctx, rt))
+	affected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, affected, "the token must exist and be rotated")
 }
 
 func sessionRevokedRows(published []audit.Action) []audit.SessionRevoked {

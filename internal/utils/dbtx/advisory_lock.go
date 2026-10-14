@@ -65,6 +65,20 @@ const (
 	// It is key 4 by the ordering invariant above; provisioning co-holds no
 	// other key -- DEK rotation (key 3) runs in its own transaction.
 	AdvisoryLockKeyLoginProvisioning AdvisoryLockKey = 4
+
+	// AdvisoryLockKeyUserSessions serializes rotating a user's refresh tokens
+	// against revoking them. Unlike the keys above it is per user: taken through
+	// AdvisoryXactLockOn with an id derived from the user. A revocation is one
+	// UPDATE whose snapshot predates a successor that a concurrent rotation has
+	// inserted but not committed; without the lock it revokes the predecessor
+	// once the rotation commits and misses the successor, and the session
+	// outlives its own revocation.
+	//
+	// It is key 5 by the ordering invariant above, and it is taken BEFORE any
+	// refresh_tokens row lock in the same transaction: a rotation holds it while
+	// it locks its predecessor row, so a path that locked a token row first and
+	// then waited here would deadlock against it.
+	AdvisoryLockKeyUserSessions AdvisoryLockKey = 5
 )
 
 // AdvisoryXactLock acquires a transaction-scoped advisory lock, blocking until
@@ -81,6 +95,23 @@ func AdvisoryXactLock(ctx context.Context, key AdvisoryLockKey) error {
 
 	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", int64(key)); err != nil {
 		return fmt.Errorf("acquire advisory xact lock %d: %w", key, err)
+	}
+
+	return nil
+}
+
+// AdvisoryXactLockOn is AdvisoryXactLock for one object under key: the
+// two-int form of pg_advisory_xact_lock, which Postgres keeps in a key space
+// separate from the single-key form. The object is hashed to an int4 by
+// Postgres; two objects sharing a hash only wait on each other.
+func AdvisoryXactLockOn(ctx context.Context, key AdvisoryLockKey, object string) error {
+	tx, ok := TxFromContext(ctx)
+	if !ok {
+		return fmt.Errorf("advisory xact lock %d/%s requires an active transaction: outside one the lock dies at the end of its own statement", key, object)
+	}
+
+	if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1::int4, hashtext($2))", int64(key), object); err != nil {
+		return fmt.Errorf("acquire advisory xact lock %d/%s: %w", key, object, err)
 	}
 
 	return nil

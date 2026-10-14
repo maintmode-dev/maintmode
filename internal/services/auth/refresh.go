@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 // The token is not bound to an address: a change is logged, never refused. A
 // stolen token is caught by reuse detection instead.
 func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent string) (*entity.TokenPair, error) {
+	start := time.Now()
 	now := xtime.UTCNow()
 
 	ctx, span := xlog.WithOperationSpan(ctx, "service.Auth.Refresh",
@@ -33,12 +35,21 @@ func (s *Service) Refresh(ctx context.Context, oldTokenRaw, clientIP, userAgent 
 	tokenHash := xhash.HashSha256([]byte(oldTokenRaw))
 
 	// Two concurrent refreshes of one token must not both rotate it.
-	lockKey := distributedLockKey(tokenHash)
-	if err := s.locker.Acquire(ctx, lockKey, s.cfg.RefreshTokenrDistributedLockTTL); err != nil {
+	lock, err := s.locker.Acquire(ctx, distributedLockKey(tokenHash), s.cfg.RefreshTokenrDistributedLockTTL)
+	if err != nil {
 		return nil, apperr.ErrLockBusy
 	}
 	defer func() {
-		if err := s.locker.Release(ctx, lockKey); err != nil {
+		err := s.locker.Release(ctx, lock)
+		switch {
+		case errors.Is(err, apperr.ErrLockNotHeld):
+			// The lock expired mid-refresh and may have let another refresh in;
+			// the rotation itself is fenced, so the token was not rotated twice.
+			xlog.Warn(ctx, "refresh outlived its lock",
+				xfield.String("elapsed", time.Since(start).String()),
+				xfield.String("lock_ttl", s.cfg.RefreshTokenrDistributedLockTTL.String()),
+			)
+		case err != nil:
 			xlog.Error(ctx, "failed to release lock", xfield.Error(err))
 		}
 	}()
@@ -96,7 +107,7 @@ func (s *Service) reuseRevoked(
 		xfield.String("grace_period", s.cfg.RefreshTokenGracePeriod.String()),
 		xfield.String("now", now.String()),
 	)
-	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.Family); err != nil {
+	if err := s.tokenSrv.RevokeRefreshTokenByFamily(ctx, rt.UserID, rt.Family); err != nil {
 		xlog.Error(ctx, "failed to revoke family", xfield.Error(err))
 	}
 	s.publishSessionRevoked(ctx, rt, clientIP, userAgent)
@@ -134,6 +145,8 @@ func (s *Service) refreshWithinGrace(ctx context.Context, rt *entity.RefreshToke
 		AccessToken:  accessToken,
 		ExpiresIn:    int(ttls.access.Seconds()),
 		RefreshToken: "", // the client keeps the one it has
+
+		SessionExpiresAt: sessionExpiresAt(rt.SessionStartedAt, ttls.maxLifetime),
 	}, nil
 }
 
@@ -201,12 +214,15 @@ func (s *Service) rotateRefreshToken(
 	}
 
 	err = s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
-		oldRefreshToken.Revoked = true
-		oldRefreshToken.GraceTTL = lo.ToPtr(now.Add(s.cfg.RefreshTokenGracePeriod))
-		oldRefreshToken.ReplacedBy = &newHash
+		// First, before the row lock: a revocation of this user's sessions
+		// waits for the successor below to commit, and then sees it.
+		if err := s.tokenSrv.LockUserSessions(txCtx, oldRefreshToken.UserID); err != nil {
+			return err
+		}
 
-		if err := s.tokenSrv.UpdateRefreshToken(txCtx, oldRefreshToken); err != nil {
-			return fmt.Errorf("update old token: %w", err)
+		graceUntil := now.Add(s.cfg.RefreshTokenGracePeriod)
+		if err := s.tokenSrv.RotateRefreshToken(txCtx, oldRefreshToken.Token, newHash, graceUntil); err != nil {
+			return fmt.Errorf("rotate old token: %w", err)
 		}
 
 		return s.tokenSrv.SaveRefreshToken(txCtx, &entity.RefreshToken{
@@ -220,6 +236,12 @@ func (s *Service) rotateRefreshToken(
 			SessionStartedAt: oldRefreshToken.SessionStartedAt,
 		})
 	})
+	if errors.Is(err, apperr.ErrRefreshTokenAlreadyRotated) {
+		// A refresh that outlived its lock lost to the one that took the lock
+		// over. Retrying gets the grace answer for the now-rotated token.
+		xlog.Warn(ctx, "refresh token rotated concurrently")
+		return nil, apperr.ErrLockBusy
+	}
 	if err != nil {
 		xlog.Error(ctx, "failed to rotate refresh token", xfield.Error(err))
 		return nil, err
@@ -231,6 +253,8 @@ func (s *Service) rotateRefreshToken(
 		AccessToken:  accessToken,
 		RefreshToken: newRaw,
 		ExpiresIn:    int(ttls.access.Seconds()),
+
+		SessionExpiresAt: sessionExpiresAt(oldRefreshToken.SessionStartedAt, ttls.maxLifetime),
 	}, nil
 }
 

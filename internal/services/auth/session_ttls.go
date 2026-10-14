@@ -40,6 +40,12 @@ func (s *Service) sessionTTLs(user *entity.User) sessionTTLs {
 	}
 }
 
+// sessionExpiresAt is the session's hard end as clients are told it: whole
+// seconds, rounded down, so it is never later than the limit Refresh enforces.
+func sessionExpiresAt(startedAt time.Time, maxLifetime time.Duration) time.Time {
+	return startedAt.Add(maxLifetime).UTC().Truncate(time.Second)
+}
+
 func (s *Service) sessionTTLsFor(ctx context.Context, userID uuid.UUID) (sessionTTLs, error) {
 	user, err := s.usersSrv.GetByID(ctx, userID)
 	if err != nil {

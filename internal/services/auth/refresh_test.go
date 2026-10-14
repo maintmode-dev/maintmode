@@ -6,14 +6,12 @@ import (
 	"time"
 
 	"github.com/ruko1202/xlog"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/ruko1202/maintmode/internal/apperr"
 	"github.com/ruko1202/maintmode/internal/entity"
-	"github.com/ruko1202/maintmode/internal/utils/xtime"
+	"github.com/ruko1202/maintmode/internal/utils/xhash"
 )
 
 func TestRefresh(t *testing.T) {
@@ -224,13 +222,7 @@ func TestRefresh(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, newPair)
 
-			rt, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)
-			require.NoError(t, err)
-			require.True(t, rt.Revoked)
-			// Wait past grace period simulation: manually expire the grace TTL
-			rt.GraceTTL = lo.ToPtr(rt.GraceTTL.Add(-srv.cfg.RefreshTokenGracePeriod))
-			err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
-			require.NoError(t, err)
+			expireGraceWindow(ctx, t, pair.RefreshToken)
 
 			//Reuse old token → should detect reuse
 			newPair, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -258,13 +250,10 @@ func TestRefresh(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, newPair1)
 
-		rt, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)
-		require.NoError(t, err)
-		require.True(t, rt.Revoked)
 		// Mark old token as expired AND past grace period
-		rt.GraceTTL = lo.ToPtr(xtime.UTCNow())
-		rt.ExpiresAt = xtime.UTCNow()
-		err = srv.tokenSrv.UpdateRefreshToken(ctx, rt)
+		expireGraceWindow(ctx, t, pair.RefreshToken)
+		_, err = db.ExecContext(ctx, `UPDATE refresh_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash = $1`,
+			xhash.HashSha256([]byte(pair.RefreshToken)))
 		require.NoError(t, err)
 
 		//Reuse old token → should detect reuse
@@ -273,7 +262,7 @@ func TestRefresh(t *testing.T) {
 		require.Nil(t, newPair2)
 	})
 
-	t.Run("concurrent lock busy", func(t *testing.T) {
+	t.Run("refresh while the token is locked is busy", func(t *testing.T) {
 		t.Parallel()
 
 		srv, mocks := initService(t)
@@ -287,14 +276,13 @@ func TestRefresh(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		eg := new(errgroup.Group)
-		for range 5 {
-			eg.Go(func() error {
-				_, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
-				return err
-			})
-		}
+		// Hold the token's lock as a concurrent refresh would.
+		lock, err := srv.locker.Acquire(ctx,
+			distributedLockKey(xhash.HashSha256([]byte(pair.RefreshToken))), time.Minute)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = srv.locker.Release(context.Background(), lock) })
 
-		require.ErrorIs(t, eg.Wait(), apperr.ErrLockBusy)
+		_, err = srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
+		require.ErrorIs(t, err, apperr.ErrLockBusy)
 	})
 }

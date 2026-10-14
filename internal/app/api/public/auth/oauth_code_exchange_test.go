@@ -64,6 +64,7 @@ func TestExchangeCodeReturnsThePair(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &pair))
 	assert.NotEmpty(t, pair.AccessToken)
 	assert.NotEmpty(t, pair.RefreshToken)
+	assert.False(t, pair.SessionExpiresAt.IsZero(), "the end must survive parking the pair in Valkey")
 
 	// The pair is credential material: a cache would put it in a shared proxy.
 	assert.Equal(t, "no-store", rec.Header().Get(echo.HeaderCacheControl))

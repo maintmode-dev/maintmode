@@ -67,7 +67,12 @@ func (s *Service) revokeAccessTokenSession(ctx context.Context, claims *entity.A
 		return nil
 	}
 
-	return s.tokenSrv.RevokeRefreshTokenByFamily(ctx, sessionID)
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return fmt.Errorf("%w: parse sub: %w", apperr.ErrInvalidAccessToken, err)
+	}
+
+	return s.tokenSrv.RevokeRefreshTokenByFamily(ctx, userID, sessionID)
 }
 
 // LogoutAll revokes all refresh tokensStore for the user and blacklists the current access token.

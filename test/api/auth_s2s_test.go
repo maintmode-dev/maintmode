@@ -113,10 +113,11 @@ func TestAuthAPI_S2S_UnprotectedRoutesUnaffected(t *testing.T) {
 	require.NotEqual(t, http.StatusUnauthorized, start.StatusCode(), "unexpected body: %s", start.Body)
 }
 
-// A refused client never reaches the refresh token: presenting an already
-// rotated token without the credential must not count as reuse, so the family —
-// and the successor the real BFF holds — survives.
-func TestAuthAPI_S2S_RefusedRefreshDoesNotRevokeFamily(t *testing.T) {
+// A refused client never reaches the refresh token: presenting the live token
+// without the credential must leave it unrotated, so the BFF holding it can
+// still rotate it for real. Had the refused call rotated it, the last call
+// would land in the grace window and get no refresh_token back.
+func TestAuthAPI_S2S_RefusedRefreshDoesNotRotate(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClient()
 
@@ -126,24 +127,16 @@ func TestAuthAPI_S2S_RefusedRefreshDoesNotRevokeFamily(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, login.StatusCode(), "unexpected status: %s", login.Body)
-	first := login.JSON200.RefreshToken
-
-	rotated, err := apiClient.PostApiV1RefreshWithResponse(ctx, authclient.PostApiV1RefreshJSONRequestBody{RefreshToken: first})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rotated.StatusCode(), "unexpected status: %s", rotated.Body)
-	successor := rotated.JSON200.RefreshToken
-
-	// Past the test stack's 1ms grace window: with the credential, presenting
-	// `first` now would be reuse and revoke the family.
-	time.Sleep(50 * time.Millisecond)
+	live := login.JSON200.RefreshToken
 
 	refused, err := apiClient.PostApiV1RefreshWithResponse(ctx,
-		authclient.PostApiV1RefreshJSONRequestBody{RefreshToken: first}, s2sEditor("", ""))
+		authclient.PostApiV1RefreshJSONRequestBody{RefreshToken: live}, s2sEditor("", ""))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, refused.StatusCode())
 	require.Equal(t, "invalid_client", lo.FromPtr(refused.JSON401.Code))
 
-	next, err := apiClient.PostApiV1RefreshWithResponse(ctx, authclient.PostApiV1RefreshJSONRequestBody{RefreshToken: successor})
+	next, err := apiClient.PostApiV1RefreshWithResponse(ctx, authclient.PostApiV1RefreshJSONRequestBody{RefreshToken: live})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, next.StatusCode(), "the family must survive a refused client: %s", next.Body)
+	require.Equal(t, http.StatusOK, next.StatusCode(), "unexpected status: %s", next.Body)
+	require.NotEmpty(t, lo.FromPtr(next.JSON200.RefreshToken), "the refused call must not have rotated the token")
 }

@@ -335,6 +335,20 @@ components:
                     type: integer
                 refresh_token:
                     type: string
+                session_expires_at:
+                    description: |-
+                        SessionExpiresAt is the instant after which this session's refresh token
+                        can no longer be exchanged: sign-in time plus the configured maximum
+                        session lifetime, RFC 3339 in UTC to the second. It is an UPPER BOUND, not
+                        a promise -- the session can end earlier: after the inactivity lifetime
+                        without a refresh (7 days by default), on logout, or on revocation
+                        (password change, refresh-token reuse, admin action). Rotation does not
+                        move it; only a change of the configured maximum lifetime does. An access
+                        token issued before it stays valid until its own expires_in. A value in
+                        the past means the session is over. Omitted when unknown.
+                    example: "2026-11-13T09:00:00Z"
+                    format: date-time
+                    type: string
             type: object
         apiauthmodels.UpdateMeRequest:
             properties:
@@ -1714,13 +1728,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: 'invalid_client: the caller is not an authenticated service'
-                "409":
+                    description: 'invalid_client: the caller is not an authenticated service; or token reuse past the grace window'
+                "429":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/httperrors.ErrorResponse'
-                    description: Refresh lock busy or token reuse
+                    description: 'A concurrent refresh of the same token is in progress (or the lock service is briefly unavailable); retry after Retry-After: 1 second'
+                    headers:
+                        Retry-After:
+                            description: 'Seconds to wait before retrying: 1'
+                            schema:
+                                type: integer
                 "500":
                     content:
                         application/json:
