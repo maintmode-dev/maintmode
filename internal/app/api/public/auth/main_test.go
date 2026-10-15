@@ -183,11 +183,8 @@ func issueTokenPair(ctx context.Context, t *testing.T, impl *Implementation) *en
 
 	c := echotest.ContextConfig{}.ToContext(t)
 
-	tokenPair, err := impl.authSrv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider: entity.AuthMethodGoogle,
-		IDToken:  "stub-id-token",
-		ClientIP: c.RealIP(),
-	})
+	// A fresh user per call: parallel tests revoke sessions by user id.
+	tokenPair, err := impl.authSrv.DevSignIn(ctx, &entity.DevSignInCmd{ClientIP: c.RealIP()})
 	require.NoError(t, err)
 
 	return tokenPair

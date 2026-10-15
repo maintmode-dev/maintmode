@@ -23,31 +23,25 @@ import (
 // token is blacklisted, so the same token — still a valid, unexpired JWT — must
 // be rejected with 401 on the gated mutation.
 //
-// The token must come from a REAL login (OAuth-stub exchange), not the locally
+// The token must come from a REAL login (the dev login), not the locally
 // minted synthetic JWTs the other suites use: logout blacklists the access
-// token's JTI via its refresh session, and only an exchanged token has a JTI
+// token's JTI via its refresh session, and only a signed-in token has a JTI
 // bound to a session that logout can revoke.
 func TestMaintenancesAPI_ActiveTokenRevokedOnLogout(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 
-	// Real login: signup is invite-only in the test stack, so the fresh stub
-	// user is created via the dev-only X-Test-Roles header and granted admin
-	// (the lifecycle below needs resource/channel/maintenance writes). The
-	// exchange returns a real access + refresh pair whose access JTI is tied
+	// Real login: the dev login creates a fresh user despite invite-only signup
+	// and grants admin (the lifecycle below needs resource/channel/maintenance
+	// writes). It returns a real access + refresh pair whose access JTI is tied
 	// to a revocable session.
 	authClient := newAuthTestClient("")
-	exchangeResp, err := authClient.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
-		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{
-			IdToken: lo.ToPtr("api-test-active-token-" + uuid.NewString()),
-		},
-		testRolesEditor(entity.RoleAdmin),
-	)
+	loginResp, err := authClient.PostApiV1LoginDevWithResponse(ctx, devLoginBody(entity.RoleAdmin))
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, exchangeResp.StatusCode(), "unexpected status: %s", exchangeResp.Body)
-	require.NotNil(t, exchangeResp.JSON200)
+	require.Equal(t, http.StatusOK, loginResp.StatusCode(), "unexpected status: %s", loginResp.Body)
+	require.NotNil(t, loginResp.JSON200)
 
-	accessToken := lo.FromPtr(exchangeResp.JSON200.AccessToken)
-	refreshToken := lo.FromPtr(exchangeResp.JSON200.RefreshToken)
+	accessToken := lo.FromPtr(loginResp.JSON200.AccessToken)
+	refreshToken := lo.FromPtr(loginResp.JSON200.RefreshToken)
 	require.NotEmpty(t, accessToken)
 	require.NotEmpty(t, refreshToken)
 

@@ -21,15 +21,9 @@ func TestRefresh(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		newPair, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -45,15 +39,9 @@ func TestRefresh(t *testing.T) {
 	t.Run("logout already", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		err = srv.Logout(ctx, pair)
@@ -79,17 +67,11 @@ func TestRefresh(t *testing.T) {
 	t.Run("new address keeps the session", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 		// A real grace window: the second refresh below must land inside it.
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.10", "")
@@ -114,16 +96,10 @@ func TestRefresh(t *testing.T) {
 		t.Run("ok", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			// First refresh succeeds and rotates
@@ -152,16 +128,10 @@ func TestRefresh(t *testing.T) {
 		t.Run("closed by a later logout", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			rotated, err := srv.Refresh(ctx, pair.RefreshToken, "10.0.0.1", "")
@@ -179,16 +149,10 @@ func TestRefresh(t *testing.T) {
 		t.Run("ok several rotations back", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 			srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			current := pair
@@ -206,15 +170,9 @@ func TestRefresh(t *testing.T) {
 		t.Run("reuse detection", func(t *testing.T) {
 			t.Parallel()
 
-			srv, mocks := initService(t)
+			srv, _ := initService(t)
 
-			exchangeIDTokenMock(mocks, 1)
-
-			pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-				Provider: entity.AuthMethodGoogle,
-				IDToken:  "id-token",
-				ClientIP: "10.0.0.1",
-			})
+			pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 			require.NoError(t, err)
 
 			// First refresh succeeds and rotates
@@ -234,15 +192,9 @@ func TestRefresh(t *testing.T) {
 	t.Run("revoked and expired", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		// Rotate the token
@@ -265,15 +217,9 @@ func TestRefresh(t *testing.T) {
 	t.Run("refresh while the token is locked is busy", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		// Hold the token's lock as a concurrent refresh would.

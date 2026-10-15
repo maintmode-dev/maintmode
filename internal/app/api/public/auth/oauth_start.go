@@ -14,7 +14,7 @@ import (
 
 // StartOAuthDance godoc
 // @Summary Begin the backend-driven OAuth dance
-// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider; POST /login/oauth/exchange/google is the older frontend-driven flow.
+// @Description Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider.
 // @Tags Auth
 // @Produce json
 // @Param provider path string true "Configured provider instance name, e.g. google"
@@ -34,7 +34,7 @@ func (i *Implementation) StartOAuthDance(c *echo.Context) error {
 	// StartDance checks the provider against the registry before minting
 	// anything, so an unknown one costs nothing. That ordering matters twice
 	// over: this route's {provider} segment shares a path space with the static
-	// /login/oauth/exchange/google, so an unchecked parameter is how a request
+	// /login/oauth/code/exchange, so an unchecked parameter is how a request
 	// for one route ends up handled by another.
 	//
 	// The failure answers in JSON, not a redirect: there is no trusted frontend

@@ -19,7 +19,7 @@ import (
 
 // GetOrCreateByAuthInfo looks up a user by the provider identity (provider +
 // subject). If no identity exists, the creation decision is: policy.AllowCreate
-// (an invitation, dev test roles) > open signup > refuse with
+// (an invitation, the dev sign-in) > open signup > refuse with
 // apperr.ErrSignupDisabled, leaving zero rows behind. The whole decision runs
 // in one transaction. The first admin of an instance is created by break-glass,
 // which does not come through here: see EnsureBreakGlassAccount.

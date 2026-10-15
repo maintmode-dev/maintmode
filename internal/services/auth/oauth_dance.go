@@ -12,12 +12,12 @@ import (
 // verifyProviderCredential turns the credential the gateway returned into the
 // claims that identify a user.
 //
-// It routes through the SAME authmethod registry the BFF exchange uses, rather
-// than reaching into a provider package directly, for two reasons: the audience
-// and issuer checks then have exactly one implementation to drift from, and the
-// dev/test `use_stub` substitution keeps applying to both paths at once. A dance
-// that bypassed the registry would verify against real Google on a stand where
-// every other login is stubbed.
+// It routes through the authmethod registry rather than reaching into a
+// provider package directly, for two reasons: the audience and issuer checks
+// then have exactly one implementation to drift from, and the dev/test
+// `use_stub` substitution applies to it. A dance that bypassed the registry
+// would verify against real Google on a stand where every other login is
+// stubbed.
 //
 // "Credential" rather than "id token" because what the string holds depends on
 // the provider: an id_token for OIDC, an opaque access token for GitHub. The

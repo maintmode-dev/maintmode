@@ -70,6 +70,11 @@ type APIServerSecurity struct {
 	License middlewares.LicenseProvider
 	// S2S authenticates the BFF on the routes that issue or redeem a token pair.
 	S2S config.S2SConfig
+	// DevLoginEnabled registers POST /login/dev, which mints a session without
+	// any credential. A named field rather than another positional bool next to
+	// oauthDanceEnabled: swapping those two would compile, and the dance is
+	// armed in prod.
+	DevLoginEnabled bool
 }
 
 type APIServer struct {
@@ -152,7 +157,7 @@ func (s *APIServer) BindRouters(env config.Environment, meta *buildmeta.AppBuild
 	// session and reach the suspended page. The gate lives inside apiV1Group,
 	// covering the business routes only.
 	apiV1 := rootGr.Group("/api/v1")
-	s.authPublicV1Group(apiV1, env, meta)
+	s.authPublicV1Group(apiV1, meta)
 	s.apiV1Group(apiV1)
 	s.authProtectedV1Group(apiV1)
 
@@ -205,10 +210,10 @@ func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
 }
 
 // authPublicV1Group registers the auth routes that must NOT sit behind the
-// access-token gate: JWKS, the OAuth ID-token exchange, token refresh and the
-// unauthenticated invitation preview/accept endpoints. The token in the
-// invitation link (and the login/oauth surface) is the only credential, so those
-// groups are rate-limited to blunt enumeration.
+// access-token gate: JWKS, the sign-ins (OAuth dance, password, OTP), token
+// refresh and the unauthenticated invitation preview/accept endpoints. The
+// token in the invitation link (and the login/oauth surface) is the only
+// credential, so those groups are rate-limited to blunt enumeration.
 //
 // The routes that issue or redeem a token pair also authenticate the caller as
 // the BFF (s.s2sGuard): a refresh token or a sign-in code that leaks on its own
@@ -218,18 +223,15 @@ func (s *APIServer) requireActiveUser() echo.MiddlewareFunc {
 // NOTE: the invitation preview/accept routes live under the STATIC path
 // /users/invitations and are registered here, before apiV1Group registers
 // /users/:id/... param routes, so the static segment is not shadowed.
-func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, meta *buildmeta.AppBuildMeta) {
+func (s *APIServer) authPublicV1Group(gr *echo.Group, meta *buildmeta.AppBuildMeta) {
 	gr.Add(http.MethodGet, "/.well-known/jwks.json", s.handlers.Auth.JWKS)
 
 	loginOAuthGr := gr.Group("/login/oauth",
 		NewIPRateLimiter(meta.AppName, s.valkey, s.cfg.RateLimiter),
 	)
-	// The legacy routes that take a provider credential from the CLIENT are
-	// dev-only: in prod the backend runs the dance itself, and an OAuth2
-	// provider's token from a client can belong to any application its owner
-	// ever authorized. The dev "sign in as" toolbar still drives this one.
-	loginOAuthGr.Add(http.MethodPost, "/exchange/google", s.handlers.Auth.ExchangeGoogleToken,
-		s.s2sGuard, middlewares.NotAllowedInProd(env))
+	// No route here takes a provider credential from the CLIENT: the backend
+	// runs the dance itself, and an OAuth2 provider's token from a client can
+	// belong to any application its owner ever authorized.
 	s.oauthDanceRoutes(loginOAuthGr)
 
 	// The password sign-ins. Break-glass is registered in every environment: it is
@@ -254,6 +256,11 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 	loginPasswordGr.Add(http.MethodPost, "/password", s.handlers.Auth.LoginWithPassword,
 		s.s2sGuard, NewOTPEmailRateLimiter(meta.AppName, s.valkey, s.cfg.OTPEmailRateLimiter))
 	loginPasswordGr.Add(http.MethodPost, "/break-glass", s.handlers.Auth.LoginWithBreakGlass, s.s2sGuard)
+	// Dev sign-in: not registered at all unless enabled, so prod answers 404
+	// rather than refusing. See config.AppConfig.DevLoginEnabled for the gate.
+	if s.security.DevLoginEnabled {
+		loginPasswordGr.Add(http.MethodPost, "/dev", s.handlers.Auth.DevLogin, s.s2sGuard)
+	}
 
 	s.otpRoutes(gr, meta)
 	s.providersRoute(gr, meta)
@@ -282,9 +289,9 @@ func (s *APIServer) authPublicV1Group(gr *echo.Group, env config.Environment, me
 // exists": without the frontend URL and both paths, a dance mints cookies the
 // browser never returns. A dance that cannot complete is worse than no dance.
 //
-// The routes share the group's per-IP limiter with /exchange/google. That is
-// deliberate: they are the same surface for the same anonymous caller, and
-// NewIPRateLimiter keys on the client IP with no route component anyway.
+// The routes share the group's per-IP limiter. That is deliberate: they are the
+// same surface for the same anonymous caller, and NewIPRateLimiter keys on the
+// client IP with no route component anyway.
 //
 // STATIC BEFORE PARAM. /code/exchange is a literal segment in the same position
 // as {provider}, and echo prefers static segments, but the ordering is written

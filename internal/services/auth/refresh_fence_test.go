@@ -23,14 +23,9 @@ func TestRotateRefreshToken_StaleReadDoesNotRotateTwice(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, mocks := initService(t)
-	exchangeIDTokenMock(mocks, 1)
+	srv, _ := initService(t)
 
-	pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider: entity.AuthMethodGoogle,
-		IDToken:  "id-token",
-		ClientIP: "10.0.0.1",
-	})
+	pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 	require.NoError(t, err)
 
 	stale, err := srv.tokenSrv.GetRefreshTokenByHash(ctx, xhash.HashSha256([]byte(pair.RefreshToken)))
@@ -65,14 +60,9 @@ func TestRefresh_RotationBlockedByAConcurrentOneGivesUp(t *testing.T) {
 	t.Parallel()
 	ctx := xlog.ContextWithLogger(context.Background(), xlog.NewZapAdapter(zaptest.NewLogger(t)))
 
-	srv, mocks := initService(t)
-	exchangeIDTokenMock(mocks, 1)
+	srv, _ := initService(t)
 
-	pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider: entity.AuthMethodGoogle,
-		IDToken:  "id-token",
-		ClientIP: "10.0.0.1",
-	})
+	pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 	require.NoError(t, err)
 	tokenHash := xhash.HashSha256([]byte(pair.RefreshToken))
 

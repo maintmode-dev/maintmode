@@ -28,17 +28,10 @@ func observedCtx(t *testing.T) (context.Context, *observer.ObservedLogs) {
 }
 
 // signIn mints a session from the given client and returns its pair.
-func signIn(ctx context.Context, t *testing.T, srv *Service, mocks *serviceMocks, clientIP, userAgent string) *entity.TokenPair {
+func signIn(ctx context.Context, t *testing.T, srv *Service, clientIP, userAgent string) *entity.TokenPair {
 	t.Helper()
 
-	exchangeIDTokenMock(mocks, 1)
-
-	pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-		Provider:  entity.AuthMethodGoogle,
-		IDToken:   "id-token",
-		ClientIP:  clientIP,
-		UserAgent: userAgent,
-	})
+	pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: clientIP, UserAgent: userAgent})
 	require.NoError(t, err)
 
 	return pair
@@ -51,9 +44,9 @@ func TestRefresh_RecordsTheCurrentClient(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	srv, mocks := initService(t)
+	srv, _ := initService(t)
 
-	pair := signIn(ctx, t, srv, mocks, "203.0.113.7", "Firefox/131")
+	pair := signIn(ctx, t, srv, "203.0.113.7", "Firefox/131")
 
 	first, err := srv.tokenSrv.GetRefreshToken(ctx, pair.RefreshToken)
 	require.NoError(t, err)
@@ -78,9 +71,9 @@ func TestRefresh_RecordsTheCurrentClient(t *testing.T) {
 func TestRefresh_LogsAChangeOfAddress(t *testing.T) {
 	t.Parallel()
 
-	srv, mocks := initService(t)
+	srv, _ := initService(t)
 	srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
-	pair := signIn(context.Background(), t, srv, mocks, "203.0.113.7", "Firefox/131")
+	pair := signIn(context.Background(), t, srv, "203.0.113.7", "Firefox/131")
 
 	sameCtx, sameLogs := observedCtx(t)
 	same, err := srv.Refresh(sameCtx, pair.RefreshToken, "203.0.113.7", "Firefox/131")
@@ -117,11 +110,11 @@ func TestRefresh_ReuseDetectionIsAudited(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	srv, mocks := initService(t)
+	srv, _ := initService(t)
 	rec := newRecordingAuditPublisher()
 	srv.auditPublisher = rec
 
-	pair := signIn(ctx, t, srv, mocks, "203.0.113.7", "Firefox/131")
+	pair := signIn(ctx, t, srv, "203.0.113.7", "Firefox/131")
 
 	rotated, err := srv.Refresh(ctx, pair.RefreshToken, "203.0.113.7", "Firefox/131")
 	require.NoError(t, err)

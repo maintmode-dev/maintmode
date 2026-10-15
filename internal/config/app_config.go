@@ -725,6 +725,18 @@ func (c AppConfig) OAuthDanceEnabled() bool {
 		c.App.OAuthCookiePath != ""
 }
 
+// DevLoginEnabled reports whether the dev sign-in route is registered: only in
+// a dev environment that also runs the stub login provider.
+//
+// IsDev alone is not enough. The route mints a session without any credential,
+// and a dev stand without the stub (a developer's `make run`, a deployed dev
+// stand) verifies real provider tokens -- there, the route would turn "holds the
+// BFF's s2s secret" into "can mint an admin". With use_stub every login on the
+// stand is already unverified, so the route adds no way in that was not there.
+func (c AppConfig) DevLoginEnabled() bool {
+	return c.Environment.IsDev() && c.OauthProviders.UseStub
+}
+
 // BootstrapConfig configures the break-glass admin sign-in — the emergency
 // login that breaks the "to configure a provider you must sign in, to sign in
 // you must configure a provider" loop.

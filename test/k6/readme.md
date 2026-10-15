@@ -11,19 +11,18 @@ make app-up
 
 ### Get an authorization token
 
-The API requires a Bearer token. Signup is invite-only by default (a plain
-exchange through the stub yields a rejection or, with open signup, a guest), so
-the token is minted through the OAuth stub
-**with the dev-only `X-Test-Roles` header** — it creates a stub user and grants
-the roles the scenarios need (admin covers every write). The token has a limited
-TTL — for long soak runs, re-mint it right before starting:
+The API requires a Bearer token. It is minted through the dev-only login
+`POST /auth/api/v1/login/dev`, which exists on the dev stack (it runs the stub
+login provider) and nowhere else: it creates a fresh user despite invite-only
+signup and grants the roles in the body (admin covers every write). The token has
+a limited TTL — for long soak runs, re-mint it right before starting:
 
 ```bash
-AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/oauth/exchange/google" \
-  -H 'Content-Type: application/json' -H 'X-Test-Roles: admin' \
+AUTH_TOKEN=$(curl -s -X POST "http://localhost:9000/auth/api/v1/login/dev" \
+  -H 'Content-Type: application/json' \
   -H 'X-S2S-APPNAME: maintmode-ui' \
   -H 'X-S2S-TOKEN: local-bff-s2s-token-not-a-secret-0123456789' \
-  -d '{"id_token":"k6-load-test"}' | jq -r '.access_token')
+  -d '{"roles":["admin"]}' | jq -r '.access_token')
 ```
 
 The token is passed into the scenarios through the environment:

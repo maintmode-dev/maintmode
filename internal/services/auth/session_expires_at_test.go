@@ -30,15 +30,10 @@ func TestSessionExpiresAt(t *testing.T) {
 	t.Run("sign-in plus the maximum lifetime, unmoved by rotation and grace", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 		srv.cfg.RefreshTokenGracePeriod = 30 * time.Second
-		exchangeIDTokenMock(mocks, 1)
 
-		signedIn, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		signedIn, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		want := startedAt(t, srv, signedIn.RefreshToken).Add(srv.cfg.SessionMaxLifetime).Truncate(time.Second)

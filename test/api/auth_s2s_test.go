@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ruko1202/maintmode/internal/entity"
 	authclient "github.com/ruko1202/maintmode/internal/pkg/generated/clients/auth"
 	"github.com/ruko1202/maintmode/internal/utils/xuuid"
 )
@@ -28,7 +27,7 @@ var s2sProtectedPaths = []string{
 	"/api/v1/login/break-glass",
 	"/api/v1/login/otp/verify",
 	"/api/v1/login/oauth/code/exchange",
-	"/api/v1/login/oauth/exchange/google",
+	"/api/v1/login/dev",
 	"/api/v1/users/invitations/accept/password",
 }
 
@@ -39,12 +38,13 @@ var s2sHTTPClient = client.NewClient(client.WithTimeout(5 * time.Second))
 
 // postAuthRaw POSTs a body that no handler accepts to an auth route with the
 // given s2s headers ("" = header absent) and returns the status and the
-// response's error code.
+// response's error code. The unknown role is what makes the dev login refuse it
+// instead of creating a user; every other handler ignores the field.
 func postAuthRaw(ctx context.Context, t *testing.T, path, appName, token string) (status int, code string) {
 	t.Helper()
 
 	// A unique address keeps the per-address OTP limiter out of the way.
-	body := fmt.Sprintf(`{"email":"s2s-%s@example.com"}`, xuuid.NewString())
+	body := fmt.Sprintf(`{"email":"s2s-%s@example.com","roles":["s2s-not-a-role"]}`, xuuid.NewString())
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL("auth")+path, strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -105,7 +105,7 @@ func TestAuthAPI_S2S_UnprotectedRoutesUnaffected(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode(), "unexpected status: %s", resp.Body)
 
 	// The browser starts the OAuth dance itself, with no BFF in the path. It
-	// shares the /login/oauth group with the guarded exchange/google, so the
+	// shares the /login/oauth group with the guarded code/exchange, so the
 	// guard must stay on that route and off the group.
 	start, err := setupAuthTestClient().GetApiV1LoginOauthProviderStartWithResponse(ctx, "s2s-unknown-provider",
 		&authclient.GetApiV1LoginOauthProviderStartParams{Binding: xuuid.NewString()}, s2sEditor("", ""))
@@ -121,10 +121,7 @@ func TestAuthAPI_S2S_RefusedRefreshDoesNotRotate(t *testing.T) {
 	ctx := ctxWithLogger(context.Background(), t)
 	apiClient := setupAuthTestClient()
 
-	login, err := apiClient.PostApiV1LoginOauthExchangeGoogleWithResponse(ctx,
-		authclient.PostApiV1LoginOauthExchangeGoogleJSONRequestBody{IdToken: lo.ToPtr("api-test-s2s-" + xuuid.NewString())},
-		testRolesEditor(entity.RoleGuest),
-	)
+	login, err := apiClient.PostApiV1LoginDevWithResponse(ctx, devLoginBody())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, login.StatusCode(), "unexpected status: %s", login.Body)
 	live := login.JSON200.RefreshToken

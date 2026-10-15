@@ -279,11 +279,19 @@
                 },
                 "type": "object"
             },
-            "apiauthmodels.ExchangeIDTokenRequest": {
+            "apiauthmodels.DevLoginRequest": {
                 "properties": {
-                    "id_token": {
-                        "description": "IDToken is the upstream provider's signed JWT.",
-                        "type": "string"
+                    "roles": {
+                        "description": "Roles are exact lower-case role names, e.g. [\"admin\"].",
+                        "example": [
+                            "admin",
+                            "editor"
+                        ],
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "type": "object"
@@ -1416,6 +1424,94 @@
                 ]
             }
         },
+        "/api/v1/login/dev": {
+            "post": {
+                "description": "DEV ONLY: registered only in a dev environment that runs the stub login provider, and absent in prod, where it answers 404. Creates a new user on every call -- invite-only signup notwithstanding -- grants the requested roles on top of the defaults and issues a token pair. It takes no provider credential: it is how dev tooling and the API tests get a session with given roles.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/apiauthmodels.DevLoginRequest"
+                            }
+                        }
+                    },
+                    "description": "Roles to grant",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Malformed body, unknown role, or no google login provider on the stand"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "invalid_client: the caller is not an authenticated service"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Seats limit exceeded"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Rate limit exceeded"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal error"
+                    }
+                },
+                "security": [
+                    {
+                        "S2SAppName": [],
+                        "S2SToken": []
+                    }
+                ],
+                "summary": "Sign in as a fresh user with the given roles (dev only)",
+                "tags": [
+                    "Auth"
+                ]
+            }
+        },
         "/api/v1/login/oauth/code/exchange": {
             "post": {
                 "description": "Trades the short-lived opaque code the callback put in the redirect for the token pair it stands for, given binding_proof: the nonce whose hash /start received as binding. Single-use: the second attempt with the same code fails like any other, and so does the first one with a wrong proof. Every failure — unknown, expired, already redeemed, wrong or missing proof, malformed — answers the same 401, so a caller cannot learn which of its guesses was closer.",
@@ -1469,94 +1565,6 @@
                     }
                 ],
                 "summary": "Redeem the one-time code from an OAuth dance",
-                "tags": [
-                    "Auth"
-                ]
-            }
-        },
-        "/api/v1/login/oauth/exchange/google": {
-            "post": {
-                "description": "The older frontend-driven flow: the caller obtained a Google ID token itself and posts it here. Browsers sign in through GET /login/oauth/{provider}/start instead; this route stays registered in every environment, and the dev sign-in stub and the API tests use it.",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/apiauthmodels.ExchangeIDTokenRequest"
-                            }
-                        }
-                    },
-                    "description": "Google ID token",
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/apiauthmodels.TokenPairResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    },
-                    "400": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "INVALID_ID_TOKEN or EMAIL_NOT_VERIFIED"
-                    },
-                    "401": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "invalid_client: the caller is not an authenticated service"
-                    },
-                    "403": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "DOMAIN_NOT_ALLOWED or signup_disabled"
-                    },
-                    "429": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Rate limit exceeded"
-                    },
-                    "500": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/httperrors.ErrorResponse"
-                                }
-                            }
-                        },
-                        "description": "Internal error"
-                    }
-                },
-                "security": [
-                    {
-                        "S2SAppName": [],
-                        "S2SToken": []
-                    }
-                ],
-                "summary": "Exchange a Google ID token for a backend token pair",
                 "tags": [
                     "Auth"
                 ]
@@ -1623,7 +1631,7 @@
         },
         "/api/v1/login/oauth/{provider}/start": {
             "get": {
-                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider; POST /login/oauth/exchange/google is the older frontend-driven flow.",
+                "description": "Mints CSRF state and a PKCE verifier, hands the browser the state's signature and the verifier as httpOnly cookies, and redirects to the provider. The dance itself is stored nowhere: those two cookies carry it. An optional invitation token is exchanged for an opaque single-use handle, which is what the third httpOnly cookie carries; the handle-to-invitation mapping is the one piece held server-side, so the raw token -- a multi-day bearer credential -- never travels to the provider, the browser, or a log line. An unknown token is not reported here: it yields a handle like any other and simply fails to apply at the callback. Answers 302 on success; a provider outside the supported set answers 400. This is how a browser signs in through a login provider.",
                 "parameters": [
                     {
                         "description": "Configured provider instance name, e.g. google",

@@ -239,15 +239,13 @@ type ListChannelsResult struct {
 
 // --- Authorization commands ---
 
-type ExchangeIDTokenCmd struct {
-	Provider  AuthMethod
-	IDToken   string
+// DevSignInCmd asks for a session of a brand-new user holding Roles on top of
+// the defaults. Dev-only: the route that builds it is registered only where the
+// stub provider stands in for every login.
+type DevSignInCmd struct {
+	Roles     []Role
 	ClientIP  string
 	UserAgent string
-	// TestRoles are extra roles requested via the dev-only X-Test-Roles header.
-	// Filled only by the dev component of the API layer; the prod wiring is a
-	// noop that never reads the header, so the field stays empty there.
-	TestRoles []Role
 }
 
 // VerifyOTPCmd redeems an emailed one-time code. Its SessionNonce arrives in the

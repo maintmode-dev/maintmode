@@ -24,9 +24,12 @@ type TokenPairResponse struct {
 
 type JWKSResponse entity.JWKS
 
-type ExchangeIDTokenRequest struct {
-	// IDToken is the upstream provider's signed JWT.
-	IDToken string `json:"id_token"`
+// DevLoginRequest asks the dev-only sign-in for a fresh user holding Roles on
+// top of the defaults. A plain slice on purpose: the roles are validated one by
+// one, and a nil or empty list is simply "no extra roles".
+type DevLoginRequest struct {
+	// Roles are exact lower-case role names, e.g. ["admin"].
+	Roles []string `json:"roles" example:"admin,editor"`
 }
 
 // ConnectProviderRequest asks to attach an additional sign-in provider to the

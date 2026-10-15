@@ -21,15 +21,11 @@ func TestIntrospect(t *testing.T) {
 	t.Run("active", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		oauthUser := exchangeIDTokenMock(mocks, 1)
+		oauthUser := newTestOAuthUser()
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, oauthUser, &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		instrospectResp, err := srv.Introspect(ctx, pair.AccessToken)
@@ -51,15 +47,9 @@ func TestIntrospect(t *testing.T) {
 	t.Run("blacklisted", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		err = srv.Logout(ctx, &entity.TokenPair{
@@ -76,15 +66,9 @@ func TestIntrospect(t *testing.T) {
 	t.Run("blocked user", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
+		srv, _ := initService(t)
 
-		exchangeIDTokenMock(mocks, 1)
-
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		// Token is active before the block.
@@ -143,14 +127,9 @@ func TestEnsureActiveToken(t *testing.T) {
 	t.Run("active token returns nil", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
@@ -160,14 +139,9 @@ func TestEnsureActiveToken(t *testing.T) {
 	t.Run("returns stored roles, not token roles", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 		claims, err := srv.tokenSrv.VerifyAccessToken(ctx, pair.AccessToken)
 		require.NoError(t, err)
@@ -191,14 +165,9 @@ func TestEnsureActiveToken(t *testing.T) {
 	t.Run("blacklisted token is rejected", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 
 		require.NoError(t, srv.Logout(ctx, &entity.TokenPair{
@@ -213,14 +182,9 @@ func TestEnsureActiveToken(t *testing.T) {
 	t.Run("blocked-user token is rejected", func(t *testing.T) {
 		t.Parallel()
 
-		srv, mocks := initService(t)
-		exchangeIDTokenMock(mocks, 1)
+		srv, _ := initService(t)
 
-		pair, err := srv.ExchangeIDToken(ctx, &entity.ExchangeIDTokenCmd{
-			Provider: entity.AuthMethodGoogle,
-			IDToken:  "id-token",
-			ClientIP: "10.0.0.1",
-		})
+		pair, err := signInAs(ctx, srv, newTestOAuthUser(), &entity.AuditMetadata{IP: "10.0.0.1"})
 		require.NoError(t, err)
 		_, err = srv.EnsureActiveToken(ctx, pair.AccessToken)
 		require.NoError(t, err)
