@@ -6,3 +6,6 @@ Upcoming maintenance: {{.MaintTitle}}
 
 {{end}}Scheduled to start at {{.PlannedStart.Format "2006-01-02 15:04 MST"}}.
 Details: {{.MaintURL}}
+{{- if .TaskTrackerURL}}
+Task: {{.TaskTrackerURL}}
+{{- end}}

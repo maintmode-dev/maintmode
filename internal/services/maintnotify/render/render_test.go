@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -390,4 +391,64 @@ func TestRenderEscapesSlackMarkupInFreeText(t *testing.T) {
 	stepMsg, err := svc.Render(ctx, entity.NotifyTransportSlack, step)
 	require.NoError(t, err)
 	assert.NotContains(t, stepMsg.Body, "<!everyone>")
+}
+
+// With a link set, started and reminder end with a Task line right after
+// Details, so Telegram keeps previewing the maintenance link (the first one).
+func TestRenderTaskTrackerURL(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	const (
+		detailsLine = "Details: https://maintmode.test/maintenance/11111111-2222-3333-4444-555555555555"
+		taskLine    = "Task: https://jira.example.com/browse/OPS-42"
+	)
+
+	tests := []struct {
+		name string
+		kind entity.NotifyEventKind
+		want string
+	}{
+		{
+			name: "started",
+			kind: entity.NotifyEventMaintStarted,
+			want: "Maintenance started: DB upgrade\n\n" +
+				"Started at 2026-07-27 10:30 UTC.\n" + detailsLine + "\n" + taskLine,
+		},
+		{
+			name: "reminder",
+			kind: entity.NotifyEventMaintReminder,
+			want: "Upcoming maintenance: DB upgrade\n\n" +
+				"Scheduled to start at 2026-07-28 09:00 UTC.\n" + detailsLine + "\n" + taskLine,
+		},
+	}
+
+	svc, err := New()
+	require.NoError(t, err)
+
+	// Slack escapes free text; a validated link must reach it untouched,
+	// query separators included.
+	t.Run("slack keeps the link as is", func(t *testing.T) {
+		t.Parallel()
+
+		evt := testEvent(entity.NotifyEventMaintStarted)
+		evt.TaskTrackerURL = "https://x.io/issues?a=1&b=2"
+
+		msg, err := svc.Render(ctx, entity.NotifyTransportSlack, evt)
+		require.NoError(t, err)
+		assert.True(t, strings.HasSuffix(msg.Body, "\nTask: https://x.io/issues?a=1&b=2"), msg.Body)
+	})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			evt := testEvent(tt.kind)
+			evt.TaskTrackerURL = "https://jira.example.com/browse/OPS-42"
+
+			msg, err := svc.Render(ctx, entity.NotifyTransportTelegram, evt)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, msg.Body)
+		})
+	}
 }

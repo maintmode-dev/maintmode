@@ -21,6 +21,7 @@ func (n *Service) NotifyMaintLifecycle(ctx context.Context, kind entity.NotifyEv
 		Kind:                kind,
 		MaintID:             maint.ID,
 		MaintTitle:          maint.Title,
+		TaskTrackerURL:      maint.TaskTrackerURL,
 		CreatedByUserID:     maint.CreatedByUserID,
 		CancelReason:        maint.CancelReason,
 		CancelReasonComment: maint.CancelReasonComment,

@@ -6,3 +6,6 @@ Maintenance started: {{.MaintTitle}}
 
 {{end}}Started at {{.OccurredAt.Format "2006-01-02 15:04 MST"}}.
 Details: {{.MaintURL}}
+{{- if .TaskTrackerURL}}
+Task: {{.TaskTrackerURL}}
+{{- end}}
