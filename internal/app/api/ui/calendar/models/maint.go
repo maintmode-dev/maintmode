@@ -89,6 +89,9 @@ type MaintenanceView struct {
 	// Mentions lists the users tagged alongside the owner in this maintenance's
 	// notifications. Always an array; empty when no one is mentioned.
 	Mentions []*MentionView `json:"mentions"`
+	// TaskTrackerURL links the maintenance to its task in an external tracker;
+	// empty when no link is set.
+	TaskTrackerURL string `json:"task_tracker_url"`
 }
 
 // MentionView is one mention of the maintenance view: who was tagged, with the
