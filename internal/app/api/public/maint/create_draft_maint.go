@@ -92,6 +92,7 @@ func (i *Implementation) CreateDraftMaint(c *echo.Context) error {
 		NotifyTargets:         apimodels.ToAPINotifyTargets(maint.NotifyTargets),
 		DeferredNotifications: apimodels.ToAPIDeferredNotifications(maint.DeferredNotifications),
 		Mentions:              apimodels.ToAPIMentions(maint.Mentions),
+		TaskTrackerURL:        maint.TaskTrackerURL,
 	})
 }
 
@@ -132,6 +133,7 @@ func toCreateMaintenanceCmd(ctx context.Context, req *apimodels.CreateDraftMaint
 		DeferredNotifications: apimodels.FromAPIDeferredNotifications(req.DeferredNotifications),
 		Mentions:              apimodels.FromAPIMentions(req.Mentions),
 		ApproverUserID:        req.ApproverUserID,
+		TaskTrackerURL:        req.TaskTrackerURL,
 	}, nil
 }
 
@@ -171,6 +173,7 @@ func validateCreateMaintDraftRequest(ctx context.Context, r *apimodels.CreateDra
 			validation.Length(0, maxMentions),
 			validation.Each(validation.WithContext(validateMention)),
 		),
+		validation.Field(&r.TaskTrackerURL, validation.By(xvalidation.HTTPLinkURL)),
 	)
 }
 

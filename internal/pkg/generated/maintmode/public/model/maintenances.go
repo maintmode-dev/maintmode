@@ -28,4 +28,5 @@ type Maintenances struct {
 	UpdatedAt             *time.Time        `db:"maintenances.updated_at"`
 	ApproverUserID        uuid.UUID         `db:"maintenances.approver_user_id"`
 	CreatedByUserID       uuid.UUID         `db:"maintenances.created_by_user_id"` // Author of the maintenance: the authenticated user who created the draft.
+	TaskTrackerURL        string            `db:"maintenances.task_tracker_url"`
 }

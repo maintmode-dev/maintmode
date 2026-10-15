@@ -31,6 +31,7 @@ type maintenancesTable struct {
 	UpdatedAt             postgres.ColumnTimestampz
 	ApproverUserID        postgres.ColumnString
 	CreatedByUserID       postgres.ColumnString // Author of the maintenance: the authenticated user who created the draft.
+	TaskTrackerURL        postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -86,9 +87,10 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		UpdatedAtColumn             = postgres.TimestampzColumn("updated_at")
 		ApproverUserIDColumn        = postgres.StringColumn("approver_user_id")
 		CreatedByUserIDColumn       = postgres.StringColumn("created_by_user_id")
-		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn}
-		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn}
-		defaultColumns              = postgres.ColumnList{IDColumn, CreatedAtColumn}
+		TaskTrackerURLColumn        = postgres.StringColumn("task_tracker_url")
+		allColumns                  = postgres.ColumnList{IDColumn, TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn, TaskTrackerURLColumn}
+		mutableColumns              = postgres.ColumnList{TitleColumn, DescriptionColumn, PlannedPeriodColumn, ActualPeriodColumn, ImpactColumn, StatusColumn, ScopeColumn, CanceledReasonCodeColumn, CanceledReasonCommentColumn, CreatedAtColumn, UpdatedAtColumn, ApproverUserIDColumn, CreatedByUserIDColumn, TaskTrackerURLColumn}
+		defaultColumns              = postgres.ColumnList{IDColumn, CreatedAtColumn, TaskTrackerURLColumn}
 	)
 
 	return maintenancesTable{
@@ -109,6 +111,7 @@ func newMaintenancesTableImpl(schemaName, tableName, alias string) maintenancesT
 		UpdatedAt:             UpdatedAtColumn,
 		ApproverUserID:        ApproverUserIDColumn,
 		CreatedByUserID:       CreatedByUserIDColumn,
+		TaskTrackerURL:        TaskTrackerURLColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

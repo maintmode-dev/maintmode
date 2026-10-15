@@ -140,6 +140,9 @@ type Maintenance struct {
 	// Mentions lists the users tagged alongside the owner in this maintenance's
 	// notifications, with display names resolved from auth.
 	Mentions []*MentionView `json:"mentions"`
+	// TaskTrackerURL links the maintenance to its task in an external tracker;
+	// empty when no link is set.
+	TaskTrackerURL string `json:"task_tracker_url" example:"https://jira.example.com/browse/OPS-42"`
 }
 
 type CreateDraftMaintRequest struct {
@@ -156,6 +159,10 @@ type CreateDraftMaintRequest struct {
 	// notifications. Optional; omit it or send an empty array to tag no one.
 	Mentions       []*Mention `json:"mentions"`
 	ApproverUserID uuid.UUID  `json:"approver_user_id" format:"uuid"`
+	// TaskTrackerURL optionally links the maintenance to its task in an
+	// external tracker: an absolute http(s) URL of at most 2048 printable ASCII
+	// characters, without spaces. Omit it or send "" for no link.
+	TaskTrackerURL string `json:"task_tracker_url" example:"https://jira.example.com/browse/OPS-42" maxLength:"2048"`
 }
 
 type CreateDraftMaintResponse struct {
@@ -177,6 +184,8 @@ type CreateDraftMaintResponse struct {
 	// wrote. This response is hand-assembled (not built by ToAPIMaintenance), so
 	// the field has to be carried here explicitly.
 	Mentions []*Mention `json:"mentions"`
+	// TaskTrackerURL echoes the stored link; empty when none is set.
+	TaskTrackerURL string `json:"task_tracker_url"`
 }
 
 type UpdateDraftMaintRequest struct {
@@ -199,6 +208,9 @@ type UpdateDraftMaintRequest struct {
 	// the pointer, so it must stay a pointer all the way down to the service gate.
 	Mentions       *[]*Mention `json:"mentions"`
 	ApproverUserID *uuid.UUID  `json:"approver_user_id" format:"uuid"`
+	// TaskTrackerURL is tri-state: a missing field or null leaves the link
+	// unchanged, "" clears it, and a URL replaces it.
+	TaskTrackerURL *string `json:"task_tracker_url" example:"https://jira.example.com/browse/OPS-42" maxLength:"2048"`
 }
 
 type CancelMaintRequest struct {

@@ -26,6 +26,7 @@ func fromDBMaintenance(m *model.Maintenances) *entity.Maintenance {
 		ApproverUserID:      m.ApproverUserID,
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
+		TaskTrackerURL:      m.TaskTrackerURL,
 	}
 
 	if m.ActualPeriod != nil {
@@ -51,6 +52,7 @@ func toDBMaintenance(m *entity.Maintenance) *model.Maintenances {
 		CreatedAt:             m.CreatedAt,
 		UpdatedAt:             m.UpdatedAt,
 		ApproverUserID:        m.ApproverUserID,
+		TaskTrackerURL:        m.TaskTrackerURL,
 	}
 
 	if m.ActualPeriod != nil {

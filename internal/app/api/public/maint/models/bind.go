@@ -267,6 +267,7 @@ func ToAPIMaintenance(
 		NotifyTargets:         ToAPINotifyTargetViews(m.NotifyTargets),
 		DeferredNotifications: ToAPIDeferredNotifications(m.DeferredNotifications),
 		Mentions:              ToAPIMentionViews(m.Mentions, summaries),
+		TaskTrackerURL:        m.TaskTrackerURL,
 	}
 
 	if m.ActualPeriod != nil {
