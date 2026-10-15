@@ -170,6 +170,14 @@ components:
                         $ref: '#/components/schemas/apimodels.MaintenanceStepInput'
                     type: array
                     uniqueItems: false
+                task_tracker_url:
+                    description: |-
+                        TaskTrackerURL optionally links the maintenance to its task in an
+                        external tracker: an absolute http(s) URL of at most 2048 printable ASCII
+                        characters, without spaces. Omit it or send "" for no link.
+                    example: https://jira.example.com/browse/OPS-42
+                    maxLength: 2048
+                    type: string
                 title:
                     example: DB migration
                     type: string
@@ -222,6 +230,9 @@ components:
                         $ref: '#/components/schemas/apimodels.MaintenanceStep'
                     type: array
                     uniqueItems: false
+                task_tracker_url:
+                    description: TaskTrackerURL echoes the stored link; empty when none is set.
+                    type: string
                 title:
                     type: string
             type: object
@@ -432,6 +443,12 @@ components:
                         $ref: '#/components/schemas/apimodels.MaintenanceStep'
                     type: array
                     uniqueItems: false
+                task_tracker_url:
+                    description: |-
+                        TaskTrackerURL links the maintenance to its task in an external tracker;
+                        empty when no link is set.
+                    example: https://jira.example.com/browse/OPS-42
+                    type: string
                 title:
                     type: string
                 updated_at:
@@ -722,6 +739,13 @@ components:
                         $ref: '#/components/schemas/apimodels.MaintenanceStepInput'
                     type: array
                     uniqueItems: false
+                task_tracker_url:
+                    description: |-
+                        TaskTrackerURL is tri-state: a missing field or null leaves the link
+                        unchanged, "" clears it, and a URL replaces it.
+                    example: https://jira.example.com/browse/OPS-42
+                    maxLength: 2048
+                    type: string
                 title:
                     example: DB migration
                     type: string
@@ -1088,6 +1112,11 @@ components:
                         $ref: '#/components/schemas/uimodels.MaintenanceStep'
                     type: array
                     uniqueItems: false
+                task_tracker_url:
+                    description: |-
+                        TaskTrackerURL links the maintenance to its task in an external tracker;
+                        empty when no link is set.
+                    type: string
                 title:
                     type: string
                 updated_at:
@@ -1721,6 +1750,10 @@ paths:
                 mentions is tri-state on the same rule: omitting the field or sending
                 null leaves the tagged users untouched, sending an empty array clears
                 them all, and sending a non-empty array replaces them. At most 10.
+
+                task_tracker_url is tri-state as well: omitting the field or sending
+                null leaves the link untouched, sending "" clears it, and sending a URL
+                replaces it.
             parameters:
                 - description: Maintenance ID
                   in: path
