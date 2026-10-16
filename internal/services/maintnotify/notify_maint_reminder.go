@@ -24,6 +24,7 @@ func (n *Service) NotifyMaintReminder(ctx context.Context, maint *entity.Mainten
 		MaintID:         maint.ID,
 		MaintTitle:      maint.Title,
 		PlannedStart:    maint.PlannedPeriod.Start,
+		TaskTrackerURL:  maint.TaskTrackerURL,
 		CreatedByUserID: maint.CreatedByUserID,
 	})
 }

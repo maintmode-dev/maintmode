@@ -153,6 +153,10 @@ func applyValuesFromUpdateCmd(
 		maint.Description = lo.FromPtr(cmd.Description)
 	}
 
+	if cmd.TaskTrackerURL != nil {
+		maint.TaskTrackerURL = lo.FromPtr(cmd.TaskTrackerURL)
+	}
+
 	if len(cmd.Steps) > 0 {
 		maint.Steps = stepsFromCmd(cmd.Steps, entity.MaintenanceStepStatusPlanned)
 		maint.PlannedPeriod = recalculatePlannedPeriod(maint.PlannedPeriod.Start, maint.Steps)
@@ -237,6 +241,7 @@ func validateUpdate(ctx context.Context, cmd *entity.UpdateMaintenanceCmd) error
 	if err := validation.ValidateStructWithContext(ctx, cmd,
 		validation.Field(&cmd.Title, validation.NilOrNotEmpty),
 		validation.Field(&cmd.Description, validation.NilOrNotEmpty),
+		validation.Field(&cmd.TaskTrackerURL, validation.By(xvalidation.HTTPLinkURL)),
 		validation.Field(&cmd.ApproverUserID, validation.NilOrNotEmpty,
 			validation.When(cmd.ApproverUserID != nil, validation.By(xvalidation.UUIDNotNil)),
 		),
@@ -423,6 +428,7 @@ func maintUpdateChanges(prev, current *entity.Maintenance, cmd *entity.UpdateMai
 	addScalar("scope", string(prev.Scope), string(current.Scope))
 	addScalar("impact", string(prev.Impact), string(current.Impact))
 	addScalar("approver", prev.ApproverUserID.String(), current.ApproverUserID.String())
+	addScalar("task_tracker_url", prev.TaskTrackerURL, current.TaskTrackerURL)
 
 	addCollection := func(field string, supplied bool) {
 		if supplied {

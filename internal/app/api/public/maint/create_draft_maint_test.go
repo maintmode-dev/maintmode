@@ -46,6 +46,7 @@ func TestCreateDraftMaint(t *testing.T) {
 				ChannelIDs: []string{notifyChan.ID},
 			},
 			ApproverUserID: approverID,
+			TaskTrackerURL: "https://jira.example.com/browse/OPS-42",
 		}
 
 		author := makeUser(t)
@@ -67,6 +68,7 @@ func TestCreateDraftMaint(t *testing.T) {
 		require.Equal(t, "draft", resp.Status)
 		require.Len(t, resp.Steps, 1)
 		require.NotEqual(t, uuid.Nil, resp.Steps[0].ID)
+		require.Equal(t, "https://jira.example.com/browse/OPS-42", resp.TaskTrackerURL)
 
 		// Author is captured from the authenticated user and exposed as a
 		// privacy-safe summary.
@@ -96,6 +98,7 @@ func TestCreateDraftMaint(t *testing.T) {
 		require.Equal(t, req.Steps[0].RollbackDescription, maint.Steps[0].RollbackDescription)
 		require.Equal(t, int64(30), maint.Steps[0].DurationMinutes)
 		require.Equal(t, apimodels.MaintenanceStepStatusPlanned, maint.Steps[0].Status)
+		require.Equal(t, "https://jira.example.com/browse/OPS-42", maint.TaskTrackerURL)
 	})
 
 	t.Run("ok resource scope", func(t *testing.T) {

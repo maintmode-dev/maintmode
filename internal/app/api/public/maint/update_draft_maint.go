@@ -15,6 +15,7 @@ import (
 	"github.com/ruko1202/maintmode/internal/app/api/httperrors"
 	apimodels "github.com/ruko1202/maintmode/internal/app/api/public/maint/models"
 	"github.com/ruko1202/maintmode/internal/entity"
+	"github.com/ruko1202/maintmode/internal/utils/xvalidation"
 )
 
 // maxDeferredNotifications rejects an oversized reminder set at the API
@@ -41,6 +42,10 @@ const maxMentions = 10
 // @Description mentions is tri-state on the same rule: omitting the field or sending
 // @Description null leaves the tagged users untouched, sending an empty array clears
 // @Description them all, and sending a non-empty array replaces them. At most 10.
+// @Description
+// @Description task_tracker_url is tri-state as well: omitting the field or sending
+// @Description null leaves the link untouched, sending "" clears it, and sending a URL
+// @Description replaces it.
 // @Tags Maintenances
 // @Accept json
 // @Produce json
@@ -132,6 +137,9 @@ func toUpdateMaintenanceCmd(ctx context.Context, maintID uuid.UUID, req *apimode
 		Steps:          steps,
 		NotifyTargets:  notifyTargets,
 		ApproverUserID: req.ApproverUserID,
+		// Passed through as the pointer it arrived as: nil must reach the
+		// service as "unchanged", not as "" (clear).
+		TaskTrackerURL: req.TaskTrackerURL,
 	}
 
 	// deferred_notifications is tri-state and the pointer carries the
@@ -171,6 +179,7 @@ func validateUpdateMaintRequest(ctx context.Context, r *apimodels.UpdateDraftMai
 		),
 		validation.Field(&r.Steps, validation.Required, validation.Each(validation.WithContext(validateStep))),
 		validation.Field(&r.NotifyTargets, validation.Required, validation.WithContext(validateNotifyTargets)),
+		validation.Field(&r.TaskTrackerURL, validation.By(xvalidation.HTTPLinkURL)),
 	); err != nil {
 		return err
 	}

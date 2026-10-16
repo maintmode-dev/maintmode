@@ -64,6 +64,7 @@ func (s *Service) GetMaint(ctx context.Context, maintID uuid.UUID) (*calendardto
 		Status:              maint.Status,
 		CancelReason:        maint.CancelReason,
 		CancelReasonComment: maint.CancelReasonComment,
+		TaskTrackerURL:      maint.TaskTrackerURL,
 		CreatedAt:           maint.CreatedAt,
 		UpdatedAt:           maint.UpdatedAt,
 		Revision:            maint.Revision(),

@@ -64,7 +64,8 @@ type Maintenance struct {
 	// Mentions holds the raw ids of the mentioned users. Names are resolved in
 	// the API handler, which already batches a user-service call; the calendar
 	// service deliberately keeps no resolver of its own.
-	Mentions []uuid.UUID
+	Mentions       []uuid.UUID
+	TaskTrackerURL string
 }
 
 type MaintenancesMeta struct {

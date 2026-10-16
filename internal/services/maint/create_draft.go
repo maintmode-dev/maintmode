@@ -63,6 +63,7 @@ func (s *Service) CreateDraft(ctx context.Context, cmd *entity.CreateMaintenance
 			Status:          entity.MaintenanceStatusDraft,
 			ApproverUserID:  cmd.ApproverUserID,
 			CreatedByUserID: cmd.CreatedByUserID,
+			TaskTrackerURL:  cmd.TaskTrackerURL,
 		})
 		if err != nil {
 			xlog.Error(ctx, "create maint failed", xfield.Error(err))
@@ -140,6 +141,7 @@ func validateCreate(ctx context.Context, cmd *entity.CreateMaintenanceCmd) error
 			validation.Each(validation.By(xvalidation.UUIDNotNil)),
 		),
 		validation.Field(&cmd.Description, validation.Required),
+		validation.Field(&cmd.TaskTrackerURL, validation.By(xvalidation.HTTPLinkURL)),
 		validation.Field(&cmd.PlannedPeriod, validation.Required,
 			validation.WithContext(validatePlanedPeriod),
 		),

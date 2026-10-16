@@ -50,6 +50,7 @@ type CreateMaintenanceCmd struct {
 	Mentions              []*MentionInput
 	ApproverUserID        uuid.UUID
 	CreatedByUserID       uuid.UUID
+	TaskTrackerURL        string
 	// Actor is the authenticated user creating the draft, resolved at the API
 	// boundary. Carries the identity (email/name) the audit snapshot records;
 	// CreatedByUserID stays the persisted author id. Always set on the public
@@ -80,6 +81,10 @@ type UpdateMaintenanceCmd struct {
 	// alone. nil = unchanged, empty slice = clear, non-empty = replace.
 	Mentions       *[]*MentionInput
 	ApproverUserID *uuid.UUID // nil = unchanged (no clear-to-null)
+	// TaskTrackerURL is tri-state: nil = unchanged, "" = clear, otherwise
+	// replace. A client that predates the field never sends it, and must not
+	// wipe a link on every edit.
+	TaskTrackerURL *string
 	// Actor is the authenticated user performing the mutation, resolved at the
 	// API boundary for the audit snapshot. Always set on the public path.
 	Actor *User

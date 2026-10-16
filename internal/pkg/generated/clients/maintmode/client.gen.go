@@ -316,7 +316,12 @@ type ApimodelsCreateDraftMaintRequest struct {
 	Resources     *[]ApimodelsResourceRef          `json:"resources,omitempty"`
 	Scope         *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
 	Steps         *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
-	Title         *string                          `json:"title,omitempty"`
+
+	// TaskTrackerUrl TaskTrackerURL optionally links the maintenance to its task in an
+	// external tracker: an absolute http(s) URL of at most 2048 printable ASCII
+	// characters, without spaces. Omit it or send "" for no link.
+	TaskTrackerUrl *string `json:"task_tracker_url,omitempty"`
+	Title          *string `json:"title,omitempty"`
 }
 
 // ApimodelsCreateDraftMaintResponse defines model for apimodels.CreateDraftMaintResponse.
@@ -346,7 +351,10 @@ type ApimodelsCreateDraftMaintResponse struct {
 	Scope         *string                     `json:"scope,omitempty"`
 	Status        *string                     `json:"status,omitempty"`
 	Steps         *[]ApimodelsMaintenanceStep `json:"steps,omitempty"`
-	Title         *string                     `json:"title,omitempty"`
+
+	// TaskTrackerUrl TaskTrackerURL echoes the stored link; empty when none is set.
+	TaskTrackerUrl *string `json:"task_tracker_url,omitempty"`
+	Title          *string `json:"title,omitempty"`
 }
 
 // ApimodelsCreateIntegrationRequest defines model for apimodels.CreateIntegrationRequest.
@@ -483,8 +491,12 @@ type ApimodelsMaintenance struct {
 	Scope         *ApimodelsMaintenanceScope   `json:"scope,omitempty"`
 	Status        *string                      `json:"status,omitempty"`
 	Steps         *[]ApimodelsMaintenanceStep  `json:"steps,omitempty"`
-	Title         *string                      `json:"title,omitempty"`
-	UpdatedAt     *time.Time                   `json:"updated_at,omitempty"`
+
+	// TaskTrackerUrl TaskTrackerURL links the maintenance to its task in an external tracker;
+	// empty when no link is set.
+	TaskTrackerUrl *string    `json:"task_tracker_url,omitempty"`
+	Title          *string    `json:"title,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
 }
 
 // ApimodelsMaintenanceCancelReason defines model for apimodels.MaintenanceCancelReason.
@@ -651,7 +663,11 @@ type ApimodelsUpdateDraftMaintRequest struct {
 	Resources     *[]ApimodelsResourceRef          `json:"resources,omitempty"`
 	Scope         *ApimodelsMaintenanceScope       `json:"scope,omitempty"`
 	Steps         *[]ApimodelsMaintenanceStepInput `json:"steps,omitempty"`
-	Title         *string                          `json:"title,omitempty"`
+
+	// TaskTrackerUrl TaskTrackerURL is tri-state: a missing field or null leaves the link
+	// unchanged, "" clears it, and a URL replaces it.
+	TaskTrackerUrl *string `json:"task_tracker_url,omitempty"`
+	Title          *string `json:"title,omitempty"`
 }
 
 // ApimodelsUpdateIntegrationRequest defines model for apimodels.UpdateIntegrationRequest.
@@ -874,8 +890,12 @@ type UimodelsMaintenanceView struct {
 	Scope            *string                            `json:"scope,omitempty"`
 	Status           *UimodelsMaintenanceStatus         `json:"status,omitempty"`
 	Steps            *[]UimodelsMaintenanceStep         `json:"steps,omitempty"`
-	Title            *string                            `json:"title,omitempty"`
-	UpdatedAt        *time.Time                         `json:"updated_at,omitempty"`
+
+	// TaskTrackerUrl TaskTrackerURL links the maintenance to its task in an external tracker;
+	// empty when no link is set.
+	TaskTrackerUrl *string    `json:"task_tracker_url,omitempty"`
+	Title          *string    `json:"title,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
 }
 
 // UimodelsMaintenanceViewResource defines model for uimodels.MaintenanceViewResource.

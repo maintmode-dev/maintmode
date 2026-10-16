@@ -68,6 +68,7 @@ func ToAPIMaintenanceView(
 		Status:              maintEvent.Status,
 		CancelReason:        string(maintEvent.CancelReason),
 		CancelReasonComment: maintEvent.CancelReasonComment,
+		TaskTrackerURL:      maintEvent.TaskTrackerURL,
 		CreatedAt:           maintEvent.CreatedAt,
 		UpdatedAt:           maintEvent.UpdatedAt,
 		Revision:            maintEvent.Revision,

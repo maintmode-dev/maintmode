@@ -131,6 +131,9 @@ type Maintenance struct {
 	// resolved on read, not stored, so a renamed user never renders stale.
 	Mentions       []uuid.UUID
 	ApproverUserID uuid.UUID
+	// TaskTrackerURL links the maintenance to its task in an external tracker.
+	// Empty means no link.
+	TaskTrackerURL string
 }
 
 // Normalize enforces the Scope ↔ Resources invariant: a global-scoped

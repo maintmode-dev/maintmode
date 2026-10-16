@@ -108,6 +108,20 @@ func makeMaintWithDeferred(
 ) *maintmodels.CreateDraftMaintResponse {
 	t.Helper()
 
+	return makeMaintWithRequest(ctx, t, func(req *maintmodels.CreateDraftMaintRequest) {
+		req.DeferredNotifications = deferred
+	})
+}
+
+// makeMaintWithRequest seeds a draft from an otherwise-valid create payload,
+// letting the caller set the field under test.
+func makeMaintWithRequest(
+	ctx context.Context,
+	t *testing.T,
+	mutate func(req *maintmodels.CreateDraftMaintRequest),
+) *maintmodels.CreateDraftMaintResponse {
+	t.Helper()
+
 	services := newServices(ctx, t)
 	maintImpl := maintapi.New(services.Maint, services.UserSummary)
 
@@ -133,9 +147,9 @@ func makeMaintWithDeferred(
 		NotifyTargets: &maintmodels.NotifyTargets{
 			ChannelIDs: []string{notifyChan.ID},
 		},
-		DeferredNotifications: deferred,
-		ApproverUserID:        approver.ID,
+		ApproverUserID: approver.ID,
 	}
+	mutate(req)
 
 	c, rec := echotest.ContextConfig{
 		JSONBody: testjsonudils.AnyToJSONBytes(t, req),

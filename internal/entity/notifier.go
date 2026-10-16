@@ -73,6 +73,9 @@ type NotifyEvent struct {
 	MaintID      uuid.UUID
 	MaintTitle   string
 	PlannedStart time.Time
+	// TaskTrackerURL is the maintenance's tracker link, already validated on
+	// write. Only the started and reminder templates render it.
+	TaskTrackerURL string
 
 	// CreatedByUserID is the maintenance owner — the person the notification
 	// mentions. Maintenance lifecycle paths fill it from the maintenance row
