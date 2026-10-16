@@ -29,6 +29,11 @@ env:
   MAINTMODE_IMAGE_TAG: ${{ github.sha }}
   CADDY_IMAGE_TAG: ${{ github.sha }}
 
+# Read-only by default; jobs that publish or pull images widen this for
+# themselves.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
@@ -263,6 +268,9 @@ jobs:
     if: github.event_name != 'pull_request'
     needs:
       - image-maintmode
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
