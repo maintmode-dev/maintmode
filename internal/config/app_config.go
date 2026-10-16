@@ -897,10 +897,9 @@ func (c *AppConfig) validateBootstrapConfig() error {
 	// in this repository. validateJWTKey rejects its own placeholder for exactly
 	// this reason.
 	if strings.Contains(c.Bootstrap.Password, secretPlaceholderMarker) {
-		return fmt.Errorf(
-			"bootstrap.password is a placeholder (%q): set a real password in the secrets file, "+
+		return errors.New(
+			"bootstrap.password is a placeholder: set a real password in the secrets file, " +
 				"or leave it empty to run without break-glass",
-			c.Bootstrap.Password,
 		)
 	}
 
