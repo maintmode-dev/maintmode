@@ -28,6 +28,7 @@ type goqueTaskTable struct {
 	CreatedAt     postgres.ColumnTimestampz
 	UpdatedAt     postgres.ColumnTimestampz
 	NextAttemptAt postgres.ColumnTimestampz
+	Version       postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -80,9 +81,10 @@ func newGoqueTaskTableImpl(schemaName, tableName, alias string) goqueTaskTable {
 		CreatedAtColumn     = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn     = postgres.TimestampzColumn("updated_at")
 		NextAttemptAtColumn = postgres.TimestampzColumn("next_attempt_at")
-		allColumns          = postgres.ColumnList{IDColumn, TypeColumn, ExternalIDColumn, PayloadColumn, StatusColumn, AttemptsColumn, ErrorsColumn, MetadataColumn, CreatedAtColumn, UpdatedAtColumn, NextAttemptAtColumn}
-		mutableColumns      = postgres.ColumnList{TypeColumn, ExternalIDColumn, PayloadColumn, StatusColumn, AttemptsColumn, ErrorsColumn, MetadataColumn, CreatedAtColumn, UpdatedAtColumn, NextAttemptAtColumn}
-		defaultColumns      = postgres.ColumnList{CreatedAtColumn, NextAttemptAtColumn}
+		VersionColumn       = postgres.IntegerColumn("version")
+		allColumns          = postgres.ColumnList{IDColumn, TypeColumn, ExternalIDColumn, PayloadColumn, StatusColumn, AttemptsColumn, ErrorsColumn, MetadataColumn, CreatedAtColumn, UpdatedAtColumn, NextAttemptAtColumn, VersionColumn}
+		mutableColumns      = postgres.ColumnList{TypeColumn, ExternalIDColumn, PayloadColumn, StatusColumn, AttemptsColumn, ErrorsColumn, MetadataColumn, CreatedAtColumn, UpdatedAtColumn, NextAttemptAtColumn, VersionColumn}
+		defaultColumns      = postgres.ColumnList{CreatedAtColumn, NextAttemptAtColumn, VersionColumn}
 	)
 
 	return goqueTaskTable{
@@ -100,6 +102,7 @@ func newGoqueTaskTableImpl(schemaName, tableName, alias string) goqueTaskTable {
 		CreatedAt:     CreatedAtColumn,
 		UpdatedAt:     UpdatedAtColumn,
 		NextAttemptAt: NextAttemptAtColumn,
+		Version:       VersionColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

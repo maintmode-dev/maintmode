@@ -172,8 +172,8 @@ func NewTaskProcessors(
 		reg.RegisterProcessor(
 			entity.ProcessorTaskLicenseHeartbeat,
 			licenseheartbeatprocessor.NewTaskProcessor(services.licenseHeartbeat),
-			goque.WithWorkersCount(1),
-			goque.WithTaskProcessingMaxAttempts(1),
+			goque.WithWorkersCount(goque.NewStaticValue(1)),
+			goque.WithTaskProcessingMaxAttempts(goque.NewStaticValue[int32](1)),
 		)
 
 		heartbeatJob, err := goque.NewCronJob(
@@ -334,11 +334,11 @@ func registerInvitationRotation(reg *processorRegistrar, cfg config.TaskProcesso
 // must not run concurrently with themselves; pass 0 to take cfg.Workers.
 func messagingProcessorOpts(cfg config.TaskProcessorMessagingConfig, workers int) []goque.ProcessorOpts {
 	opts := []goque.ProcessorOpts{
-		goque.WithWorkersCount(cmp.Or(workers, cfg.Workers)),
-		goque.WithTaskProcessingMaxAttempts(cfg.MaxAttempts),
+		goque.WithWorkersCount(goque.NewStaticValue(cmp.Or(workers, cfg.Workers))),
+		goque.WithTaskProcessingMaxAttempts(goque.NewStaticValue(cfg.MaxAttempts)),
 	}
 	if cfg.FetchTick > 0 {
-		opts = append(opts, goque.WithTaskFetcherTick(cfg.FetchTick))
+		opts = append(opts, goque.WithTaskFetcherTick(goque.NewStaticValue(cfg.FetchTick)))
 	}
 
 	return opts
