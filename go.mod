@@ -2,7 +2,7 @@ module github.com/ruko1202/maintmode
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/MicahParks/jwkset v0.11.4
