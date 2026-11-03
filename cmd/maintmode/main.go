@@ -129,6 +129,17 @@ func main() {
 	}
 	closer.Add(valkeyClient.Close)
 
+	// Owns the lifecycle signals: main marks start-up complete and flips drain
+	// on shutdown, the readiness handler only reads them. Keeps process-lifecycle
+	// state out of the HTTP layer.
+	starter := lifecycle.NewStarter()
+	drainer := lifecycle.NewDrainer()
+
+	// Started before the modules so liveness answers while they come up (the
+	// auth reloader blocks on its first snapshot); readiness holds 503 until
+	// MarkReady below, whatever order the modules initialize in.
+	startInfraServer(ctx, cfg, meta, db, starter, drainer, logger)
+
 	// Bootstrap application layers
 	stores, err := bootstrap.NewStores(cfg, db, valkeyClient)
 	if err != nil {
@@ -155,11 +166,7 @@ func main() {
 
 	startAPIServer(ctx, cfg, meta, services, valkeyClient, logger)
 
-	// Owns the drain signal: main flips it on shutdown, the readiness handler
-	// only reads it. Keeps process-lifecycle state out of the HTTP layer.
-	drainer := lifecycle.NewDrainer()
-
-	startInfraServer(ctx, cfg, meta, db, drainer, logger)
+	starter.MarkReady()
 
 	<-ctx.Done()
 	shutdown(context.WithoutCancel(ctx), drainer, cfg.Shutdown.DrainTimeoutOrDefault())
@@ -224,6 +231,7 @@ func startInfraServer(
 	cfg *config.AppConfig,
 	meta *buildmeta.AppBuildMeta,
 	db *sqlx.DB,
+	starter *lifecycle.Starter,
 	drainer *lifecycle.Drainer,
 	logger xlog.Logger,
 ) {
@@ -258,6 +266,7 @@ func startInfraServer(
 			// can still serve every request.
 			Checks:  []infra.Check{{Name: "postgres", Probe: db.PingContext}},
 			Drainer: drainer,
+			Starter: starter,
 			Specs: []swaggerui.Spec{
 				{Name: buildmeta.MaintModeAppName, Content: docs.MaintmodeSpec},
 				// "auth" is the dropdown label for the auth API spec, not a per-binary
