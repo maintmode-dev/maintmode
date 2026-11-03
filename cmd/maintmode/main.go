@@ -214,8 +214,12 @@ func startAPIServer(
 	)
 	s.BindRouters(cfg.Environment, meta)
 
+	// WithoutCancel: Echo shuts the server down as soon as the context passed to
+	// Start is canceled, and ctx is the signal context. Bound to it, the server
+	// would stop on SIGTERM, before the drain window lets the proxy eject this
+	// replica; it must keep serving until the closer calls Stop.
 	go func() {
-		if err := s.Start(ctx); err != nil {
+		if err := s.Start(context.WithoutCancel(ctx)); err != nil {
 			xlog.Fatal(ctx, "api server failed", xfield.Error(err))
 		}
 	}()
@@ -279,8 +283,11 @@ func startInfraServer(
 		xhttpserver.WithLogger(xecho.NewSlogAdapter(logger)),
 	)
 
+	// WithoutCancel for the same reason as the API server, and it matters most
+	// here: /readiness has to stay up and answer 503 for the whole drain window,
+	// or the proxy sees a refused connection instead of a planned drain.
 	go func() {
-		if err := s.Start(ctx); err != nil {
+		if err := s.Start(context.WithoutCancel(ctx)); err != nil {
 			xlog.Fatal(ctx, "infra server failed", xfield.Error(err))
 		}
 	}()
